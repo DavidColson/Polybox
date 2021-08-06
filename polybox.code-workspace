@@ -7,7 +7,8 @@
 	"settings": {
 		"files.associations": {
 			"*.lvl": "json5",
-			"vector": "cpp"
+			"vector": "cpp",
+			"*.inc": "cpp"
 		}
 	}
 }

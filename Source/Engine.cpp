@@ -18,13 +18,68 @@
 
 #include <SDL.h>
 
+void DrawBox(GraphicsChip& gpu, float x, float y, float z, float width, float height, float depth)
+{
+	gpu.BeginObject(PrimitiveType::Triangles);
+
+	gpu.Color(Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
+	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.Vertex(Vec3f(x + width, y , z ));
+	gpu.Vertex(Vec3f(x + width, y + height, z ));
+	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.Vertex(Vec3f(x + width, y + height, z ));
+	gpu.Vertex(Vec3f(x , y + height, z ));
+
+	gpu.Color(Vec4f(1.0f, 0.0f, 1.0f, 1.0f));
+	gpu.Vertex(Vec3f(x , y , z + depth));
+	gpu.Vertex(Vec3f(x , y + height, z + depth));
+	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.Vertex(Vec3f(x , y , z + depth));
+	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.Vertex(Vec3f(x + width, y , z + depth));
+	
+	gpu.Color(Vec4f(1.0f, 1.0f, 0.0f, 1.0f));
+	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.Vertex(Vec3f(x , y + height, z ));
+	gpu.Vertex(Vec3f(x , y + height, z + depth));
+	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.Vertex(Vec3f(x , y + height, z + depth));
+	gpu.Vertex(Vec3f(x , y , z + depth));
+
+	gpu.Color(Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
+	gpu.Vertex(Vec3f(x + width, y , z ));
+	gpu.Vertex(Vec3f(x + width, y , z + depth));
+	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.Vertex(Vec3f(x + width, y , z ));
+	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.Vertex(Vec3f(x + width, y + height, z ));
+
+	gpu.Color(Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
+	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.Vertex(Vec3f(x , y , z + depth));
+	gpu.Vertex(Vec3f(x + width, y , z + depth));
+	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.Vertex(Vec3f(x + width, y , z + depth));
+	gpu.Vertex(Vec3f(x + width, y , z ));
+
+	gpu.Color(Vec4f(0.0f, 1.0f, 1.0f, 1.0f));
+	gpu.Vertex(Vec3f(x , y + height, z ));
+	gpu.Vertex(Vec3f(x + width, y + height, z ));
+	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.Vertex(Vec3f(x , y + height, z ));
+	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.Vertex(Vec3f(x , y + height, z + depth));
+
+	gpu.EndObject();
+}
+
 int main(int argc, char *argv[])
 {
 	{
 		std::string hello = std::format("{} {}!", "hello", "world");
 
-		int winWidth = 1600;
-		int winHeight = 900;
+		int winWidth = 1280;
+		int winHeight = 960;
 
 		SDL_Window* pWindow = SDL_CreateWindow(
 			"Polybox",
@@ -48,11 +103,6 @@ int main(int argc, char *argv[])
 		bgfx::renderFrame();
 
 		bgfx::init(init);
-		const bgfx::ViewId kClearView = 0;
-		bgfx::setViewClear(kClearView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x404040ff, 1.0f, 0);
-
-
-		bgfx::setViewRect(kClearView, 0, 0, winWidth, winHeight);
 		bgfx::reset(winWidth, winHeight, BGFX_RESET_VSYNC);
 
 		GraphicsChip gpu = GraphicsChip();
@@ -105,27 +155,28 @@ int main(int argc, char *argv[])
 					break;
 				}
 			}
-			bgfx::touch(kClearView);
+			bgfx::touch(0);
 
 			gpu.SetMatrixMode(MatrixMode::Projection);
 			gpu.Identity();
-			gpu.Perspective((float)winWidth, (float)winHeight, 0.001f, 100.0f, 60.0f);
+			gpu.Perspective((float)320, (float)240, 0.001f, 100.0f, 60.0f);
 
 			gpu.SetMatrixMode(MatrixMode::View);
 			gpu.Identity();
-			gpu.Translate(Vec3f(0.0f, 0.0f, -10.0f));
+			gpu.Translate(Vec3f(-0.5f, -0.5f, -4.0f));
 
-			gpu.BeginObject(PrimitiveType::Triangles);
+			static float x = 0.0f;
+			x += 0.01f;
 
-			gpu.Vertex(Vec3f(1.f, 1.f, 0.0f));
-			gpu.Vertex(Vec3f(1.f, 2.0f, 0.0f));
-			gpu.Vertex(Vec3f(2.0f, 2.0f, 0.0f));
+			gpu.SetMatrixMode(MatrixMode::Model);
+			gpu.Identity();
+			gpu.Rotate(Vec3f(x, -0.5f, 0.0f));
+			gpu.Translate(Vec3f(-0.5f, -0.5f, -0.5f));
 
-			gpu.EndObject();
+			DrawBox(gpu, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
 
-			bgfx::dbgTextClear();
-			bgfx::dbgTextPrintf(10, 10, 0x0f, "Hello world");
-			bgfx::setDebug(BGFX_DEBUG_TEXT);
+			gpu.DrawFrame((float)winWidth, (float)winHeight);
+
 			bgfx::frame();
 
 			deltaTime = float(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();

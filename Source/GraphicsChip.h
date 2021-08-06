@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Vec3.h"
+#include "Core/Vec4.h"
 #include "Core/Matrix.h"
 
 #include <bgfx/bgfx.h>
@@ -24,14 +25,23 @@ enum class MatrixMode
     Count
 };
 
+struct VertexData
+{
+    Vec3f pos;
+    Vec4f col;
+    Vec2f tex;
+};
+
 class GraphicsChip
 {
 public:
     void Init();
+    void DrawFrame(float w, float h);
 
     void BeginObject(PrimitiveType type);
     void EndObject();
     void Vertex(Vec3f vec);
+    void Color(Vec4f col);
 
     // Transforms
     void SetMatrixMode(MatrixMode mode);
@@ -42,12 +52,23 @@ public:
     void Identity();
 
 private:
+    void ScreenSpaceQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f);
+
+
     // Drawing state
     PrimitiveType m_typeState;
-    std::vector<Vec3f> m_vertexState;
+    std::vector<VertexData> m_vertexState;
     MatrixMode m_matrixModeState;
     Matrixf m_matrixStates[(size_t)MatrixMode::Count];
+    Vec4f m_vertexColorState{ Vec4f(1.0f, 1.0f, 1.0f, 1.0f) };
     
+    bgfx::ViewId m_realWindowView{ 0 };
+    bgfx::ViewId m_virtualWindowView{ 1 };
+
     bgfx::VertexLayout m_layout;
-    bgfx::ProgramHandle m_program;
+    bgfx::ProgramHandle m_coreProgram;
+
+    bgfx::ProgramHandle m_fullscreenTexProgram;
+    bgfx::FrameBufferHandle m_frameBuffer;
+    bgfx::UniformHandle m_frameBufferSampler;
 };

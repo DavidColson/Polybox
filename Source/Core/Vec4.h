@@ -1,7 +1,5 @@
 #pragma once
 
-#include <EASTL/string.h>
-
 template<typename T>
 struct Vec3;
 
@@ -324,10 +322,10 @@ struct Vec4
 	*
 	* @return The string
 	**/
-	inline eastl::string ToString() const
+	inline std::string ToString() const
 	{
-		eastl::string str;
-		return str.sprintf("{ %.5f, %.5f, %.5f, %.5f }", x, y, z, w);
+		//eastl::string str;
+		return ""; //str.sprintf("{ %.5f, %.5f, %.5f, %.5f }", x, y, z, w);
 	}
 
 	/**

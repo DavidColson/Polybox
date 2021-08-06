@@ -1,0 +1,8 @@
+{
+    "cmake.configureSettings": {
+        "SDL2MAIN_LIBRARY" : "D:/Dev/SDL2-2.0.8/lib/x64/SDL2main.lib",
+        "SDL2_INCLUDE_DIR" : "D:/Dev/SDL2-2.0.8/include",
+        "SDL2_LIBRARY" : "D:/Dev/SDL2-2.0.8/lib/x64/SDL2.lib"
+    },
+    "cmake.configureOnOpen": false
+}

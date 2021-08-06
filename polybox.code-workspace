@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.lvl": "json5",
+			"vector": "cpp"
+		}
+	}
+}

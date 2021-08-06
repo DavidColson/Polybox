@@ -107,11 +107,19 @@ int main(int argc, char *argv[])
 			}
 			bgfx::touch(kClearView);
 
-			gpu.BeginObject(PrimitiveType::LineStrip);
+			gpu.SetMatrixMode(MatrixMode::Projection);
+			gpu.Identity();
+			gpu.Perspective((float)winWidth, (float)winHeight, 0.001f, 100.0f, 60.0f);
 
-			gpu.Vertex(Vec3f(0.1f, 0.1f, 0.0f));
-			gpu.Vertex(Vec3f(0.1f, 0.2f, 0.0f));
-			gpu.Vertex(Vec3f(0.2f, 0.2f, 0.0f));
+			gpu.SetMatrixMode(MatrixMode::View);
+			gpu.Identity();
+			gpu.Translate(Vec3f(0.0f, 0.0f, -10.0f));
+
+			gpu.BeginObject(PrimitiveType::Triangles);
+
+			gpu.Vertex(Vec3f(1.f, 1.f, 0.0f));
+			gpu.Vertex(Vec3f(1.f, 2.0f, 0.0f));
+			gpu.Vertex(Vec3f(2.0f, 2.0f, 0.0f));
 
 			gpu.EndObject();
 

@@ -4,6 +4,8 @@
 #include <shaderc/shaderc.h>
 
 
+// ***********************************************************************
+
 void GraphicsChip::Init()
 {
     m_layout
@@ -20,13 +22,23 @@ void GraphicsChip::Init()
     bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
 
     m_program = bgfx::createProgram(vsShader, fsShader, true);
+
+    for (size_t i = 0; i < 3; i++)
+    {
+        m_matrixStates[i] = Matrixf::Identity();
+    }
+    
 }
+
+// ***********************************************************************
 
 void GraphicsChip::BeginObject(PrimitiveType type)
 {
     // Set draw topology type
     m_typeState = type;
 }
+
+// ***********************************************************************
 
 void GraphicsChip::EndObject()
 {
@@ -74,6 +86,8 @@ void GraphicsChip::EndObject()
     bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(Vec3f) );
 
     // Submit draw call
+    bgfx::setViewTransform(0, &m_matrixStates[(size_t)MatrixMode::View], &m_matrixStates[(size_t)MatrixMode::Projection]);
+    bgfx::setTransform(&m_matrixStates[(size_t)MatrixMode::Model]);
 	bgfx::setState(state);
     bgfx::setVertexBuffer(0, &tvb);
     bgfx::submit(0, m_program);
@@ -81,7 +95,51 @@ void GraphicsChip::EndObject()
     m_vertexState.clear();
 }
 
+// ***********************************************************************
+
 void GraphicsChip::Vertex(Vec3f vec)
 {
     m_vertexState.push_back(vec);
+}
+
+// ***********************************************************************
+
+void GraphicsChip::SetMatrixMode(MatrixMode mode)
+{
+    m_matrixModeState = mode;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::Perspective(float screenWidth, float screenHeight, float nearPlane, float farPlane, float fov)
+{
+    m_matrixStates[(size_t)m_matrixModeState] *= Matrixf::Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);
+}
+
+// ***********************************************************************
+
+void GraphicsChip::Translate(Vec3f translation)
+{
+    m_matrixStates[(size_t)m_matrixModeState] *= Matrixf::MakeTranslation(translation);
+}
+
+// ***********************************************************************
+
+void GraphicsChip::Rotate(Vec3f rotation)
+{
+    m_matrixStates[(size_t)m_matrixModeState] *= Matrixf::MakeRotation(rotation);
+}
+
+// ***********************************************************************
+
+void GraphicsChip::Scale(Vec3f scaling)
+{
+    m_matrixStates[(size_t)m_matrixModeState] *= Matrixf::MakeScale(scaling);
+}
+
+// ***********************************************************************
+
+void GraphicsChip::Identity()
+{
+    m_matrixStates[(size_t)m_matrixModeState] = Matrixf::Identity();
 }

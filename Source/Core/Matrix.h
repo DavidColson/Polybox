@@ -78,6 +78,18 @@ struct Matrix
 	}
 
 	/**
+	* Matrix vs Matrix multiplication, but this time assignment operator
+	*
+	* @param  rhs The matrix to multiple on the right of this
+	* @return The result of the multiplication
+	**/
+	inline Matrix operator*=(const Matrix& rhs)
+	{
+		*this = operator*(rhs);
+		return *this;
+	}
+
+	/**
 	* Matrix vs Vector multiplication
 	*
 	* @param  rhs The matrix to multiple on the right of this

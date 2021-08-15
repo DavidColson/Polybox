@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
 			gpu.Identity();
 			gpu.Translate(Vec3f(-0.5f, -0.5f, -3.0f));
 
-			static float x = 0.0f;
+			static float x = 0.12f;
 			x += 0.004f;
 
 			gpu.MatrixMode(EMatrixMode::Model);
@@ -121,12 +121,13 @@ int main(int argc, char *argv[])
 
 			//gpu.BindTexture("Assets/crate.png");
 
-			gpu.LightingMode(ELightingMode::Flat);
+			gpu.EnableLighting(true);
+			gpu.NormalsMode(ENormalsMode::Smooth);
 			gpu.Ambient(Vec3f(0.1f, 0.1f, 0.1f));
 			gpu.Light(0, Vec3f(1.0f, -1.f, 0.0f), Vec3f(1.0f, 1.0f, 1.0f));
 
 			//DrawBox(gpu, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
-			DrawIcosahedron(gpu, 1);
+			DrawIcosahedron(gpu, 3);
 
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
 

@@ -28,11 +28,11 @@ enum class EMatrixMode
     Count
 };
 
-enum class ELightingMode
+enum class ENormalsMode
 {
-    None,
+    Custom,
     Flat,
-    Gouraud
+    Smooth
 };
 
 struct VertexData
@@ -41,6 +41,11 @@ struct VertexData
     Vec4f col;
     Vec2f tex;
     Vec3f norm;
+
+    bool operator==(const VertexData& other)
+    {
+        return pos == other.pos;
+    }
 };
 
 class GraphicsChip
@@ -55,6 +60,7 @@ public:
     void Vertex(Vec3f vec);
     void Color(Vec4f col);
     void TexCoord(Vec2f tex);
+    void Normal(Vec3f norm);
 
     // Transforms
     void MatrixMode(EMatrixMode mode);
@@ -69,7 +75,8 @@ public:
     void UnbindTexture();
 
     // Lighting
-    void LightingMode(ELightingMode mode);
+    void NormalsMode(ENormalsMode mode);
+    void EnableLighting(bool enabled);
     void Light(int id, Vec3f direction, Vec3f color);
     void Ambient(Vec3f color);
 
@@ -80,14 +87,19 @@ private:
     // Drawing state
     EPrimitiveType m_typeState;
     std::vector<VertexData> m_vertexState;
+    Vec4f m_vertexColorState{ Vec4f(1.0f, 1.0f, 1.0f, 1.0f) };
+    Vec2f m_vertexTexCoordState{ Vec2f(0.0f, 0.0f) };
+    Vec3f m_vertexNormalState{ Vec3f(0.0f, 0.0f, 0.0f) };
+    
     EMatrixMode m_matrixModeState;
-    ELightingMode m_lightModeState;
+    Matrixf m_matrixStates[(size_t)EMatrixMode::Count];
+
+    ENormalsMode m_normalsModeState;
+    bool m_lightingState{ false };
     Vec3f m_lightDirectionsStates[MAX_LIGHTS];
     Vec3f m_lightColorStates[MAX_LIGHTS];
     Vec3f m_lightAmbientState{ Vec3f(0.0f, 0.0f, 0.0f) };
-    Matrixf m_matrixStates[(size_t)EMatrixMode::Count];
-    Vec4f m_vertexColorState{ Vec4f(1.0f, 1.0f, 1.0f, 1.0f) };
-    Vec2f m_vertexTexCoordState{ Vec2f(0.0f, 0.0f) };
+
     bgfx::TextureHandle m_textureState{ BGFX_INVALID_HANDLE };
     
     // Drawing views
@@ -101,7 +113,7 @@ private:
     
     bgfx::UniformHandle m_colorTextureSampler{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_targetResolutionUniform{ BGFX_INVALID_HANDLE };
-    bgfx::UniformHandle m_lightModeUniform{ BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle m_lightingStateUniform{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_lightDirectionUniform{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_lightColorUniform{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_lightAmbientUniform{ BGFX_INVALID_HANDLE };

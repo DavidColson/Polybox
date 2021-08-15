@@ -4,7 +4,7 @@ $output v_color0, v_texcoord0
 #include "common.sh"
 
 uniform vec4 u_targetResolution;
-uniform vec4 u_lightMode;
+uniform vec4 u_lightingEnabled;
 uniform vec4 u_lightDirection[3];
 uniform vec4 u_lightColor[3];
 uniform vec4 u_lightAmbient;
@@ -23,21 +23,17 @@ void main()
 
 	gl_Position = snapped;
 
-	int lightMode = int(u_lightMode.x);
-	switch(lightMode)
+	int lightingEnabled = int(u_lightingEnabled.x);
+	if (lightingEnabled == 0)
 	{
-	case 0:
 		v_color0 = a_color0;
-		break;
-	case 1:
+	}
+	else if (lightingEnabled == 1)
+	{
 		float lightMag = max(dot(normalize(u_lightDirection[0].xyz), norm.xyz), 0.0);
 		vec3 diffuse = lightMag * u_lightColor[0];
 
 		v_color0 = vec4(a_color0.xyz * (u_lightAmbient.xyz + diffuse), a_color0.z);
-		break;
-	case 2:
-		v_color0 = a_color0;
-		break;
 	}
 	v_texcoord0 = a_texcoord0;
 }

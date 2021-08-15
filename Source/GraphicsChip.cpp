@@ -136,7 +136,7 @@ void GraphicsChip::Init()
     m_frameBufferSampler = bgfx::createUniform("fullscreenFrameSampler", bgfx::UniformType::Sampler);
 	m_colorTextureSampler = bgfx::createUniform("colorTextureSampler",  bgfx::UniformType::Sampler);
 	m_targetResolutionUniform = bgfx::createUniform("u_targetResolution", bgfx::UniformType::Vec4);
-    m_lightModeUniform = bgfx::createUniform("u_lightMode", bgfx::UniformType::Vec4);
+    m_lightingStateUniform = bgfx::createUniform("u_lightingEnabled", bgfx::UniformType::Vec4);
     m_lightDirectionUniform = bgfx::createUniform("u_lightDirection", bgfx::UniformType::Vec4, MAX_LIGHTS);
     m_lightColorUniform = bgfx::createUniform("u_lightColor", bgfx::UniformType::Vec4, MAX_LIGHTS);
     m_lightAmbientUniform = bgfx::createUniform("u_lightAmbient", bgfx::UniformType::Vec4);
@@ -176,11 +176,9 @@ void GraphicsChip::EndObject()
 					| BGFX_STATE_WRITE_Z
 					| BGFX_STATE_DEPTH_TEST_LESS;
 
-    // for gouraud it's the connecting polygons. How the fuck do we do that?
-    // Option: Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list. (could hash the vertices and use a map here btw if needs to be faster)
-    // Then run your flat shading algo on the list of vertices looping through index list. If you have a new normal for a vert, then average with the existing one
-    // Eventually you get all your verts with averaged normals which you just need to normalize
-
+    bgfx::TransientVertexBuffer vertexBuffer;
+    bgfx::TransientIndexBuffer indexBuffer;
+    int numIndices;
 
     switch (m_typeState)
     {
@@ -195,37 +193,84 @@ void GraphicsChip::EndObject()
         break;
     case EPrimitiveType::Triangles:
     {
-        // flat shading
-        for (size_t i = 0; i < m_vertexState.size(); i+=3)
+        if (m_normalsModeState == ENormalsMode::Flat)
         {
-            Vec3f v1 = m_vertexState[i+1].pos - m_vertexState[i].pos;
-            Vec3f v2 = m_vertexState[i+2].pos - m_vertexState[i].pos;
-            Vec3f faceNormal = Vec3f::Cross(v1, v2).GetNormalized();
+            for (size_t i = 0; i < m_vertexState.size(); i+=3)
+            {
+                Vec3f v1 = m_vertexState[i+1].pos - m_vertexState[i].pos;
+                Vec3f v2 = m_vertexState[i+2].pos - m_vertexState[i].pos;
+                Vec3f faceNormal = Vec3f::Cross(v1, v2).GetNormalized();
 
-            m_vertexState[i].norm = faceNormal;
-            m_vertexState[i+1].norm = faceNormal;
-            m_vertexState[i+2].norm = faceNormal;
+                m_vertexState[i].norm = faceNormal;
+                m_vertexState[i+1].norm = faceNormal;
+                m_vertexState[i+2].norm = faceNormal;
+            }
+
+            // create vertex buffer
+            uint32_t numVertices = (uint32_t)m_vertexState.size();
+            if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
+                return;
+            bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
+            VertexData* verts = (VertexData*)vertexBuffer.data;
+            bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
+        }
+        else if (m_normalsModeState == ENormalsMode::Smooth)
+        {
+            // Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list.
+            std::vector<VertexData> uniqueVerts;
+            std::vector<uint16_t> indices;
+            for (size_t i = 0; i < m_vertexState.size(); i++)
+            {
+                std::vector<VertexData>::iterator it = std::find(uniqueVerts.begin(), uniqueVerts.end(), m_vertexState[i]);
+                if (it == uniqueVerts.end())
+                {
+                    // New vertex
+                    uniqueVerts.push_back(m_vertexState[i]);
+                    indices.push_back((uint16_t)uniqueVerts.size() - 1);
+                }
+                else
+                {
+                    indices.push_back((uint16_t)std::distance(uniqueVerts.begin(), it));
+                }
+            }
+
+            // Then run your flat shading algo on the list of vertices looping through index list. If you have a new normal for a vert, then average with the existing one
+            for (size_t i = 0; i < indices.size(); i+=3)
+            {
+                Vec3f v1 = uniqueVerts[indices[i+1]].pos - uniqueVerts[indices[i]].pos;
+                Vec3f v2 = uniqueVerts[indices[i+2]].pos - uniqueVerts[indices[i]].pos;
+                Vec3f faceNormal = Vec3f::Cross(v1, v2);
+
+                uniqueVerts[indices[i]].norm += faceNormal;
+                uniqueVerts[indices[i+1]].norm += faceNormal;
+                uniqueVerts[indices[i+2]].norm += faceNormal;
+            }
+
+            for (size_t i = 0; i < uniqueVerts.size(); i++)
+            {
+                uniqueVerts[i].norm = uniqueVerts[i].norm.GetNormalized();
+            }
+
+            // create vertex buffer
+            uint32_t numVertices = (uint32_t)uniqueVerts.size();
+            if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
+                return;
+            bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
+            VertexData* pDstVerts = (VertexData*)vertexBuffer.data;
+            bx::memCopy(pDstVerts, uniqueVerts.data(), numVertices * sizeof(VertexData) );
+
+            // Create index buffer
+            numIndices = (uint32_t)indices.size();
+            if (numIndices != bgfx::getAvailTransientIndexBuffer(numIndices) )
+                return;
+            bgfx::allocTransientIndexBuffer(&indexBuffer, numIndices);
+            uint16_t* pDstIndices = (uint16_t*)indexBuffer.data;
+            bx::memCopy(pDstIndices, indices.data(), numIndices * sizeof(uint16_t));
         }
     }
     default:
         break;
     }
-    
-
-    // create bhfx transient buffer
-    uint32_t numVertices = (uint32_t)m_vertexState.size();
-
-    if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
-    {
-        // not enough space in transient buffer just quit drawing the rest...
-        return;
-    }
-
-    bgfx::TransientVertexBuffer tvb;
-    bgfx::allocTransientVertexBuffer(&tvb, numVertices, m_layout);
-
-    Vec3f* verts = (Vec3f*)tvb.data;
-    bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
 
 
     // Submit draw call
@@ -236,12 +281,14 @@ void GraphicsChip::EndObject()
     bgfx::setViewTransform(m_virtualWindowView, &m_matrixStates[(size_t)EMatrixMode::View], &m_matrixStates[(size_t)EMatrixMode::Projection]);
     bgfx::setTransform(&m_matrixStates[(size_t)EMatrixMode::Model]);
 	bgfx::setState(state);
-    bgfx::setVertexBuffer(0, &tvb);
+    bgfx::setVertexBuffer(0, &vertexBuffer);
+    if (m_normalsModeState == ENormalsMode::Smooth)
+        bgfx::setIndexBuffer(&indexBuffer, 0, numIndices);
 
     Vec4f targetRes = Vec4f(320.f, 240.f, 0.f, 0.f);
 	bgfx::setUniform(m_targetResolutionUniform, &targetRes);
-    Vec4f lightMode = Vec4f((float)m_lightModeState);
-    bgfx::setUniform(m_lightModeUniform, &lightMode);
+    Vec4f lightMode = Vec4f((float)m_lightingState);
+    bgfx::setUniform(m_lightingStateUniform, &lightMode);
     bgfx::setUniform(m_lightDirectionUniform, m_lightDirectionsStates);
     bgfx::setUniform(m_lightColorUniform, m_lightColorStates);
     Vec4f ambient = Vec4f::Embed3D(m_lightAmbientState);
@@ -264,7 +311,7 @@ void GraphicsChip::EndObject()
 
 void GraphicsChip::Vertex(Vec3f vec)
 {
-    m_vertexState.push_back({vec, m_vertexColorState, m_vertexTexCoordState});
+    m_vertexState.push_back({vec, m_vertexColorState, m_vertexTexCoordState, m_vertexNormalState});
 }
 
 // ***********************************************************************
@@ -279,6 +326,13 @@ void GraphicsChip::Color(Vec4f col)
 void GraphicsChip::TexCoord(Vec2f tex)
 {
     m_vertexTexCoordState = tex;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::Normal(Vec3f norm)
+{
+    m_vertexNormalState = norm;
 }
 
 // ***********************************************************************
@@ -385,9 +439,16 @@ void GraphicsChip::UnbindTexture()
 
 // ***********************************************************************
 
-void GraphicsChip::LightingMode(ELightingMode mode)
+void GraphicsChip::NormalsMode(ENormalsMode mode)
 {
-    m_lightModeState = mode;
+    m_normalsModeState = mode;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::EnableLighting(bool enabled)
+{
+    m_lightingState = enabled;
 }
 
 // ***********************************************************************

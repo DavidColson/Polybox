@@ -75,6 +75,7 @@ void GraphicsChip::Init()
     .add(bgfx::Attrib::Position,  3, bgfx::AttribType::Float)
     .add(bgfx::Attrib::Color0,  4, bgfx::AttribType::Float)
     .add(bgfx::Attrib::TexCoord0,  2, bgfx::AttribType::Float)
+    .add(bgfx::Attrib::Normal,  3, bgfx::AttribType::Float)
     .end();
 
     {
@@ -135,7 +136,10 @@ void GraphicsChip::Init()
     m_frameBufferSampler = bgfx::createUniform("fullscreenFrameSampler", bgfx::UniformType::Sampler);
 	m_colorTextureSampler = bgfx::createUniform("colorTextureSampler",  bgfx::UniformType::Sampler);
 	m_targetResolutionUniform = bgfx::createUniform("u_targetResolution", bgfx::UniformType::Vec4);
-
+    m_lightModeUniform = bgfx::createUniform("u_lightMode", bgfx::UniformType::Vec4);
+    m_lightDirectionUniform = bgfx::createUniform("u_lightDirection", bgfx::UniformType::Vec4, MAX_LIGHTS);
+    m_lightColorUniform = bgfx::createUniform("u_lightColor", bgfx::UniformType::Vec4, MAX_LIGHTS);
+    m_lightAmbientUniform = bgfx::createUniform("u_lightAmbient", bgfx::UniformType::Vec4);
 }
 
 // ***********************************************************************
@@ -156,7 +160,7 @@ void GraphicsChip::DrawFrame(float w, float h)
 
 // ***********************************************************************
 
-void GraphicsChip::BeginObject(PrimitiveType type)
+void GraphicsChip::BeginObject(EPrimitiveType type)
 {
     // Set draw topology type
     m_typeState = type;
@@ -172,21 +176,37 @@ void GraphicsChip::EndObject()
 					| BGFX_STATE_WRITE_Z
 					| BGFX_STATE_DEPTH_TEST_LESS;
 
+    // for gouraud it's the connecting polygons. How the fuck do we do that?
+    // Option: Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list. (could hash the vertices and use a map here btw if needs to be faster)
+    // Then run your flat shading algo on the list of vertices looping through index list. If you have a new normal for a vert, then average with the existing one
+    // Eventually you get all your verts with averaged normals which you just need to normalize
+
+
     switch (m_typeState)
     {
-    case PrimitiveType::Points:
+    case EPrimitiveType::Points:
         state |= BGFX_STATE_PT_POINTS;
         break;
-    case PrimitiveType::Lines:
+    case EPrimitiveType::Lines:
         state |= BGFX_STATE_PT_LINES;
         break;
-    case PrimitiveType::LineStrip:
+    case EPrimitiveType::LineStrip:
         state |= BGFX_STATE_PT_LINESTRIP;
         break;
-    case PrimitiveType::TriangleStrip:
-        state |= BGFX_STATE_PT_TRISTRIP;
-        break;
-    case PrimitiveType::Triangles:
+    case EPrimitiveType::Triangles:
+    {
+        // flat shading
+        for (size_t i = 0; i < m_vertexState.size(); i+=3)
+        {
+            Vec3f v1 = m_vertexState[i+1].pos - m_vertexState[i].pos;
+            Vec3f v2 = m_vertexState[i+2].pos - m_vertexState[i].pos;
+            Vec3f faceNormal = Vec3f::Cross(v1, v2).GetNormalized();
+
+            m_vertexState[i].norm = faceNormal;
+            m_vertexState[i+1].norm = faceNormal;
+            m_vertexState[i+2].norm = faceNormal;
+        }
+    }
     default:
         break;
     }
@@ -207,20 +227,25 @@ void GraphicsChip::EndObject()
     Vec3f* verts = (Vec3f*)tvb.data;
     bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
 
-    
 
     // Submit draw call
     bgfx::setViewClear(m_virtualWindowView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x404040ff, 1.0f, 0);
     bgfx::setViewRect(m_virtualWindowView, 0, 0, 320, 240);
     bgfx::setViewFrameBuffer(m_virtualWindowView, m_frameBuffer);
 
-    bgfx::setViewTransform(m_virtualWindowView, &m_matrixStates[(size_t)MatrixMode::View], &m_matrixStates[(size_t)MatrixMode::Projection]);
-    bgfx::setTransform(&m_matrixStates[(size_t)MatrixMode::Model]);
+    bgfx::setViewTransform(m_virtualWindowView, &m_matrixStates[(size_t)EMatrixMode::View], &m_matrixStates[(size_t)EMatrixMode::Projection]);
+    bgfx::setTransform(&m_matrixStates[(size_t)EMatrixMode::Model]);
 	bgfx::setState(state);
     bgfx::setVertexBuffer(0, &tvb);
 
     Vec4f targetRes = Vec4f(320.f, 240.f, 0.f, 0.f);
 	bgfx::setUniform(m_targetResolutionUniform, &targetRes);
+    Vec4f lightMode = Vec4f((float)m_lightModeState);
+    bgfx::setUniform(m_lightModeUniform, &lightMode);
+    bgfx::setUniform(m_lightDirectionUniform, m_lightDirectionsStates);
+    bgfx::setUniform(m_lightColorUniform, m_lightColorStates);
+    Vec4f ambient = Vec4f::Embed3D(m_lightAmbientState);
+    bgfx::setUniform(m_lightAmbientUniform, &ambient);
 
     if (bgfx::isValid(m_textureState))
     {
@@ -258,7 +283,7 @@ void GraphicsChip::TexCoord(Vec2f tex)
 
 // ***********************************************************************
 
-void GraphicsChip::SetMatrixMode(MatrixMode mode)
+void GraphicsChip::MatrixMode(EMatrixMode mode)
 {
     m_matrixModeState = mode;
 }
@@ -356,4 +381,29 @@ void GraphicsChip::BindTexture(const char* texturePath)
 void GraphicsChip::UnbindTexture()
 {
     m_textureState = BGFX_INVALID_HANDLE;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::LightingMode(ELightingMode mode)
+{
+    m_lightModeState = mode;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::Light(int id, Vec3f direction, Vec3f color)
+{
+    if (id > 2)
+        return;
+
+    m_lightDirectionsStates[id] = direction;
+    m_lightColorStates[id] = color;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::Ambient(Vec3f color)
+{
+    m_lightAmbientState = color;
 }

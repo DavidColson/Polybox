@@ -20,7 +20,7 @@
 
 void DrawBox(GraphicsChip& gpu, float x, float y, float z, float width, float height, float depth)
 {
-	gpu.BeginObject(PrimitiveType::Triangles);
+	gpu.BeginObject(EPrimitiveType::Triangles);
 
 	//gpu.Color(Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
 	gpu.TexCoord(Vec2f(0.0f, 0.0f));
@@ -193,23 +193,27 @@ int main(int argc, char *argv[])
 			}
 			bgfx::touch(0);
 
-			gpu.SetMatrixMode(MatrixMode::Projection);
+			gpu.MatrixMode(EMatrixMode::Projection);
 			gpu.Identity();
 			gpu.Perspective((float)320, (float)240, 0.001f, 100.0f, 60.0f);
 
-			gpu.SetMatrixMode(MatrixMode::View);
+			gpu.MatrixMode(EMatrixMode::View);
 			gpu.Identity();
 			gpu.Translate(Vec3f(-0.5f, -0.5f, -3.0f));
 
 			static float x = 0.0f;
 			x += 0.004f;
 
-			gpu.SetMatrixMode(MatrixMode::Model);
+			gpu.MatrixMode(EMatrixMode::Model);
 			gpu.Identity();
 			gpu.Rotate(Vec3f(x, x * 0.5f, 0.0f));
 			gpu.Translate(Vec3f(-0.5f, -0.5f, -0.5f));
 
 			gpu.BindTexture("Assets/crate.png");
+
+			gpu.LightingMode(ELightingMode::Flat);
+			gpu.Ambient(Vec3f(0.2f, 0.2f, 0.2f));
+			gpu.Light(0, Vec3f(1.0f, -1.f, 0.0f), Vec3f(0.0f, 1.0f, 1.0f));
 
 			DrawBox(gpu, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
 

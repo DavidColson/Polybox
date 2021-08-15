@@ -261,7 +261,7 @@ namespace bgfx { namespace metal
 		EShLanguage stage = getLang(_options.shaderType);
 		if (EShLangCount == stage)
 		{
-			bx::printf("Error: Unknown shader type '%c'.\n", _options.shaderType);
+			shaderc::printf("Error: Unknown shader type '%c'.\n", _options.shaderType);
 			return false;
 		}
 
@@ -327,7 +327,7 @@ namespace bgfx { namespace metal
 
 				printCode(_code.c_str(), line, start, end, column);
 
-				bx::printf("%s\n", log);
+				shaderc::printf("%s\n", log);
 			}
 		}
 		else
@@ -343,7 +343,7 @@ namespace bgfx { namespace metal
 				const char* log = program->getInfoLog();
 				if (NULL != log)
 				{
-					bx::printf("%s\n", log);
+					shaderc::printf("%s\n", log);
 				}
 			}
 			else
@@ -489,7 +489,7 @@ namespace bgfx { namespace metal
 					, const char* m
 					)
 				{
-					bx::printf("Error: %s\n", m);
+					shaderc::printf("Error: %s\n", m);
 				};
 
 				opt.SetMessageConsumer(print_msg_to_stderr);

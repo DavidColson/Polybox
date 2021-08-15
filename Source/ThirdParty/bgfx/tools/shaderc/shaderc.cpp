@@ -617,7 +617,7 @@ namespace bgfx
 
 	void printCode(const char* _code, int32_t _line, int32_t _start, int32_t _end, int32_t _column)
 	{
-		bx::printf("Code:\n---\n");
+		shaderc::printf("Code:\n---\n");
 
 		bx::LineReader reader(_code);
 		for (int32_t line = 1; !reader.isDone() && line < _end; ++line)
@@ -628,22 +628,22 @@ namespace bgfx
 			{
 				if (_line == line)
 				{
-					bx::printf("\n");
-					bx::printf(">>> %3d: %.*s\n", line, strLine.getLength(), strLine.getPtr() );
+					shaderc::printf("\n");
+					shaderc::printf(">>> %3d: %.*s\n", line, strLine.getLength(), strLine.getPtr() );
 					if (-1 != _column)
 					{
-						bx::printf(">>> %3d: %*s\n", _column, _column, "^");
+						shaderc::printf(">>> %3d: %*s\n", _column, _column, "^");
 					}
-					bx::printf("\n");
+					shaderc::printf("\n");
 				}
 				else
 				{
-					bx::printf("    %3d: %.*s\n", line, strLine.getLength(), strLine.getPtr() );
+					shaderc::printf("    %3d: %.*s\n", line, strLine.getLength(), strLine.getPtr() );
 				}
 			}
 		}
 
-		bx::printf("---\n");
+		shaderc::printf("---\n");
 	}
 
 	void writeFile(const char* _filePath, const void* _data, int32_t _size)
@@ -926,10 +926,10 @@ namespace bgfx
 	{
 		if (NULL != _error)
 		{
-			bx::printf("Error:\n%s\n\n", _error);
+			shaderc::printf("Error:\n%s\n\n", _error);
 		}
 
-		bx::printf(
+		shaderc::printf(
 			  "shaderc, bgfx shader compiler tool, version %d.%d.%d.\n"
 			  "Copyright 2011-2021 Branimir Karadzic. All rights reserved.\n"
 			  "License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause\n\n"
@@ -938,7 +938,7 @@ namespace bgfx
 			, BGFX_API_VERSION
 			);
 
-		bx::printf(
+		shaderc::printf(
 			  "Usage: shaderc -f <in> -o <out> --type <v/f> --platform <platform>\n"
 
 			  "\n"
@@ -969,18 +969,18 @@ namespace bgfx
 				if (lang != profile.lang)
 				{
 					lang = profile.lang;
-					bx::printf("\n");
-					bx::printf("           %-20s %s\n", profile.name, getName(profile.lang) );
+					shaderc::printf("\n");
+					shaderc::printf("           %-20s %s\n", profile.name, getName(profile.lang) );
 				}
 				else
 				{
-					bx::printf("           %s\n", profile.name);
+					shaderc::printf("           %s\n", profile.name);
 				}
 
 			}
 		}
 
-		bx::printf(
+		shaderc::printf(
 			  "      --preprocess              Preprocess only.\n"
 			  "      --define <defines>        Add defines to preprocessor (semicolon separated).\n"
 			  "      --raw                     Do not process shader. No preprocessor, and no glsl-optimizer (GLSL only).\n"
@@ -1036,7 +1036,7 @@ namespace bgfx
 
 			if (profile_id == count)
 			{
-				bx::printf("Unknown profile: %s\n", profile_opt);
+				shaderc::printf("Unknown profile: %s\n", profile_opt);
 				return false;
 			}
 		}
@@ -1203,7 +1203,7 @@ namespace bgfx
 			break;
 
 		default:
-			bx::printf("Unknown type: %c?!", _options.shaderType);
+			shaderc::printf("Unknown type: %c?!", _options.shaderType);
 			return false;
 		}
 
@@ -1387,7 +1387,7 @@ namespace bgfx
 				if (bx::findIdentifierMatch(it->c_str(), s_allowedVertexShaderInputs).isEmpty() )
 				{
 					invalidShaderAttribute = true;
-					bx::printf(
+					shaderc::printf(
 						  "Invalid vertex shader input attribute '%s'.\n"
 						  "\n"
 						  "Valid input attributes:\n"
@@ -1458,7 +1458,7 @@ namespace bgfx
 			bx::StringView entry = bx::strFind(input, "void main()");
 			if (entry.isEmpty() )
 			{
-				bx::printf("Shader entry point 'void main()' is not found.\n");
+				shaderc::printf("Shader entry point 'void main()' is not found.\n");
 			}
 			else
 			{
@@ -1637,7 +1637,7 @@ namespace bgfx
 			bx::StringView entry = bx::strFind(shader, "void main()");
 			if (entry.isEmpty() )
 			{
-				bx::printf("Shader entry point 'void main()' is not found.\n");
+				shaderc::printf("Shader entry point 'void main()' is not found.\n");
 			}
 			else
 			{
@@ -1888,7 +1888,7 @@ namespace bgfx
 							}
 							else
 							{
-								bx::printf("gl_PrimitiveID builtin is not supported by this D3D9 HLSL.\n");
+								shaderc::printf("gl_PrimitiveID builtin is not supported by this D3D9 HLSL.\n");
 								return false;
 							}
 						}
@@ -1963,7 +1963,7 @@ namespace bgfx
 							}
 							else
 							{
-								bx::printf("gl_ViewportIndex builtin is not supported by this D3D9 HLSL.\n");
+								shaderc::printf("gl_ViewportIndex builtin is not supported by this D3D9 HLSL.\n");
 								return false;
 							}
 						}
@@ -1979,7 +1979,7 @@ namespace bgfx
 							}
 							else
 							{
-								bx::printf("gl_Layer builtin is not supported by this D3D9 HLSL.\n");
+								shaderc::printf("gl_Layer builtin is not supported by this D3D9 HLSL.\n");
 								return false;
 							}
 						}
@@ -2018,7 +2018,7 @@ namespace bgfx
 							}
 							else
 							{
-								bx::printf("gl_VertexID builtin is not supported by this D3D9 HLSL.\n");
+								shaderc::printf("gl_VertexID builtin is not supported by this D3D9 HLSL.\n");
 								return false;
 							}
 						}
@@ -2034,7 +2034,7 @@ namespace bgfx
 							}
 							else
 							{
-								bx::printf("gl_InstanceID builtin is not supported by this D3D9 HLSL.\n");
+								shaderc::printf("gl_InstanceID builtin is not supported by this D3D9 HLSL.\n");
 								return false;
 							}
 						}
@@ -2515,7 +2515,7 @@ namespace bgfx
 
 		if (cmdLine.hasArg('v', "version") )
 		{
-			bx::printf(
+			shaderc::printf(
 				  "shaderc, bgfx shader compiler tool, version %d.%d.%d.\n"
 				, BGFX_SHADERC_VERSION_MAJOR
 				, BGFX_SHADERC_VERSION_MINOR
@@ -2676,7 +2676,7 @@ namespace bgfx
 		bx::FileReader reader;
 		if (!bx::open(&reader, filePath) )
 		{
-			bx::printf("Unable to open file '%s'.\n", filePath);
+			shaderc::printf("Unable to open file '%s'.\n", filePath);
 		}
 		else
 		{
@@ -2696,7 +2696,7 @@ namespace bgfx
 				}
 				else
 				{
-					bx::printf("ERROR: Failed to parse varying def file: \"%s\" No input/output semantics will be generated in the code!\n", varyingdef);
+					shaderc::printf("ERROR: Failed to parse varying def file: \"%s\" No input/output semantics will be generated in the code!\n", varyingdef);
 				}
 			}
 
@@ -2732,7 +2732,7 @@ namespace bgfx
 
 			if (!bx::open(writer, outFilePath) )
 			{
-				bx::printf("Unable to open output file '%s'.\n", outFilePath);
+				shaderc::printf("Unable to open output file '%s'.\n", outFilePath);
 				return bx::kExitFailure;
 			}
 
@@ -2749,7 +2749,7 @@ namespace bgfx
 
 		bx::remove(outFilePath);
 
-		bx::printf("Failed to build shader.\n");
+		shaderc::printf("Failed to build shader.\n");
 		return bx::kExitFailure;
 	}
 
@@ -2758,6 +2758,16 @@ namespace bgfx
 #ifndef BGFX_SHADERC_LIB
 namespace shaderc
 {
+	int32_t printf(const char* _format, ...)
+	{
+		va_list argList;
+		va_start(argList, _format);
+		int32_t total = bx::printf(_format, argList);
+		va_end(argList);
+
+		return total;
+	}
+
 	const bgfx::Memory* compileShader(
             ShaderType type
           , const char* filePath
@@ -2776,6 +2786,9 @@ int main(int _argc, const char* _argv[])
 }
 
 #else
+
+#include <Windows.h>
+
 namespace shaderc
 {
 	using namespace bgfx;
@@ -2825,7 +2838,27 @@ namespace shaderc
         Buffer _buffer;
     };
 
+	int32_t printf(const char* _format, ...)
+	{
+		va_list argList;
+		va_start(argList, _format);
+		int32_t total = bx::printf(_format, argList);
 
+		char temp[2048];
+		char* out = temp;
+		int32_t max = sizeof(temp);
+		int32_t len = bx::vsnprintf(out, max, _format, argList);
+		if (len > max)
+		{
+			out = (char*)alloca(len);
+			len = bx::vsnprintf(out, len, _format, argList);
+		}
+		va_end(argList);
+
+		OutputDebugStringA(out);
+
+		return total;
+	}
 
     const bgfx::Memory* compileShader(ShaderType type, const char* filePath, const char* defines, const char* varyingPath, const char* profile)
     {

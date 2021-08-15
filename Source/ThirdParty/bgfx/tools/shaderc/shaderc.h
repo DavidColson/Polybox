@@ -167,6 +167,8 @@ namespace shaderc
         ST_COMPUTE     = 'c',   /// compute
     };
 
+	int32_t printf(const char* _format, ...);
+
     /**
      * Compile a shader from source file and return memory pointer that contains the compiled shader.
      *

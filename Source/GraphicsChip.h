@@ -82,6 +82,7 @@ private:
     bgfx::ProgramHandle m_programBase{ BGFX_INVALID_HANDLE };
     bgfx::ProgramHandle m_programTexturing{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_colorTextureSampler{ BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle m_targetResolutionUniform{ BGFX_INVALID_HANDLE };
 
     bgfx::ProgramHandle m_fullscreenTexProgram{ BGFX_INVALID_HANDLE };
     bgfx::FrameBufferHandle m_frameBuffer{ BGFX_INVALID_HANDLE };

@@ -134,6 +134,8 @@ void GraphicsChip::Init()
     m_frameBuffer = bgfx::createFrameBuffer(BX_COUNTOF(gbufferTex), gbufferTex, true);
     m_frameBufferSampler = bgfx::createUniform("fullscreenFrameSampler", bgfx::UniformType::Sampler);
 	m_colorTextureSampler = bgfx::createUniform("colorTextureSampler",  bgfx::UniformType::Sampler);
+	m_targetResolutionUniform = bgfx::createUniform("u_targetResolution", bgfx::UniformType::Vec4);
+
 }
 
 // ***********************************************************************
@@ -216,6 +218,9 @@ void GraphicsChip::EndObject()
     bgfx::setTransform(&m_matrixStates[(size_t)MatrixMode::Model]);
 	bgfx::setState(state);
     bgfx::setVertexBuffer(0, &tvb);
+
+    Vec4f targetRes = Vec4f(320.f, 240.f, 0.f, 0.f);
+	bgfx::setUniform(m_targetResolutionUniform, &targetRes);
 
     if (bgfx::isValid(m_textureState))
     {

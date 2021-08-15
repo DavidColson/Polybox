@@ -199,10 +199,10 @@ int main(int argc, char *argv[])
 
 			gpu.SetMatrixMode(MatrixMode::View);
 			gpu.Identity();
-			gpu.Translate(Vec3f(-0.5f, -0.5f, -4.0f));
+			gpu.Translate(Vec3f(-0.5f, -0.5f, -3.0f));
 
 			static float x = 0.0f;
-			x += 0.01f;
+			x += 0.004f;
 
 			gpu.SetMatrixMode(MatrixMode::Model);
 			gpu.Identity();

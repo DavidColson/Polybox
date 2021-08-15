@@ -10,6 +10,7 @@
 #include <bgfx/platform.h>
 
 #include "GraphicsChip.h"
+#include "Shapes.h"
 
 // This defines a macro called min somehow? We should avoid it at all costs and include it last
 #include <SDL_syswm.h>
@@ -17,97 +18,6 @@
 #include <format>
 
 #include <SDL.h>
-
-void DrawBox(GraphicsChip& gpu, float x, float y, float z, float width, float height, float depth)
-{
-	gpu.BeginObject(EPrimitiveType::Triangles);
-
-	//gpu.Color(Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y , z ));
-	gpu.TexCoord(Vec2f(1.0f, 0.0f));
-	gpu.Vertex(Vec3f(x + width, y , z ));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y + height, z ));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y , z ));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y + height, z ));
-	gpu.TexCoord(Vec2f(0.0f, 1.0f));
-	gpu.Vertex(Vec3f(x , y + height, z ));
-
-	//gpu.Color(Vec4f(1.0f, 0.0f, 1.0f, 1.0f));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y , z + depth));
-	gpu.TexCoord(Vec2f(0.0f, 1.0f));
-	gpu.Vertex(Vec3f(x , y + height, z + depth));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y , z + depth));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-	gpu.TexCoord(Vec2f(1.0f, 0.0f));
-	gpu.Vertex(Vec3f(x + width, y , z + depth));
-	
-	//gpu.Color(Vec4f(1.0f, 1.0f, 0.0f, 1.0f));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y , z ));
-	gpu.TexCoord(Vec2f(0.0f, 1.0f));
-	gpu.Vertex(Vec3f(x , y + height, z ));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x , y + height, z + depth));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y , z ));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x , y + height, z + depth));
-	gpu.TexCoord(Vec2f(1.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y , z + depth));
-
-	//gpu.Color(Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x + width, y , z ));
-	gpu.TexCoord(Vec2f(1.0f, 0.0f));
-	gpu.Vertex(Vec3f(x + width, y , z + depth));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x + width, y , z ));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-	gpu.TexCoord(Vec2f(0.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y + height, z ));
-
-	//gpu.Color(Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y , z ));
-	gpu.TexCoord(Vec2f(0.0f, 1.0f));
-	gpu.Vertex(Vec3f(x , y , z + depth));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y , z + depth));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y , z ));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y , z + depth));
-	gpu.TexCoord(Vec2f(1.0f, 0.0f));
-	gpu.Vertex(Vec3f(x + width, y , z ));
-
-	//gpu.Color(Vec4f(0.0f, 1.0f, 1.0f, 1.0f));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y + height, z ));
-	gpu.TexCoord(Vec2f(1.0f, 0.0f));
-	gpu.Vertex(Vec3f(x + width, y + height, z ));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-	gpu.TexCoord(Vec2f(0.0f, 0.0f));
-	gpu.Vertex(Vec3f(x , y + height, z ));
-	gpu.TexCoord(Vec2f(1.0f, 1.0f));
-	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-	gpu.TexCoord(Vec2f(0.0f, 1.0f));
-	gpu.Vertex(Vec3f(x , y + height, z + depth));
-
-	gpu.EndObject();
-}
 
 int main(int argc, char *argv[])
 {
@@ -207,15 +117,16 @@ int main(int argc, char *argv[])
 			gpu.MatrixMode(EMatrixMode::Model);
 			gpu.Identity();
 			gpu.Rotate(Vec3f(x, x * 0.5f, 0.0f));
-			gpu.Translate(Vec3f(-0.5f, -0.5f, -0.5f));
+			//gpu.Translate(Vec3f(-0.5f, -0.5f, -0.5f));
 
-			gpu.BindTexture("Assets/crate.png");
+			//gpu.BindTexture("Assets/crate.png");
 
 			gpu.LightingMode(ELightingMode::Flat);
-			gpu.Ambient(Vec3f(0.2f, 0.2f, 0.2f));
-			gpu.Light(0, Vec3f(1.0f, -1.f, 0.0f), Vec3f(0.0f, 1.0f, 1.0f));
+			gpu.Ambient(Vec3f(0.1f, 0.1f, 0.1f));
+			gpu.Light(0, Vec3f(1.0f, -1.f, 0.0f), Vec3f(1.0f, 1.0f, 1.0f));
 
-			DrawBox(gpu, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
+			//DrawBox(gpu, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
+			DrawIcosahedron(gpu, 1);
 
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
 

@@ -22,52 +22,88 @@ void DrawBox(GraphicsChip& gpu, float x, float y, float z, float width, float he
 {
 	gpu.BeginObject(PrimitiveType::Triangles);
 
-	gpu.Color(Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
+	//gpu.Color(Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.TexCoord(Vec2f(1.0f, 0.0f));
 	gpu.Vertex(Vec3f(x + width, y , z ));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y + height, z ));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y + height, z ));
+	gpu.TexCoord(Vec2f(0.0f, 1.0f));
 	gpu.Vertex(Vec3f(x , y + height, z ));
 
-	gpu.Color(Vec4f(1.0f, 0.0f, 1.0f, 1.0f));
+	//gpu.Color(Vec4f(1.0f, 0.0f, 1.0f, 1.0f));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y , z + depth));
+	gpu.TexCoord(Vec2f(0.0f, 1.0f));
 	gpu.Vertex(Vec3f(x , y + height, z + depth));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y , z + depth));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.TexCoord(Vec2f(1.0f, 0.0f));
 	gpu.Vertex(Vec3f(x + width, y , z + depth));
 	
-	gpu.Color(Vec4f(1.0f, 1.0f, 0.0f, 1.0f));
+	//gpu.Color(Vec4f(1.0f, 1.0f, 0.0f, 1.0f));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.TexCoord(Vec2f(0.0f, 1.0f));
 	gpu.Vertex(Vec3f(x , y + height, z ));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x , y + height, z + depth));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x , y + height, z + depth));
+	gpu.TexCoord(Vec2f(1.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y , z + depth));
 
-	gpu.Color(Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
+	//gpu.Color(Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x + width, y , z ));
+	gpu.TexCoord(Vec2f(1.0f, 0.0f));
 	gpu.Vertex(Vec3f(x + width, y , z + depth));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x + width, y , z ));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.TexCoord(Vec2f(0.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y + height, z ));
 
-	gpu.Color(Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
+	//gpu.Color(Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.TexCoord(Vec2f(0.0f, 1.0f));
 	gpu.Vertex(Vec3f(x , y , z + depth));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y , z + depth));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y , z ));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y , z + depth));
+	gpu.TexCoord(Vec2f(1.0f, 0.0f));
 	gpu.Vertex(Vec3f(x + width, y , z ));
 
-	gpu.Color(Vec4f(0.0f, 1.0f, 1.0f, 1.0f));
+	//gpu.Color(Vec4f(0.0f, 1.0f, 1.0f, 1.0f));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y + height, z ));
+	gpu.TexCoord(Vec2f(1.0f, 0.0f));
 	gpu.Vertex(Vec3f(x + width, y + height, z ));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.TexCoord(Vec2f(0.0f, 0.0f));
 	gpu.Vertex(Vec3f(x , y + height, z ));
+	gpu.TexCoord(Vec2f(1.0f, 1.0f));
 	gpu.Vertex(Vec3f(x + width, y + height, z + depth));
+	gpu.TexCoord(Vec2f(0.0f, 1.0f));
 	gpu.Vertex(Vec3f(x , y + height, z + depth));
 
 	gpu.EndObject();
@@ -170,8 +206,10 @@ int main(int argc, char *argv[])
 
 			gpu.SetMatrixMode(MatrixMode::Model);
 			gpu.Identity();
-			gpu.Rotate(Vec3f(x, -0.5f, 0.0f));
+			gpu.Rotate(Vec3f(x, x * 0.5f, 0.0f));
 			gpu.Translate(Vec3f(-0.5f, -0.5f, -0.5f));
+
+			gpu.BindTexture("Assets/crate.png");
 
 			DrawBox(gpu, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
 

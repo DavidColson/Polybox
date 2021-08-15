@@ -1,7 +1,12 @@
 #include "GraphicsChip.h"
 
+#include <bimg/decode.h>
+#include <bimg/bimg.h>
 #include <bx/bx.h>
+#include <bx/allocator.h>
+#include <bx/error.h>
 #include <shaderc/shaderc.h>
+#include <SDL_rwops.h>
 
 
 // ***********************************************************************
@@ -81,7 +86,19 @@ void GraphicsChip::Init()
         pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core.vs", "", "Shaders/varying.def.sc");
         bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
 
-        m_coreProgram = bgfx::createProgram(vsShader, fsShader, true);
+        m_programBase = bgfx::createProgram(vsShader, fsShader, true);
+    }
+
+    {
+        const bgfx::Memory* pFsShaderMem = nullptr;
+        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/core.fs", "TEXTURING", "Shaders/varying.def.sc");
+        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
+
+        const bgfx::Memory* pVsShaderMem = nullptr;
+        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core.vs", "TEXTURING", "Shaders/varying.def.sc");
+        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
+
+        m_programTexturing = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
@@ -115,7 +132,8 @@ void GraphicsChip::Init()
 					};
 
     m_frameBuffer = bgfx::createFrameBuffer(BX_COUNTOF(gbufferTex), gbufferTex, true);
-    m_frameBufferSampler = bgfx::createUniform("m_textureSampler", bgfx::UniformType::Sampler);
+    m_frameBufferSampler = bgfx::createUniform("fullscreenFrameSampler", bgfx::UniformType::Sampler);
+	m_colorTextureSampler = bgfx::createUniform("colorTextureSampler",  bgfx::UniformType::Sampler);
 }
 
 // ***********************************************************************
@@ -187,6 +205,8 @@ void GraphicsChip::EndObject()
     Vec3f* verts = (Vec3f*)tvb.data;
     bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
 
+    
+
     // Submit draw call
     bgfx::setViewClear(m_virtualWindowView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x404040ff, 1.0f, 0);
     bgfx::setViewRect(m_virtualWindowView, 0, 0, 320, 240);
@@ -196,7 +216,16 @@ void GraphicsChip::EndObject()
     bgfx::setTransform(&m_matrixStates[(size_t)MatrixMode::Model]);
 	bgfx::setState(state);
     bgfx::setVertexBuffer(0, &tvb);
-    bgfx::submit(m_virtualWindowView, m_coreProgram);
+
+    if (bgfx::isValid(m_textureState))
+    {
+        bgfx::setTexture(0, m_colorTextureSampler, m_textureState);
+        bgfx::submit(m_virtualWindowView, m_programTexturing);
+    }
+    else
+    {
+        bgfx::submit(m_virtualWindowView, m_programBase);
+    }
 
     m_vertexState.clear();
 }
@@ -205,7 +234,7 @@ void GraphicsChip::EndObject()
 
 void GraphicsChip::Vertex(Vec3f vec)
 {
-    m_vertexState.push_back({vec, m_vertexColorState});
+    m_vertexState.push_back({vec, m_vertexColorState, m_vertexTexCoordState});
 }
 
 // ***********************************************************************
@@ -213,6 +242,13 @@ void GraphicsChip::Vertex(Vec3f vec)
 void GraphicsChip::Color(Vec4f col)
 {
     m_vertexColorState = col;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::TexCoord(Vec2f tex)
+{
+    m_vertexTexCoordState = tex;
 }
 
 // ***********************************************************************
@@ -255,4 +291,64 @@ void GraphicsChip::Scale(Vec3f scaling)
 void GraphicsChip::Identity()
 {
     m_matrixStates[(size_t)m_matrixModeState] = Matrixf::Identity();
+}
+
+// ***********************************************************************
+
+void ImageFreeCallback(void* ptr, void* userData)
+{
+    bimg::ImageContainer* pContainer = (bimg::ImageContainer*)userData;
+    bimg::imageFree(pContainer);
+}
+
+// ***********************************************************************
+
+uint64_t StringHash(const char* str)
+{
+    uint64_t offset = 14695981039346656037u;
+    uint64_t prime = 1099511628211u;
+
+    uint64_t hash = offset;
+    while (*str != 0)
+    {
+        hash ^= *str++;
+        hash *= prime;
+    }
+    return hash;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::BindTexture(const char* texturePath)
+{
+    uint64_t id = StringHash(texturePath);
+    if (m_textureCache.count(id) == 0)
+    {
+        // Load and cache texture files and upload to bgfx
+        SDL_RWops* pFileRead = SDL_RWFromFile(texturePath, "rb");
+
+        uint64_t size = SDL_RWsize(pFileRead);
+        void* pData = new char[size];
+        SDL_RWread(pFileRead, pData, size, 1);
+        SDL_RWclose(pFileRead);
+        
+        static bx::DefaultAllocator allocator;
+        bx::Error error;
+        bimg::ImageContainer* pContainer = bimg::imageParse(&allocator, pData, (uint32_t)size, bimg::TextureFormat::Count, &error);
+
+        const bgfx::Memory* pMem = bgfx::makeRef(pContainer->m_data, pContainer->m_size, ImageFreeCallback, pContainer);
+        m_textureCache[id] = bgfx::createTexture2D(pContainer->m_width, pContainer->m_height, 1 < pContainer->m_numMips, pContainer->m_numLayers, bgfx::TextureFormat::Enum(pContainer->m_format), BGFX_TEXTURE_NONE|BGFX_SAMPLER_POINT, pMem);
+
+        bgfx::setName(m_textureCache[id], texturePath);
+        delete pData;
+    }
+    // Save as current texture state for binding in endObject
+    m_textureState = m_textureCache[id];
+}
+
+// ***********************************************************************
+
+void GraphicsChip::UnbindTexture()
+{
+    m_textureState = BGFX_INVALID_HANDLE;
 }

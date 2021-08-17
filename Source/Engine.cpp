@@ -11,6 +11,7 @@
 
 #include "GraphicsChip.h"
 #include "Shapes.h"
+#include "Model.h"
 
 // This defines a macro called min somehow? We should avoid it at all costs and include it last
 #include <SDL_syswm.h>
@@ -53,6 +54,8 @@ int main(int argc, char *argv[])
 
 		GraphicsChip gpu = GraphicsChip();
 		gpu.Init();
+
+		Scene tankScene("Assets/tank.gltf");
 
 		bool gameRunning = true;
 		float deltaTime = 0.016f;
@@ -109,27 +112,52 @@ int main(int argc, char *argv[])
 
 			gpu.MatrixMode(EMatrixMode::View);
 			gpu.Identity();
-			gpu.Translate(Vec3f(-0.5f, -0.5f, -3.0f));
+			gpu.Rotate(Vec3f(0.2f, 0.0f, 0.0f));
+			gpu.Translate(Vec3f(0.f, -3.0f, -6.f));
 
 			static float x = 0.12f;
 			x += 0.004f;
 
+
+
+			// Setup matrix for your model
 			gpu.MatrixMode(EMatrixMode::Model);
 			gpu.Identity();
-			gpu.Rotate(Vec3f(x, x * 0.5f, 0.0f));
-			//gpu.Translate(Vec3f(-0.5f, -0.5f, -0.5f));
+			gpu.Rotate(Vec3f(0.f, x, 0.0f));
+			gpu.Translate(Vec3f(0.0f, 0.0f, 0.0f));
 
-			//gpu.BindTexture("Assets/crate.png");
+			// Bind a texture for the model
+			gpu.BindTexture("Assets/NewNewTexture.png");
 
+			// Setup some lights
 			gpu.EnableLighting(true);
-			gpu.NormalsMode(ENormalsMode::Smooth);
-			gpu.Ambient(Vec3f(0.1f, 0.1f, 0.1f));
-			gpu.Light(0, Vec3f(1.0f, -1.f, 0.0f), Vec3f(1.0f, 1.0f, 1.0f));
+			gpu.NormalsMode(ENormalsMode::Custom);
+			gpu.Ambient(Vec3f(0.4f, 0.4f, 0.4f));
+			gpu.Light(0, Vec3f(-1.0f, 1.f, 0.0f), Vec3f(1.0f, 1.0f, 1.0f));
 
-			//DrawBox(gpu, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
-			DrawIcosahedron(gpu, 3);
+			// Model is loaded very easily:
+			Scene tankScene("Assets/tank.gltf");
+			Primitive& tank = tankScene.m_models[0].m_primitives[0];
+
+			// Just draw your tank like an old fashioned fixed function pipeline
+			gpu.BeginObject(EPrimitiveType::Triangles);
+			for (size_t i = 0; i < tank.m_vertices.size(); i++)
+			{
+				gpu.Normal(tank.m_vertices[i].norm);
+				gpu.Color(tank.m_vertices[i].col);
+				gpu.TexCoord(tank.m_vertices[i].tex);
+				gpu.Vertex(tank.m_vertices[i].pos);
+			}
+			gpu.EndObject();
+
+
+
+
 
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
+
+
+
 
 			bgfx::frame();
 

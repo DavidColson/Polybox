@@ -193,7 +193,17 @@ void GraphicsChip::EndObject()
         break;
     case EPrimitiveType::Triangles:
     {
-        if (m_normalsModeState == ENormalsMode::Flat)
+        if (m_normalsModeState == ENormalsMode::Custom)
+        {
+            // create vertex buffer
+            uint32_t numVertices = (uint32_t)m_vertexState.size();
+            if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
+                return;
+            bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
+            VertexData* verts = (VertexData*)vertexBuffer.data;
+            bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
+        }
+        else if (m_normalsModeState == ENormalsMode::Flat)
         {
             for (size_t i = 0; i < m_vertexState.size(); i+=3)
             {
@@ -285,7 +295,7 @@ void GraphicsChip::EndObject()
     if (m_normalsModeState == ENormalsMode::Smooth)
         bgfx::setIndexBuffer(&indexBuffer, 0, numIndices);
 
-    Vec4f targetRes = Vec4f(320.f, 240.f, 0.f, 0.f);
+    Vec4f targetRes = Vec4f(160.f, 120.f, 0.f, 0.f);
 	bgfx::setUniform(m_targetResolutionUniform, &targetRes);
     Vec4f lightMode = Vec4f((float)m_lightingState);
     bgfx::setUniform(m_lightingStateUniform, &lightMode);

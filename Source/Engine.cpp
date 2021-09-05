@@ -56,6 +56,10 @@ int main(int argc, char *argv[])
 		gpu.Init();
 
 		Scene tankScene("Assets/tank.gltf");
+		// Have to manually set textures for now :(
+		tankScene.m_meshes[0].m_texture = "Assets/NewNewTexture.png";
+		tankScene.m_meshes[1].m_texture = "Assets/Shed.png";
+		tankScene.m_meshes[2].m_texture = "Assets/Shed.png";
 
 		bool gameRunning = true;
 		float deltaTime = 0.016f;
@@ -110,55 +114,55 @@ int main(int argc, char *argv[])
 			gpu.Identity();
 			gpu.Perspective((float)320, (float)240, 0.001f, 100.0f, 60.0f);
 
-			gpu.MatrixMode(EMatrixMode::View);
-			gpu.Identity();
-			gpu.Rotate(Vec3f(0.2f, 0.0f, 0.0f));
-			gpu.Translate(Vec3f(0.f, -3.0f, -6.f));
 
 			static float x = 0.12f;
-			x += 0.004f;
-
-
-
-			// Setup matrix for your model
-			gpu.MatrixMode(EMatrixMode::Model);
+			x += 0.008f;
+			
+			gpu.MatrixMode(EMatrixMode::View);
 			gpu.Identity();
-			gpu.Rotate(Vec3f(0.f, x, 0.0f));
-			gpu.Translate(Vec3f(0.0f, 0.0f, 0.0f));
-
-			// Bind a texture for the model
-			gpu.BindTexture("Assets/NewNewTexture.png");
-
+			gpu.Rotate(Vec3f(0.0f, 3.6f + sin(x) * 0.18f, 0.0f));
+			gpu.Translate(Vec3f(1.f, -2.5f, 6.5f));
+			
 			// Setup some lights
 			gpu.EnableLighting(true);
 			gpu.NormalsMode(ENormalsMode::Custom);
 			gpu.Ambient(Vec3f(0.4f, 0.4f, 0.4f));
 			gpu.Light(0, Vec3f(-1.0f, 1.f, 0.0f), Vec3f(1.0f, 1.0f, 1.0f));
 
-			// Model is loaded very easily:
-			Scene tankScene("Assets/tank.gltf");
-			Primitive& tank = tankScene.m_models[0].m_primitives[0];
 
-			// Just draw your tank like an old fashioned fixed function pipeline
-			gpu.BeginObject(EPrimitiveType::Triangles);
-			for (size_t i = 0; i < tank.m_vertices.size(); i++)
+			for (size_t i = 0; i < tankScene.m_nodes.size(); i++)
 			{
-				gpu.Normal(tank.m_vertices[i].norm);
-				gpu.Color(tank.m_vertices[i].col);
-				gpu.TexCoord(tank.m_vertices[i].tex);
-				gpu.Vertex(tank.m_vertices[i].pos);
+				Node& node = tankScene.m_nodes[i];
+
+				// Setup matrix for your model
+				gpu.MatrixMode(EMatrixMode::Model);
+				gpu.Identity();
+				gpu.Translate(node.m_translation);
+				gpu.Rotate(node.m_rotation.GetEulerAngles());
+				gpu.Scale(node.m_scale);
+				
+				Mesh& mesh = tankScene.m_meshes[node.m_meshId];
+
+				// Bind a texture for the model
+				gpu.BindTexture(mesh.m_texture.c_str());
+
+				Primitive& prim = mesh.m_primitives[0];
+
+				// Just draw your tank like an old fashioned fixed function pipeline
+				gpu.BeginObject(EPrimitiveType::Triangles);
+				for (size_t i = 0; i < prim.m_vertices.size(); i++)
+				{
+					gpu.Normal(prim.m_vertices[i].norm);
+					gpu.Color(prim.m_vertices[i].col);
+					gpu.TexCoord(prim.m_vertices[i].tex);
+					gpu.Vertex(prim.m_vertices[i].pos);
+				}
+				gpu.EndObject();
 			}
-			gpu.EndObject();
-
-
-
-
-
+		
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
 
-
-
-
+			//bgfx::setDebug(BGFX_DEBUG_STATS);
 			bgfx::frame();
 
 			deltaTime = float(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();

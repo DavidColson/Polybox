@@ -295,7 +295,7 @@ void GraphicsChip::EndObject()
     if (m_normalsModeState == ENormalsMode::Smooth)
         bgfx::setIndexBuffer(&indexBuffer, 0, numIndices);
 
-    Vec4f targetRes = Vec4f(160.f, 120.f, 0.f, 0.f);
+    Vec4f targetRes = Vec4f(320.f, 240.f, 0.f, 0.f);
 	bgfx::setUniform(m_targetResolutionUniform, &targetRes);
     Vec4f lightMode = Vec4f((float)m_lightingState);
     bgfx::setUniform(m_lightingStateUniform, &lightMode);

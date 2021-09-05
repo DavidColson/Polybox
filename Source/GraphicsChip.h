@@ -71,6 +71,7 @@ public:
     void Identity();
 
     // Texturing
+    // ENable/Disable texturing
     void BindTexture(const char* texturePath);
     void UnbindTexture();
 

@@ -565,7 +565,7 @@ namespace bgfx { namespace hlsl
 		s_compiler = load();
 
 		bool result = false;
-		bool debug = _options.debugInformation;
+		bool debug = true;
 
 		uint32_t flags = D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
 		flags |= debug ? D3DCOMPILE_DEBUG : 0;

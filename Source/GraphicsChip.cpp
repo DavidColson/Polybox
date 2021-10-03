@@ -7,6 +7,7 @@
 #include <bx/error.h>
 #include <shaderc/shaderc.h>
 #include <SDL_rwops.h>
+#include <SDL_timer.h>
 
 
 // ***********************************************************************
@@ -114,6 +115,18 @@ void GraphicsChip::Init()
         m_fullscreenTexProgram = bgfx::createProgram(vsShader, fsShader, true);
     }
 
+    {
+        const bgfx::Memory* pFsShaderMem = nullptr;
+        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/crt.fs", "", "Shaders/varying.def.sc");
+        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
+
+        const bgfx::Memory* pVsShaderMem = nullptr;
+        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/fullscreen.vs", "", "Shaders/varying.def.sc");
+        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
+
+        m_crtProgram = bgfx::createProgram(vsShader, fsShader, true);
+    }
+
     for (size_t i = 0; i < 3; i++)
     {
         m_matrixStates[i] = Matrixf::Identity();
@@ -142,6 +155,7 @@ void GraphicsChip::Init()
     m_lightAmbientUniform = bgfx::createUniform("u_lightAmbient", bgfx::UniformType::Vec4);
     m_fogDepthsUniform = bgfx::createUniform("u_fogDepths", bgfx::UniformType::Vec4);
     m_fogColorUniform = bgfx::createUniform("u_fogColor", bgfx::UniformType::Vec4);
+    m_crtDataUniform = bgfx::createUniform("u_crtData", bgfx::UniformType::Vec4);
 }
 
 // ***********************************************************************
@@ -153,11 +167,14 @@ void GraphicsChip::DrawFrame(float w, float h)
 
     Matrixf ortho = Matrixf::Orthographic(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 100.0f);
 
+    Vec4f crtData = Vec4f(w, h, float(SDL_GetTicks()) / 1000.0f, 0.0f);
+	bgfx::setUniform(m_crtDataUniform, &crtData);
+
     bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A );
 	bgfx::setViewTransform(m_realWindowView, NULL, &ortho);
     bgfx::setTexture(0, m_frameBufferSampler, bgfx::getTexture(m_frameBuffer));
     ScreenSpaceQuad(w, h, 0.0f, true);
-    bgfx::submit(m_realWindowView, m_fullscreenTexProgram);
+    bgfx::submit(m_realWindowView, m_crtProgram);
 }
 
 // ***********************************************************************
@@ -182,6 +199,8 @@ void GraphicsChip::EndObject()
     bgfx::TransientIndexBuffer indexBuffer;
     int numIndices;
 
+    vertexBuffer.data = nullptr;
+
     switch (m_typeState)
     {
     case EPrimitiveType::Points:
@@ -195,17 +214,7 @@ void GraphicsChip::EndObject()
         break;
     case EPrimitiveType::Triangles:
     {
-        if (m_normalsModeState == ENormalsMode::Custom)
-        {
-            // create vertex buffer
-            uint32_t numVertices = (uint32_t)m_vertexState.size();
-            if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
-                return;
-            bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
-            VertexData* verts = (VertexData*)vertexBuffer.data;
-            bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
-        }
-        else if (m_normalsModeState == ENormalsMode::Flat)
+        if (m_normalsModeState == ENormalsMode::Flat)
         {
             for (size_t i = 0; i < m_vertexState.size(); i+=3)
             {
@@ -284,6 +293,16 @@ void GraphicsChip::EndObject()
         break;
     }
 
+    if (vertexBuffer.data == nullptr)
+    {
+        // create vertex buffer
+        uint32_t numVertices = (uint32_t)m_vertexState.size();
+        if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
+            return;
+        bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
+        VertexData* verts = (VertexData*)vertexBuffer.data;
+        bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
+    }
 
     // Submit draw call
 

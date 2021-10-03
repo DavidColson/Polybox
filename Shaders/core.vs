@@ -41,7 +41,7 @@ void main()
 		float lightMag = max(dot(normalize(u_lightDirection[0].xyz), norm.xyz), 0.0);
 		vec3 diffuse = lightMag * u_lightColor[0];
 
-		v_color0 = vec4(a_color0.xyz * (u_lightAmbient.xyz + diffuse), a_color0.z);
+		v_color0 = vec4(a_color0.xyz * (u_lightAmbient.xyz + diffuse), a_color0.w);
 	}
 	v_texcoord0 = a_texcoord0;
 }

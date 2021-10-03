@@ -136,8 +136,10 @@ private:
     bgfx::UniformHandle m_fogColorUniform{ BGFX_INVALID_HANDLE };
 
     bgfx::ProgramHandle m_fullscreenTexProgram{ BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle m_crtProgram{ BGFX_INVALID_HANDLE };
     bgfx::FrameBufferHandle m_frameBuffer{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_frameBufferSampler{ BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle m_crtDataUniform{ BGFX_INVALID_HANDLE };
 
     // Texture memory
     std::map<uint64_t, bgfx::TextureHandle> m_textureCache;

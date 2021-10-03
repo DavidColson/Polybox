@@ -141,8 +141,8 @@ void GraphicsChip::Init()
 
     bgfx::TextureHandle gbufferTex[] =
 					{
-						bgfx::createTexture2D(320, 240, false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
-						bgfx::createTexture2D(320, 240, false, 1, bgfx::TextureFormat::D32F,tsFlags),
+						bgfx::createTexture2D(uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y), false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
+						bgfx::createTexture2D(uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y), false, 1, bgfx::TextureFormat::D32F,tsFlags),
 					};
 
     m_frameBuffer = bgfx::createFrameBuffer(BX_COUNTOF(gbufferTex), gbufferTex, true);
@@ -308,7 +308,7 @@ void GraphicsChip::EndObject()
 
     uint32_t clear = (255 << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
     bgfx::setViewClear(m_virtualWindowView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, clear, 1.0f, 0);
-    bgfx::setViewRect(m_virtualWindowView, 0, 0, 320, 240);
+    bgfx::setViewRect(m_virtualWindowView, 0, 0, uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y));
     bgfx::setViewFrameBuffer(m_virtualWindowView, m_frameBuffer);
 
     bgfx::setViewTransform(m_virtualWindowView, &m_matrixStates[(size_t)EMatrixMode::View], &m_matrixStates[(size_t)EMatrixMode::Projection]);
@@ -318,7 +318,7 @@ void GraphicsChip::EndObject()
     if (m_normalsModeState == ENormalsMode::Smooth)
         bgfx::setIndexBuffer(&indexBuffer, 0, numIndices);
 
-    Vec4f targetRes = Vec4f(320.f, 240.f, 0.f, 0.f);
+    Vec4f targetRes = Vec4f(m_targetResolution.x, m_targetResolution.y, 0.f, 0.f);
 	bgfx::setUniform(m_targetResolutionUniform, &targetRes);
     Vec4f lightMode = Vec4f((float)m_lightingState);
     bgfx::setUniform(m_lightingStateUniform, &lightMode);

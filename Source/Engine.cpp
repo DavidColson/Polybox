@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
 
 
 			static float x = 0.12f;
-			x += 0.008f;
+			x += 0.004f;
 			
 			gpu.MatrixMode(EMatrixMode::View);
 			gpu.Identity();

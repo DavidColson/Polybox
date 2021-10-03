@@ -93,6 +93,8 @@ private:
     void ScreenSpaceQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f);
 
 
+    Vec2f m_targetResolution{ Vec2f(320.0f, 240.0f) };
+
     // Drawing state
     EPrimitiveType m_typeState;
     std::vector<VertexData> m_vertexState;

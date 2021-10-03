@@ -12,7 +12,7 @@ uniform vec4 u_fogDepths;
 
 void main()
 {
-	vec2 resolution = u_targetResolution.xy;
+	vec2 resolution = u_targetResolution.xy * 0.5;
 	vec4 vert = mul(u_modelViewProj, vec4(a_position, 1.0) );
 	vec3 norm = mul(u_model[0], vec4(a_normal.xyz, 0.0) ).xyz;
 

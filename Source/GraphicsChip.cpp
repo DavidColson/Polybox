@@ -140,6 +140,8 @@ void GraphicsChip::Init()
     m_lightDirectionUniform = bgfx::createUniform("u_lightDirection", bgfx::UniformType::Vec4, MAX_LIGHTS);
     m_lightColorUniform = bgfx::createUniform("u_lightColor", bgfx::UniformType::Vec4, MAX_LIGHTS);
     m_lightAmbientUniform = bgfx::createUniform("u_lightAmbient", bgfx::UniformType::Vec4);
+    m_fogDepthsUniform = bgfx::createUniform("u_fogDepths", bgfx::UniformType::Vec4);
+    m_fogColorUniform = bgfx::createUniform("u_fogColor", bgfx::UniformType::Vec4);
 }
 
 // ***********************************************************************
@@ -284,7 +286,9 @@ void GraphicsChip::EndObject()
 
 
     // Submit draw call
-    bgfx::setViewClear(m_virtualWindowView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x404040ff, 1.0f, 0);
+
+    uint32_t clear = (255 << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
+    bgfx::setViewClear(m_virtualWindowView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, clear, 1.0f, 0);
     bgfx::setViewRect(m_virtualWindowView, 0, 0, 320, 240);
     bgfx::setViewFrameBuffer(m_virtualWindowView, m_frameBuffer);
 
@@ -303,6 +307,11 @@ void GraphicsChip::EndObject()
     bgfx::setUniform(m_lightColorUniform, m_lightColorStates);
     Vec4f ambient = Vec4f::Embed3D(m_lightAmbientState);
     bgfx::setUniform(m_lightAmbientUniform, &ambient);
+    Vec4f fogDepths = Vec4f::Embed2D(m_fogDepths);
+    fogDepths.z = float(m_fogState);
+    bgfx::setUniform(m_fogDepthsUniform, &fogDepths);
+    Vec4f fogColor = Vec4f::Embed3D(m_fogColor);
+    bgfx::setUniform(m_fogColorUniform, &fogColor);
 
     if (bgfx::isValid(m_textureState))
     {
@@ -343,6 +352,13 @@ void GraphicsChip::TexCoord(Vec2f tex)
 void GraphicsChip::Normal(Vec3f norm)
 {
     m_vertexNormalState = norm;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::SetClearColor(Vec3f color)
+{
+    m_clearColor = color;
 }
 
 // ***********************************************************************
@@ -477,4 +493,32 @@ void GraphicsChip::Light(int id, Vec3f direction, Vec3f color)
 void GraphicsChip::Ambient(Vec3f color)
 {
     m_lightAmbientState = color;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::EnableFog(bool enabled)
+{
+    m_fogState = enabled;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::SetFogStart(float start)
+{
+    m_fogDepths.x = start;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::SetFogEnd(float end)
+{
+    m_fogDepths.y = end;
+}
+
+// ***********************************************************************
+
+void GraphicsChip::SetFogColor(Vec3f color)
+{
+    m_fogColor = color;
 }

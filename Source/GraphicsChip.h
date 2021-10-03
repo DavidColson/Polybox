@@ -62,6 +62,8 @@ public:
     void TexCoord(Vec2f tex);
     void Normal(Vec3f norm);
 
+    void SetClearColor(Vec3f color);
+
     // Transforms
     void MatrixMode(EMatrixMode mode);
     void Perspective(float screenWidth, float screenHeight, float nearPlane, float farPlane, float fov);
@@ -81,6 +83,12 @@ public:
     void Light(int id, Vec3f direction, Vec3f color);
     void Ambient(Vec3f color);
 
+    // Depth Cueing
+    void EnableFog(bool enabled);
+    void SetFogStart(float start);
+    void SetFogEnd(float end);
+    void SetFogColor(Vec3f color);
+
 private:
     void ScreenSpaceQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f);
 
@@ -95,11 +103,17 @@ private:
     EMatrixMode m_matrixModeState;
     Matrixf m_matrixStates[(size_t)EMatrixMode::Count];
 
+    Vec3f m_clearColor{ Vec3f(0.25f, 0.25f, 0.25f) };
+
     ENormalsMode m_normalsModeState;
     bool m_lightingState{ false };
     Vec3f m_lightDirectionsStates[MAX_LIGHTS];
     Vec3f m_lightColorStates[MAX_LIGHTS];
     Vec3f m_lightAmbientState{ Vec3f(0.0f, 0.0f, 0.0f) };
+
+    bool m_fogState{ false };
+    Vec2f m_fogDepths{ Vec2f(1.0f, 10.0f) };
+    Vec3f m_fogColor{ Vec3f(0.25f, 0.25f, 0.25f) };
 
     bgfx::TextureHandle m_textureState{ BGFX_INVALID_HANDLE };
     
@@ -118,6 +132,8 @@ private:
     bgfx::UniformHandle m_lightDirectionUniform{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_lightColorUniform{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_lightAmbientUniform{ BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle m_fogDepthsUniform{ BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle m_fogColorUniform{ BGFX_INVALID_HANDLE };
 
     bgfx::ProgramHandle m_fullscreenTexProgram{ BGFX_INVALID_HANDLE };
     bgfx::FrameBufferHandle m_frameBuffer{ BGFX_INVALID_HANDLE };

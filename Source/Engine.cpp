@@ -159,6 +159,9 @@ int main(int argc, char *argv[])
 			gpu.Ambient(Vec3f(0.4f, 0.4f, 0.4f));
 			gpu.Light(0, Vec3f(-1.0f, 1.f, 0.0f), Vec3f(1.0f, 1.0f, 1.0f));
 
+			gpu.EnableFog(true);
+			gpu.SetFogStart(3.0f);
+			gpu.SetFogEnd(15.0f);
 
 			for (size_t i = 0; i < tankScene.m_nodes.size(); i++)
 			{

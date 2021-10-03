@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 
 			gpu.MatrixMode(EMatrixMode::Projection);
 			gpu.Identity();
-			gpu.Perspective((float)320, (float)240, 0.001f, 50.0f, 60.0f);
+			gpu.Perspective((float)320, (float)240, 1.0f, 20.0f, 60.0f);
 
 
 			static float x = 0.12f;
@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
 			
 			gpu.MatrixMode(EMatrixMode::View);
 			gpu.Identity();
-			gpu.Rotate(Vec3f(0.0f, 3.6f + sin(x) * 0.18f, 0.0f));
+			gpu.Rotate(Vec3f(0.0f, 3.6f + sin(x) * 0.28f, 0.0f));
 			gpu.Translate(Vec3f(1.f, -2.5f, 6.5f));
 			
 			// Setup some lights
@@ -174,6 +174,43 @@ int main(int argc, char *argv[])
 				gpu.Scale(node.m_worldTransform.GetScaling());
 				
 				Mesh& mesh = tankScene.m_meshes[node.m_meshId];
+				if (mesh.m_name == "BlobShadow")
+					continue; // We'll skip the mostly transparent blob shadows and do them later
+
+				Primitive& prim = mesh.m_primitives[0];
+				
+				// Bind a texture for the model
+				gpu.BindTexture(tankScene.m_images[prim.m_baseColorTexture].c_str());
+
+				// Just draw your tank like an old fashioned fixed function pipeline
+				gpu.BeginObject(EPrimitiveType::Triangles);
+				for (size_t i = 0; i < prim.m_vertices.size(); i++)
+				{
+					gpu.Normal(prim.m_vertices[i].norm);
+					gpu.Color(prim.m_vertices[i].col);
+					gpu.TexCoord(prim.m_vertices[i].tex);
+					gpu.Vertex(prim.m_vertices[i].pos);
+				}
+				gpu.EndObject();
+			}
+
+			for (size_t i = 0; i < tankScene.m_nodes.size(); i++)
+			{
+				Node& node = tankScene.m_nodes[i];
+				if (node.m_meshId == UINT32_MAX)
+					continue;
+
+				// Setup matrix for your model
+				gpu.MatrixMode(EMatrixMode::Model);
+				gpu.Identity();
+				gpu.Translate(node.m_worldTransform.GetTranslation());
+				gpu.Rotate(node.m_worldTransform.GetEulerRotation());
+				gpu.Scale(node.m_worldTransform.GetScaling());
+				
+				Mesh& mesh = tankScene.m_meshes[node.m_meshId];
+				if (mesh.m_name != "BlobShadow")
+					continue; // We'll skip the mostly transparent blob shadows and do them later
+
 				Primitive& prim = mesh.m_primitives[0];
 				
 				// Bind a texture for the model

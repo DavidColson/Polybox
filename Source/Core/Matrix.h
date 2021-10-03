@@ -281,7 +281,7 @@ struct Matrix
     {
         // http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
 
-        ASSERT(IsRotationOrthonormal(), "Cannot convert a non-orthonormal matrix to a quat");
+        //ASSERT(IsRotationOrthonormal(), "Cannot convert a non-orthonormal matrix to a quat");
 
         Quat<T> q;
         T trace = m[0][0] + m[1][1] + m[2][2];
@@ -362,7 +362,26 @@ struct Matrix
         outTranslation.z = m.m[3][2];
 	}
 
-	inline Vec3<T> GetTranslation()
+	inline Vec3<T> GetScaling() const
+	{
+		Matrix<T> m = *this;
+        return m.ExtractScaling();
+	}
+
+	inline Vec3<T> GetEulerRotation() const
+	{
+		Matrix<T> m = *this;
+        // Extract scaling first from each row
+        m.ExtractScaling();
+
+        // Special case for negative scaling
+		if (m.GetDeterminant() < 0.f)
+            m.m[0][0] = -m.m[0][0]; m.m[1][0] = -m.m[1][0]; m.m[2][0] = -m.m[2][0];
+
+        return m.ToQuat().GetEulerAngles();
+	}
+
+	inline Vec3<T> GetTranslation() const 
 	{
 		Vec3<T> outTrans;
 

@@ -20,6 +20,39 @@
 
 #include <SDL.h>
 
+void RecursiveTransformTree(Node* pTreeBase)
+{
+	for (Node* pChild : pTreeBase->m_children)
+	{
+		Matrixf childLocalTrans = Matrixf::MakeTQS(pChild->m_translation, pChild->m_rotation, pChild->m_scale);
+		pChild->m_worldTransform = pTreeBase->m_worldTransform * childLocalTrans;
+
+		if (!pChild->m_children.empty())
+			RecursiveTransformTree(pChild);
+	}
+}
+
+void TransformNodeHeirarchy(std::vector<Node>& nodeList)
+{
+	std::vector<Node*> rootTransforms;
+
+	for (Node& node : nodeList)
+	{
+		if (node.m_pParent == nullptr)
+		{
+			node.m_worldTransform = Matrixf::MakeTQS(node.m_translation, node.m_rotation, node.m_scale);
+
+			if (!node.m_children.empty())
+				rootTransforms.push_back(&node);
+		}
+	}
+
+	for (Node* pRoot : rootTransforms)
+	{
+		RecursiveTransformTree(pRoot);
+	}	
+}
+
 int main(int argc, char *argv[])
 {
 	{
@@ -56,10 +89,7 @@ int main(int argc, char *argv[])
 		gpu.Init();
 
 		Scene tankScene("Assets/tank.gltf");
-		// Have to manually set textures for now :(
-		tankScene.m_meshes[0].m_texture = "Assets/NewNewTexture.png";
-		tankScene.m_meshes[1].m_texture = "Assets/Shed.png";
-		tankScene.m_meshes[2].m_texture = "Assets/Shed.png";
+		TransformNodeHeirarchy(tankScene.m_nodes);
 
 		bool gameRunning = true;
 		float deltaTime = 0.016f;
@@ -112,7 +142,7 @@ int main(int argc, char *argv[])
 
 			gpu.MatrixMode(EMatrixMode::Projection);
 			gpu.Identity();
-			gpu.Perspective((float)320, (float)240, 0.001f, 100.0f, 60.0f);
+			gpu.Perspective((float)320, (float)240, 0.001f, 50.0f, 60.0f);
 
 
 			static float x = 0.12f;
@@ -133,20 +163,21 @@ int main(int argc, char *argv[])
 			for (size_t i = 0; i < tankScene.m_nodes.size(); i++)
 			{
 				Node& node = tankScene.m_nodes[i];
+				if (node.m_meshId == UINT32_MAX)
+					continue;
 
 				// Setup matrix for your model
 				gpu.MatrixMode(EMatrixMode::Model);
 				gpu.Identity();
-				gpu.Translate(node.m_translation);
-				gpu.Rotate(node.m_rotation.GetEulerAngles());
-				gpu.Scale(node.m_scale);
+				gpu.Translate(node.m_worldTransform.GetTranslation());
+				gpu.Rotate(node.m_worldTransform.GetEulerRotation());
+				gpu.Scale(node.m_worldTransform.GetScaling());
 				
 				Mesh& mesh = tankScene.m_meshes[node.m_meshId];
-
-				// Bind a texture for the model
-				gpu.BindTexture(mesh.m_texture.c_str());
-
 				Primitive& prim = mesh.m_primitives[0];
+				
+				// Bind a texture for the model
+				gpu.BindTexture(tankScene.m_images[prim.m_baseColorTexture].c_str());
 
 				// Just draw your tank like an old fashioned fixed function pipeline
 				gpu.BeginObject(EPrimitiveType::Triangles);

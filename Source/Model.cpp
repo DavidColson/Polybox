@@ -6,55 +6,121 @@
 #include <SDL_rwops.h>
 
 // Actually owns the data
-    struct Buffer
+struct Buffer
+{
+    char* pBytes{ nullptr };
+    size_t byteLength{ 0 };
+};
+
+// Does not actually own the data
+struct BufferView
+{
+    // pointer to some place in a buffer
+    char* pBuffer{ nullptr };
+    size_t length{ 0 };
+
+    enum Target
     {
-        char* pBytes{ nullptr };
-        size_t byteLength{ 0 };
+        Array,
+        ElementArray
     };
+    Target target;    
+};
 
-    // Does not actually own the data
-    struct BufferView
+struct Accessor
+{
+    // pointer to some place in a buffer view
+    char* pBuffer{ nullptr };
+    int count{ 0 };
+    enum ComponentType
     {
-        // pointer to some place in a buffer
-        char* pBuffer{ nullptr };
-        size_t length{ 0 };
-
-        enum Target
-        {
-            Array,
-            ElementArray
-        };
-        Target target;    
+        Byte,
+        UByte,
+        Short,
+        UShort,
+        UInt,
+        Float
     };
+    ComponentType componentType;
 
-    struct Accessor
+    enum Type
     {
-        // pointer to some place in a buffer view
-        char* pBuffer{ nullptr };
-        int count{ 0 };
-        enum ComponentType
-        {
-            Byte,
-            UByte,
-            Short,
-            UShort,
-            UInt,
-            Float
-        };
-        ComponentType componentType;
-
-        enum Type
-        {
-            Scalar,
-            Vec2,
-            Vec3,
-            Vec4,
-            Mat2,
-            Mat3,
-            Mat4
-        };
-        Type type;
+        Scalar,
+        Vec2,
+        Vec3,
+        Vec4,
+        Mat2,
+        Mat3,
+        Mat4
     };
+    Type type;
+};
+
+void ParseNodesRecursively(Node* pParent, std::vector<Node>& outNodes, JsonValue& nodeToParse, JsonValue& nodesData)
+{
+    for (int i = 0; i < nodeToParse.Count(); i++)
+    {
+        int nodeId = nodeToParse[i].ToInt();
+        JsonValue& jsonNode = nodesData[nodeId];
+
+        // extract the nodes
+        outNodes.emplace_back();
+        Node& node = outNodes.back();
+
+        node.m_name = jsonNode.HasKey("name") ? jsonNode["name"].ToString() : "";
+        node.m_meshId = UINT32_MAX;
+
+        if (jsonNode.HasKey("children"))
+        {
+            ParseNodesRecursively(&node, outNodes, jsonNode["children"], nodesData);
+        }
+
+        if (pParent)
+        {
+            pParent->m_children.push_back(&node);
+            node.m_pParent = pParent;
+        }
+
+        if (jsonNode.HasKey("mesh"))
+        {
+            node.m_meshId = jsonNode["mesh"].ToInt();
+        }
+
+        if (jsonNode.HasKey("rotation"))
+        {
+            node.m_rotation.x = float(jsonNode["rotation"][0].ToFloat());
+            node.m_rotation.y = float(jsonNode["rotation"][1].ToFloat());
+            node.m_rotation.z = float(jsonNode["rotation"][2].ToFloat());
+            node.m_rotation.w = float(jsonNode["rotation"][3].ToFloat());
+        }
+        else
+        {
+            node.m_rotation = Quatf::Identity();
+        }
+
+        if (jsonNode.HasKey("translation"))
+        {
+            node.m_translation.x = float(jsonNode["translation"][0].ToFloat());
+            node.m_translation.y = float(jsonNode["translation"][1].ToFloat());
+            node.m_translation.z = float(jsonNode["translation"][2].ToFloat());
+        }
+        else
+        {
+            node.m_translation = Vec3f(0.0f);
+        }
+
+        if (jsonNode.HasKey("scale"))
+        {
+            node.m_scale.x = float(jsonNode["scale"][0].ToFloat());
+            node.m_scale.y = float(jsonNode["scale"][1].ToFloat());
+            node.m_scale.z = float(jsonNode["scale"][2].ToFloat());
+        }
+        else
+        {
+            node.m_scale = Vec3f(1.0f);
+        }
+    } 
+}
 
 Scene::Scene(std::string filePath)
 {
@@ -146,57 +212,20 @@ Scene::Scene(std::string filePath)
         accessors.push_back(acc);
     }
     
-    m_nodes.reserve(parsed["scenes"][0]["nodes"].Count());
-    for (int i = 0; i < parsed["scenes"][0]["nodes"].Count(); i++)
+    m_nodes.reserve(parsed["nodes"].Count());
+    ParseNodesRecursively(nullptr, m_nodes, parsed["scenes"][0]["nodes"], parsed["nodes"]);
+
+    if (parsed.HasKey("images"))
     {
-        int nodeId = parsed["scenes"][0]["nodes"][i].ToInt();
-        JsonValue& jsonNode = parsed["nodes"][nodeId];
-
-        // extract the nodes
-        Node node;
-        node.m_name = jsonNode.HasKey("name") ? jsonNode["name"].ToString() : "";
-
-        if (jsonNode.HasKey("mesh"))
+        m_images.reserve(parsed["images"].Count());
+        for (size_t i = 0; i < parsed["images"].Count(); i++)
         {
-            node.m_meshId = jsonNode["mesh"].ToInt();
-
-            if (jsonNode.HasKey("rotation"))
-            {
-                node.m_rotation.x = float(jsonNode["rotation"][0].ToFloat());
-                node.m_rotation.y = float(jsonNode["rotation"][1].ToFloat());
-                node.m_rotation.z = float(jsonNode["rotation"][2].ToFloat());
-                node.m_rotation.w = float(jsonNode["rotation"][3].ToFloat());
-            }
-            else
-            {
-                node.m_rotation = Quatf::Identity();
-            }
-
-            if (jsonNode.HasKey("translation"))
-            {
-                node.m_translation.x = float(jsonNode["translation"][0].ToFloat());
-                node.m_translation.y = float(jsonNode["translation"][1].ToFloat());
-                node.m_translation.z = float(jsonNode["translation"][2].ToFloat());
-            }
-            else
-            {
-                node.m_translation = Vec3f(0.0f);
-            }
-
-            if (jsonNode.HasKey("scale"))
-            {
-                node.m_scale.x = float(jsonNode["scale"][0].ToFloat());
-                node.m_scale.y = float(jsonNode["scale"][1].ToFloat());
-                node.m_scale.z = float(jsonNode["scale"][2].ToFloat());
-            }
-            else
-            {
-                node.m_scale = Vec3f(1.0f);
-            }
-
-            m_nodes.push_back(std::move(node));
+            JsonValue& jsonImage = parsed["images"][i];
+            std::string type = jsonImage["mimeType"].ToString();
+            std::string imagePath = "Assets/" + jsonImage["name"].ToString() + "." + type.substr(6, 4);
+            m_images.emplace_back(imagePath);
         }
-    } 
+    }
 
     m_meshes.reserve(parsed["meshes"].Count());
     for (int i = 0; i < parsed["meshes"].Count(); i++)
@@ -216,6 +245,28 @@ Scene::Scene(std::string filePath)
                 if (jsonPrimitive["mode"].ToInt() != 4)
                 {
                     return; // Unsupported topology type
+                }
+            }
+
+            // Get material texture
+            if (jsonPrimitive.HasKey("material"))
+            {
+                int materialId = jsonPrimitive["material"].ToInt();
+                JsonValue& jsonMaterial = parsed["materials"][materialId];
+                JsonValue& pbr = jsonMaterial["pbrMetallicRoughness"];
+
+                if (pbr.HasKey("baseColorTexture"))
+                {
+                    int textureId = pbr["baseColorTexture"]["index"].ToInt();
+                    int imageId = parsed["textures"][textureId]["source"].ToInt();
+                    prim.m_baseColorTexture = imageId;
+                }
+                if (pbr.HasKey("baseColorFactor"))
+                {
+                    prim.m_baseColor.x = (float)pbr["baseColorFactor"][0].ToFloat();
+                    prim.m_baseColor.y = (float)pbr["baseColorFactor"][1].ToFloat();
+                    prim.m_baseColor.z = (float)pbr["baseColorFactor"][2].ToFloat();
+                    prim.m_baseColor.w = (float)pbr["baseColorFactor"][3].ToFloat();
                 }
             }
 

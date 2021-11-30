@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
 				gpu.BindTexture(tankScene.m_images[prim.m_baseColorTexture].c_str());
 
 				// Just draw your tank like an old fashioned fixed function pipeline
-				gpu.BeginObject(EPrimitiveType::Triangles);
+				gpu.BeginObject3D(EPrimitiveType::Triangles);
 				for (size_t i = 0; i < prim.m_vertices.size(); i++)
 				{
 					gpu.Normal(prim.m_vertices[i].norm);
@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
 					gpu.TexCoord(prim.m_vertices[i].tex);
 					gpu.Vertex(prim.m_vertices[i].pos);
 				}
-				gpu.EndObject();
+				gpu.EndObject3D();
 			}
 
 			for (size_t i = 0; i < tankScene.m_nodes.size(); i++)
@@ -220,7 +220,7 @@ int main(int argc, char *argv[])
 				gpu.BindTexture(tankScene.m_images[prim.m_baseColorTexture].c_str());
 
 				// Just draw your tank like an old fashioned fixed function pipeline
-				gpu.BeginObject(EPrimitiveType::Triangles);
+				gpu.BeginObject3D(EPrimitiveType::Triangles);
 				for (size_t i = 0; i < prim.m_vertices.size(); i++)
 				{
 					gpu.Normal(prim.m_vertices[i].norm);
@@ -228,8 +228,13 @@ int main(int argc, char *argv[])
 					gpu.TexCoord(prim.m_vertices[i].tex);
 					gpu.Vertex(prim.m_vertices[i].pos);
 				}
-				gpu.EndObject();
+				gpu.EndObject3D();
 			}
+
+			gpu.MatrixMode(EMatrixMode::Model);
+			gpu.Identity();
+
+			gpu.DrawSprite("Assets/Pigeon.png", 100.0f, 100.0f + sin(x) * 20.0f);
 		
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
 

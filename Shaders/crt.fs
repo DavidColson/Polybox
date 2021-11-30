@@ -56,7 +56,7 @@ void main()
 
 	// Apply the vignette darkening
 	col *= pow(vig, 0.3);
-	col *= 2.8;
+	col *= 2.5;
 
 	// Draw scanlines
 	float scans = clamp( 0.35 + 0.35 * sin(3.5 * time + uv.y * resolution.y * 1.5), 0.0, 1.0);

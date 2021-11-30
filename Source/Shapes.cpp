@@ -4,7 +4,7 @@
 
 void DrawBox(GraphicsChip& gpu, float x, float y, float z, float width, float height, float depth)
 {
-	gpu.BeginObject(EPrimitiveType::Triangles);
+	gpu.BeginObject3D(EPrimitiveType::Triangles);
 
 	//gpu.Color(Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
 	gpu.TexCoord(Vec2f(0.0f, 0.0f));
@@ -90,7 +90,7 @@ void DrawBox(GraphicsChip& gpu, float x, float y, float z, float width, float he
 	gpu.TexCoord(Vec2f(0.0f, 1.0f));
 	gpu.Vertex(Vec3f(x , y + height, z + depth));
 
-	gpu.EndObject();
+	gpu.EndObject3D();
 }
 
 
@@ -148,10 +148,10 @@ void SubDivide(GraphicsChip& gpu, Vec3f v1, Vec3f v2, Vec3f v3, int depth){
 
 void DrawIcosahedron(GraphicsChip& gpu, int maxDepth)
 {
-    gpu.BeginObject(EPrimitiveType::Triangles);
+    gpu.BeginObject3D(EPrimitiveType::Triangles);
     for(int i=0; i<NFACE; i++)
     {
         SubDivide(gpu, vdata[tindices[i][0]], vdata[tindices[i][1]], vdata[tindices[i][2]], maxDepth);
     }
-    gpu.EndObject();
+    gpu.EndObject3D();
 }

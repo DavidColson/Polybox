@@ -54,9 +54,12 @@ public:
     void Init();
     void DrawFrame(float w, float h);
 
-    // Basic draw
-    void BeginObject(EPrimitiveType type);
-    void EndObject();
+    // Basic draw 2D
+    void DrawSprite(const char* spritePath, float x, float y);
+
+    // Basic draw 3D
+    void BeginObject3D(EPrimitiveType type);
+    void EndObject3D();
     void Vertex(Vec3f vec);
     void Color(Vec4f col);
     void TexCoord(Vec2f tex);
@@ -90,7 +93,7 @@ public:
     void SetFogColor(Vec3f color);
 
 private:
-    void ScreenSpaceQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _width = 1.0f, float _height = 1.0f);
+    void FullScreenQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _depth, float _width = 1.0f, float _height = 1.0f);
 
 
     Vec2f m_targetResolution{ Vec2f(320.0f, 240.0f) };
@@ -117,16 +120,24 @@ private:
     Vec2f m_fogDepths{ Vec2f(1.0f, 10.0f) };
     Vec3f m_fogColor{ Vec3f(0.25f, 0.25f, 0.25f) };
 
-    bgfx::TextureHandle m_textureState{ BGFX_INVALID_HANDLE };
+    struct TextureData
+    {
+        bgfx::TextureHandle m_handle;
+        int m_width;
+        int m_height;
+    };
+    TextureData m_textureState{ BGFX_INVALID_HANDLE };
     
     // Drawing views
     bgfx::ViewId m_realWindowView{ 0 };
-    bgfx::ViewId m_virtualWindowView{ 1 };
+    bgfx::ViewId m_scene3DView{ 1 };
+    bgfx::ViewId m_scene2DView{ 2 };
 
     // Core rendering resources
     bgfx::VertexLayout m_layout;
-    bgfx::ProgramHandle m_programBase{ BGFX_INVALID_HANDLE };
-    bgfx::ProgramHandle m_programTexturing{ BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle m_programBase3D{ BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle m_programTexturing3D{ BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle m_programBase2D{ BGFX_INVALID_HANDLE };
     
     bgfx::UniformHandle m_colorTextureSampler{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_targetResolutionUniform{ BGFX_INVALID_HANDLE };
@@ -139,10 +150,11 @@ private:
 
     bgfx::ProgramHandle m_fullscreenTexProgram{ BGFX_INVALID_HANDLE };
     bgfx::ProgramHandle m_crtProgram{ BGFX_INVALID_HANDLE };
-    bgfx::FrameBufferHandle m_frameBuffer{ BGFX_INVALID_HANDLE };
+    bgfx::FrameBufferHandle m_frameBuffer3D{ BGFX_INVALID_HANDLE };
+    bgfx::FrameBufferHandle m_frameBuffer2D{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_frameBufferSampler{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_crtDataUniform{ BGFX_INVALID_HANDLE };
 
     // Texture memory
-    std::map<uint64_t, bgfx::TextureHandle> m_textureCache;
+    std::map<uint64_t, TextureData> m_textureCache;
 };

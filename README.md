@@ -105,6 +105,4 @@ void SetFogColor(Vec3f color);
 
 # Compiling
 
-Before you get to compiling, know that the only external dependency is SDL2. Before you try compiling, make sure SDL development libraries are installed somewhere on your PC.
-
-Once that's dealt with, the project uses premake5, which is packaged alongside the project. You simple run premake5.exe vs2019 (or another project type) and you'll get your project you can compile with
+The project uses premake5, which is packaged alongside the project, as well as all the dependencies you'll need. You simple run premake5.exe vs2019 (or another project type) and you'll get your project you can compile with

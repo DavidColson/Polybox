@@ -17,4 +17,5 @@ void main()
 	#endif
 	float3 output = mix(color.rgb, u_fogColor.rgb, v_fogDensity.x);
 	gl_FragColor = float4(output, color.a);
-}
+	gl_FragColor = ditherAndPosterize(gl_FragCoord.xy, gl_FragColor, 32);
+}	

@@ -428,4 +428,69 @@ vec3 clipToWorld(mat4 _invViewProj, vec3 _clipPos)
 	return wpos.xyz / wpos.w;
 }
 
+float4 RGBtoYUV(float4 rgba) {
+	float4 yuva;
+	yuva.r = rgba.r * 0.2126 + 0.7152 * rgba.g + 0.0722 * rgba.b;
+	yuva.g = (rgba.b - yuva.r) / 1.8556;
+	yuva.b = (rgba.r - yuva.r) / 1.5748;
+	yuva.a = rgba.a;
+	
+	// Adjust to work on GPU
+	yuva.gb += 0.5;
+	
+	return yuva;
+}
+
+float4 YUVtoRGB(float4 yuva) {
+	yuva.gb -= 0.5;
+	return float4(
+		yuva.r * 1 + yuva.g * 0 + yuva.b * 1.5748,
+		yuva.r * 1 + yuva.g * -0.187324 + yuva.b * -0.468124,
+		yuva.r * 1 + yuva.g * 1.8556 + yuva.b * 0,
+		yuva.a);
+}
+
+float dither8x8(vec2 position, float brightness)
+{
+	int x = int(mod(position.x, 8.0));
+  	int y = int(mod(position.y, 8.0));
+
+	int dither[8][8] = {
+	{ 0, 32, 8, 40, 2, 34, 10, 42}, /* 8x8 Bayer ordered dithering */
+	{48, 16, 56, 24, 50, 18, 58, 26}, /* pattern. Each input pixel */
+	{12, 44, 4, 36, 14, 46, 6, 38}, /* is scaled to the 0..63 range */
+	{60, 28, 52, 20, 62, 30, 54, 22}, /* before looking in this table */
+	{ 3, 35, 11, 43, 1, 33, 9, 41}, /* to determine the action. */
+	{51, 19, 59, 27, 49, 17, 57, 25},
+	{15, 47, 7, 39, 13, 45, 5, 37},
+	{63, 31, 55, 23, 61, 29, 53, 21} }; 
+
+	float limit = 0.0;
+	if(x < 8)
+		limit = (dither[x][y]+1)/64.0;
+
+	return brightness < limit ? 0.0 : 1.0;
+}
+
+float ditherChannelError(float col, float colMin, float colMax)
+{
+	float range = abs(colMin - colMax);
+	float aRange = abs(col - colMin);
+	return aRange /range;
+}
+
+vec4 ditherAndPosterize(vec2 position, vec4 color, int colorDepth)
+{
+	vec4 yuv = RGBtoYUV(color);
+
+	float4 col1 = floor(yuv * colorDepth) / colorDepth;
+	float4 col2 = ceil(yuv * colorDepth) / colorDepth;
+
+	yuv.x = lerp(col1.x, col2.x, dither8x8(position, ditherChannelError(yuv.x, col1.x, col2.x)));
+	yuv.y = lerp(col1.y, col2.y, dither8x8(position, ditherChannelError(yuv.y, col1.y, col2.y)));
+	yuv.z = lerp(col1.z, col2.z, dither8x8(position, ditherChannelError(yuv.z, col1.z, col2.z)));
+
+	return YUVtoRGB(yuv);
+}
+
 #endif // __SHADERLIB_SH__

@@ -234,7 +234,7 @@ int main(int argc, char *argv[])
 			gpu.MatrixMode(EMatrixMode::Model);
 			gpu.Identity();
 
-			gpu.DrawSprite("Assets/Pigeon.png", 100.0f, 100.0f + sin(x) * 20.0f);
+			//gpu.DrawSprite("Assets/GRADIENT.png", 100.0f, 100.0f + sin(x) * 20.0f);
 		
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
 

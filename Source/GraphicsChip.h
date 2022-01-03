@@ -55,7 +55,8 @@ public:
     void DrawFrame(float w, float h);
 
     // Basic draw 2D
-    void DrawSprite(const char* spritePath, float x, float y);
+    void DrawSprite(const char* spritePath, Vec2f position);
+    void DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position);
 
     // Basic draw 3D
     void BeginObject3D(EPrimitiveType type);

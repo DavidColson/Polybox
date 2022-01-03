@@ -243,7 +243,14 @@ void GraphicsChip::DrawFrame(float w, float h)
 
 // ***********************************************************************
 
-void GraphicsChip::DrawSprite(const char* spritePath, float x, float y)
+void GraphicsChip::DrawSprite(const char* spritePath, Vec2f position)
+{
+    DrawSpriteRect(spritePath, Vec4f(0.0f, 0.0f, 1.0f, 1.0f), position);
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position)
 {
     uint64_t id = StringHash(spritePath);
     if (m_textureCache.count(id) == 0)
@@ -293,25 +300,25 @@ void GraphicsChip::DrawSprite(const char* spritePath, float x, float y)
     bgfx::allocTransientVertexBuffer(&vb, 6, m_layout);
     VertexData* vertex = (VertexData*)vb.data;
 
-    float w = (float)m_textureState.m_width;
-    float h = (float)m_textureState.m_height;
-    vertex[0].pos = Vec3f(x, y, 1.0f);
-    vertex[0].tex = Vec2f(0.0f, 1.0f);
+    float w = (float)m_textureState.m_width * (rect.z - rect.x);
+    float h = (float)m_textureState.m_height * (rect.w - rect.y);
+    vertex[0].pos = Vec3f(position.x, position.y, 1.0f);
+    vertex[0].tex = Vec2f(rect.x, rect.w);
 
-    vertex[1].pos = Vec3f(x+w, y, 1.0f);
-    vertex[1].tex = Vec2f(1.0f, 1.0f);
+    vertex[1].pos = Vec3f(position.x+w, position.y, 1.0f);
+    vertex[1].tex = Vec2f(rect.z, rect.w);
 
-    vertex[2].pos = Vec3f(x+w, y+h, 1.0f);
-    vertex[2].tex = Vec2f(1.0f, 0.0f);
+    vertex[2].pos = Vec3f(position.x+w, position.y+h, 1.0f);
+    vertex[2].tex = Vec2f(rect.z, rect.y);
 
-    vertex[3].pos = Vec3f(x+w, y+h, 1.0f);
-    vertex[3].tex = Vec2f(1.0f, 0.0f);
+    vertex[3].pos = Vec3f(position.x+w, position.y+h, 1.0f);
+    vertex[3].tex = Vec2f(rect.z, rect.y);
 
-    vertex[4].pos = Vec3f(x, y, 1.0f);
-    vertex[4].tex = Vec2f(0.0f, 1.0f);
+    vertex[4].pos = Vec3f(position.x, position.y, 1.0f);
+    vertex[4].tex = Vec2f(rect.x, rect.w);
 
-    vertex[5].pos = Vec3f(x, y+h, 1.0f);
-    vertex[5].tex = Vec2f(0.0f, 0.0f);
+    vertex[5].pos = Vec3f(position.x, position.y+h, 1.0f);
+    vertex[5].tex = Vec2f(rect.x, rect.y);
     bgfx::setVertexBuffer(0, &vb);
 
     bgfx::setTexture(0, m_colorTextureSampler, m_textureState.m_handle);

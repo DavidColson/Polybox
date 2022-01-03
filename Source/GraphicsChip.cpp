@@ -174,6 +174,7 @@ void GraphicsChip::Init()
 			| BGFX_SAMPLER_V_CLAMP
 			;
 
+    // Frame buffers
     bgfx::TextureHandle gbuffer3dTex[] =
 					{   bgfx::createTexture2D(uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y), false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
 						bgfx::createTexture2D(uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y), false, 1, bgfx::TextureFormat::D32F,tsFlags), };
@@ -181,7 +182,12 @@ void GraphicsChip::Init()
     bgfx::TextureHandle gbuffer2dTex[] =
 					{   bgfx::createTexture2D(uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y), false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
 						bgfx::createTexture2D(uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y), false, 1, bgfx::TextureFormat::D32F,tsFlags), };
-    m_frameBuffer2D = bgfx::createFrameBuffer(BX_COUNTOF(gbuffer3dTex), gbuffer2dTex, true);
+    m_frameBuffer2D = bgfx::createFrameBuffer(BX_COUNTOF(gbuffer2dTex), gbuffer2dTex, true);
+    bgfx::TextureHandle gbufferCompositeTex[] =
+					{   bgfx::createTexture2D(uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y), false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
+						bgfx::createTexture2D(uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y), false, 1, bgfx::TextureFormat::D32F,tsFlags), };
+    m_frameBufferComposite = bgfx::createFrameBuffer(BX_COUNTOF(gbufferCompositeTex), gbufferCompositeTex, true);
+    
     m_frameBufferSampler = bgfx::createUniform("fullscreenFrameSampler", bgfx::UniformType::Sampler);
 	m_colorTextureSampler = bgfx::createUniform("colorTextureSampler",  bgfx::UniformType::Sampler);
 	m_targetResolutionUniform = bgfx::createUniform("u_targetResolution", bgfx::UniformType::Vec4);
@@ -198,28 +204,41 @@ void GraphicsChip::Init()
 
 void GraphicsChip::DrawFrame(float w, float h)
 {
+    // 3D and 2D framebuffers are drawn to the composite frame buffer, which is then post processed and drawn to the actual back buffer
+    bgfx::setViewClear(m_compositeView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x400040ff, 1.0f, 0);
+    bgfx::setViewRect(m_compositeView, 0, 0, (uint16_t)w, (uint16_t)h);
+    bgfx::setViewMode(m_compositeView, bgfx::ViewMode::Sequential);
+    bgfx::setViewFrameBuffer(m_compositeView, m_frameBufferComposite);
+
+    Matrixf ortho = Matrixf::Orthographic(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 100.0f);
+
+    // Draw 3D view
+    bgfx::setState(BGFX_STATE_WRITE_RGB );
+	bgfx::setViewTransform(m_compositeView, NULL, &ortho);
+    bgfx::setTexture(0, m_frameBufferSampler, bgfx::getTexture(m_frameBuffer3D));
+    FullScreenQuad(w, h, 0.0f, true, 0.0f);
+    bgfx::submit(m_compositeView, m_fullscreenTexProgram);
+
+    // Draw 2d View on top
+    bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_WRITE_A );
+	bgfx::setViewTransform(m_compositeView, NULL, &ortho);
+    bgfx::setTexture(0, m_frameBufferSampler, bgfx::getTexture(m_frameBuffer2D));
+    FullScreenQuad(w, h, 0.0f, true, 0.0f);
+    bgfx::submit(m_compositeView, m_fullscreenTexProgram);
+
+    // Now draw composite view onto the real back buffer with the post process shaders
     bgfx::setViewClear(m_realWindowView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x400040ff, 1.0f, 0);
     bgfx::setViewRect(m_realWindowView, 0, 0, (uint16_t)w, (uint16_t)h);
     bgfx::setViewMode(m_realWindowView, bgfx::ViewMode::Sequential);
 
-    Matrixf ortho = Matrixf::Orthographic(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 100.0f);
-
-    // Draw 3d view
     Vec4f crtData = Vec4f(w, h, float(SDL_GetTicks()) / 1000.0f, 0.0f);
 	bgfx::setUniform(m_crtDataUniform, &crtData);
 
     bgfx::setState(BGFX_STATE_WRITE_RGB );
 	bgfx::setViewTransform(m_realWindowView, NULL, &ortho);
-    bgfx::setTexture(0, m_frameBufferSampler, bgfx::getTexture(m_frameBuffer3D));
+    bgfx::setTexture(0, m_frameBufferSampler, bgfx::getTexture(m_frameBufferComposite));
     FullScreenQuad(w, h, 0.0f, true, 0.0f);
     bgfx::submit(m_realWindowView, m_crtProgram);
-
-    // Draw 2d View on top
-    bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ALPHA | BGFX_STATE_WRITE_A );
-	bgfx::setViewTransform(m_realWindowView, NULL, &ortho);
-    bgfx::setTexture(0, m_frameBufferSampler, bgfx::getTexture(m_frameBuffer2D));
-    FullScreenQuad(w, h, 0.0f, true, 0.0f);
-    bgfx::submit(m_realWindowView, m_fullscreenTexProgram);
 }
 
 // ***********************************************************************

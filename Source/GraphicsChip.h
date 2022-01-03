@@ -132,6 +132,7 @@ private:
     bgfx::ViewId m_realWindowView{ 0 };
     bgfx::ViewId m_scene3DView{ 1 };
     bgfx::ViewId m_scene2DView{ 2 };
+    bgfx::ViewId m_compositeView{ 3 };
 
     // Core rendering resources
     bgfx::VertexLayout m_layout;
@@ -152,6 +153,7 @@ private:
     bgfx::ProgramHandle m_crtProgram{ BGFX_INVALID_HANDLE };
     bgfx::FrameBufferHandle m_frameBuffer3D{ BGFX_INVALID_HANDLE };
     bgfx::FrameBufferHandle m_frameBuffer2D{ BGFX_INVALID_HANDLE };
+    bgfx::FrameBufferHandle m_frameBufferComposite{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_frameBufferSampler{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_crtDataUniform{ BGFX_INVALID_HANDLE };
 

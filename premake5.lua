@@ -47,6 +47,7 @@ solution "Polybox"
     dofile("Source/ThirdParty/bx.lua")
     dofile("Source/ThirdParty/bimg.lua")
     dofile("Source/ThirdParty/bgfx.lua")
+    dofile("Source/ThirdParty/FreeType.lua")
     
     project "Polybox"
         kind "WindowedApp"
@@ -69,6 +70,7 @@ solution "Polybox"
             "Source/ThirdParty/bimg/include",
             "Source/ThirdParty/bx/include",
             "Source/ThirdParty/bgfx/tools",
+            "Source/ThirdParty/FreeType/include",
             "Lib/SDL2-2.0.8/include",
         }
         links 
@@ -78,6 +80,7 @@ solution "Polybox"
             "bimg",
             "bimg_decode",
             "bx",
+            "FreeType",
             "SDL2",
             "SDL2main",
         }

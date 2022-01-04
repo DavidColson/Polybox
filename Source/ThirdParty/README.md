@@ -21,4 +21,9 @@ Stripped out build scripts and github files
 
 Stripped out tests and catch dependency, all build scripts and github files leaving just the code required to run and the license
 
+## FreeType
 
+- Source: https://www.freetype.org
+- Version: 2.11.1
+
+Files stripped down to just `include/`, `src/` except Jamfiles and tools subfolder, and license files. Have chosen FreeType License for this project. Custom premake lua file being used to build.

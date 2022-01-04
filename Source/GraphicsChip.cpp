@@ -8,6 +8,7 @@
 #include <shaderc/shaderc.h>
 #include <SDL_rwops.h>
 #include <SDL_timer.h>
+#include <format>
 
 // ***********************************************************************
 
@@ -140,6 +141,18 @@ void GraphicsChip::Init()
 
     {
         const bgfx::Memory* pFsShaderMem = nullptr;
+        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/fonts.fs", "", "Shaders/varying.def.sc");
+        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
+
+        const bgfx::Memory* pVsShaderMem = nullptr;
+        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/fonts.vs", "", "Shaders/varying.def.sc");
+        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
+
+        m_programFonts = bgfx::createProgram(vsShader, fsShader, true);
+    }
+
+    {
+        const bgfx::Memory* pFsShaderMem = nullptr;
         pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/fullscreen.fs", "", "Shaders/varying.def.sc");
         bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
 
@@ -198,6 +211,7 @@ void GraphicsChip::Init()
     m_fogDepthsUniform = bgfx::createUniform("u_fogDepths", bgfx::UniformType::Vec4);
     m_fogColorUniform = bgfx::createUniform("u_fogColor", bgfx::UniformType::Vec4);
     m_crtDataUniform = bgfx::createUniform("u_crtData", bgfx::UniformType::Vec4);
+
 }
 
 // ***********************************************************************
@@ -325,6 +339,118 @@ void GraphicsChip::DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f posi
 
     // Draw quad
     bgfx::submit(m_scene2DView, m_programBase2D);
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawText(const char* text, Vec2f position, float size)
+{
+    DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), "Assets/Roboto-Bold.ttf", size);
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, const char* font, float size, bool antialiasing, float weight)
+{
+    constexpr float baseSize = 32.0f;
+
+    uint64_t id = StringHash(std::format("{}{}{}", font, (uint32_t)antialiasing, weight).c_str());
+    if (m_fontCache.count(id) == 0)
+    {
+        m_fontCache[id] = Font();
+        m_fontCache[id].Load(font, antialiasing, weight);
+    }
+    Font* pFont = &m_fontCache[id];
+
+     uint64_t state = 0
+                | BGFX_STATE_WRITE_RGB
+                | BGFX_STATE_WRITE_A
+                | BGFX_STATE_WRITE_Z
+                | BGFX_STATE_DEPTH_TEST_LESS
+                | BGFX_STATE_BLEND_ALPHA;
+                
+    uint32_t clear = (255 << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
+    bgfx::setViewClear(m_scene2DView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0, 1.0f, 0);
+    bgfx::setViewRect(m_scene2DView, 0, 0, uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y));
+    bgfx::setViewFrameBuffer(m_scene2DView, m_frameBuffer2D);
+
+    Matrixf ortho = Matrixf::Orthographic(0.0f, m_targetResolution.x, 0.0f, m_targetResolution.y, -100.0f, 100.0f);
+	bgfx::setViewTransform(m_scene2DView, NULL, &ortho);
+
+    bgfx::setTransform(&m_matrixStates[(size_t)EMatrixMode::Model]);
+    bgfx::setState(state);
+
+    float textWidth = 0.0f;
+    float x = position.x;
+    float y = position.y;
+    Vec2f scale = Vec2f(size / baseSize, size / baseSize);
+
+    for (char const& c : std::string(text))
+    {
+        Character ch = pFont->characters[c];
+        textWidth += ch.advance * scale.x;
+    }
+
+    std::vector<VertexData> vertexList;
+    std::vector<uint16_t> indexList;
+    int currentIndex = 0;
+
+    for (char const& c : std::string(text)) {
+        Character ch = pFont->characters[c];
+
+        // Center alignment
+        float xpos = (x + ch.bearing.x * scale.x) - textWidth * 0.5f;
+        //float xpos = (x + ch.bearing.x * scale.x);
+        float ypos = y - (ch.size.y - ch.bearing.y) * scale.y;
+        float w = (float)ch.size.x * scale.x;
+        float h = (float)ch.size.y * scale.y;
+
+        vertexList.emplace_back();
+        vertexList.back().pos = Vec3f( xpos, ypos, 0.0f);
+        vertexList.back().tex = Vec2f(ch.UV0.x, ch.UV1.y);
+        vertexList.back().col = color;
+
+        vertexList.emplace_back();
+        vertexList.back().pos = Vec3f( xpos + w, ypos + h, 0.0f);
+        vertexList.back().tex = Vec2f(ch.UV1.x, ch.UV0.y);
+        vertexList.back().col = color;
+
+        vertexList.emplace_back();
+        vertexList.back().pos = Vec3f( xpos, ypos + h, 0.0f);
+        vertexList.back().tex = Vec2f(ch.UV0.x, ch.UV0.y);
+        vertexList.back().col = color;
+
+        vertexList.emplace_back();
+        vertexList.back().pos = Vec3f( xpos + w, ypos, 0.0f);
+        vertexList.back().tex = Vec2f(ch.UV1.x, ch.UV1.y);
+        vertexList.back().col = color;
+        
+        // First triangle
+        indexList.push_back(currentIndex);
+        indexList.push_back(currentIndex + 1);
+        indexList.push_back(currentIndex + 2);
+
+        // Second triangle
+        indexList.push_back(currentIndex);
+        indexList.push_back(currentIndex + 3);
+        indexList.push_back(currentIndex + 1);
+        currentIndex += 4; // move along by 4 vertices for the next character
+
+        x += ch.advance * scale.x;
+    }
+
+    bgfx::TransientVertexBuffer vb;
+    bgfx::allocTransientVertexBuffer(&vb, (uint32_t)vertexList.size(), m_layout);
+    bx::memCopy(vb.data, vertexList.data(), (uint32_t)vertexList.size() * sizeof(VertexData) );
+    bgfx::setVertexBuffer(0, &vb);
+
+    bgfx::TransientIndexBuffer ib;
+    bgfx::allocTransientIndexBuffer(&ib, (uint32_t)indexList.size());
+    bx::memCopy(ib.data, indexList.data(), (uint32_t)indexList.size() * sizeof(uint16_t) );
+    bgfx::setIndexBuffer(&ib);
+
+    bgfx::setTexture(0, m_colorTextureSampler, pFont->fontTexture);
+    bgfx::submit(m_scene2DView, m_programFonts);
 }
 
 // ***********************************************************************

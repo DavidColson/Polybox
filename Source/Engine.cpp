@@ -12,9 +12,12 @@
 #include "GraphicsChip.h"
 #include "Shapes.h"
 #include "Model.h"
+#include "Font.h"
 
 // This defines a macro called min somehow? We should avoid it at all costs and include it last
 #include <SDL_syswm.h>
+#undef DrawText
+#undef DrawTextEx
 
 #include <format>
 
@@ -146,7 +149,7 @@ int main(int argc, char *argv[])
 
 
 			static float x = 0.12f;
-			x += 0.004f;
+			x += 1.0f * deltaTime;
 			
 			gpu.MatrixMode(EMatrixMode::View);
 			gpu.Identity();
@@ -234,7 +237,10 @@ int main(int argc, char *argv[])
 			gpu.MatrixMode(EMatrixMode::Model);
 			gpu.Identity();
 
-			//gpu.DrawSprite("Assets/GRADIENT.png", 100.0f, 100.0f + sin(x) * 20.0f);
+			// gpu.DrawTextEx("Hello World", Vec2f(160.0f, 50.0f), Vec4f(1.0f, 0.0f, 0.0f, 1.0f), "Assets/Roboto-Bold.ttf", 20.0f, true, 400.0f);
+			// gpu.DrawTextEx("Hello World", Vec2f(160.0f, 80.0f), Vec4f(1.0f, 0.0f, 0.0f, 1.0f), "Assets/Roboto-Bold.ttf", 20.0f, false, 400.0f);
+
+			//gpu.DrawSpriteRect("Assets/Pigeon.png", Vec4f(0.0f, 0.0f, 0.5f, 0.5f), Vec2f(100.0f, 100.0f + sin(x) * 20.0f));
 		
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
 

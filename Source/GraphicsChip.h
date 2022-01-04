@@ -3,6 +3,7 @@
 #include "Core/Vec3.h"
 #include "Core/Vec4.h"
 #include "Core/Matrix.h"
+#include "Font.h"
 
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
@@ -42,6 +43,9 @@ struct VertexData
     Vec2f tex;
     Vec3f norm;
 
+    VertexData() {}
+    VertexData( Vec3f _pos, Vec4f _col, Vec2f _tex, Vec3f _norm) : pos(_pos), col(_col), tex(_tex), norm(_norm) {}
+
     bool operator==(const VertexData& other)
     {
         return pos == other.pos;
@@ -57,6 +61,8 @@ public:
     // Basic draw 2D
     void DrawSprite(const char* spritePath, Vec2f position);
     void DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position);
+    void DrawText(const char* text, Vec2f position, float size);
+    void DrawTextEx(const char* text, Vec2f position, Vec4f color, const char* font, float size, bool antialiasing = true, float weight = 0.0f);
 
     // Basic draw 3D
     void BeginObject3D(EPrimitiveType type);
@@ -140,6 +146,7 @@ private:
     bgfx::ProgramHandle m_programBase3D{ BGFX_INVALID_HANDLE };
     bgfx::ProgramHandle m_programTexturing3D{ BGFX_INVALID_HANDLE };
     bgfx::ProgramHandle m_programBase2D{ BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle m_programFonts{ BGFX_INVALID_HANDLE };
     
     bgfx::UniformHandle m_colorTextureSampler{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_targetResolutionUniform{ BGFX_INVALID_HANDLE };
@@ -160,4 +167,5 @@ private:
 
     // Texture memory
     std::map<uint64_t, TextureData> m_textureCache;
+    std::map<uint64_t, Font> m_fontCache;
 };

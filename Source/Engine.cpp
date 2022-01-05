@@ -13,6 +13,7 @@
 #include "Shapes.h"
 #include "Model.h"
 #include "Font.h"
+#include "Image.h"
 
 // This defines a macro called min somehow? We should avoid it at all costs and include it last
 #include <SDL_syswm.h>
@@ -93,6 +94,8 @@ int main(int argc, char *argv[])
 
 		Scene tankScene("Assets/tank.gltf");
 		TransformNodeHeirarchy(tankScene.m_nodes);
+
+		Image pigeonImage("Assets/Pigeon.png");
 
 		bool gameRunning = true;
 		float deltaTime = 0.016f;
@@ -186,7 +189,7 @@ int main(int argc, char *argv[])
 				Primitive& prim = mesh.m_primitives[0];
 				
 				// Bind a texture for the model
-				gpu.BindTexture(tankScene.m_images[prim.m_baseColorTexture].c_str());
+				gpu.BindTexture(&tankScene.m_images[prim.m_baseColorTexture]);
 
 				// Just draw your tank like an old fashioned fixed function pipeline
 				gpu.BeginObject3D(EPrimitiveType::Triangles);
@@ -215,12 +218,12 @@ int main(int argc, char *argv[])
 				
 				Mesh& mesh = tankScene.m_meshes[node.m_meshId];
 				if (mesh.m_name != "BlobShadow")
-					continue; // We'll skip the mostly transparent blob shadows and do them later
+					continue; // Now we draw the blob shadows on top
 
 				Primitive& prim = mesh.m_primitives[0];
 				
 				// Bind a texture for the model
-				gpu.BindTexture(tankScene.m_images[prim.m_baseColorTexture].c_str());
+				gpu.BindTexture(&tankScene.m_images[prim.m_baseColorTexture]);
 
 				// Just draw your tank like an old fashioned fixed function pipeline
 				gpu.BeginObject3D(EPrimitiveType::Triangles);
@@ -237,10 +240,9 @@ int main(int argc, char *argv[])
 			gpu.MatrixMode(EMatrixMode::Model);
 			gpu.Identity();
 
-			gpu.DrawTextEx("Hello World", Vec2f(160.0f, 50.0f), Vec4f(0.0f, 1.0f, 1.0f, 1.0f), "Assets/Roboto-Bold.ttf", 20.0f, true, 400.0f);
-			gpu.DrawTextEx("Hello World", Vec2f(160.0f, 80.0f), Vec4f(1.0f, 1.0f, 1.0f, 1.0f), "Assets/Roboto-Bold.ttf", 20.0f, false, 400.0f);
+			gpu.DrawText("Hello World", Vec2f(160.0f, 50.0f), 20.0f);
 
-			gpu.DrawSprite("Assets/Pigeon.png", Vec2f(100.0f, 100.0f + sin(x) * 20.0f));
+			gpu.DrawSprite(&pigeonImage, Vec2f(100.0f, 100.0f + sin(x) * 20.0f));
 
 			gpu.Identity();
 			gpu.DrawPixel(Vec2f(50.f, 50.f), Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
@@ -249,7 +251,6 @@ int main(int argc, char *argv[])
 			gpu.DrawCircle(Vec2f(240.f, 80.f + sin(x) * 30), 20.0f, Vec4f(0.0f, 0.0f, 1.0f, 1.0f));
 			gpu.Translate(Vec3f(0.0f, 0.0f, 1.0f));
 			gpu.DrawCircleOutline(Vec2f(240.f, 80.f + sin(x) * 30), 20.0f, Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
-
 
 			gpu.DrawRectangle(Vec2f(50.0f, 100.f), Vec2f(80.0f, 120.0f), Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
 			

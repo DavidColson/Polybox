@@ -44,7 +44,7 @@ struct Scene
     Quatf m_cameraRotation;
     Vec3f m_cameraTranslation;
 
-    std::vector<std::string> m_images;
+    std::vector<Image> m_images;
     std::vector<Mesh> m_meshes;
     std::vector<Node> m_nodes;
 };

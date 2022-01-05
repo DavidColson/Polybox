@@ -1,22 +1,11 @@
 #include "GraphicsChip.h"
 
-#include <bimg/decode.h>
-#include <bimg/bimg.h>
-#include <bx/bx.h>
-#include <bx/allocator.h>
-#include <bx/error.h>
+#include "Image.h"
+
 #include <shaderc/shaderc.h>
-#include <SDL_rwops.h>
 #include <SDL_timer.h>
 #include <format>
 
-// ***********************************************************************
-
-void ImageFreeCallback(void* ptr, void* userData)
-{
-    bimg::ImageContainer* pContainer = (bimg::ImageContainer*)userData;
-    bimg::imageFree(pContainer);
-}
 
 // ***********************************************************************
 
@@ -212,6 +201,7 @@ void GraphicsChip::Init()
     m_fogColorUniform = bgfx::createUniform("u_fogColor", bgfx::UniformType::Vec4);
     m_crtDataUniform = bgfx::createUniform("u_crtData", bgfx::UniformType::Vec4);
 
+    defaultFont = Font("Assets/Roboto-Bold.ttf");
 }
 
 // ***********************************************************************
@@ -311,9 +301,9 @@ void GraphicsChip::EndObject2D()
     bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
     bgfx::setVertexBuffer(0, &vertexBuffer);
 
-    if (bgfx::isValid(m_textureState.m_handle))
+    if (m_pTextureState && bgfx::isValid(m_pTextureState->m_handle))
     {
-        bgfx::setTexture(0, m_colorTextureSampler, m_textureState.m_handle);
+        bgfx::setTexture(0, m_colorTextureSampler, m_pTextureState->m_handle);
         bgfx::submit(m_scene2DView, m_programTexturing2D);
     }
     else
@@ -487,9 +477,9 @@ void GraphicsChip::EndObject3D()
     Vec4f fogColor = Vec4f::Embed3D(m_fogColor);
     bgfx::setUniform(m_fogColorUniform, &fogColor);
 
-    if (bgfx::isValid(m_textureState.m_handle))
+    if (m_pTextureState && bgfx::isValid(m_pTextureState->m_handle))
     {
-        bgfx::setTexture(0, m_colorTextureSampler, m_textureState.m_handle);
+        bgfx::setTexture(0, m_colorTextureSampler, m_pTextureState->m_handle);
         bgfx::submit(m_scene3DView, m_programTexturing3D);
     }
     else
@@ -590,51 +580,17 @@ void GraphicsChip::Identity()
 
 // ***********************************************************************
 
-void GraphicsChip::BindTexture(const char* texturePath)
+void GraphicsChip::BindTexture(Image* pImage)
 {
-    uint64_t id = StringHash(texturePath);
-    if (m_textureCache.count(id) == 0)
-    {
-        // Load and cache texture files and upload to bgfx
-        SDL_RWops* pFileRead = SDL_RWFromFile(texturePath, "rb");
-
-        uint64_t size = SDL_RWsize(pFileRead);
-        void* pData = new char[size];
-        SDL_RWread(pFileRead, pData, size, 1);
-        SDL_RWclose(pFileRead);
-        
-        static bx::DefaultAllocator allocator;
-        bx::Error error;
-        bimg::ImageContainer* pContainer = bimg::imageParse(&allocator, pData, (uint32_t)size, bimg::TextureFormat::Count, &error);
-
-        const bgfx::Memory* pMem = bgfx::makeRef(pContainer->m_data, pContainer->m_size, ImageFreeCallback, pContainer);
-        m_textureCache[id].m_handle = bgfx::createTexture2D(pContainer->m_width, pContainer->m_height, 1 < pContainer->m_numMips, pContainer->m_numLayers, bgfx::TextureFormat::Enum(pContainer->m_format), BGFX_TEXTURE_NONE|BGFX_SAMPLER_POINT, pMem);
-        m_textureCache[id].m_width = pContainer->m_width;
-        m_textureCache[id].m_height = pContainer->m_height;
-
-        bgfx::setName(m_textureCache[id].m_handle, texturePath);
-        delete pData;
-    }
     // Save as current texture state for binding in endObject
-    m_textureState = m_textureCache[id];
-}
-
-// ***********************************************************************
-
-Vec2f GraphicsChip::GetImageSize(const char* imagePath)
-{
-    uint64_t id = StringHash(imagePath);
-    if (m_textureCache.count(id) != 0)
-        return Vec2f((float)m_textureCache[id].m_width, (float)m_textureCache[id].m_height);
-    else
-        return Vec2f(0.0f);
+    m_pTextureState = pImage;
 }
 
 // ***********************************************************************
 
 void GraphicsChip::UnbindTexture()
 {
-    m_textureState = BGFX_INVALID_HANDLE;
+    m_pTextureState = nullptr;
 }
 
 // ***********************************************************************
@@ -705,22 +661,21 @@ void GraphicsChip::SetFogColor(Vec3f color)
 
 // ***********************************************************************
 
-void GraphicsChip::DrawSprite(const char* spritePath, Vec2f position)
+void GraphicsChip::DrawSprite(Image* pImage, Vec2f position)
 {
-    DrawSpriteRect(spritePath, Vec4f(0.0f, 0.0f, 1.0f, 1.0f), position);
+    DrawSpriteRect(pImage, Vec4f(0.0f, 0.0f, 1.0f, 1.0f), position);
 }
 
 // ***********************************************************************
 
-void GraphicsChip::DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position)
+void GraphicsChip::DrawSpriteRect(Image* pImage, Vec4f rect, Vec2f position)
 {
-    Vec2f spriteSize = GetImageSize(spritePath);
-    float w = (float)spriteSize.x * (rect.z - rect.x);
-    float h = (float)spriteSize.y * (rect.w - rect.y);
+    float w = (float)pImage->m_width * (rect.z - rect.x);
+    float h = (float)pImage->m_height * (rect.w - rect.y);
 
 	Translate(Vec3f::Embed2D(position));
 
-    BindTexture(spritePath);
+    BindTexture(pImage);
     BeginObject2D(EPrimitiveType::Triangles);
         TexCoord(Vec2f(rect.x, rect.w));
         Vertex(Vec2f(0.0f, 0.0f));
@@ -747,22 +702,14 @@ void GraphicsChip::DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f posi
 
 void GraphicsChip::DrawText(const char* text, Vec2f position, float size)
 {
-    DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), "Assets/Roboto-Bold.ttf", size);
+    DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), &defaultFont, size);
 }
 
 // ***********************************************************************
 
-void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, const char* font, float size, bool antialiasing, float weight)
+void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, float size)
 {
     constexpr float baseSize = 32.0f;
-
-    uint64_t id = StringHash(std::format("{}{}{}", font, (uint32_t)antialiasing, weight).c_str());
-    if (m_fontCache.count(id) == 0)
-    {
-        m_fontCache[id] = Font();
-        m_fontCache[id].Load(font, antialiasing, weight);
-    }
-    Font* pFont = &m_fontCache[id];
 
     float textWidth = 0.0f;
     float x = position.x;
@@ -776,9 +723,7 @@ void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, con
     }
 
     // TODO: Remove when images become their own data types
-    TextureData texture;
-    texture.m_handle = pFont->fontTexture;
-    m_textureState = texture;
+    m_pTextureState = &pFont->fontTexture;
 
     BeginObject2D(EPrimitiveType::Triangles);
     for (char const& c : std::string(text)) {

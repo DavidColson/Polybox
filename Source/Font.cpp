@@ -24,7 +24,7 @@ void FontTextureFreeCallback(void* ptr, void* userData)
 }
 
 
-void Font::Load(std::string path, bool antialiasing, float weight)
+Font::Font(std::string path, bool antialiasing, float weight)
 {
     if (FreeType::Get() == nullptr)
     {
@@ -160,7 +160,9 @@ void Font::Load(std::string path, bool antialiasing, float weight)
     }
 
     const bgfx::Memory* pMem = bgfx::makeRef(pTextureDataAsRGBA8, dstSize, FontTextureFreeCallback, nullptr);
-    fontTexture = bgfx::createTexture2D(texWidth, texHeight, false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE|BGFX_SAMPLER_POINT, pMem);
+    fontTexture.m_handle = bgfx::createTexture2D(texWidth, texHeight, false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE|BGFX_SAMPLER_POINT, pMem);
+    fontTexture.m_height = texHeight;
+    fontTexture.m_width = texWidth;
     delete[] pTextureDataAsR8;
 }
 

@@ -7,6 +7,7 @@
 #include FT_FREETYPE_H
 
 #include "Core/Vec2.h"
+#include "Image.h"
 
 namespace FreeType
 {
@@ -24,10 +25,11 @@ struct Character
 
 struct Font
 {
-    void Load(std::string path, bool antialiasing = true, float weight = 0.0f);
+    Font() {}
+    Font(std::string path, bool antialiasing = true, float weight = 0.0f);
     ~Font();
 
-	bgfx::TextureHandle fontTexture;
+	Image fontTexture;
 	std::vector<Character> characters;
 };
 

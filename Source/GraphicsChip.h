@@ -59,6 +59,8 @@ struct VertexData
     }
 };
 
+struct Image;
+
 class GraphicsChip
 {
 public:
@@ -90,8 +92,7 @@ public:
 
     // Texturing
     // Enable/Disable texturing
-    void BindTexture(const char* texturePath);
-    Vec2f GetImageSize(const char* imagePath);
+    void BindTexture(Image* pImage);
     void UnbindTexture();
 
     // Lighting
@@ -107,10 +108,10 @@ public:
     void SetFogColor(Vec3f color);
 
     // Extended Graphics API
-    void DrawSprite(const char* spritePath, Vec2f position);
-    void DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position);
+    void DrawSprite(Image* pImage, Vec2f position);
+    void DrawSpriteRect(Image* pImage, Vec4f rect, Vec2f position);
     void DrawText(const char* text, Vec2f position, float size);
-    void DrawTextEx(const char* text, Vec2f position, Vec4f color, const char* font, float size, bool antialiasing = true, float weight = 0.0f);
+    void DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, float size);
     void DrawPixel(Vec2f position, Vec4f color);
     void DrawLine(Vec2f start, Vec2f end, Vec4f color);
     void DrawCircle(Vec2f center, float radius, Vec4f color);
@@ -147,13 +148,7 @@ private:
     Vec2f m_fogDepths{ Vec2f(1.0f, 10.0f) };
     Vec3f m_fogColor{ Vec3f(0.25f, 0.25f, 0.25f) };
 
-    struct TextureData
-    {
-        bgfx::TextureHandle m_handle;
-        int m_width;
-        int m_height;
-    };
-    TextureData m_textureState{ BGFX_INVALID_HANDLE };
+    Image* m_pTextureState;
     
     // Drawing views
     bgfx::ViewId m_realWindowView{ 0 };
@@ -185,7 +180,5 @@ private:
     bgfx::UniformHandle m_frameBufferSampler{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_crtDataUniform{ BGFX_INVALID_HANDLE };
 
-    // Texture memory
-    std::map<uint64_t, TextureData> m_textureCache;
-    std::map<uint64_t, Font> m_fontCache;
+    Font defaultFont;
 };

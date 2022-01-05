@@ -100,9 +100,48 @@ int main(int argc, char *argv[])
 
 		// Lua embedding experiments
 		lua_State* pLua = luaL_newstate();
-		luaL_openlibs(pLua);
+		luaL_openlibs(pLua); // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
 
-		int res = luaL_dofile(pLua, "Assets/testscript.lua");
+		if (luaL_dofile(pLua, "Assets/game.lua") != LUA_OK)
+		{
+			std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
+			OutputDebugStringA(format.c_str());
+		}
+
+		lua_getglobal(pLua, "Start");
+		if (lua_isfunction(pLua, -1))
+		{
+			if (lua_pcall(pLua, 0, 0, 0) != LUA_OK)
+			{
+				std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
+				OutputDebugStringA(format.c_str());
+			}
+		}
+
+		for (size_t i = 0; i < 10; i++)
+		{
+			lua_getglobal(pLua, "Update");
+			if (lua_isfunction(pLua, -1))
+			{
+				if (lua_pcall(pLua, 0, 0, 0) != LUA_OK)
+				{
+					std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
+					OutputDebugStringA(format.c_str());
+				}
+			}
+		}
+		
+		lua_getglobal(pLua, "End");
+		if (lua_isfunction(pLua, -1))
+		{
+			if (lua_pcall(pLua, 0, 0, 0) != LUA_OK)
+			{
+				std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
+				OutputDebugStringA(format.c_str());
+			}
+		}
+
+		lua_close(pLua);
 
 		bool gameRunning = true;
 		float deltaTime = 0.016f;

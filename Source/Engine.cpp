@@ -4,25 +4,26 @@
 
 #include "Core/Vec3.h"
 #include "Core/Matrix.h"
-
-#include <SDL.h>
-#include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
-
 #include "GraphicsChip.h"
 #include "Shapes.h"
 #include "Model.h"
 #include "Font.h"
 #include "Image.h"
 
-// This defines a macro called min somehow? We should avoid it at all costs and include it last
+extern "C" {
+	#include "lua.h"
+	#include "lualib.h"
+	#include "lauxlib.h"
+}
+
+#include <SDL.h>
+#include <bgfx/bgfx.h>
+#include <bgfx/platform.h>
+#include <format>
+#include <SDL.h>
 #include <SDL_syswm.h>
 #undef DrawText
 #undef DrawTextEx
-
-#include <format>
-
-#include <SDL.h>
 
 void RecursiveTransformTree(Node* pTreeBase)
 {
@@ -96,6 +97,12 @@ int main(int argc, char *argv[])
 		TransformNodeHeirarchy(tankScene.m_nodes);
 
 		Image pigeonImage("Assets/Pigeon.png");
+
+		// Lua embedding experiments
+		lua_State* pLua = luaL_newstate();
+		luaL_openlibs(pLua);
+
+		int res = luaL_dofile(pLua, "Assets/testscript.lua");
 
 		bool gameRunning = true;
 		float deltaTime = 0.016f;

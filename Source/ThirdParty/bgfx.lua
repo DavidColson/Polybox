@@ -599,7 +599,7 @@ project "bgfx"
         "bgfx/3rdparty/khronos"
     }
     filter "configurations:Debug"
-        defines "BGFX_CONFIG_DEBUG=1"
+        defines "BGFX_CONFIG_DEBUG=0"
     filter "action:vs*"
         defines "_CRT_SECURE_NO_WARNINGS"
         excludes

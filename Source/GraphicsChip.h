@@ -13,6 +13,13 @@
 #define MAX_TEXTURES 8
 #define MAX_LIGHTS 3
 
+enum class ERenderMode
+{
+    Mode2D,
+    Mode3D,
+    None
+};
+
 enum class EPrimitiveType
 {
     Points,
@@ -59,10 +66,9 @@ public:
     void DrawFrame(float w, float h);
 
     // Basic draw 2D
-    void DrawSprite(const char* spritePath, Vec2f position);
-    void DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position);
-    void DrawText(const char* text, Vec2f position, float size);
-    void DrawTextEx(const char* text, Vec2f position, Vec4f color, const char* font, float size, bool antialiasing = true, float weight = 0.0f);
+    void BeginObject2D(EPrimitiveType type);
+    void EndObject2D();
+    void Vertex(Vec2f vec);
 
     // Basic draw 3D
     void BeginObject3D(EPrimitiveType type);
@@ -83,8 +89,9 @@ public:
     void Identity();
 
     // Texturing
-    // ENable/Disable texturing
+    // Enable/Disable texturing
     void BindTexture(const char* texturePath);
+    Vec2f GetImageSize(const char* imagePath);
     void UnbindTexture();
 
     // Lighting
@@ -99,6 +106,12 @@ public:
     void SetFogEnd(float end);
     void SetFogColor(Vec3f color);
 
+    // Graphics Extras
+    void DrawSprite(const char* spritePath, Vec2f position);
+    void DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position);
+    void DrawText(const char* text, Vec2f position, float size);
+    void DrawTextEx(const char* text, Vec2f position, Vec4f color, const char* font, float size, bool antialiasing = true, float weight = 0.0f);
+    
 private:
     void FullScreenQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _depth, float _width = 1.0f, float _height = 1.0f);
 
@@ -106,6 +119,7 @@ private:
     Vec2f m_targetResolution{ Vec2f(320.0f, 240.0f) };
 
     // Drawing state
+    ERenderMode m_mode{ ERenderMode::None };
     EPrimitiveType m_typeState;
     std::vector<VertexData> m_vertexState;
     Vec4f m_vertexColorState{ Vec4f(1.0f, 1.0f, 1.0f, 1.0f) };

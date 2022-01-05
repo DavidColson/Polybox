@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <freetype/ftmm.h>
+#include <bimg/bimg.h>
+#include <bx/allocator.h>
 
 namespace
 {
@@ -142,8 +144,24 @@ void Font::Load(std::string path, bool antialiasing, float weight)
         test++;
 	}
 
-    const bgfx::Memory* pMem = bgfx::makeRef(pTextureDataAsR8, texHeight * texWidth, FontTextureFreeCallback, nullptr);
-    fontTexture = bgfx::createTexture2D(texWidth, texHeight, false, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_NONE|BGFX_SAMPLER_POINT, pMem);
+    // Convert texture atlas to RGBA8 format so it works with general 2D shaders
+    uint8_t* pTextureDataAsRGBA8{ nullptr };
+    const uint8_t dstBpp = bimg::getBitsPerPixel(bimg::TextureFormat::RGBA8);
+    const uint32_t dstPitch = texWidth * dstBpp / 8;
+    const uint32_t dstSize = texHeight * dstPitch;
+	pTextureDataAsRGBA8 = new uint8_t[dstSize];
+	memset(pTextureDataAsRGBA8, 0, dstSize);
+    for (size_t i = 0; i < dstSize; i+=4)
+    {
+        pTextureDataAsRGBA8[i] = pTextureDataAsR8[i/4];
+        pTextureDataAsRGBA8[i+1] = pTextureDataAsR8[i/4];
+        pTextureDataAsRGBA8[i+2] = pTextureDataAsR8[i/4];
+        pTextureDataAsRGBA8[i+3] = pTextureDataAsR8[i/4];
+    }
+
+    const bgfx::Memory* pMem = bgfx::makeRef(pTextureDataAsRGBA8, dstSize, FontTextureFreeCallback, nullptr);
+    fontTexture = bgfx::createTexture2D(texWidth, texHeight, false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE|BGFX_SAMPLER_POINT, pMem);
+    delete[] pTextureDataAsR8;
 }
 
 Font::~Font()

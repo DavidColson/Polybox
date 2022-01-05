@@ -266,79 +266,32 @@ void GraphicsChip::DrawSprite(const char* spritePath, Vec2f position)
 
 void GraphicsChip::DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position)
 {
-    uint64_t id = StringHash(spritePath);
-    if (m_textureCache.count(id) == 0)
-    {
-        // Load and cache texture files and upload to bgfx
-        SDL_RWops* pFileRead = SDL_RWFromFile(spritePath, "rb");
+    Vec2f spriteSize = GetImageSize(spritePath);
+    float w = (float)spriteSize.x * (rect.z - rect.x);
+    float h = (float)spriteSize.y * (rect.w - rect.y);
 
-        uint64_t size = SDL_RWsize(pFileRead);
-        void* pData = new char[size];
-        SDL_RWread(pFileRead, pData, size, 1);
-        SDL_RWclose(pFileRead);
-        
-        static bx::DefaultAllocator allocator;
-        bx::Error error;
-        bimg::ImageContainer* pContainer = bimg::imageParse(&allocator, pData, (uint32_t)size, bimg::TextureFormat::Count, &error);
+	Translate(Vec3f::Embed2D(position));
 
-        const bgfx::Memory* pMem = bgfx::makeRef(pContainer->m_data, pContainer->m_size, ImageFreeCallback, pContainer);
-        m_textureCache[id].m_handle = bgfx::createTexture2D(pContainer->m_width, pContainer->m_height, 1 < pContainer->m_numMips, pContainer->m_numLayers, bgfx::TextureFormat::Enum(pContainer->m_format), BGFX_TEXTURE_NONE|BGFX_SAMPLER_POINT, pMem);
-        m_textureCache[id].m_width = pContainer->m_width;
-        m_textureCache[id].m_height = pContainer->m_height;
+    BindTexture(spritePath);
+    BeginObject2D(EPrimitiveType::Triangles);
+        TexCoord(Vec2f(rect.x, rect.w));
+        Vertex(Vec2f(0.0f, 0.0f));
 
-        bgfx::setName(m_textureCache[id].m_handle, spritePath);
-        delete pData;
-    }
-    // Save as current texture state for binding in endObject
-    m_textureState = m_textureCache[id];
+        TexCoord(Vec2f(rect.z, rect.w));
+        Vertex(Vec2f(w, 0.0f));
 
-    uint64_t state = 0
-                | BGFX_STATE_WRITE_RGB
-                | BGFX_STATE_WRITE_A
-                | BGFX_STATE_WRITE_Z
-                | BGFX_STATE_DEPTH_TEST_LESS
-                | BGFX_STATE_BLEND_ALPHA;
-                
-    uint32_t clear = (255 << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
-    bgfx::setViewClear(m_scene2DView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0, 1.0f, 0);
-    bgfx::setViewRect(m_scene2DView, 0, 0, uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y));
-    bgfx::setViewFrameBuffer(m_scene2DView, m_frameBuffer2D);
+        TexCoord(Vec2f(rect.z, rect.y));
+        Vertex(Vec2f(w, h));
 
-    Matrixf ortho = Matrixf::Orthographic(0.0f, m_targetResolution.x, 0.0f, m_targetResolution.y, -100.0f, 100.0f);
-	bgfx::setViewTransform(m_scene2DView, NULL, &ortho);
+        TexCoord(Vec2f(rect.z, rect.y));
+        Vertex(Vec2f(w, h));
 
-    bgfx::setTransform(&m_matrixStates[(size_t)EMatrixMode::Model]);
-    bgfx::setState(state);
+        TexCoord(Vec2f(rect.x, rect.w));
+        Vertex(Vec2f(0.0f, 0.0f));
 
-    bgfx::TransientVertexBuffer vb;
-    bgfx::allocTransientVertexBuffer(&vb, 6, m_layout);
-    VertexData* vertex = (VertexData*)vb.data;
-
-    float w = (float)m_textureState.m_width * (rect.z - rect.x);
-    float h = (float)m_textureState.m_height * (rect.w - rect.y);
-    vertex[0].pos = Vec3f(position.x, position.y, 1.0f);
-    vertex[0].tex = Vec2f(rect.x, rect.w);
-
-    vertex[1].pos = Vec3f(position.x+w, position.y, 1.0f);
-    vertex[1].tex = Vec2f(rect.z, rect.w);
-
-    vertex[2].pos = Vec3f(position.x+w, position.y+h, 1.0f);
-    vertex[2].tex = Vec2f(rect.z, rect.y);
-
-    vertex[3].pos = Vec3f(position.x+w, position.y+h, 1.0f);
-    vertex[3].tex = Vec2f(rect.z, rect.y);
-
-    vertex[4].pos = Vec3f(position.x, position.y, 1.0f);
-    vertex[4].tex = Vec2f(rect.x, rect.w);
-
-    vertex[5].pos = Vec3f(position.x, position.y+h, 1.0f);
-    vertex[5].tex = Vec2f(rect.x, rect.y);
-    bgfx::setVertexBuffer(0, &vb);
-
-    bgfx::setTexture(0, m_colorTextureSampler, m_textureState.m_handle);
-
-    // Draw quad
-    bgfx::submit(m_scene2DView, m_programBase2D);
+        TexCoord(Vec2f(rect.x, rect.y));
+        Vertex(Vec2f(0.f, h));
+    EndObject2D();
 }
 
 // ***********************************************************************
@@ -362,24 +315,6 @@ void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, con
     }
     Font* pFont = &m_fontCache[id];
 
-     uint64_t state = 0
-                | BGFX_STATE_WRITE_RGB
-                | BGFX_STATE_WRITE_A
-                | BGFX_STATE_WRITE_Z
-                | BGFX_STATE_DEPTH_TEST_LESS
-                | BGFX_STATE_BLEND_ALPHA;
-                
-    uint32_t clear = (255 << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
-    bgfx::setViewClear(m_scene2DView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0, 1.0f, 0);
-    bgfx::setViewRect(m_scene2DView, 0, 0, uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y));
-    bgfx::setViewFrameBuffer(m_scene2DView, m_frameBuffer2D);
-
-    Matrixf ortho = Matrixf::Orthographic(0.0f, m_targetResolution.x, 0.0f, m_targetResolution.y, -100.0f, 100.0f);
-	bgfx::setViewTransform(m_scene2DView, NULL, &ortho);
-
-    bgfx::setTransform(&m_matrixStates[(size_t)EMatrixMode::Model]);
-    bgfx::setState(state);
-
     float textWidth = 0.0f;
     float x = position.x;
     float y = position.y;
@@ -391,10 +326,12 @@ void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, con
         textWidth += ch.advance * scale.x;
     }
 
-    std::vector<VertexData> vertexList;
-    std::vector<uint16_t> indexList;
-    int currentIndex = 0;
+    // TODO: Remove when images become their own data types
+    TextureData texture;
+    texture.m_handle = pFont->fontTexture;
+    m_textureState = texture;
 
+    BeginObject2D(EPrimitiveType::Triangles);
     for (char const& c : std::string(text)) {
         Character ch = pFont->characters[c];
 
@@ -405,52 +342,97 @@ void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, con
         float w = (float)ch.size.x * scale.x;
         float h = (float)ch.size.y * scale.y;
 
-        vertexList.emplace_back();
-        vertexList.back().pos = Vec3f( xpos, ypos, 0.0f);
-        vertexList.back().tex = Vec2f(ch.UV0.x, ch.UV1.y);
-        vertexList.back().col = color;
+        // 0
+        Color(color);
+        TexCoord(Vec2f(ch.UV0.x, ch.UV1.y));
+        Vertex(Vec2f( xpos, ypos));
 
-        vertexList.emplace_back();
-        vertexList.back().pos = Vec3f( xpos + w, ypos + h, 0.0f);
-        vertexList.back().tex = Vec2f(ch.UV1.x, ch.UV0.y);
-        vertexList.back().col = color;
+        // 1
+        Color(color);
+        TexCoord(Vec2f(ch.UV1.x, ch.UV0.y));
+        Vertex(Vec2f( xpos + w, ypos + h));
 
-        vertexList.emplace_back();
-        vertexList.back().pos = Vec3f( xpos, ypos + h, 0.0f);
-        vertexList.back().tex = Vec2f(ch.UV0.x, ch.UV0.y);
-        vertexList.back().col = color;
+        // 2
+        Color(color);
+        TexCoord(Vec2f(ch.UV0.x, ch.UV0.y));
+        Vertex(Vec2f( xpos, ypos + h ));
 
-        vertexList.emplace_back();
-        vertexList.back().pos = Vec3f( xpos + w, ypos, 0.0f);
-        vertexList.back().tex = Vec2f(ch.UV1.x, ch.UV1.y);
-        vertexList.back().col = color;
-        
-        // First triangle
-        indexList.push_back(currentIndex);
-        indexList.push_back(currentIndex + 1);
-        indexList.push_back(currentIndex + 2);
+        // 0
+        Color(color);
+        TexCoord(Vec2f(ch.UV0.x, ch.UV1.y));
+        Vertex(Vec2f( xpos, ypos));
 
-        // Second triangle
-        indexList.push_back(currentIndex);
-        indexList.push_back(currentIndex + 3);
-        indexList.push_back(currentIndex + 1);
-        currentIndex += 4; // move along by 4 vertices for the next character
+        // 3
+        Color(color);
+        TexCoord(Vec2f(ch.UV1.x, ch.UV1.y));
+        Vertex(Vec2f( xpos + w, ypos ));
+
+        // 1
+        Color(color);
+        TexCoord(Vec2f(ch.UV1.x, ch.UV0.y));
+        Vertex(Vec2f( xpos + w, ypos + h));
 
         x += ch.advance * scale.x;
     }
+    EndObject2D();
+}
 
-    bgfx::TransientVertexBuffer vb;
-    bgfx::allocTransientVertexBuffer(&vb, (uint32_t)vertexList.size(), m_layout);
-    bx::memCopy(vb.data, vertexList.data(), (uint32_t)vertexList.size() * sizeof(VertexData) );
-    bgfx::setVertexBuffer(0, &vb);
+// ***********************************************************************
 
-    bgfx::TransientIndexBuffer ib;
-    bgfx::allocTransientIndexBuffer(&ib, (uint32_t)indexList.size());
-    bx::memCopy(ib.data, indexList.data(), (uint32_t)indexList.size() * sizeof(uint16_t) );
-    bgfx::setIndexBuffer(&ib);
+void GraphicsChip::BeginObject2D(EPrimitiveType type)
+{
+    m_typeState = type;
+    m_mode = ERenderMode::Mode2D;
+}
 
-    bgfx::setTexture(0, m_colorTextureSampler, pFont->fontTexture);
-    bgfx::submit(m_scene2DView, m_programFonts);
+// ***********************************************************************
+
+void GraphicsChip::EndObject2D()
+{
+    uint64_t state = 0
+                | BGFX_STATE_WRITE_RGB
+                | BGFX_STATE_WRITE_A
+                | BGFX_STATE_WRITE_Z
+                | BGFX_STATE_DEPTH_TEST_LESS
+                | BGFX_STATE_BLEND_ALPHA;
+                
+    uint32_t clear = (255 << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
+    bgfx::setViewClear(m_scene2DView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0, 1.0f, 0);
+    bgfx::setViewRect(m_scene2DView, 0, 0, uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y));
+    bgfx::setViewFrameBuffer(m_scene2DView, m_frameBuffer2D);
+
+    // TODO: Consider allowing projection and view matrices on the 2D layer
+    Matrixf ortho = Matrixf::Orthographic(0.0f, m_targetResolution.x, 0.0f, m_targetResolution.y, -100.0f, 100.0f);
+	bgfx::setViewTransform(m_scene2DView, NULL, &ortho);
+
+    bgfx::setTransform(&m_matrixStates[(size_t)EMatrixMode::Model]);
+    bgfx::setState(state);
+
+    // create vertex buffer
+    bgfx::TransientVertexBuffer vertexBuffer;
+    uint32_t numVertices = (uint32_t)m_vertexState.size();
+    if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
+        return; // TODO: Log some error
+    bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
+    VertexData* verts = (VertexData*)vertexBuffer.data;
+    bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
+    bgfx::setVertexBuffer(0, &vertexBuffer);
+
+    if (bgfx::isValid(m_textureState.m_handle))
+    {
+        bgfx::setTexture(0, m_colorTextureSampler, m_textureState.m_handle);
+        bgfx::submit(m_scene2DView, m_programBase2D);
+    }
+    else
+    {
+        bgfx::submit(m_scene2DView, m_programBase2D); // TODO: a program that supports no textures
+    }
+
+    m_vertexState.clear();
+    m_vertexColorState = Vec4f(1.0f);
+    m_vertexTexCoordState = Vec2f();
+    m_vertexNormalState = Vec3f();
+    m_mode = ERenderMode::None;
 }
 
 // ***********************************************************************
@@ -459,12 +441,16 @@ void GraphicsChip::BeginObject3D(EPrimitiveType type)
 {
     // Set draw topology type
     m_typeState = type;
+    m_mode = ERenderMode::Mode3D;
 }
 
 // ***********************************************************************
 
 void GraphicsChip::EndObject3D()
 {
+    if (m_mode == ERenderMode::None)
+        return;
+
     uint64_t state = 0
 					| BGFX_STATE_WRITE_RGB
 					| BGFX_STATE_WRITE_Z
@@ -619,6 +605,10 @@ void GraphicsChip::EndObject3D()
     }
 
     m_vertexState.clear();
+    m_vertexColorState = Vec4f(1.0f);
+    m_vertexTexCoordState = Vec2f();
+    m_vertexNormalState = Vec3f();
+    m_mode = ERenderMode::None;
 }
 
 // ***********************************************************************
@@ -626,6 +616,13 @@ void GraphicsChip::EndObject3D()
 void GraphicsChip::Vertex(Vec3f vec)
 {
     m_vertexState.push_back({vec, m_vertexColorState, m_vertexTexCoordState, m_vertexNormalState});
+}
+
+// ***********************************************************************
+
+void GraphicsChip::Vertex(Vec2f vec)
+{
+    m_vertexState.push_back({Vec3f::Embed2D(vec), m_vertexColorState, m_vertexTexCoordState, Vec3f()});
 }
 
 // ***********************************************************************
@@ -727,6 +724,17 @@ void GraphicsChip::BindTexture(const char* texturePath)
     }
     // Save as current texture state for binding in endObject
     m_textureState = m_textureCache[id];
+}
+
+// ***********************************************************************
+
+Vec2f GraphicsChip::GetImageSize(const char* imagePath)
+{
+    uint64_t id = StringHash(imagePath);
+    if (m_textureCache.count(id) != 0)
+        return Vec2f((float)m_textureCache[id].m_width, (float)m_textureCache[id].m_height);
+    else
+        return Vec2f(0.0f);
 }
 
 // ***********************************************************************

@@ -2,7 +2,8 @@
 
 #include <cmath>
 
-#define PI 3.14159f
+#define PI  3.141592653589793238f
+#define PI2 6.283185307179586476f
 
 #define ToRadian(x) ((x) * 3.14159f /180.0f)
 #define ToDegree(x) ((x) * 180.0f / 3.14159f)

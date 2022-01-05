@@ -242,6 +242,20 @@ int main(int argc, char *argv[])
 
 			gpu.DrawSprite("Assets/Pigeon.png", Vec2f(100.0f, 100.0f + sin(x) * 20.0f));
 
+			gpu.Identity();
+			gpu.DrawPixel(Vec2f(50.f, 50.f), Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
+
+			gpu.DrawLine(Vec2f(80.f, 80.f), Vec2f(150.f, 100.f), Vec4f(0.0f, 0.0f, 1.0f, 1.0f));
+			gpu.DrawCircle(Vec2f(240.f, 80.f + sin(x) * 30), 20.0f, Vec4f(0.0f, 0.0f, 1.0f, 1.0f));
+			gpu.Translate(Vec3f(0.0f, 0.0f, 1.0f));
+			gpu.DrawCircleOutline(Vec2f(240.f, 80.f + sin(x) * 30), 20.0f, Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
+
+
+			gpu.DrawRectangle(Vec2f(50.0f, 100.f), Vec2f(80.0f, 120.0f), Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
+			
+			//gpu.Translate(Vec3f(sin(x) * 10.0f, cos(x) * 10.0f, 0.0f));
+			gpu.DrawRectangleOutline(Vec2f(60.0f, 140.f), Vec2f(80.0f, 170.0f), Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
+
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
 
 			//bgfx::setDebug(BGFX_DEBUG_STATS);

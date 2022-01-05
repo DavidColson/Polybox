@@ -141,6 +141,18 @@ void GraphicsChip::Init()
 
     {
         const bgfx::Memory* pFsShaderMem = nullptr;
+        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/core2d.fs", "TEXTURING", "Shaders/varying.def.sc");
+        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
+
+        const bgfx::Memory* pVsShaderMem = nullptr;
+        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core2d.vs", "TEXTURING", "Shaders/varying.def.sc");
+        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
+
+        m_programTexturing2D = bgfx::createProgram(vsShader, fsShader, true);
+    }
+
+    {
+        const bgfx::Memory* pFsShaderMem = nullptr;
         pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/fullscreen.fs", "", "Shaders/varying.def.sc");
         bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
 
@@ -245,128 +257,6 @@ void GraphicsChip::DrawFrame(float w, float h)
 
 // ***********************************************************************
 
-void GraphicsChip::DrawSprite(const char* spritePath, Vec2f position)
-{
-    DrawSpriteRect(spritePath, Vec4f(0.0f, 0.0f, 1.0f, 1.0f), position);
-}
-
-// ***********************************************************************
-
-void GraphicsChip::DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position)
-{
-    Vec2f spriteSize = GetImageSize(spritePath);
-    float w = (float)spriteSize.x * (rect.z - rect.x);
-    float h = (float)spriteSize.y * (rect.w - rect.y);
-
-	Translate(Vec3f::Embed2D(position));
-
-    BindTexture(spritePath);
-    BeginObject2D(EPrimitiveType::Triangles);
-        TexCoord(Vec2f(rect.x, rect.w));
-        Vertex(Vec2f(0.0f, 0.0f));
-
-        TexCoord(Vec2f(rect.z, rect.w));
-        Vertex(Vec2f(w, 0.0f));
-
-        TexCoord(Vec2f(rect.z, rect.y));
-        Vertex(Vec2f(w, h));
-
-        TexCoord(Vec2f(rect.z, rect.y));
-        Vertex(Vec2f(w, h));
-
-        TexCoord(Vec2f(rect.x, rect.w));
-        Vertex(Vec2f(0.0f, 0.0f));
-
-        TexCoord(Vec2f(rect.x, rect.y));
-        Vertex(Vec2f(0.f, h));
-    EndObject2D();
-}
-
-// ***********************************************************************
-
-void GraphicsChip::DrawText(const char* text, Vec2f position, float size)
-{
-    DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), "Assets/Roboto-Bold.ttf", size);
-}
-
-// ***********************************************************************
-
-void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, const char* font, float size, bool antialiasing, float weight)
-{
-    constexpr float baseSize = 32.0f;
-
-    uint64_t id = StringHash(std::format("{}{}{}", font, (uint32_t)antialiasing, weight).c_str());
-    if (m_fontCache.count(id) == 0)
-    {
-        m_fontCache[id] = Font();
-        m_fontCache[id].Load(font, antialiasing, weight);
-    }
-    Font* pFont = &m_fontCache[id];
-
-    float textWidth = 0.0f;
-    float x = position.x;
-    float y = position.y;
-    Vec2f scale = Vec2f(size / baseSize, size / baseSize);
-
-    for (char const& c : std::string(text))
-    {
-        Character ch = pFont->characters[c];
-        textWidth += ch.advance * scale.x;
-    }
-
-    // TODO: Remove when images become their own data types
-    TextureData texture;
-    texture.m_handle = pFont->fontTexture;
-    m_textureState = texture;
-
-    BeginObject2D(EPrimitiveType::Triangles);
-    for (char const& c : std::string(text)) {
-        Character ch = pFont->characters[c];
-
-        // Center alignment
-        float xpos = (x + ch.bearing.x * scale.x) - textWidth * 0.5f;
-        //float xpos = (x + ch.bearing.x * scale.x);
-        float ypos = y - (ch.size.y - ch.bearing.y) * scale.y;
-        float w = (float)ch.size.x * scale.x;
-        float h = (float)ch.size.y * scale.y;
-
-        // 0
-        Color(color);
-        TexCoord(Vec2f(ch.UV0.x, ch.UV1.y));
-        Vertex(Vec2f( xpos, ypos));
-
-        // 1
-        Color(color);
-        TexCoord(Vec2f(ch.UV1.x, ch.UV0.y));
-        Vertex(Vec2f( xpos + w, ypos + h));
-
-        // 2
-        Color(color);
-        TexCoord(Vec2f(ch.UV0.x, ch.UV0.y));
-        Vertex(Vec2f( xpos, ypos + h ));
-
-        // 0
-        Color(color);
-        TexCoord(Vec2f(ch.UV0.x, ch.UV1.y));
-        Vertex(Vec2f( xpos, ypos));
-
-        // 3
-        Color(color);
-        TexCoord(Vec2f(ch.UV1.x, ch.UV1.y));
-        Vertex(Vec2f( xpos + w, ypos ));
-
-        // 1
-        Color(color);
-        TexCoord(Vec2f(ch.UV1.x, ch.UV0.y));
-        Vertex(Vec2f( xpos + w, ypos + h));
-
-        x += ch.advance * scale.x;
-    }
-    EndObject2D();
-}
-
-// ***********************************************************************
-
 void GraphicsChip::BeginObject2D(EPrimitiveType type)
 {
     m_typeState = type;
@@ -383,6 +273,21 @@ void GraphicsChip::EndObject2D()
                 | BGFX_STATE_WRITE_Z
                 | BGFX_STATE_DEPTH_TEST_LESS
                 | BGFX_STATE_BLEND_ALPHA;
+
+    switch (m_typeState)
+    {
+    case EPrimitiveType::Points:
+        state |= BGFX_STATE_PT_POINTS;
+        break;
+    case EPrimitiveType::Lines:
+        state |= BGFX_STATE_PT_LINES;
+        break;
+    case EPrimitiveType::LineStrip:
+        state |= BGFX_STATE_PT_LINESTRIP;
+        break;
+    case EPrimitiveType::Triangles: // default (has no define)
+        break;
+    }
                 
     uint32_t clear = (255 << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
     bgfx::setViewClear(m_scene2DView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0, 1.0f, 0);
@@ -409,7 +314,7 @@ void GraphicsChip::EndObject2D()
     if (bgfx::isValid(m_textureState.m_handle))
     {
         bgfx::setTexture(0, m_colorTextureSampler, m_textureState.m_handle);
-        bgfx::submit(m_scene2DView, m_programBase2D);
+        bgfx::submit(m_scene2DView, m_programTexturing2D);
     }
     else
     {
@@ -790,4 +695,224 @@ void GraphicsChip::SetFogEnd(float end)
 void GraphicsChip::SetFogColor(Vec3f color)
 {
     m_fogColor = color;
+}
+
+/*
+********************************
+*   EXTENDED GRAPHICS LIBRARY
+********************************
+*/
+
+// ***********************************************************************
+
+void GraphicsChip::DrawSprite(const char* spritePath, Vec2f position)
+{
+    DrawSpriteRect(spritePath, Vec4f(0.0f, 0.0f, 1.0f, 1.0f), position);
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position)
+{
+    Vec2f spriteSize = GetImageSize(spritePath);
+    float w = (float)spriteSize.x * (rect.z - rect.x);
+    float h = (float)spriteSize.y * (rect.w - rect.y);
+
+	Translate(Vec3f::Embed2D(position));
+
+    BindTexture(spritePath);
+    BeginObject2D(EPrimitiveType::Triangles);
+        TexCoord(Vec2f(rect.x, rect.w));
+        Vertex(Vec2f(0.0f, 0.0f));
+
+        TexCoord(Vec2f(rect.z, rect.w));
+        Vertex(Vec2f(w, 0.0f));
+
+        TexCoord(Vec2f(rect.z, rect.y));
+        Vertex(Vec2f(w, h));
+
+        TexCoord(Vec2f(rect.z, rect.y));
+        Vertex(Vec2f(w, h));
+
+        TexCoord(Vec2f(rect.x, rect.w));
+        Vertex(Vec2f(0.0f, 0.0f));
+
+        TexCoord(Vec2f(rect.x, rect.y));
+        Vertex(Vec2f(0.f, h));
+    EndObject2D();
+    UnbindTexture();
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawText(const char* text, Vec2f position, float size)
+{
+    DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), "Assets/Roboto-Bold.ttf", size);
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, const char* font, float size, bool antialiasing, float weight)
+{
+    constexpr float baseSize = 32.0f;
+
+    uint64_t id = StringHash(std::format("{}{}{}", font, (uint32_t)antialiasing, weight).c_str());
+    if (m_fontCache.count(id) == 0)
+    {
+        m_fontCache[id] = Font();
+        m_fontCache[id].Load(font, antialiasing, weight);
+    }
+    Font* pFont = &m_fontCache[id];
+
+    float textWidth = 0.0f;
+    float x = position.x;
+    float y = position.y;
+    Vec2f scale = Vec2f(size / baseSize, size / baseSize);
+
+    for (char const& c : std::string(text))
+    {
+        Character ch = pFont->characters[c];
+        textWidth += ch.advance * scale.x;
+    }
+
+    // TODO: Remove when images become their own data types
+    TextureData texture;
+    texture.m_handle = pFont->fontTexture;
+    m_textureState = texture;
+
+    BeginObject2D(EPrimitiveType::Triangles);
+    for (char const& c : std::string(text)) {
+        Character ch = pFont->characters[c];
+
+        // Center alignment
+        float xpos = (x + ch.bearing.x * scale.x) - textWidth * 0.5f;
+        //float xpos = (x + ch.bearing.x * scale.x);
+        float ypos = y - (ch.size.y - ch.bearing.y) * scale.y;
+        float w = (float)ch.size.x * scale.x;
+        float h = (float)ch.size.y * scale.y;
+
+        // 0
+        Color(color);
+        TexCoord(Vec2f(ch.UV0.x, ch.UV1.y));
+        Vertex(Vec2f( xpos, ypos));
+
+        // 1
+        Color(color);
+        TexCoord(Vec2f(ch.UV1.x, ch.UV0.y));
+        Vertex(Vec2f( xpos + w, ypos + h));
+
+        // 2
+        Color(color);
+        TexCoord(Vec2f(ch.UV0.x, ch.UV0.y));
+        Vertex(Vec2f( xpos, ypos + h ));
+
+        // 0
+        Color(color);
+        TexCoord(Vec2f(ch.UV0.x, ch.UV1.y));
+        Vertex(Vec2f( xpos, ypos));
+
+        // 3
+        Color(color);
+        TexCoord(Vec2f(ch.UV1.x, ch.UV1.y));
+        Vertex(Vec2f( xpos + w, ypos ));
+
+        // 1
+        Color(color);
+        TexCoord(Vec2f(ch.UV1.x, ch.UV0.y));
+        Vertex(Vec2f( xpos + w, ypos + h));
+
+        x += ch.advance * scale.x;
+    }
+    EndObject2D();
+    UnbindTexture();
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawPixel(Vec2f position, Vec4f color)
+{
+    BeginObject2D(EPrimitiveType::Points);
+        Color(color);
+        Vertex(position);
+    EndObject2D();
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawLine(Vec2f start, Vec2f end, Vec4f color)
+{
+    BeginObject2D(EPrimitiveType::Lines);
+        Color(color);
+        Vertex(start);
+        Vertex(end);
+    EndObject2D();
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawRectangle(Vec2f bottomLeft, Vec2f topRight, Vec4f color)
+{
+    BeginObject2D(EPrimitiveType::Triangles);
+        Color(color);
+        Vertex(bottomLeft);
+        Vertex(Vec2f(topRight.x, bottomLeft.y));
+        Vertex(topRight);
+
+        Vertex(topRight);
+        Vertex(Vec2f(bottomLeft.x, topRight.y));
+        Vertex(bottomLeft);
+    EndObject2D();
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawRectangleOutline(Vec2f bottomLeft, Vec2f topRight, Vec4f color)
+{
+    BeginObject2D(EPrimitiveType::Lines);
+        Color(color);
+        Vertex(Vec2f(bottomLeft.x + 1, bottomLeft.y));
+        Vertex(Vec2f(topRight.x, bottomLeft.y));
+
+        Vertex(Vec2f(topRight.x, bottomLeft.y));
+        Vertex(Vec2f(topRight.x, topRight.y - 1));
+
+        Vertex(topRight);
+        Vertex(Vec2f(bottomLeft.x + 1, topRight.y - 1));
+
+        Vertex(bottomLeft);
+        Vertex(Vec2f(bottomLeft.x + 1, topRight.y));
+    EndObject2D();
+}
+
+// ***********************************************************************
+
+void GraphicsChip::DrawCircle(Vec2f center, float radius, Vec4f color)
+{
+    BeginObject2D(EPrimitiveType::Triangles);
+    constexpr float segments = 24;
+    for (size_t i = 0; i < segments; i++)
+    {
+        float x1 = (PI2 / segments) * i;
+        float x2 = (PI2 / segments) * (i+1);
+        Color(color);
+        Vertex(center);
+        Vertex(center + Vec2f(sin(x1), cos(x1)) * radius);
+        Vertex(center + Vec2f(sin(x2), cos(x2)) * radius);
+    }
+    EndObject2D();
+}
+
+void GraphicsChip::DrawCircleOutline(Vec2f center, float radius, Vec4f color)
+{
+    BeginObject2D(EPrimitiveType::Lines);
+    constexpr float segments = 24;
+    for (size_t i = 0; i < segments; i++)
+    {
+        float x1 = (PI2 / segments) * i;
+        float x2 = (PI2 / segments) * (i+1);
+        Color(color);
+        Vertex(center + Vec2f(sin(x1), cos(x1)) * radius);
+        Vertex(center + Vec2f(sin(x2), cos(x2)) * radius);
+    }
+    EndObject2D();
 }

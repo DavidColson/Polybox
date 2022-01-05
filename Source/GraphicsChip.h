@@ -111,6 +111,12 @@ public:
     void DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position);
     void DrawText(const char* text, Vec2f position, float size);
     void DrawTextEx(const char* text, Vec2f position, Vec4f color, const char* font, float size, bool antialiasing = true, float weight = 0.0f);
+    void DrawPixel(Vec2f position, Vec4f color);
+    void DrawLine(Vec2f start, Vec2f end, Vec4f color);
+    void DrawCircle(Vec2f center, float radius, Vec4f color);
+    void DrawCircleOutline(Vec2f center, float radius, Vec4f color);
+    void DrawRectangle(Vec2f bottomLeft, Vec2f topRight, Vec4f color);
+    void DrawRectangleOutline(Vec2f bottomLeft, Vec2f topRight, Vec4f color);
     
 private:
     void FullScreenQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _depth, float _width = 1.0f, float _height = 1.0f);
@@ -160,6 +166,7 @@ private:
     bgfx::ProgramHandle m_programBase3D{ BGFX_INVALID_HANDLE };
     bgfx::ProgramHandle m_programTexturing3D{ BGFX_INVALID_HANDLE };
     bgfx::ProgramHandle m_programBase2D{ BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle m_programTexturing2D{ BGFX_INVALID_HANDLE };
     
     bgfx::UniformHandle m_colorTextureSampler{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_targetResolutionUniform{ BGFX_INVALID_HANDLE };

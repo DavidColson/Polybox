@@ -105,11 +105,11 @@ void GraphicsChip::Init()
 
     {
         const bgfx::Memory* pFsShaderMem = nullptr;
-        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/core.fs", "", "Shaders/varying.def.sc");
+        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/core3d.fs", "", "Shaders/varying.def.sc");
         bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
 
         const bgfx::Memory* pVsShaderMem = nullptr;
-        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core.vs", "", "Shaders/varying.def.sc");
+        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core3d.vs", "", "Shaders/varying.def.sc");
         bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
 
         m_programBase3D = bgfx::createProgram(vsShader, fsShader, true);
@@ -117,11 +117,11 @@ void GraphicsChip::Init()
 
     {
         const bgfx::Memory* pFsShaderMem = nullptr;
-        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/core.fs", "TEXTURING", "Shaders/varying.def.sc");
+        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/core3d.fs", "TEXTURING", "Shaders/varying.def.sc");
         bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
 
         const bgfx::Memory* pVsShaderMem = nullptr;
-        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core.vs", "TEXTURING", "Shaders/varying.def.sc");
+        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core3d.vs", "TEXTURING", "Shaders/varying.def.sc");
         bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
 
         m_programTexturing3D = bgfx::createProgram(vsShader, fsShader, true);
@@ -137,18 +137,6 @@ void GraphicsChip::Init()
         bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
 
         m_programBase2D = bgfx::createProgram(vsShader, fsShader, true);
-    }
-
-    {
-        const bgfx::Memory* pFsShaderMem = nullptr;
-        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/fonts.fs", "", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
-
-        const bgfx::Memory* pVsShaderMem = nullptr;
-        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/fonts.vs", "", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
-
-        m_programFonts = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {

@@ -106,7 +106,7 @@ public:
     void SetFogEnd(float end);
     void SetFogColor(Vec3f color);
 
-    // Graphics Extras
+    // Extended Graphics API
     void DrawSprite(const char* spritePath, Vec2f position);
     void DrawSpriteRect(const char* spritePath, Vec4f rect, Vec2f position);
     void DrawText(const char* text, Vec2f position, float size);
@@ -160,7 +160,6 @@ private:
     bgfx::ProgramHandle m_programBase3D{ BGFX_INVALID_HANDLE };
     bgfx::ProgramHandle m_programTexturing3D{ BGFX_INVALID_HANDLE };
     bgfx::ProgramHandle m_programBase2D{ BGFX_INVALID_HANDLE };
-    bgfx::ProgramHandle m_programFonts{ BGFX_INVALID_HANDLE };
     
     bgfx::UniformHandle m_colorTextureSampler{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_targetResolutionUniform{ BGFX_INVALID_HANDLE };

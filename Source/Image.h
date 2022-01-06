@@ -5,7 +5,7 @@
 
 #include "LuaCommon.h"
 
-struct Image : public Lua::Object
+struct Image : public LuaObject
 {
     Image() {}
     Image(std::string path);

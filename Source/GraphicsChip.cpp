@@ -331,7 +331,7 @@ void GraphicsChip::BeginObject3D(EPrimitiveType type)
 
 void GraphicsChip::EndObject3D()
 {
-    if (m_mode == ERenderMode::None)
+    if (m_mode == ERenderMode::None) // TODO Call errors when this is incorrect
         return;
 
     uint64_t state = 0

@@ -97,8 +97,6 @@ int main(int argc, char *argv[])
 		Scene tankScene("Assets/tank.gltf");
 		TransformNodeHeirarchy(tankScene.m_nodes);
 
-		Image pigeonImage("Assets/Pigeon.png");
-
 		// Lua embedding experiments
 		lua_State* pLua = luaL_newstate();
 		luaL_openlibs(pLua); // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
@@ -170,122 +168,6 @@ int main(int argc, char *argv[])
 			}
 			bgfx::touch(0);
 
-			gpu.SetClearColor(Vec4f(0.25f, 0.25f, 0.25f, 1.0f));
-
-			gpu.MatrixMode(EMatrixMode::Projection);
-			gpu.Identity();
-			gpu.Perspective((float)320, (float)240, 1.0f, 20.0f, 60.0f);
-
-			static float x = 0.12f;
-			x += 1.0f * deltaTime;
-			
-			gpu.MatrixMode(EMatrixMode::View);
-			gpu.Identity();
-			gpu.Rotate(Vec3f(0.0f, 3.6f + sin(x) * 0.28f, 0.0f));
-			gpu.Translate(Vec3f(1.f, -2.5f, 6.5f));
-			
-			// Setup some lights
-			gpu.EnableLighting(true);
-			gpu.NormalsMode(ENormalsMode::Custom);
-			gpu.Ambient(Vec3f(0.4f, 0.4f, 0.4f));
-			gpu.Light(0, Vec3f(-1.0f, 1.f, 0.0f), Vec3f(1.0f, 1.0f, 1.0f));
-
-			gpu.EnableFog(true);
-			gpu.SetFogStart(3.0f);
-			gpu.SetFogEnd(15.0f);
-
-			for (size_t i = 0; i < tankScene.m_nodes.size(); i++)
-			{
-				Node& node = tankScene.m_nodes[i];
-				if (node.m_meshId == UINT32_MAX)
-					continue;
-
-				// Setup matrix for your model
-				gpu.MatrixMode(EMatrixMode::Model);
-				gpu.Identity();
-				gpu.Translate(node.m_worldTransform.GetTranslation());
-				gpu.Rotate(node.m_worldTransform.GetEulerRotation());
-				gpu.Scale(node.m_worldTransform.GetScaling());
-				
-				Mesh& mesh = tankScene.m_meshes[node.m_meshId];
-				if (mesh.m_name == "BlobShadow")
-					continue; // We'll skip the mostly transparent blob shadows and do them later
-
-				Primitive& prim = mesh.m_primitives[0];
-				
-				// Bind a texture for the model
-				gpu.BindTexture(&tankScene.m_images[prim.m_baseColorTexture]);
-
-				// Just draw your tank like an old fashioned fixed function pipeline
-				gpu.BeginObject3D(EPrimitiveType::Triangles);
-				for (size_t i = 0; i < prim.m_vertices.size(); i++)
-				{
-					gpu.Normal(prim.m_vertices[i].norm);
-					gpu.Color(prim.m_vertices[i].col);
-					gpu.TexCoord(prim.m_vertices[i].tex);
-					gpu.Vertex(prim.m_vertices[i].pos);
-				}
-				gpu.EndObject3D();
-			}
-
-			for (size_t i = 0; i < tankScene.m_nodes.size(); i++)
-			{
-				Node& node = tankScene.m_nodes[i];
-				if (node.m_meshId == UINT32_MAX)
-					continue;
-
-				// Setup matrix for your model
-				gpu.MatrixMode(EMatrixMode::Model);
-				gpu.Identity();
-				gpu.Translate(node.m_worldTransform.GetTranslation());
-				gpu.Rotate(node.m_worldTransform.GetEulerRotation());
-				gpu.Scale(node.m_worldTransform.GetScaling());
-				
-				Mesh& mesh = tankScene.m_meshes[node.m_meshId];
-				if (mesh.m_name != "BlobShadow")
-					continue; // Now we draw the blob shadows on top
-
-				Primitive& prim = mesh.m_primitives[0];
-				
-				// Bind a texture for the model
-				gpu.BindTexture(&tankScene.m_images[prim.m_baseColorTexture]);
-
-				// Just draw your tank like an old fashioned fixed function pipeline
-				gpu.BeginObject3D(EPrimitiveType::Triangles);
-				for (size_t i = 0; i < prim.m_vertices.size(); i++)
-				{
-					gpu.Normal(prim.m_vertices[i].norm);
-					gpu.Color(prim.m_vertices[i].col);
-					gpu.TexCoord(prim.m_vertices[i].tex);
-					gpu.Vertex(prim.m_vertices[i].pos);
-				}
-				gpu.EndObject3D();
-			}
-
-			gpu.SetClearColor(Vec4f(0.0f));
-
-			gpu.MatrixMode(EMatrixMode::Model);
-			gpu.Identity();
-
-			gpu.DrawText("Hello World", Vec2f(160.0f, 50.0f), 20.0f);
-
-			gpu.DrawSprite(&pigeonImage, Vec2f(100.0f, 100.0f + sin(x) * 20.0f));
-
-			gpu.Identity();
-			gpu.DrawPixel(Vec2f(50.f, 50.f), Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
-
-			gpu.DrawLine(Vec2f(80.f, 80.f), Vec2f(150.f, 100.f), Vec4f(0.0f, 0.0f, 1.0f, 1.0f));
-			gpu.DrawCircle(Vec2f(240.f, 80.f + sin(x) * 30), 20.0f, Vec4f(0.0f, 0.0f, 1.0f, 1.0f));
-			gpu.Translate(Vec3f(0.0f, 0.0f, 1.0f));
-			gpu.DrawCircleOutline(Vec2f(240.f, 80.f + sin(x) * 30), 20.0f, Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
-
-			gpu.DrawRectangle(Vec2f(50.0f, 100.f), Vec2f(80.0f, 120.0f), Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
-			
-			//gpu.Translate(Vec3f(sin(x) * 10.0f, cos(x) * 10.0f, 0.0f));
-			gpu.DrawRectangleOutline(Vec2f(60.0f, 140.f), Vec2f(80.0f, 170.0f), Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
-
-
-
 			// Lua updates
 
 			lua_getglobal(pLua, "Update");
@@ -298,8 +180,7 @@ int main(int argc, char *argv[])
 					__debugbreak();
 				}
 			}
-
-
+			
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
 
 			//bgfx::setDebug(BGFX_DEBUG_STATS);

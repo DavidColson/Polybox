@@ -2,9 +2,9 @@
 
 // ***********************************************************************
 
-static int GarbageCollect(lua_State* pLua)
+static int __garbagecollect(lua_State* pLua)
 {
-    Lua::Object *pObject = *(Lua::Object**)lua_touserdata(pLua, 1);
+    LuaObject *pObject = *(LuaObject**)lua_touserdata(pLua, 1);
     if (pObject)
     {
         pObject->Free();
@@ -14,10 +14,10 @@ static int GarbageCollect(lua_State* pLua)
 
 // ***********************************************************************
 
-static int EqualityCheck(lua_State* pLua)
+static int __equality(lua_State* pLua)
 {
-    Lua::Object *pObject1 = *(Lua::Object**)lua_touserdata(pLua, 1);
-    Lua::Object *pObject2 = *(Lua::Object**)lua_touserdata(pLua, 1);
+    LuaObject *pObject1 = *(LuaObject**)lua_touserdata(pLua, 1);
+    LuaObject *pObject2 = *(LuaObject**)lua_touserdata(pLua, 1);
 
     if (pObject1 && pObject2)
     {
@@ -35,7 +35,7 @@ static int EqualityCheck(lua_State* pLua)
 
 // ***********************************************************************
 
-static int GetType(lua_State *L)
+static int __gettype(lua_State *L)
 {
 	lua_pushvalue(L, lua_upvalueindex(1));
 	return 1;
@@ -43,7 +43,22 @@ static int GetType(lua_State *L)
 
 // ***********************************************************************
 
-void Lua::RegisterNewType(lua_State* pLua, const char* typeName, const luaL_Reg *funcs)
+bool luax_toboolean(lua_State* pLua, int idx)
+{
+	return (lua_toboolean(pLua, idx) != 0);
+}
+
+// ***********************************************************************
+
+bool luax_checkboolean(lua_State* pLua, int idx)
+{
+    luaL_checktype(pLua, idx, LUA_TBOOLEAN);
+	return luax_toboolean(pLua, idx);
+}
+
+// ***********************************************************************
+
+void luax_registertype(lua_State* pLua, const char* typeName, const luaL_Reg *funcs)
 {
     luaL_newmetatable(pLua, typeName);
 
@@ -51,14 +66,14 @@ void Lua::RegisterNewType(lua_State* pLua, const char* typeName, const luaL_Reg 
     lua_pushvalue(pLua, -1);
     lua_setfield(pLua, -2, "__index");
 
-    lua_pushcfunction(pLua, GarbageCollect);
+    lua_pushcfunction(pLua, __garbagecollect);
     lua_setfield(pLua, -2, "__gc");
 
-    lua_pushcfunction(pLua, EqualityCheck);
+    lua_pushcfunction(pLua, __equality);
     lua_setfield(pLua, -2, "__eq");
 
     lua_pushstring(pLua, typeName);
-	lua_pushcclosure(pLua, GetType, 1);
+	lua_pushcclosure(pLua, __gettype, 1);
 	lua_setfield(pLua, -2, "GetType");
 
     // Push all of the type member functions into the metatable

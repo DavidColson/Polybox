@@ -9,6 +9,7 @@
 #include "Model.h"
 #include "Font.h"
 #include "Image.h"
+#include "Bind_GraphicsChip.h"
 
 extern "C" {
 	#include "lua.h"
@@ -102,6 +103,8 @@ int main(int argc, char *argv[])
 		lua_State* pLua = luaL_newstate();
 		luaL_openlibs(pLua); // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
 
+		Bind::BindGraphicsChip(pLua, &gpu);
+
 		if (luaL_dofile(pLua, "Assets/game.lua") != LUA_OK)
 		{
 			std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
@@ -117,31 +120,6 @@ int main(int argc, char *argv[])
 				OutputDebugStringA(format.c_str());
 			}
 		}
-
-		for (size_t i = 0; i < 10; i++)
-		{
-			lua_getglobal(pLua, "Update");
-			if (lua_isfunction(pLua, -1))
-			{
-				if (lua_pcall(pLua, 0, 0, 0) != LUA_OK)
-				{
-					std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
-					OutputDebugStringA(format.c_str());
-				}
-			}
-		}
-		
-		lua_getglobal(pLua, "End");
-		if (lua_isfunction(pLua, -1))
-		{
-			if (lua_pcall(pLua, 0, 0, 0) != LUA_OK)
-			{
-				std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
-				OutputDebugStringA(format.c_str());
-			}
-		}
-
-		lua_close(pLua);
 
 		bool gameRunning = true;
 		float deltaTime = 0.016f;
@@ -192,10 +170,11 @@ int main(int argc, char *argv[])
 			}
 			bgfx::touch(0);
 
+			gpu.SetClearColor(Vec4f(0.25f, 0.25f, 0.25f, 1.0f));
+
 			gpu.MatrixMode(EMatrixMode::Projection);
 			gpu.Identity();
 			gpu.Perspective((float)320, (float)240, 1.0f, 20.0f, 60.0f);
-
 
 			static float x = 0.12f;
 			x += 1.0f * deltaTime;
@@ -283,6 +262,8 @@ int main(int argc, char *argv[])
 				gpu.EndObject3D();
 			}
 
+			gpu.SetClearColor(Vec4f(0.0f));
+
 			gpu.MatrixMode(EMatrixMode::Model);
 			gpu.Identity();
 
@@ -303,6 +284,22 @@ int main(int argc, char *argv[])
 			//gpu.Translate(Vec3f(sin(x) * 10.0f, cos(x) * 10.0f, 0.0f));
 			gpu.DrawRectangleOutline(Vec2f(60.0f, 140.f), Vec2f(80.0f, 170.0f), Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
 
+
+
+			// Lua updates
+
+			lua_getglobal(pLua, "Update");
+			if (lua_isfunction(pLua, -1))
+			{
+				if (lua_pcall(pLua, 0, 0, 0) != LUA_OK)
+				{
+					std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
+					OutputDebugStringA(format.c_str());
+					__debugbreak();
+				}
+			}
+
+
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
 
 			//bgfx::setDebug(BGFX_DEBUG_STATS);
@@ -310,6 +307,18 @@ int main(int argc, char *argv[])
 
 			deltaTime = float(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();
 		}
+
+		lua_getglobal(pLua, "End");
+		if (lua_isfunction(pLua, -1))
+		{
+			if (lua_pcall(pLua, 0, 0, 0) != LUA_OK)
+			{
+				std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
+				OutputDebugStringA(format.c_str());
+			}
+		}
+
+		lua_close(pLua);
 	}
 	bgfx::shutdown();
 

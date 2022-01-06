@@ -3,11 +3,13 @@
 #include <string>
 #include <bgfx/bgfx.h>
 
-struct Image
+#include "LuaCommon.h"
+
+struct Image : public Lua::Object
 {
     Image() {}
     Image(std::string path);
-    ~Image() {}
+    virtual void Free() override;
 
 	bgfx::TextureHandle m_handle{ BGFX_INVALID_HANDLE };
     int m_width;

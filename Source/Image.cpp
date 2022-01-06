@@ -39,3 +39,10 @@ Image::Image(std::string path)
     bgfx::setName(m_handle, path.c_str());
     delete pData;
 }
+
+// ***********************************************************************
+
+void Image::Free()
+{
+    bgfx::destroy(m_handle);
+}

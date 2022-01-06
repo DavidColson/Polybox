@@ -25,7 +25,8 @@ enum class EPrimitiveType
     Points,
     Triangles,
     Lines,
-    LineStrip
+    LineStrip,
+    Count
 };
 
 enum class EMatrixMode
@@ -80,7 +81,7 @@ public:
     void TexCoord(Vec2f tex);
     void Normal(Vec3f norm);
 
-    void SetClearColor(Vec3f color);
+    void SetClearColor(Vec4f color);
 
     // Transforms
     void MatrixMode(EMatrixMode mode);
@@ -136,7 +137,7 @@ private:
     EMatrixMode m_matrixModeState;
     Matrixf m_matrixStates[(size_t)EMatrixMode::Count];
 
-    Vec3f m_clearColor{ Vec3f(0.25f, 0.25f, 0.25f) };
+    Vec4f m_clearColor{ Vec4f(0.25f, 0.25f, 0.25f, 1.0f) };
 
     ENormalsMode m_normalsModeState;
     bool m_lightingState{ false };

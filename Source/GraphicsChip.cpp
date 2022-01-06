@@ -279,8 +279,8 @@ void GraphicsChip::EndObject2D()
         break;
     }
                 
-    uint32_t clear = (255 << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
-    bgfx::setViewClear(m_scene2DView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0, 1.0f, 0);
+    uint32_t clear = (uint8_t(m_clearColor.w*255) << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
+    bgfx::setViewClear(m_scene2DView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, clear, 1.0f, 0);
     bgfx::setViewRect(m_scene2DView, 0, 0, uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y));
     bgfx::setViewFrameBuffer(m_scene2DView, m_frameBuffer2D);
 
@@ -451,7 +451,7 @@ void GraphicsChip::EndObject3D()
 
     // Submit draw call
 
-    uint32_t clear = (255 << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
+    uint32_t clear = (uint8_t(m_clearColor.w*255) << 0) + (uint8_t(m_clearColor.z*255) << 8) + (uint8_t(m_clearColor.y*255) << 16) + (uint8_t(m_clearColor.x*255) << 24);
     bgfx::setViewClear(m_scene3DView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, clear, 1.0f, 0);
     bgfx::setViewRect(m_scene3DView, 0, 0, uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y));
     bgfx::setViewFrameBuffer(m_scene3DView, m_frameBuffer3D);
@@ -531,7 +531,7 @@ void GraphicsChip::Normal(Vec3f norm)
 
 // ***********************************************************************
 
-void GraphicsChip::SetClearColor(Vec3f color)
+void GraphicsChip::SetClearColor(Vec4f color)
 {
     m_clearColor = color;
 }

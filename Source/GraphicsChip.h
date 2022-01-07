@@ -181,5 +181,5 @@ private:
     bgfx::UniformHandle m_frameBufferSampler{ BGFX_INVALID_HANDLE };
     bgfx::UniformHandle m_crtDataUniform{ BGFX_INVALID_HANDLE };
 
-    Font defaultFont;
+    Font m_defaultFont;
 };

@@ -27,7 +27,6 @@ struct Font
 {
     Font() {}
     Font(std::string path, bool antialiasing = true, float weight = 0.0f);
-    ~Font();
 
 	Image fontTexture;
 	std::vector<Character> characters;

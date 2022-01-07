@@ -9,7 +9,7 @@ struct Image : public LuaObject
 {
     Image() {}
     Image(std::string path);
-    virtual void Free() override;
+    virtual ~Image();
 
 	bgfx::TextureHandle m_handle{ BGFX_INVALID_HANDLE };
     int m_width;

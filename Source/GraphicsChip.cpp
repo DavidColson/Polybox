@@ -190,6 +190,8 @@ void GraphicsChip::Init()
 						bgfx::createTexture2D(uint16_t(m_targetResolution.x), uint16_t(m_targetResolution.y), false, 1, bgfx::TextureFormat::D32F,tsFlags), };
     m_frameBufferComposite = bgfx::createFrameBuffer(BX_COUNTOF(gbufferCompositeTex), gbufferCompositeTex, true);
     
+    m_defaultFont = Font("Assets/Roboto-Bold.ttf");
+
     m_frameBufferSampler = bgfx::createUniform("fullscreenFrameSampler", bgfx::UniformType::Sampler);
 	m_colorTextureSampler = bgfx::createUniform("colorTextureSampler",  bgfx::UniformType::Sampler);
 	m_targetResolutionUniform = bgfx::createUniform("u_targetResolution", bgfx::UniformType::Vec4);
@@ -200,8 +202,6 @@ void GraphicsChip::Init()
     m_fogDepthsUniform = bgfx::createUniform("u_fogDepths", bgfx::UniformType::Vec4);
     m_fogColorUniform = bgfx::createUniform("u_fogColor", bgfx::UniformType::Vec4);
     m_crtDataUniform = bgfx::createUniform("u_crtData", bgfx::UniformType::Vec4);
-
-    defaultFont = Font("Assets/Roboto-Bold.ttf");
 }
 
 // ***********************************************************************
@@ -243,6 +243,12 @@ void GraphicsChip::DrawFrame(float w, float h)
     bgfx::setTexture(0, m_frameBufferSampler, bgfx::getTexture(m_frameBufferComposite));
     FullScreenQuad(w, h, 0.0f, true, 0.0f);
     bgfx::submit(m_realWindowView, m_crtProgram);
+
+    for (size_t i = 0; i < (int)EMatrixMode::Count; i++)
+    {
+        m_matrixStates[i] = Matrixf::Identity();
+    }
+    
 }
 
 // ***********************************************************************
@@ -582,14 +588,19 @@ void GraphicsChip::Identity()
 
 void GraphicsChip::BindTexture(Image* pImage)
 {
+    if (m_pTextureState != nullptr)
+        UnbindTexture();
+
     // Save as current texture state for binding in endObject
     m_pTextureState = pImage;
+    m_pTextureState->Retain();
 }
 
 // ***********************************************************************
 
 void GraphicsChip::UnbindTexture()
 {
+    m_pTextureState->Release();
     m_pTextureState = nullptr;
 }
 
@@ -702,7 +713,7 @@ void GraphicsChip::DrawSpriteRect(Image* pImage, Vec4f rect, Vec2f position)
 
 void GraphicsChip::DrawText(const char* text, Vec2f position, float size)
 {
-    DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), &defaultFont, size);
+    DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), &m_defaultFont, size);
 }
 
 // ***********************************************************************
@@ -722,9 +733,7 @@ void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Fon
         textWidth += ch.advance * scale.x;
     }
 
-    // TODO: Remove when images become their own data types
-    m_pTextureState = &pFont->fontTexture;
-
+    BindTexture(&pFont->fontTexture);
     BeginObject2D(EPrimitiveType::Triangles);
     for (char const& c : std::string(text)) {
         Character ch = pFont->characters[c];

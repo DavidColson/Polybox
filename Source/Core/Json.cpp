@@ -685,6 +685,7 @@ JsonValue JsonValue::NewArray()
 
 // ***********************************************************************
 
+// TODO: Should just take a byte array, would save us doing two mem allocs for each file we load
 JsonValue ParseJsonFile(std::string& file)
 {
 	std::vector<Token> tokens = TokenizeJson(file);

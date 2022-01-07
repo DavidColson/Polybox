@@ -42,7 +42,7 @@ Image::Image(std::string path)
 
 // ***********************************************************************
 
-void Image::Free()
+Image::~Image()
 {
     bgfx::destroy(m_handle);
 }

@@ -10,7 +10,14 @@ extern "C" {
 
 struct LuaObject
 {
-    virtual void Free() = 0;
+	LuaObject();
+	LuaObject(const LuaObject& other);
+	virtual ~LuaObject() {}
+
+    void Retain();
+    void Release();
+
+	int m_refCount{ 0 };
 };
 
 bool luax_toboolean(lua_State *L, int idx);

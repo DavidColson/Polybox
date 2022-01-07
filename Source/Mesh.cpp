@@ -1,9 +1,75 @@
-#include "Model.h"
+#include "Mesh.h"
 
 #include "Core/Json.h"
 #include "Core/Base64.h"
 
 #include <SDL_rwops.h>
+#include <string>
+
+
+// ***********************************************************************
+
+int Primitive::GetNumVertices()
+{
+    return (int)m_vertices.size();
+}
+
+// ***********************************************************************
+
+Vec3f Primitive::GetVertexPosition(int index)
+{
+    return m_vertices[index].pos;
+}
+
+// ***********************************************************************
+
+Vec4f Primitive::GetVertexColor(int index)
+{
+    return m_vertices[index].col;
+}
+
+// ***********************************************************************
+
+Vec2f Primitive::GetVertexTexCoord(int index)
+{
+    return m_vertices[index].tex;
+}
+
+// ***********************************************************************
+
+Vec3f Primitive::GetVertexNormal(int index)
+{
+    return m_vertices[index].norm;
+}
+
+// ***********************************************************************
+
+int Primitive::GetMaterialTextureId()
+{
+    return m_baseColorTexture;
+}
+
+// ***********************************************************************
+
+Mesh::~Mesh()
+{
+}
+
+// ***********************************************************************
+
+int Mesh::GetNumPrimitives()
+{
+    return (int)m_primitives.size();
+}
+
+// ***********************************************************************
+
+Primitive* Mesh::GetPrimitive(int index)
+{
+    return &m_primitives[index];
+}
+
+// ***********************************************************************
 
 // Actually owns the data
 struct Buffer
@@ -56,88 +122,26 @@ struct Accessor
     Type type;
 };
 
-void ParseNodesRecursively(Node* pParent, std::vector<Node>& outNodes, JsonValue& nodeToParse, JsonValue& nodesData)
+// ***********************************************************************
+
+std::vector<Mesh*> Mesh::LoadMeshes(const char* filePath)
 {
-    for (int i = 0; i < nodeToParse.Count(); i++)
-    {
-        int nodeId = nodeToParse[i].ToInt();
-        JsonValue& jsonNode = nodesData[nodeId];
+    std::vector<Mesh*> outMeshes;
 
-        // extract the nodes
-        outNodes.emplace_back();
-        Node& node = outNodes.back();
-
-        node.m_name = jsonNode.HasKey("name") ? jsonNode["name"].ToString() : "";
-        node.m_meshId = UINT32_MAX;
-
-        if (jsonNode.HasKey("children"))
-        {
-            ParseNodesRecursively(&node, outNodes, jsonNode["children"], nodesData);
-        }
-
-        if (pParent)
-        {
-            pParent->m_children.push_back(&node);
-            node.m_pParent = pParent;
-        }
-
-        if (jsonNode.HasKey("mesh"))
-        {
-            node.m_meshId = jsonNode["mesh"].ToInt();
-        }
-
-        if (jsonNode.HasKey("rotation"))
-        {
-            node.m_rotation.x = float(jsonNode["rotation"][0].ToFloat());
-            node.m_rotation.y = float(jsonNode["rotation"][1].ToFloat());
-            node.m_rotation.z = float(jsonNode["rotation"][2].ToFloat());
-            node.m_rotation.w = float(jsonNode["rotation"][3].ToFloat());
-        }
-        else
-        {
-            node.m_rotation = Quatf::Identity();
-        }
-
-        if (jsonNode.HasKey("translation"))
-        {
-            node.m_translation.x = float(jsonNode["translation"][0].ToFloat());
-            node.m_translation.y = float(jsonNode["translation"][1].ToFloat());
-            node.m_translation.z = float(jsonNode["translation"][2].ToFloat());
-        }
-        else
-        {
-            node.m_translation = Vec3f(0.0f);
-        }
-
-        if (jsonNode.HasKey("scale"))
-        {
-            node.m_scale.x = float(jsonNode["scale"][0].ToFloat());
-            node.m_scale.y = float(jsonNode["scale"][1].ToFloat());
-            node.m_scale.z = float(jsonNode["scale"][2].ToFloat());
-        }
-        else
-        {
-            node.m_scale = Vec3f(1.0f);
-        }
-    } 
-}
-
-Scene::Scene(std::string filePath)
-{
-    SDL_RWops* pFileRead = SDL_RWFromFile(filePath.c_str(), "rb");
-
+    // Consider caching loaded json files somewhere since LoadScene and LoadMeshes are doing duplicate work here
+    SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
     uint64_t size = SDL_RWsize(pFileRead);
     char* pData = new char[size];
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
-
     std::string file(pData, pData + size);
+    delete[] pData;
 
     JsonValue parsed = ParseJsonFile(file);
 
     bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
     if (!validGltf)
-        return;
+        return std::vector<Mesh*>();
 
     std::vector<Buffer> rawDataBuffers;
     JsonValue& jsonBuffers = parsed["buffers"];
@@ -212,28 +216,13 @@ Scene::Scene(std::string filePath)
         accessors.push_back(acc);
     }
     
-    m_nodes.reserve(parsed["nodes"].Count());
-    ParseNodesRecursively(nullptr, m_nodes, parsed["scenes"][0]["nodes"], parsed["nodes"]);
-
-    if (parsed.HasKey("images"))
-    {
-        m_images.reserve(parsed["images"].Count());
-        for (size_t i = 0; i < parsed["images"].Count(); i++)
-        {
-            JsonValue& jsonImage = parsed["images"][i];
-            std::string type = jsonImage["mimeType"].ToString();
-            std::string imagePath = "Assets/" + jsonImage["name"].ToString() + "." + type.substr(6, 4);
-            m_images.emplace_back(imagePath);
-        }
-    }
-
-    m_meshes.reserve(parsed["meshes"].Count());
+    outMeshes.reserve(parsed["meshes"].Count());
     for (int i = 0; i < parsed["meshes"].Count(); i++)
     {
         JsonValue& jsonMesh = parsed["meshes"][i];
 
-        Mesh mesh;
-        mesh.m_name = jsonMesh.HasKey("name") ? jsonMesh["name"].ToString() : "";
+        Mesh* pMesh = new Mesh();
+        pMesh->m_name = jsonMesh.HasKey("name") ? jsonMesh["name"].ToString() : "";
 
         for (int j = 0; j < jsonMesh["primitives"].Count(); j++)
         {
@@ -244,7 +233,7 @@ Scene::Scene(std::string filePath)
             {
                 if (jsonPrimitive["mode"].ToInt() != 4)
                 {
-                    return; // Unsupported topology type
+                    return std::vector<Mesh*>(); // Unsupported topology type
                 }
             }
 
@@ -261,13 +250,6 @@ Scene::Scene(std::string filePath)
                     int imageId = parsed["textures"][textureId]["source"].ToInt();
                     prim.m_baseColorTexture = imageId;
                 }
-                if (pbr.HasKey("baseColorFactor"))
-                {
-                    prim.m_baseColor.x = (float)pbr["baseColorFactor"][0].ToFloat();
-                    prim.m_baseColor.y = (float)pbr["baseColorFactor"][1].ToFloat();
-                    prim.m_baseColor.z = (float)pbr["baseColorFactor"][2].ToFloat();
-                    prim.m_baseColor.w = (float)pbr["baseColorFactor"][3].ToFloat();
-                }
             }
 
             int nVerts = accessors[jsonPrimitive["attributes"]["POSITION"].ToInt()].count;
@@ -277,9 +259,7 @@ Scene::Scene(std::string filePath)
             Vec3f* vertNormBuffer = jsonAttr.HasKey("NORMAL") ? (Vec3f*)accessors[jsonAttr["NORMAL"].ToInt()].pBuffer : nullptr;
             Vec2f* vertTexCoordBuffer = jsonAttr.HasKey("TEXCOORD_0") ? (Vec2f*)accessors[jsonAttr["TEXCOORD_0"].ToInt()].pBuffer : nullptr;
 
-            
             // Interlace vertex data
-
             std::vector<VertexData> indexedVertexData;
             indexedVertexData.reserve(nVerts);
             if (jsonAttr.HasKey("COLOR_0"))
@@ -309,13 +289,50 @@ Scene::Scene(std::string filePath)
                 prim.m_vertices.push_back(indexedVertexData[index]);
             }
 
-            mesh.m_primitives.push_back(std::move(prim));
+            pMesh->m_primitives.push_back(std::move(prim));
         }
-        m_meshes.push_back(std::move(mesh));
+        outMeshes.push_back(pMesh);
     }
-    
+
     for (int i = 0; i < rawDataBuffers.size(); i++)
     {
         delete rawDataBuffers[i].pBytes;
     }
+    return std::move(outMeshes);
+}
+
+// ***********************************************************************
+
+std::vector<Image*> Mesh::LoadTextures(const char* filePath)
+{
+    std::vector<Image*> outImages;
+
+    // Consider caching loaded json files somewhere since LoadScene/LoadMeshes/LoadImages are doing duplicate work here
+    SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
+    uint64_t size = SDL_RWsize(pFileRead);
+    char* pData = new char[size];
+    SDL_RWread(pFileRead, pData, size, 1);
+    SDL_RWclose(pFileRead);
+    std::string file(pData, pData + size);
+    delete[] pData;
+
+    JsonValue parsed = ParseJsonFile(file);
+
+    bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
+    if (!validGltf)
+        return std::vector<Image*>();
+
+    if (parsed.HasKey("images"))
+    {
+        outImages.reserve(parsed["images"].Count());
+        for (size_t i = 0; i < parsed["images"].Count(); i++)
+        {
+            JsonValue& jsonImage = parsed["images"][i];
+            std::string type = jsonImage["mimeType"].ToString();
+            std::string imagePath = "Assets/" + jsonImage["name"].ToString() + "." + type.substr(6, 4);
+            Image* pImage = new Image(imagePath);
+            outImages.emplace_back(pImage);
+        }
+    }
+    return std::move(outImages);
 }

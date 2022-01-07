@@ -1,5 +1,41 @@
 #include "LuaCommon.h"
 
+#include "Mesh.h"
+#include "Image.h"
+
+
+// ***********************************************************************
+
+LuaObject::LuaObject()
+{
+    m_refCount = 1;
+}
+
+// ***********************************************************************
+
+LuaObject::LuaObject(const LuaObject& other)
+{
+    m_refCount = 1;
+}
+
+// ***********************************************************************
+
+void LuaObject::Retain()
+{
+    m_refCount++;
+}
+
+// ***********************************************************************
+
+void LuaObject::Release()
+{
+    m_refCount--;
+    if (m_refCount == 0)
+    {
+        delete this;
+    }
+}
+
 // ***********************************************************************
 
 static int __garbagecollect(lua_State* pLua)
@@ -7,7 +43,7 @@ static int __garbagecollect(lua_State* pLua)
     LuaObject *pObject = *(LuaObject**)lua_touserdata(pLua, 1);
     if (pObject)
     {
-        pObject->Free();
+        pObject->Release();
     }
     return 0;
 }

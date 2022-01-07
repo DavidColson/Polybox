@@ -6,10 +6,12 @@
 #include "Core/Matrix.h"
 #include "GraphicsChip.h"
 #include "Shapes.h"
-#include "Model.h"
+#include "Scene.h"
+#include "Mesh.h"
 #include "Font.h"
 #include "Image.h"
 #include "Bind_GraphicsChip.h"
+#include "Bind_Mesh.h"
 
 extern "C" {
 	#include "lua.h"
@@ -26,38 +28,38 @@ extern "C" {
 #undef DrawText
 #undef DrawTextEx
 
-void RecursiveTransformTree(Node* pTreeBase)
-{
-	for (Node* pChild : pTreeBase->m_children)
-	{
-		Matrixf childLocalTrans = Matrixf::MakeTQS(pChild->m_translation, pChild->m_rotation, pChild->m_scale);
-		pChild->m_worldTransform = pTreeBase->m_worldTransform * childLocalTrans;
+// void RecursiveTransformTree(Node* pTreeBase)
+// {
+// 	for (Node* pChild : pTreeBase->m_children)
+// 	{
+// 		Matrixf childLocalTrans = Matrixf::MakeTQS(pChild->m_translation, pChild->m_rotation, pChild->m_scale);
+// 		pChild->m_worldTransform = pTreeBase->m_worldTransform * childLocalTrans;
 
-		if (!pChild->m_children.empty())
-			RecursiveTransformTree(pChild);
-	}
-}
+// 		if (!pChild->m_children.empty())
+// 			RecursiveTransformTree(pChild);
+// 	}
+// }
 
-void TransformNodeHeirarchy(std::vector<Node>& nodeList)
-{
-	std::vector<Node*> rootTransforms;
+// void TransformNodeHeirarchy(std::vector<Node>& nodeList)
+// {
+// 	std::vector<Node*> rootTransforms;
 
-	for (Node& node : nodeList)
-	{
-		if (node.m_pParent == nullptr)
-		{
-			node.m_worldTransform = Matrixf::MakeTQS(node.m_translation, node.m_rotation, node.m_scale);
+// 	for (Node& node : nodeList)
+// 	{
+// 		if (node.m_pParent == nullptr)
+// 		{
+// 			node.m_worldTransform = Matrixf::MakeTQS(node.m_translation, node.m_rotation, node.m_scale);
 
-			if (!node.m_children.empty())
-				rootTransforms.push_back(&node);
-		}
-	}
+// 			if (!node.m_children.empty())
+// 				rootTransforms.push_back(&node);
+// 		}
+// 	}
 
-	for (Node* pRoot : rootTransforms)
-	{
-		RecursiveTransformTree(pRoot);
-	}	
-}
+// 	for (Node* pRoot : rootTransforms)
+// 	{
+// 		RecursiveTransformTree(pRoot);
+// 	}	
+// }
 
 int main(int argc, char *argv[])
 {
@@ -94,14 +96,17 @@ int main(int argc, char *argv[])
 		GraphicsChip gpu = GraphicsChip();
 		gpu.Init();
 
-		Scene tankScene("Assets/tank.gltf");
-		TransformNodeHeirarchy(tankScene.m_nodes);
+		Scene* pTankScene = LoadScene("Assets/tank.gltf");
+
+		// std::vector<Mesh*> tankMeshes = Mesh::LoadMeshes("Assets/tank.gltf");
+		// std::vector<Image*> tankImages = Mesh::LoadMeshTextures("Assets/tank.gltf");
 
 		// Lua embedding experiments
 		lua_State* pLua = luaL_newstate();
 		luaL_openlibs(pLua); // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
 
 		Bind::BindGraphicsChip(pLua, &gpu);
+		Bind::BindMeshTypes(pLua);
 
 		if (luaL_dofile(pLua, "Assets/game.lua") != LUA_OK)
 		{
@@ -180,7 +185,11 @@ int main(int argc, char *argv[])
 					__debugbreak();
 				}
 			}
-			
+			else
+			{
+				lua_pop(pLua, 1);
+			}
+
 			gpu.DrawFrame((float)winWidth, (float)winHeight);
 
 			//bgfx::setDebug(BGFX_DEBUG_STATS);

@@ -21,7 +21,6 @@ namespace Bind
         Primitive* pPrimitive = *(Primitive**)luaL_checkudata(pLua, 1, "Primitive");
         int index = (int)luaL_checkinteger(pLua, 2) - 1;
 
-        // Is the order correct?
         Vec3f pos = pPrimitive->GetVertexPosition(index);
         lua_pushnumber(pLua, pos.x);
         lua_pushnumber(pLua, pos.y);
@@ -36,7 +35,6 @@ namespace Bind
         Primitive* pPrimitive = *(Primitive**)luaL_checkudata(pLua, 1, "Primitive");
         int index = (int)luaL_checkinteger(pLua, 2) - 1;
 
-        // Is the order correct?
         Vec4f col = pPrimitive->GetVertexColor(index);
         lua_pushnumber(pLua, col.x);
         lua_pushnumber(pLua, col.y);
@@ -52,7 +50,6 @@ namespace Bind
         Primitive* pPrimitive = *(Primitive**)luaL_checkudata(pLua, 1, "Primitive");
         int index = (int)luaL_checkinteger(pLua, 2) - 1;
 
-        // Is the order correct?
         Vec2f tex = pPrimitive->GetVertexTexCoord(index);
         lua_pushnumber(pLua, tex.x);
         lua_pushnumber(pLua, tex.y);
@@ -66,8 +63,7 @@ namespace Bind
         Primitive* pPrimitive = *(Primitive**)luaL_checkudata(pLua, 1, "Primitive");
         int index = (int)luaL_checkinteger(pLua, 2) - 1;
 
-        // Is the order correct?
-        Vec3f norm = pPrimitive->GetVertexPosition(index);
+        Vec3f norm = pPrimitive->GetVertexNormal(index);
         lua_pushnumber(pLua, norm.x);
         lua_pushnumber(pLua, norm.y);
         lua_pushnumber(pLua, norm.z);
@@ -114,8 +110,6 @@ namespace Bind
 
         luaL_getmetatable(pLua, "Primitive");
         lua_setmetatable(pLua, -2);
-
-        // Problem is, how to stop the GC from cleaning it up when we don't want it to?
         return 1;
     }
 
@@ -181,7 +175,7 @@ namespace Bind
 
     // ***********************************************************************
 
-    int BindMeshTypes(lua_State* pLua)
+    int BindMesh(lua_State* pLua)
     {
         // Bind static mesh functions
         const luaL_Reg meshGlobalFuncs[] = {

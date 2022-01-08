@@ -3,6 +3,10 @@
 #include "Mesh.h"
 #include "Image.h"
 
+#include <format>
+#include <SDL_syswm.h>
+#undef DrawText
+#undef DrawTextEx
 
 // ***********************************************************************
 
@@ -75,6 +79,19 @@ static int __gettype(lua_State *L)
 {
 	lua_pushvalue(L, lua_upvalueindex(1));
 	return 1;
+}
+
+// ***********************************************************************
+
+void luax_printstack(lua_State* pLua)
+{
+    // TODO: Replace with our logging system
+    OutputDebugStringA("STACK\n");
+    for (int i = 1; i <= lua_gettop(pLua); i++)
+    {
+        std::string format = std::format("{} - {}\n", i, luaL_typename(pLua, i));
+        OutputDebugStringA(format.c_str());
+    }
 }
 
 // ***********************************************************************

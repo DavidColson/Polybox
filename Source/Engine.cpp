@@ -12,6 +12,7 @@
 #include "Image.h"
 #include "Bind_GraphicsChip.h"
 #include "Bind_Mesh.h"
+#include "Bind_Scene.h"
 
 extern "C" {
 	#include "lua.h"
@@ -27,39 +28,6 @@ extern "C" {
 #include <SDL_syswm.h>
 #undef DrawText
 #undef DrawTextEx
-
-// void RecursiveTransformTree(Node* pTreeBase)
-// {
-// 	for (Node* pChild : pTreeBase->m_children)
-// 	{
-// 		Matrixf childLocalTrans = Matrixf::MakeTQS(pChild->m_translation, pChild->m_rotation, pChild->m_scale);
-// 		pChild->m_worldTransform = pTreeBase->m_worldTransform * childLocalTrans;
-
-// 		if (!pChild->m_children.empty())
-// 			RecursiveTransformTree(pChild);
-// 	}
-// }
-
-// void TransformNodeHeirarchy(std::vector<Node>& nodeList)
-// {
-// 	std::vector<Node*> rootTransforms;
-
-// 	for (Node& node : nodeList)
-// 	{
-// 		if (node.m_pParent == nullptr)
-// 		{
-// 			node.m_worldTransform = Matrixf::MakeTQS(node.m_translation, node.m_rotation, node.m_scale);
-
-// 			if (!node.m_children.empty())
-// 				rootTransforms.push_back(&node);
-// 		}
-// 	}
-
-// 	for (Node* pRoot : rootTransforms)
-// 	{
-// 		RecursiveTransformTree(pRoot);
-// 	}	
-// }
 
 int main(int argc, char *argv[])
 {
@@ -96,7 +64,7 @@ int main(int argc, char *argv[])
 		GraphicsChip gpu = GraphicsChip();
 		gpu.Init();
 
-		Scene* pTankScene = LoadScene("Assets/tank.gltf");
+		Scene* pTankScene = Scene::LoadScene("Assets/tank.gltf");
 
 		// std::vector<Mesh*> tankMeshes = Mesh::LoadMeshes("Assets/tank.gltf");
 		// std::vector<Image*> tankImages = Mesh::LoadMeshTextures("Assets/tank.gltf");
@@ -106,7 +74,8 @@ int main(int argc, char *argv[])
 		luaL_openlibs(pLua); // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
 
 		Bind::BindGraphicsChip(pLua, &gpu);
-		Bind::BindMeshTypes(pLua);
+		Bind::BindMesh(pLua);
+		Bind::BindScene(pLua);
 
 		if (luaL_dofile(pLua, "Assets/game.lua") != LUA_OK)
 		{
@@ -178,7 +147,8 @@ int main(int argc, char *argv[])
 			lua_getglobal(pLua, "Update");
 			if (lua_isfunction(pLua, -1))
 			{
-				if (lua_pcall(pLua, 0, 0, 0) != LUA_OK)
+				lua_pushnumber(pLua, deltaTime);
+				if (lua_pcall(pLua, 1, 0, 0) != LUA_OK)
 				{
 					std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
 					OutputDebugStringA(format.c_str());

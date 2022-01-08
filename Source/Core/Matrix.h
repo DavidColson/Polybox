@@ -368,6 +368,15 @@ struct Matrix
         return m.ExtractScaling();
 	}
 
+	inline void SetScaling(Vec3f scale)
+	{
+		ExtractScaling();
+
+		m[0][0] *= scale.x;	m[1][0] *= scale.y;	m[2][0] *= scale.z;
+		m[0][1] *= scale.x;	m[1][1] *= scale.y;	m[2][1] *= scale.z;
+		m[0][2] *= scale.x;	m[1][2] *= scale.y;	m[2][2] *= scale.z; 		
+	}
+
 	inline Vec3<T> GetEulerRotation() const
 	{
 		Matrix<T> m = *this;
@@ -381,6 +390,41 @@ struct Matrix
         return m.ToQuat().GetEulerAngles();
 	}
 
+	inline void SetEulerRotation(Vec3f rotation)
+	{
+		Vec3f scale = ExtractScaling();
+		// This is a body 3-2-1 (z, then y, then x) rotation
+		const T cx = cos(rotation.x);
+		const T sx = sin(rotation.x);
+		const T cy = cos(rotation.y);
+		const T sy = sin(rotation.y);
+		const T cz = cos(rotation.z);
+		const T sz = sin(rotation.z);
+
+		// TODO: Does this work with negative scaling?
+		m[0][0] = cy*cz * scale.x;	m[1][0] = (-cx*sz + sx*sy*cz) * scale.y;	m[2][0] =  (sx*sz + cx*sy*cz) * scale.z;
+		m[0][1] = cy*sz * scale.x;	m[1][1] =  (cx*cz + sx*sy*sz) * scale.y;	m[2][1] = (-sx*cz + cx*sy*sz) * scale.z;
+		m[0][2] = -sy * scale.x;	m[1][2] = sx*cy * scale.y;					m[2][2] = cx*cy * scale.z; 				
+	}
+
+	inline void SetQuatRotation(Quatf rot)
+	{
+		Vec3f scale = ExtractScaling();
+
+		// TODO: Does this work with negative scaling?
+		m[0][0] = (1.0f - 2.0f*rot.y*rot.y - 2.0f*rot.z*rot.z) * scale.x;
+		m[0][1] = (2.0f*rot.x*rot.y + 2.0f*rot.z*rot.w) * scale.x;
+		m[0][2] = (2.0f*rot.x*rot.z - 2.0f*rot.y*rot.w) * scale.x;
+	
+        m[1][0] = (2.0f*rot.x*rot.y - 2.0f*rot.z*rot.w) * scale.y;
+        m[1][1] = (1.0f - 2.0f*rot.x*rot.x - 2.0f*rot.z*rot.z) * scale.y;
+        m[1][2] = (2.0f*rot.y*rot.z + 2.0f*rot.x*rot.w) * scale.y;
+		
+        m[2][0] = (2.0f*rot.x*rot.z + 2.0f*rot.y*rot.w) * scale.z;
+        m[2][1] = (2.0f*rot.y*rot.z - 2.0f*rot.x*rot.w) * scale.z;
+        m[2][2] = (1.0f - 2.0f*rot.x*rot.x - 2.0f*rot.y*rot.y) * scale.z;
+	}
+
 	inline Vec3<T> GetTranslation() const 
 	{
 		Vec3<T> outTrans;
@@ -390,6 +434,13 @@ struct Matrix
         outTrans.z = m[3][2];
 		
 		return outTrans;
+	}
+
+	inline void SetTranslation(Vec3f translation)
+	{
+		m[3][0] = translation.x;
+		m[3][1] = translation.y;
+		m[3][2] = translation.z;
 	}
 
 	inline std::string ToString() const 

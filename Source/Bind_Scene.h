@@ -6,5 +6,5 @@ struct lua_State;
 
 namespace Bind
 {
-    int BindMesh(lua_State* pLua);
+    int BindScene(lua_State* pLua);
 }

@@ -6,7 +6,143 @@
 #include <SDL_rwops.h>
 #include <string>
 
-void ParseNodesRecursively(Node* pParent, std::vector<Node>& outNodes, JsonValue& nodeToParse, JsonValue& nodesData)
+uint64_t Node::s_nodeIdCounter = 0;
+
+// ***********************************************************************
+
+Vec3f Node::GetLocalPosition()
+{
+    return m_localTransform.GetTranslation();
+}
+
+// ***********************************************************************
+
+Vec3f Node::GetWorldPosition()
+{
+    return m_worldTransform.GetTranslation();
+}
+
+// ***********************************************************************
+
+void Node::SetLocalPosition(Vec3f translation)
+{
+    m_localTransform.SetTranslation(translation);
+    UpdateWorldTransforms();
+}
+
+// ***********************************************************************
+
+Vec3f Node::GetLocalRotation()
+{
+    return m_localTransform.GetEulerRotation();
+}
+
+// ***********************************************************************
+
+Vec3f Node::GetWorldRotation()
+{
+    return m_worldTransform.GetEulerRotation();
+}
+
+// ***********************************************************************
+
+void Node::SetLocalRotation(Vec3f rotation)
+{
+    m_localTransform.SetEulerRotation(rotation);
+    UpdateWorldTransforms();
+}
+
+// ***********************************************************************
+
+void Node::SetLocalRotation(Quatf rotation)
+{
+    m_localTransform.SetQuatRotation(rotation);
+    UpdateWorldTransforms();
+}
+
+// ***********************************************************************
+
+Vec3f Node::GetLocalScale()
+{
+    return m_localTransform.GetScaling();
+}
+
+// ***********************************************************************
+
+Vec3f Node::GetWorldScale()
+{
+    return m_worldTransform.GetScaling();
+}
+
+// ***********************************************************************
+
+void Node::SetLocalScale(Vec3f scale)
+{
+    m_localTransform.SetScaling(scale);
+    UpdateWorldTransforms();
+}
+
+// ***********************************************************************
+
+Node* Node::GetParent()
+{
+    return m_pParent;
+}
+
+// ***********************************************************************
+
+int Node::GetNumChildren()
+{
+    return (int)m_children.size();
+}
+
+// ***********************************************************************
+
+Node* Node::GetChild(int index)
+{
+    return m_children[index];
+}
+
+// ***********************************************************************
+
+void Node::UpdateWorldTransforms()
+{
+    // Recalculate local world matrix
+    if (m_pParent)
+    {
+        m_worldTransform = m_pParent->m_worldTransform * m_localTransform;
+    }
+    else
+    {
+        m_worldTransform = m_localTransform;
+    }
+
+    if (!m_children.empty())
+    {
+        for (Node* pChild : m_children)
+        {
+            pChild->m_worldTransform = m_worldTransform * pChild->m_localTransform;
+        }
+    }
+}
+
+// ***********************************************************************
+
+int Scene::GetNumNodes()
+{
+    return (int)m_nodes.size();
+}
+
+// ***********************************************************************
+
+Node* Scene::GetNode(int index)
+{
+    return &m_nodes[index];
+}
+
+// ***********************************************************************
+
+void ParseNodesRecursively(Scene* pScene, Node* pParent, std::vector<Node>& outNodes, JsonValue& nodeToParse, JsonValue& nodesData)
 {
     for (int i = 0; i < nodeToParse.Count(); i++)
     {
@@ -21,11 +157,6 @@ void ParseNodesRecursively(Node* pParent, std::vector<Node>& outNodes, JsonValue
 
         node.m_meshId = UINT32_MAX;
 
-        if (jsonNode.HasKey("children"))
-        {
-            ParseNodesRecursively(&node, outNodes, jsonNode["children"], nodesData);
-        }
-
         if (pParent)
         {
             pParent->m_children.push_back(&node);
@@ -39,41 +170,54 @@ void ParseNodesRecursively(Node* pParent, std::vector<Node>& outNodes, JsonValue
 
         if (jsonNode.HasKey("rotation"))
         {
-            node.m_rotation.x = float(jsonNode["rotation"][0].ToFloat());
-            node.m_rotation.y = float(jsonNode["rotation"][1].ToFloat());
-            node.m_rotation.z = float(jsonNode["rotation"][2].ToFloat());
-            node.m_rotation.w = float(jsonNode["rotation"][3].ToFloat());
+            Quatf rotation;
+            rotation.x = float(jsonNode["rotation"][0].ToFloat());
+            rotation.y = float(jsonNode["rotation"][1].ToFloat());
+            rotation.z = float(jsonNode["rotation"][2].ToFloat());
+            rotation.w = float(jsonNode["rotation"][3].ToFloat());
+            node.SetLocalRotation(rotation);
         }
         else
         {
-            node.m_rotation = Quatf::Identity();
+            node.SetLocalRotation(Quatf::Identity());
         }
 
         if (jsonNode.HasKey("translation"))
         {
-            node.m_translation.x = float(jsonNode["translation"][0].ToFloat());
-            node.m_translation.y = float(jsonNode["translation"][1].ToFloat());
-            node.m_translation.z = float(jsonNode["translation"][2].ToFloat());
+            Vec3f translation;
+            translation.x = float(jsonNode["translation"][0].ToFloat());
+            translation.y = float(jsonNode["translation"][1].ToFloat());
+            translation.z = float(jsonNode["translation"][2].ToFloat());
+            node.SetLocalPosition(translation);
         }
         else
         {
-            node.m_translation = Vec3f(0.0f);
+            node.SetLocalPosition(Vec3f(0.0f));
         }
 
         if (jsonNode.HasKey("scale"))
         {
-            node.m_scale.x = float(jsonNode["scale"][0].ToFloat());
-            node.m_scale.y = float(jsonNode["scale"][1].ToFloat());
-            node.m_scale.z = float(jsonNode["scale"][2].ToFloat());
+            Vec3f scale;
+            scale.x = float(jsonNode["scale"][0].ToFloat());
+            scale.y = float(jsonNode["scale"][1].ToFloat());
+            scale.z = float(jsonNode["scale"][2].ToFloat());
+            node.SetLocalScale(scale);
         }
         else
         {
-            node.m_scale = Vec3f(1.0f);
+            node.SetLocalScale(Vec3f(1.0f));
+        }
+
+        if (jsonNode.HasKey("children"))
+        {
+            ParseNodesRecursively(pScene, &node, outNodes, jsonNode["children"], nodesData);
         }
     } 
 }
 
-Scene* LoadScene(const char* filePath)
+// ***********************************************************************
+
+Scene* Scene::LoadScene(const char* filePath)
 {
     SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
 
@@ -93,7 +237,7 @@ Scene* LoadScene(const char* filePath)
         return nullptr;
 
     pScene->m_nodes.reserve(parsed["nodes"].Count());
-    ParseNodesRecursively(nullptr, pScene->m_nodes, parsed["scenes"][0]["nodes"], parsed["nodes"]);
+    ParseNodesRecursively(pScene, nullptr, pScene->m_nodes, parsed["scenes"][0]["nodes"], parsed["nodes"]);
 
     return pScene;
 }

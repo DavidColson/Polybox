@@ -20,6 +20,7 @@ struct LuaObject
 	int m_refCount{ 0 };
 };
 
+void luax_printstack(lua_State* pLua);
 bool luax_toboolean(lua_State *L, int idx);
 bool luax_checkboolean(lua_State* pLua, int idx);
 void luax_registertype(lua_State* pLua, const char* typeName, const luaL_Reg *funcs);

@@ -44,5 +44,6 @@ Image::Image(std::string path)
 
 Image::~Image()
 {
-    bgfx::destroy(m_handle);
+    if (m_refCount <= 0)
+        bgfx::destroy(m_handle);
 }

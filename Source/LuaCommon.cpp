@@ -129,8 +129,11 @@ void luax_registertype(lua_State* pLua, const char* typeName, const luaL_Reg *fu
 	lua_pushcclosure(pLua, __gettype, 1);
 	lua_setfield(pLua, -2, "GetType");
 
-    // Push all of the type member functions into the metatable
-    luaL_setfuncs(pLua, funcs, 0);
+    if (funcs)
+    {
+        // Push all of the type member functions into the metatable
+        luaL_setfuncs(pLua, funcs, 0);
+    }
 
     lua_pop(pLua, 1);
 }

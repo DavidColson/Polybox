@@ -300,6 +300,174 @@ namespace Bind
 
     // ***********************************************************************
 
+    int DrawSprite(lua_State* pLua)
+    {
+        Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
+        Vec2f position;
+        position.x = (float)luaL_checknumber(pLua, 2);
+        position.y = (float)luaL_checknumber(pLua, 3);
+        pGpu->DrawSprite(pImage, position);
+        return 0;
+    }
+
+    // ***********************************************************************
+
+    int DrawSpriteRect(lua_State* pLua)
+    {
+        Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
+        Vec4f rect;
+        rect.x = (float)luaL_checknumber(pLua, 2);
+        rect.y = (float)luaL_checknumber(pLua, 3);
+        rect.z = (float)luaL_checknumber(pLua, 4);
+        rect.w = (float)luaL_checknumber(pLua, 5);
+        Vec2f position;
+        position.x = (float)luaL_checknumber(pLua, 6);
+        position.y = (float)luaL_checknumber(pLua, 7);
+        pGpu->DrawSpriteRect(pImage, rect, position);
+        return 0;
+    }
+
+    // ***********************************************************************
+
+    int DrawText(lua_State* pLua)
+    {
+        size_t len;
+        const char *str = luaL_checklstring(pLua, 1, &len);
+        std::string text(str, len);
+        Vec2f position;
+        position.x = (float)luaL_checknumber(pLua, 2);
+        position.y = (float)luaL_checknumber(pLua, 3);
+        float size = (float)luaL_checknumber(pLua, 4);
+
+        pGpu->DrawText(text.c_str(), position, size);
+        return 0;
+    }
+
+    // ***********************************************************************
+
+    int DrawTextEx(lua_State* pLua)
+    {
+        size_t len;
+        const char *str = luaL_checklstring(pLua, 1, &len);
+        std::string text(str, len);
+        Vec2f position;
+        position.x = (float)luaL_checknumber(pLua, 2);
+        position.y = (float)luaL_checknumber(pLua, 3);
+        Vec4f color;
+        color.x = (float)luaL_checknumber(pLua, 4);
+        color.y = (float)luaL_checknumber(pLua, 5);
+        color.z = (float)luaL_checknumber(pLua, 6);
+        color.w = (float)luaL_checknumber(pLua, 7);
+        Font* pFont = *(Font**)luaL_checkudata(pLua, 8, "Font");
+        float size = (float)luaL_checknumber(pLua, 9);
+
+        pGpu->DrawTextEx(text.c_str(), position, color, pFont, size);
+        return 0;
+    }
+
+    int DrawPixel(lua_State* pLua)
+    {
+        Vec2f position;
+        position.x = (float)luaL_checknumber(pLua, 1);
+        position.y = (float)luaL_checknumber(pLua, 2);
+        Vec4f color;
+        color.x = (float)luaL_checknumber(pLua, 3);
+        color.y = (float)luaL_checknumber(pLua, 4);
+        color.z = (float)luaL_checknumber(pLua, 5);
+        color.w = (float)luaL_checknumber(pLua, 6);
+
+        pGpu->DrawPixel(position, color);
+        return 0;
+    }
+
+    int DrawLine(lua_State* pLua)
+    {
+        Vec2f start;
+        start.x = (float)luaL_checknumber(pLua, 1);
+        start.y = (float)luaL_checknumber(pLua, 2);
+        Vec2f end;
+        end.x = (float)luaL_checknumber(pLua, 3);
+        end.y = (float)luaL_checknumber(pLua, 4);
+        Vec4f color;
+        color.x = (float)luaL_checknumber(pLua, 5);
+        color.y = (float)luaL_checknumber(pLua, 6);
+        color.z = (float)luaL_checknumber(pLua, 7);
+        color.w = (float)luaL_checknumber(pLua, 8);
+
+        pGpu->DrawLine(start, end, color);
+        return 0;
+    }
+
+    int DrawCircle(lua_State* pLua)
+    {
+        Vec2f center;
+        center.x = (float)luaL_checknumber(pLua, 1);
+        center.y = (float)luaL_checknumber(pLua, 2);
+        float radius = (float)luaL_checknumber(pLua, 3);
+        Vec4f color;
+        color.x = (float)luaL_checknumber(pLua, 4);
+        color.y = (float)luaL_checknumber(pLua, 5);
+        color.z = (float)luaL_checknumber(pLua, 6);
+        color.w = (float)luaL_checknumber(pLua, 7);
+
+        pGpu->DrawCircle(center, radius, color);
+        return 0;
+    }
+    
+    int DrawCircleOutline(lua_State* pLua)
+    {
+        Vec2f center;
+        center.x = (float)luaL_checknumber(pLua, 1);
+        center.y = (float)luaL_checknumber(pLua, 2);
+        float radius = (float)luaL_checknumber(pLua, 3);
+        Vec4f color;
+        color.x = (float)luaL_checknumber(pLua, 4);
+        color.y = (float)luaL_checknumber(pLua, 5);
+        color.z = (float)luaL_checknumber(pLua, 6);
+        color.w = (float)luaL_checknumber(pLua, 7);
+
+        pGpu->DrawCircleOutline(center, radius, color);
+        return 0;
+    }
+
+    int DrawRectangle(lua_State* pLua)
+    {
+        Vec2f bottomLeft;
+        bottomLeft.x = (float)luaL_checknumber(pLua, 1);
+        bottomLeft.y = (float)luaL_checknumber(pLua, 2);
+        Vec2f topRight;
+        topRight.x = (float)luaL_checknumber(pLua, 3);
+        topRight.y = (float)luaL_checknumber(pLua, 4);
+        Vec4f color;
+        color.x = (float)luaL_checknumber(pLua, 5);
+        color.y = (float)luaL_checknumber(pLua, 6);
+        color.z = (float)luaL_checknumber(pLua, 7);
+        color.w = (float)luaL_checknumber(pLua, 8);
+
+        pGpu->DrawRectangle(bottomLeft, topRight, color);
+        return 0;
+    }
+    
+    int DrawRectangleOutline(lua_State* pLua)
+    {
+        Vec2f bottomLeft;
+        bottomLeft.x = (float)luaL_checknumber(pLua, 1);
+        bottomLeft.y = (float)luaL_checknumber(pLua, 2);
+        Vec2f topRight;
+        topRight.x = (float)luaL_checknumber(pLua, 3);
+        topRight.y = (float)luaL_checknumber(pLua, 4);
+        Vec4f color;
+        color.x = (float)luaL_checknumber(pLua, 5);
+        color.y = (float)luaL_checknumber(pLua, 6);
+        color.z = (float)luaL_checknumber(pLua, 7);
+        color.w = (float)luaL_checknumber(pLua, 8);
+        
+        pGpu->DrawRectangleOutline(bottomLeft, topRight, color);
+        return 0;
+    }
+
+    // ***********************************************************************
+
     int NewImage(lua_State* pLua)
     {
         size_t len;
@@ -332,6 +500,27 @@ namespace Bind
     {
         Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
         lua_pushinteger(pLua, pImage->m_height);
+        return 1;
+    }
+
+    // ***********************************************************************
+
+    int NewFont(lua_State* pLua)
+    {
+        size_t len;
+        const char *str = luaL_checklstring(pLua, 1, &len);
+        std::string path(str, len);
+        bool antialiasing = luax_checkboolean(pLua, 2);
+        float weight = (float)luaL_checknumber(pLua, 3);
+
+        // Create a new userdata for our object
+        Font** ppFont = (Font**)lua_newuserdata(pLua, sizeof(Font*));
+        *ppFont = new Font(path, antialiasing, weight);
+
+        // Sets the metatable of this new userdata to the type's table
+        luaL_getmetatable(pLua, "Font");
+        lua_setmetatable(pLua, -2);
+
         return 1;
     }
 
@@ -370,7 +559,18 @@ namespace Bind
             { "SetFogStart", SetFogStart },
             { "SetFogEnd", SetFogEnd },
             { "SetFogColor", SetFogColor },
+            { "DrawSprite", DrawSprite },
+            { "DrawSpriteRect", DrawSpriteRect },
+            { "DrawText", DrawText },
+            { "DrawTextEx", DrawTextEx },
+            { "DrawPixel", DrawPixel },
+            { "DrawLine", DrawLine },
+            { "DrawCircle", DrawCircle },
+            { "DrawCircleOutline", DrawCircleOutline },
+            { "DrawRectangle", DrawRectangle },
+            { "DrawRectangleOutline", DrawRectangleOutline },
             { "NewImage", NewImage },
+            { "NewFont", NewFont },
             { NULL, NULL }
         };
 
@@ -386,6 +586,8 @@ namespace Bind
             { NULL, NULL }
         };
         luax_registertype(pLua, "Image", imageMethods);
+
+        luax_registertype(pLua, "Font", nullptr);
     
         // // push enum tables to global
         // lua_newtable(pLua);

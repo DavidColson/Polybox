@@ -8,6 +8,7 @@
 
 #include "Core/Vec2.h"
 #include "Image.h"
+#include "LuaCommon.h"
 
 namespace FreeType
 {
@@ -23,7 +24,7 @@ struct Character
 	int advance;
 };
 
-struct Font
+struct Font : public LuaObject
 {
     Font() {}
     Font(std::string path, bool antialiasing = true, float weight = 0.0f);

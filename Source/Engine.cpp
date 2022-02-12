@@ -5,6 +5,7 @@
 #include "Core/Vec3.h"
 #include "Core/Matrix.h"
 #include "GraphicsChip.h"
+#include "GameChip.h"
 #include "Shapes.h"
 #include "Scene.h"
 #include "Mesh.h"
@@ -64,12 +65,9 @@ int main(int argc, char *argv[])
 		GraphicsChip gpu = GraphicsChip();
 		gpu.Init();
 
-		Scene* pTankScene = Scene::LoadScene("Assets/tank.gltf");
+		GameChip game = GameChip();
+		game.Init();
 
-		// std::vector<Mesh*> tankMeshes = Mesh::LoadMeshes("Assets/tank.gltf");
-		// std::vector<Image*> tankImages = Mesh::LoadMeshTextures("Assets/tank.gltf");
-
-		// Lua embedding experiments
 		lua_State* pLua = luaL_newstate();
 		luaL_openlibs(pLua); // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
 

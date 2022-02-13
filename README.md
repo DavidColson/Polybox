@@ -6,27 +6,27 @@ Polybox is an in-development PS1 era fantasy console, a bit like Pico-8, but wit
 
 It's still rather primitive and early in development, mostly it's just a dedicated PS1 renderer right now with an old fashioned fix function pipeline. You render objects like this:
 
-```cpp
-gpu.MatrixMode(EMatrixMode::Projection);
-gpu.Identity();
-gpu.Perspective((float)320, (float)240, 1.0f, 20.0f, 60.0f);
+```lua
+function Update(deltaTime)
+    MatrixMode("Projection")
+    Identity()
+    Perspective(320, 240, 1, 20, 60)
 
-gpu.MatrixMode(EMatrixMode::View);
-gpu.Identity();
-gpu.Translate(Vec3f(-1.5f, -1.5f, -2.0f));
+    MatrixMode("View")
+    Identity()
+    Translate(-1.5, -1.5, -2)
 
-gpu.BeginObject3D(EPrimitiveType::Triangles);
-    gpu.Color(Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
-    gpu.Vertex(Vec3f(1.0f, 1.0f, 0.0f));
+    BeginObject3D("Triangles")
+        Color(1.0, 0.0, 0.0, 1.0)
+        Vertex(1.0, 1.0, 0.0)
 
-    gpu.Color(Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
-    gpu.Vertex(Vec3f(1.0f, 2.0f, 0.0f));
+        Color(0, 1, 0, 1)
+        Vertex(1, 2, 0)
 
-    gpu.Color(Vec4f(0.0f, 0.0f, 1.0f, 1.0f));
-    gpu.Vertex(Vec3f(2.0f, 2.0f, 0.0f));
-gpu.EndObject3D();
-
-gpu.DrawFrame((float)winWidth, (float)winHeight);
+        Color(0, 0, 1, 1)
+        Vertex(2.0, 2.0, 0.0)
+    EndObject3D()
+end
 ```
 
 The above gives you the following output:

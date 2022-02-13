@@ -18,6 +18,9 @@ function Start()
     tankMeshes = LoadMeshes("Assets/tank.gltf")
     tankImages = LoadTextures("Assets/tank.gltf")
     tankScene = LoadScene("Assets/tank.gltf")
+
+    x = 50
+    y = 50
 end
 
 function Update(deltaTime)
@@ -94,6 +97,30 @@ function Update(deltaTime)
         end
         ::continue::
     end
+    SetClearColor(0.25, 0.25, 0.25, 0)
+
+    UnbindTexture()
+
+    MatrixMode("Model")
+    Identity()
+
+    MatrixMode("View")
+    Identity()
+
+    if GetButton(Button.DpadRight) then
+        x = x+1
+    end
+    if GetButton(Button.DpadLeft) then
+        x = x-1
+    end
+    if GetButton(Button.DpadDown) then
+        y = y-1
+    end
+    if GetButton(Button.DpadUp) then
+        y = y+1
+    end
+
+    DrawCircle(x, y, 50, 1, 1, 1, 1)
 end
 
 function End()

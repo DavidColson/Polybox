@@ -12,6 +12,7 @@
 #include "Font.h"
 #include "Image.h"
 #include "Bind_GraphicsChip.h"
+#include "Bind_GameChip.h"
 #include "Bind_Mesh.h"
 #include "Bind_Scene.h"
 
@@ -37,7 +38,7 @@ int main(int argc, char *argv[])
 
 		int winWidth = 1280;
 		int winHeight = 960;
-
+		
 		SDL_Window* pWindow = SDL_CreateWindow(
 			"Polybox",
 			SDL_WINDOWPOS_UNDEFINED,
@@ -74,6 +75,7 @@ int main(int argc, char *argv[])
 		Bind::BindGraphicsChip(pLua, &gpu);
 		Bind::BindMesh(pLua);
 		Bind::BindScene(pLua);
+		Bind::BindGameChip(pLua, &game);
 
 		if (luaL_dofile(pLua, "Assets/game.lua") != LUA_OK)
 		{
@@ -99,10 +101,12 @@ int main(int argc, char *argv[])
 		{
 			Uint64 frameStart = SDL_GetPerformanceCounter();
 
+			game.ClearStates();
 			// Deal with events
 			SDL_Event event;
 			while (SDL_PollEvent(&event))
 			{
+				game.ProcessEvent(&event);
 				switch (event.type)
 				{
 				case SDL_KEYDOWN:

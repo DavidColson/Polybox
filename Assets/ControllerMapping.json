@@ -1,0 +1,108 @@
+{
+    "Buttons":
+    [
+        {
+            "Name" : "FaceBottom",
+            "Primary" : "Controller_A",
+            "Alt" : "Scancode_Enter"
+        },
+        {
+            "Name" : "FaceRight",
+            "Primary" : "Controller_B",
+            "Alt" : "Scancode_Backspace"
+        },
+        {
+            "Name" : "FaceLeft",
+            "Primary" : "Controller_X",
+            "Alt" : "Scancode_Q"
+        },
+        {
+            "Name" : "FaceTop",
+            "Primary" : "Controller_Y",
+            "Alt" : "Scancode_E"
+        },
+        {
+            "Name" : "LeftStick",
+            "Primary" : "Controller_LeftStick",
+            "Alt" : "Scancode_Shift"
+        },
+        {
+            "Name" : "RightStick",
+            "Primary" : "Controller_RightStick",
+            "Alt" : "Scancode_Ctrl"
+        },
+        {
+            "Name" : "LeftShoulder",
+            "Primary" : "Controller_LeftShoulder",
+            "Alt" : "Scancode_R"
+        },
+        {
+            "Name" : "RightShoulder",
+            "Primary" : "Controller_RightShoulder",
+            "Alt" : "Scancode_F"
+        },
+        {
+            "Name" : "DpadDown",
+            "Primary" : "Controller_DpadDown",
+            "Alt" : "Scancode_Down"
+        },
+        {
+            "Name" : "DpadUp",
+            "Primary" : "Controller_DpadUp",
+            "Alt" : "Scancode_Up"
+        },
+        {
+            "Name" : "DpadLeft",
+            "Primary" : "Controller_DpadLeft",
+            "Alt" : "Scancode_Left"
+        },
+        {
+            "Name" : "DpadRight",
+            "Primary" : "Controller_DpadRight",
+            "Alt" : "Scancode_Right"
+        },
+        {
+            "Name" : "Start",
+            "Primary" : "Controller_Start",
+            "Alt" : "Scancode_Escape"
+        },
+        {
+            "Name" : "Select",
+            "Primary" : "Controller_Select",
+            "Alt" : "Scancode_Tab"
+        }
+    ],
+    "Axes" : 
+    [
+        {
+            "Name" : "LeftX",
+            "Primary" : "Controller_LeftX",
+            "Alt" : [ "Scancode_A", "Scancode_D" ]
+        },
+        {
+            "Name" : "LeftY",
+            "Primary" : "Controller_LeftY",
+            "Alt" : [ "Scancode_W", "Scancode_S" ]
+        },
+        {
+            "Name" : "RightX",
+            "Primary" : "Controller_RightX",
+            "Alt" : "Mouse_AxisX"
+        },
+        {
+            "Name" : "RightY",
+            "Primary" : "Controller_RightY",
+            "Alt" : "Mouse_AxisY"
+        },
+        {
+            "Name" : "TriggerLeft",
+            "Primary" : "Controller_TriggerLeft",
+            "Alt" : "Mouse_Button2"
+        }, 
+        {
+            "Name" : "TriggerRight",
+            "Primary" : "Controller_TriggerRight",
+            "Alt" : "Mouse_Button0"
+        }
+    ]
+}

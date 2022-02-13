@@ -1,3 +1,5 @@
+// Copyright 2020-2022 David Colson. All rights reserved.
+
 $input a_position, a_texcoord0
 $output v_texcoord0
 

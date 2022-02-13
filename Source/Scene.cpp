@@ -1,3 +1,5 @@
+// Copyright 2020-2022 David Colson. All rights reserved.
+
 #include "Scene.h"
 
 #include "Core/Json.h"

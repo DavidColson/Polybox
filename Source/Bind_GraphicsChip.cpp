@@ -1,3 +1,5 @@
+// Copyright 2020-2022 David Colson. All rights reserved.
+
 #include "Bind_GraphicsChip.h"
 
 #include "GraphicsChip.h"

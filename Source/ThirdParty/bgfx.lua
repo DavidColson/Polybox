@@ -1,3 +1,4 @@
+// Copyright 2020-2022 David Colson. All rights reserved.
 
 local SPIRV_TOOLS       = "bgfx/3rdparty/spirv-tools"
 local SPIRV_HEADERS     = "bgfx/3rdparty/spirv-headers"

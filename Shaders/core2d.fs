@@ -1,3 +1,5 @@
+// Copyright 2020-2022 David Colson. All rights reserved.
+
 $input v_color0, v_texcoord0
 
 #include "common.sh"

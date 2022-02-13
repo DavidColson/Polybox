@@ -45,119 +45,265 @@ namespace {
         {"TriggerRight"_hash, ControllerAxis::TriggerRight },
     };
     // Mapping of strings to SDL scancodes
-    std::map<uint32_t, SDL_Scancode> stringToScanCode = {
-        {"Scancode_A"_hash, SDL_SCANCODE_A },
-        {"Scancode_B"_hash, SDL_SCANCODE_B },
-        {"Scancode_C"_hash, SDL_SCANCODE_C },
-        {"Scancode_D"_hash, SDL_SCANCODE_D },
-        {"Scancode_E"_hash, SDL_SCANCODE_E },
-        {"Scancode_F"_hash, SDL_SCANCODE_F },
-        {"Scancode_G"_hash, SDL_SCANCODE_G },
-        {"Scancode_H"_hash, SDL_SCANCODE_H },
-        {"Scancode_I"_hash, SDL_SCANCODE_I },
-        {"Scancode_J"_hash, SDL_SCANCODE_J },
-        {"Scancode_K"_hash, SDL_SCANCODE_K },
-        {"Scancode_L"_hash, SDL_SCANCODE_L },
-        {"Scancode_M"_hash, SDL_SCANCODE_M },
-        {"Scancode_N"_hash, SDL_SCANCODE_N },
-        {"Scancode_O"_hash, SDL_SCANCODE_O },
-        {"Scancode_P"_hash, SDL_SCANCODE_P },
-        {"Scancode_Q"_hash, SDL_SCANCODE_Q },
-        {"Scancode_R"_hash, SDL_SCANCODE_R },
-        {"Scancode_S"_hash, SDL_SCANCODE_S },
-        {"Scancode_T"_hash, SDL_SCANCODE_T },
-        {"Scancode_U"_hash, SDL_SCANCODE_U },
-        {"Scancode_V"_hash, SDL_SCANCODE_V },
-        {"Scancode_W"_hash, SDL_SCANCODE_W },
-        {"Scancode_X"_hash, SDL_SCANCODE_X },
-        {"Scancode_Y"_hash, SDL_SCANCODE_Y },
-        {"Scancode_Z"_hash, SDL_SCANCODE_Z },
+    std::map<uint32_t, SDL_Keycode> stringToKeyCode = {
+        {"Keycode_A"_hash, SDLK_a },
+        {"Keycode_B"_hash, SDLK_b },
+        {"Keycode_C"_hash, SDLK_c },
+        {"Keycode_D"_hash, SDLK_d },
+        {"Keycode_E"_hash, SDLK_e },
+        {"Keycode_F"_hash, SDLK_f },
+        {"Keycode_G"_hash, SDLK_g },
+        {"Keycode_H"_hash, SDLK_h },
+        {"Keycode_I"_hash, SDLK_i },
+        {"Keycode_J"_hash, SDLK_j },
+        {"Keycode_K"_hash, SDLK_k },
+        {"Keycode_L"_hash, SDLK_l },
+        {"Keycode_M"_hash, SDLK_m },
+        {"Keycode_N"_hash, SDLK_n },
+        {"Keycode_O"_hash, SDLK_o },
+        {"Keycode_P"_hash, SDLK_p },
+        {"Keycode_Q"_hash, SDLK_q },
+        {"Keycode_R"_hash, SDLK_e },
+        {"Keycode_S"_hash, SDLK_s },
+        {"Keycode_T"_hash, SDLK_t },
+        {"Keycode_U"_hash, SDLK_u },
+        {"Keycode_V"_hash, SDLK_v },
+        {"Keycode_W"_hash, SDLK_w },
+        {"Keycode_X"_hash, SDLK_x },
+        {"Keycode_Y"_hash, SDLK_y },
+        {"Keycode_Z"_hash, SDLK_z },
 
-        {"Scancode_1"_hash, SDL_SCANCODE_1 },
-        {"Scancode_2"_hash, SDL_SCANCODE_2 },
-        {"Scancode_3"_hash, SDL_SCANCODE_3 },
-        {"Scancode_4"_hash, SDL_SCANCODE_4 },
-        {"Scancode_5"_hash, SDL_SCANCODE_5 },
-        {"Scancode_6"_hash, SDL_SCANCODE_6 },
-        {"Scancode_7"_hash, SDL_SCANCODE_7 },
-        {"Scancode_8"_hash, SDL_SCANCODE_8 },
-        {"Scancode_9"_hash, SDL_SCANCODE_9 },
-        {"Scancode_0"_hash, SDL_SCANCODE_0 },
+        {"Keycode_1"_hash, SDLK_1 },
+        {"Keycode_2"_hash, SDLK_2 },
+        {"Keycode_3"_hash, SDLK_3 },
+        {"Keycode_4"_hash, SDLK_4 },
+        {"Keycode_5"_hash, SDLK_5 },
+        {"Keycode_6"_hash, SDLK_6 },
+        {"Keycode_7"_hash, SDLK_7 },
+        {"Keycode_8"_hash, SDLK_8 },
+        {"Keycode_9"_hash, SDLK_9 },
+        {"Keycode_0"_hash, SDLK_0 },
 
-        {"Scancode_Return"_hash, SDL_SCANCODE_RETURN },
-        {"Scancode_Escape"_hash, SDL_SCANCODE_ESCAPE },
-        {"Scancode_Backspace"_hash, SDL_SCANCODE_BACKSPACE },
-        {"Scancode_Tab"_hash, SDL_SCANCODE_TAB },
-        {"Scancode_Space"_hash, SDL_SCANCODE_SPACE },
+        {"Keycode_Return"_hash, SDLK_RETURN },
+        {"Keycode_Escape"_hash, SDLK_ESCAPE },
+        {"Keycode_Backspace"_hash, SDLK_BACKSPACE },
+        {"Keycode_Tab"_hash, SDLK_TAB },
+        {"Keycode_Space"_hash, SDLK_SPACE },
+        {"Keycode_Exclaim"_hash, SDLK_EXCLAIM },
+        {"Keycode_QuoteDbl"_hash, SDLK_QUOTEDBL },
+        {"Keycode_Hash"_hash, SDLK_HASH },
+        {"Keycode_Percent"_hash, SDLK_PERCENT },
+        {"Keycode_Dollar"_hash, SDLK_DOLLAR },
+        {"Keycode_Ampersand"_hash, SDLK_AMPERSAND },
+        {"Keycode_Quote"_hash, SDLK_QUOTE },
+        {"Keycode_LeftParen"_hash, SDLK_LEFTPAREN },
+        {"Keycode_RightParen"_hash, SDLK_RIGHTPAREN },
+        {"Keycode_Asterisk"_hash, SDLK_ASTERISK },
+        {"Keycode_Plus"_hash, SDLK_PLUS },
+        {"Keycode_Comma"_hash, SDLK_COMMA },
+        {"Keycode_Minus"_hash, SDLK_MINUS },
+        {"Keycode_Period"_hash, SDLK_PERIOD },
+        {"Keycode_Slash"_hash, SDLK_SLASH },
+        {"Keycode_Colon"_hash, SDLK_COLON },
+        {"Keycode_Semicolon"_hash, SDLK_SEMICOLON },
+        {"Keycode_Less"_hash, SDLK_LESS },
+        {"Keycode_Equals"_hash, SDLK_EQUALS },
+        {"Keycode_Greater"_hash, SDLK_GREATER },
+        {"Keycode_Question"_hash, SDLK_QUESTION },
+        {"Keycode_At"_hash, SDLK_AT },
+        {"Keycode_LeftBracket"_hash, SDLK_LEFTBRACKET },
+        {"Keycode_Backslash"_hash, SDLK_BACKSLASH },
+        {"Keycode_RightBracket"_hash, SDLK_RIGHTBRACKET },
+        {"Keycode_Caret"_hash, SDLK_CARET },
+        {"Keycode_Underscore"_hash, SDLK_UNDERSCORE },
+        {"Keycode_BackQuote"_hash, SDLK_BACKQUOTE },
 
-        {"Scancode_Minus"_hash, SDL_SCANCODE_MINUS},
-        {"Scancode_Equals"_hash, SDL_SCANCODE_EQUALS},
-        {"Scancode_LeftBracket"_hash, SDL_SCANCODE_LEFTBRACKET},
-        {"Scancode_RightBracket"_hash, SDL_SCANCODE_RIGHTBRACKET},
-        {"Scancode_Backslash"_hash, SDL_SCANCODE_BACKSLASH},
-        {"Scancode_NonUSHash"_hash, SDL_SCANCODE_NONUSHASH},
-        {"Scancode_Semicolon"_hash, SDL_SCANCODE_SEMICOLON},
-        {"Scancode_Apostrophe"_hash, SDL_SCANCODE_APOSTROPHE},
-        {"Scancode_Grave"_hash, SDL_SCANCODE_GRAVE},
-        {"Scancode_Comma"_hash, SDL_SCANCODE_COMMA},
-        {"Scancode_Period"_hash, SDL_SCANCODE_PERIOD},
-        {"Scancode_Slash"_hash, SDL_SCANCODE_SLASH},
+        {"Keycode_CapsLock"_hash, SDLK_CAPSLOCK},
 
-        {"Scancode_CapsLock"_hash, SDL_SCANCODE_CAPSLOCK},
+        {"Keycode_F1"_hash, SDLK_F1},
+        {"Keycode_F2"_hash, SDLK_F2},
+        {"Keycode_F3"_hash, SDLK_F3},
+        {"Keycode_F4"_hash, SDLK_F4},
+        {"Keycode_F5"_hash, SDLK_F5},
+        {"Keycode_F6"_hash, SDLK_F6},
+        {"Keycode_F7"_hash, SDLK_F7},
+        {"Keycode_F8"_hash, SDLK_F8},
+        {"Keycode_F9"_hash, SDLK_F9},
+        {"Keycode_F10"_hash, SDLK_F10},
+        {"Keycode_F11"_hash, SDLK_F11},
+        {"Keycode_F12"_hash, SDLK_F12},
 
-        {"Scancode_F1"_hash, SDL_SCANCODE_F1},
-        {"Scancode_F2"_hash, SDL_SCANCODE_F2},
-        {"Scancode_F3"_hash, SDL_SCANCODE_F3},
-        {"Scancode_F4"_hash, SDL_SCANCODE_F4},
-        {"Scancode_F5"_hash, SDL_SCANCODE_F5},
-        {"Scancode_F6"_hash, SDL_SCANCODE_F6},
-        {"Scancode_F7"_hash, SDL_SCANCODE_F7},
-        {"Scancode_F8"_hash, SDL_SCANCODE_F8},
-        {"Scancode_F9"_hash, SDL_SCANCODE_F9},
-        {"Scancode_F10"_hash, SDL_SCANCODE_F10},
-        {"Scancode_F11"_hash, SDL_SCANCODE_F11},
-        {"Scancode_F12"_hash, SDL_SCANCODE_F12},
+        {"Keycode_PrintScreen"_hash, SDLK_PRINTSCREEN},
+        {"Keycode_ScrollLock"_hash, SDLK_SCROLLLOCK},
+        {"Keycode_Pause"_hash, SDLK_PAUSE},
+        {"Keycode_Insert"_hash, SDLK_INSERT},
+        {"Keycode_Home"_hash, SDLK_HOME},
+        {"Keycode_PageUp"_hash, SDLK_PAGEUP},
+        {"Keycode_Delete"_hash, SDLK_DELETE},
+        {"Keycode_End"_hash, SDLK_END},
+        {"Keycode_PageDown"_hash, SDLK_PAGEDOWN},
+        {"Keycode_Right"_hash, SDLK_RIGHT},
+        {"Keycode_Left"_hash, SDLK_LEFT},
+        {"Keycode_Down"_hash, SDLK_DOWN},
+        {"Keycode_Up"_hash, SDLK_UP},
 
-        {"Scancode_PrintScreen"_hash, SDL_SCANCODE_PRINTSCREEN},
-        {"Scancode_ScrollLock"_hash, SDL_SCANCODE_SCROLLLOCK},
-        {"Scancode_Pause"_hash, SDL_SCANCODE_PAUSE},
-        {"Scancode_Insert"_hash, SDL_SCANCODE_INSERT},
-        {"Scancode_Home"_hash, SDL_SCANCODE_HOME},
-        {"Scancode_PageUp"_hash, SDL_SCANCODE_PAGEUP},
-        {"Scancode_Delete"_hash, SDL_SCANCODE_DELETE},
-        {"Scancode_End"_hash, SDL_SCANCODE_END},
-        {"Scancode_PageDown"_hash, SDL_SCANCODE_PAGEDOWN},
-        {"Scancode_Right"_hash, SDL_SCANCODE_RIGHT},
-        {"Scancode_Left"_hash, SDL_SCANCODE_LEFT},
-        {"Scancode_Down"_hash, SDL_SCANCODE_DOWN},
-        {"Scancode_Up"_hash, SDL_SCANCODE_UP},
+        {"Keycode_NumLock"_hash, SDLK_NUMLOCKCLEAR},
+        {"Keycode_KpDivide"_hash, SDLK_KP_DIVIDE},
+        {"Keycode_KpMultiply"_hash, SDLK_KP_MULTIPLY},
+        {"Keycode_KpMinus"_hash, SDLK_KP_MINUS},
+        {"Keycode_KpPlus"_hash, SDLK_KP_PLUS},
+        {"Keycode_KpEnter"_hash, SDLK_KP_ENTER},
+        {"Keycode_Kp1"_hash, SDLK_KP_1},
+        {"Keycode_Kp2"_hash, SDLK_KP_2},
+        {"Keycode_Kp3"_hash, SDLK_KP_3},
+        {"Keycode_Kp4"_hash, SDLK_KP_4},
+        {"Keycode_Kp5"_hash, SDLK_KP_5},
+        {"Keycode_Kp6"_hash, SDLK_KP_6},
+        {"Keycode_Kp7"_hash, SDLK_KP_7},
+        {"Keycode_Kp8"_hash, SDLK_KP_8},
+        {"Keycode_Kp9"_hash, SDLK_KP_9},
+        {"Keycode_Kp0"_hash, SDLK_KP_0},
+        {"Keycode_KpPeriod"_hash, SDLK_KP_PERIOD},
 
-        {"Scancode_NumLock"_hash, SDL_SCANCODE_NUMLOCKCLEAR},
-        {"Scancode_KpDivide"_hash, SDL_SCANCODE_KP_DIVIDE},
-        {"Scancode_KpMultiply"_hash, SDL_SCANCODE_KP_MULTIPLY},
-        {"Scancode_KpMinus"_hash, SDL_SCANCODE_KP_MINUS},
-        {"Scancode_KpPlus"_hash, SDL_SCANCODE_KP_PLUS},
-        {"Scancode_KpEnter"_hash, SDL_SCANCODE_KP_ENTER},
-        {"Scancode_Kp1"_hash, SDL_SCANCODE_KP_1},
-        {"Scancode_Kp2"_hash, SDL_SCANCODE_KP_2},
-        {"Scancode_Kp3"_hash, SDL_SCANCODE_KP_3},
-        {"Scancode_Kp4"_hash, SDL_SCANCODE_KP_4},
-        {"Scancode_Kp5"_hash, SDL_SCANCODE_KP_5},
-        {"Scancode_Kp6"_hash, SDL_SCANCODE_KP_6},
-        {"Scancode_Kp7"_hash, SDL_SCANCODE_KP_7},
-        {"Scancode_Kp8"_hash, SDL_SCANCODE_KP_8},
-        {"Scancode_Kp9"_hash, SDL_SCANCODE_KP_9},
-        {"Scancode_Kp0"_hash, SDL_SCANCODE_KP_0},
-        {"Scancode_KpPeriod"_hash, SDL_SCANCODE_KP_PERIOD},
+        {"Keycode_LeftCtrl"_hash, SDLK_LCTRL},
+        {"Keycode_LeftShift"_hash, SDLK_LSHIFT},
+        {"Keycode_LeftAlt"_hash, SDLK_LALT},
+        {"Keycode_LeftGui"_hash, SDLK_LGUI},
+        {"Keycode_RightCtrl"_hash, SDLK_RCTRL},
+        {"Keycode_RightShift"_hash, SDLK_RSHIFT},
+        {"Keycode_RightAlt"_hash, SDLK_RALT},
+        {"Keycode_RightGui"_hash, SDLK_RGUI}
+    };
 
-        {"Scancode_LeftCtrl"_hash, SDL_SCANCODE_LCTRL},
-        {"Scancode_LeftShift"_hash, SDL_SCANCODE_LSHIFT},
-        {"Scancode_LeftAlt"_hash, SDL_SCANCODE_LALT},
-        {"Scancode_LeftGui"_hash, SDL_SCANCODE_LGUI},
-        {"Scancode_RightCtrl"_hash, SDL_SCANCODE_RCTRL},
-        {"Scancode_RightShift"_hash, SDL_SCANCODE_RSHIFT},
-        {"Scancode_RightAlt"_hash, SDL_SCANCODE_RALT},
-        {"Scancode_RightGui"_hash, SDL_SCANCODE_RGUI}
+    // Mapping of strings to SDL scancodes
+    std::map<SDL_Keycode, Key> keyCodeToInternalKeyCode = {
+        { SDLK_a, Key::A },
+        { SDLK_b, Key::B },
+        { SDLK_c, Key::C },
+        { SDLK_d, Key::D },
+        { SDLK_e, Key::E },
+        { SDLK_f, Key::F },
+        { SDLK_g, Key::G },
+        { SDLK_h, Key::H },
+        { SDLK_i, Key::I },
+        { SDLK_j, Key::J },
+        { SDLK_k, Key::K },
+        { SDLK_l, Key::L },
+        { SDLK_m, Key::M },
+        { SDLK_n, Key::N },
+        { SDLK_o, Key::O },
+        { SDLK_p, Key::P },
+        { SDLK_q, Key::Q },
+        { SDLK_e, Key::R },
+        { SDLK_s, Key::S },
+        { SDLK_t, Key::T },
+        { SDLK_u, Key::U },
+        { SDLK_v, Key::V },
+        { SDLK_w, Key::W },
+        { SDLK_x, Key::X },
+        { SDLK_y, Key::Y },
+        { SDLK_z, Key::Z },
+
+        { SDLK_1, Key::No1 },
+        { SDLK_2, Key::No2 },
+        { SDLK_3, Key::No3 },
+        { SDLK_4, Key::No4 },
+        { SDLK_5, Key::No5 },
+        { SDLK_6, Key::No6 },
+        { SDLK_7, Key::No7 },
+        { SDLK_8, Key::No8 },
+        { SDLK_9, Key::No9 },
+        { SDLK_0, Key::No0 },
+
+        { SDLK_RETURN, Key::Return },
+        { SDLK_ESCAPE, Key::Escape },
+        { SDLK_BACKSPACE, Key::Backspace },
+        { SDLK_TAB, Key::Tab },
+        { SDLK_SPACE, Key::Space },
+        { SDLK_EXCLAIM, Key::Exclaim },
+        { SDLK_QUOTEDBL, Key::QuoteDbl },
+        { SDLK_HASH, Key::Hash },
+        { SDLK_PERCENT, Key::Percent },
+        { SDLK_DOLLAR, Key::Dollar },
+        { SDLK_AMPERSAND, Key::Ampersand },
+        { SDLK_QUOTE, Key::Quote },
+        { SDLK_LEFTPAREN, Key::LeftParen },
+        { SDLK_RIGHTPAREN, Key::RightParen },
+        { SDLK_ASTERISK, Key::Asterisk },
+        { SDLK_PLUS, Key::Plus },
+        { SDLK_COMMA, Key::Comma },
+        { SDLK_MINUS, Key::Minus },
+        { SDLK_PERIOD, Key::Period },
+        { SDLK_SLASH, Key::Slash },
+        { SDLK_COLON, Key::Colon },
+        { SDLK_SEMICOLON, Key::Semicolon },
+        { SDLK_LESS, Key::Less },
+        { SDLK_EQUALS, Key::Equals },
+        { SDLK_GREATER, Key::Greater },
+        { SDLK_QUESTION, Key::Question },
+        { SDLK_AT, Key::At },
+        { SDLK_LEFTBRACKET, Key::LeftBracket },
+        { SDLK_BACKSLASH, Key::Backslash },
+        { SDLK_RIGHTBRACKET, Key::RightBracket },
+        { SDLK_CARET, Key::Caret },
+        { SDLK_UNDERSCORE, Key::Underscore },
+        { SDLK_BACKQUOTE, Key::BackQuote },
+
+        { SDLK_CAPSLOCK, Key::CapsLock },
+        
+        { SDLK_F1, Key::F1 },
+        { SDLK_F2, Key::F2 },
+        { SDLK_F3, Key::F3 },
+        { SDLK_F4, Key::F4 },
+        { SDLK_F5, Key::F5 },
+        { SDLK_F6, Key::F6 },
+        { SDLK_F7, Key::F7 },
+        { SDLK_F8, Key::F8 },
+        { SDLK_F9, Key::F9 },
+        { SDLK_F10, Key::F10 },
+        { SDLK_F11, Key::F11 },
+        { SDLK_F12, Key::F12 },
+
+        { SDLK_PRINTSCREEN, Key::PrintScreen },
+        { SDLK_SCROLLLOCK, Key::ScrollLock },
+        { SDLK_PAUSE, Key::Pause },
+        { SDLK_INSERT, Key::Insert },
+        { SDLK_HOME, Key::Home },
+        { SDLK_PAGEUP, Key::PageUp },
+        { SDLK_DELETE, Key::Delete },
+        { SDLK_END, Key::End },
+        { SDLK_PAGEDOWN, Key::PageDown },
+        { SDLK_RIGHT, Key::Right },
+        { SDLK_LEFT, Key::Left},
+        { SDLK_DOWN, Key::Down},
+        { SDLK_UP, Key::Up },
+
+        { SDLK_NUMLOCKCLEAR, Key::NumLock },
+        { SDLK_KP_DIVIDE, Key::KpDivide },
+        { SDLK_KP_MULTIPLY, Key::KpMultiply },
+        { SDLK_KP_MINUS, Key::KpMinus },
+        { SDLK_KP_PLUS, Key::KpPlus },
+        { SDLK_KP_ENTER, Key::KpEnter },
+        { SDLK_KP_1, Key::Kp1 },
+        { SDLK_KP_2, Key::Kp2 },
+        { SDLK_KP_3, Key::Kp3 },
+        { SDLK_KP_4, Key::Kp4 },
+        { SDLK_KP_5, Key::Kp5 },
+        { SDLK_KP_6, Key::Kp6 },
+        { SDLK_KP_7, Key::Kp7 },
+        { SDLK_KP_8, Key::Kp8 },
+        { SDLK_KP_9, Key::Kp9 },
+        { SDLK_KP_0, Key::Kp0 },
+        { SDLK_KP_PERIOD, Key::KpPeriod },
+
+        { SDLK_LCTRL, Key::LeftCtrl },
+        { SDLK_LSHIFT, Key::LeftShift },
+        { SDLK_LALT, Key::LeftAlt },
+        { SDLK_LGUI, Key::LeftGui },
+        { SDLK_RCTRL, Key::RightCtrl },
+        { SDLK_RSHIFT, Key::RightShift },
+        { SDLK_RALT, Key::RightAlt },
+        { SDLK_RGUI, Key::RightGui }
     };
 
     // Mapping of strings to SDL mouse codes
@@ -228,10 +374,10 @@ void GameChip::Init()
             m_primaryBindings[primaryBinding] = button;
 
             std::string altBindingLabel = jsonButton["Alt"].ToString();
-            if (altBindingLabel.substr(0, 5) == "Scanc")
+            if (altBindingLabel.substr(0, 5) == "Keyco")
             {
-                SDL_Scancode scancode = stringToScanCode[Fnv1a::Hash(altBindingLabel.c_str())];
-                m_keyboardAltBindings[scancode] = button;
+                SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                m_keyboardAltBindings[keycode] = button;
             }
             else if (altBindingLabel.substr(0, 5) == "Mouse")
             {
@@ -257,9 +403,9 @@ void GameChip::Init()
                 std::string altBindingLabel = jsonAxis["Alt"].ToString();
                 if (altBindingLabel.substr(0, 5) == "Scanc")
                 {
-                    SDL_Scancode scancode = stringToScanCode[Fnv1a::Hash(altBindingLabel.c_str())];
-                    m_keyboardAxisBindings[scancode] = axis;
-                    m_axes[(size_t)axis].m_positiveScanCode = scancode;
+                    SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                    m_keyboardAxisBindings[keycode] = axis;
+                    m_axes[(size_t)axis].m_positiveScanCode = keycode;
                 }
                 else if (altBindingLabel.substr(0, 5) == "Mouse")
                 {
@@ -273,9 +419,9 @@ void GameChip::Init()
                 std::string altBindingLabel = jsonAxis["AltPositive"].ToString();
                 if (altBindingLabel.substr(0, 5) == "Scanc")
                 {
-                    SDL_Scancode scancode = stringToScanCode[Fnv1a::Hash(altBindingLabel.c_str())];
-                    m_keyboardAxisBindings[scancode] = axis;
-                    m_axes[(size_t)axis].m_positiveScanCode = scancode;
+                    SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                    m_keyboardAxisBindings[keycode] = axis;
+                    m_axes[(size_t)axis].m_positiveScanCode = keycode;
                 }
                 else if (altBindingLabel.substr(0, 5) == "Mouse")
                 {
@@ -289,9 +435,9 @@ void GameChip::Init()
                 std::string altBindingLabel = jsonAxis["AltNegative"].ToString();
                 if (altBindingLabel.substr(0, 5) == "Scanc")
                 {
-                    SDL_Scancode scancode = stringToScanCode[Fnv1a::Hash(altBindingLabel.c_str())];
-                    m_keyboardAxisBindings[scancode] = axis;
-                    m_axes[(size_t)axis].m_negativeScanCode = scancode;
+                    SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                    m_keyboardAxisBindings[keycode] = axis;
+                    m_axes[(size_t)axis].m_negativeScanCode = keycode;
                 }
                 else if (altBindingLabel.substr(0, 5) == "Mouse")
                 {
@@ -341,20 +487,23 @@ void GameChip::ProcessEvent(SDL_Event* event)
     }
     case SDL_KEYDOWN:
     {
-        SDL_Scancode scancode = event->key.keysym.scancode;
-        ControllerButton button = m_keyboardAltBindings[scancode];
+        SDL_Keycode keycode = event->key.keysym.sym;
+        m_keyDowns[(size_t)keyCodeToInternalKeyCode[keycode]] = true;
+        m_keyStates[(size_t)keyCodeToInternalKeyCode[keycode]] = true;
+
+        ControllerButton button = m_keyboardAltBindings[keycode];
         if (button != ControllerButton::Invalid)
         {
             m_buttonDowns[(size_t)button] = true;
             m_buttonStates[(size_t)button] = true;
         }
-        ControllerAxis axis = m_keyboardAxisBindings[scancode];
+        ControllerAxis axis = m_keyboardAxisBindings[keycode];
         if (axis != ControllerAxis::Invalid)
         {
             Axis& axisData = m_axes[(size_t)axis];
-            if (axisData.m_positiveScanCode == scancode)
+            if (axisData.m_positiveScanCode == keycode)
                 axisData.m_positiveInput = true;
-            else if (axisData.m_negativeScanCode == scancode)
+            else if (axisData.m_negativeScanCode == keycode)
                 axisData.m_negativeInput = true;
             axisData.m_ignoreVirtual = false;
         }
@@ -362,20 +511,23 @@ void GameChip::ProcessEvent(SDL_Event* event)
     }
     case SDL_KEYUP:
     {
-        SDL_Scancode scancode = event->key.keysym.scancode;
-        ControllerButton button = m_keyboardAltBindings[scancode];
+        SDL_Keycode keycode = event->key.keysym.sym;
+        m_keyUps[(size_t)keyCodeToInternalKeyCode[keycode]] = true;
+        m_keyStates[(size_t)keyCodeToInternalKeyCode[keycode]] = false;
+
+        ControllerButton button = m_keyboardAltBindings[keycode];
         if (button != ControllerButton::Invalid)
         {
             m_buttonUps[(size_t)button] = true;
             m_buttonStates[(size_t)button] = false;
         }
-        ControllerAxis axis = m_keyboardAxisBindings[scancode];
+        ControllerAxis axis = m_keyboardAxisBindings[keycode];
         if (axis != ControllerAxis::Invalid)
         {
             Axis& axisData = m_axes[(size_t)axis];
-            if (axisData.m_positiveScanCode == scancode)
+            if (axisData.m_positiveScanCode == keycode)
                 axisData.m_positiveInput = false;
-            else if (axisData.m_negativeScanCode == scancode)
+            else if (axisData.m_negativeScanCode == keycode)
                 axisData.m_negativeInput = false;
             axisData.m_ignoreVirtual = false;
         }
@@ -529,6 +681,8 @@ void GameChip::UpdateAxes(float deltaTime)
 
 void GameChip::ClearStates()
 {
+    m_keyDowns.reset();
+	m_keyUps.reset();
     m_buttonDowns.reset();
 	m_buttonUps.reset();
     m_textInputString.clear();
@@ -585,7 +739,7 @@ float GameChip::GetAxis(ControllerAxis axis)
 Vec2i GameChip::GetMousePosition()
 {
     Vec2i mousePosition;
-    SDL_GetMouseState(mousePosition.x, mousePosition.y);
+    SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
     return mousePosition;
 }
 
@@ -594,6 +748,27 @@ Vec2i GameChip::GetMousePosition()
 void GameChip::EnableMouseRelativeMode(bool enable)
 {
     SDL_SetRelativeMouseMode(enable ? SDL_TRUE : SDL_FALSE);
+}
+
+// ***********************************************************************
+
+bool GameChip::GetKey(Key keyCode)
+{
+    return m_keyStates[(size_t)keyCode];
+}
+
+// ***********************************************************************
+
+bool GameChip::GetKeyDown(Key keyCode)
+{
+    return m_keyDowns[(size_t)keyCode];
+}
+
+// ***********************************************************************
+
+bool GameChip::GetKeyUp(Key keyCode)
+{
+    return m_keyUps[(size_t)keyCode];
 }
 
 // ***********************************************************************

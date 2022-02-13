@@ -41,12 +41,13 @@ The above gives you the following output:
 - Gltf model loading
 - 2D sprite drawing
 - Depth cueing fog
+- Simple 2D shape drawing
+- Lua VM for running your game code
+- Input system that emulates a PS1 like controller
 
 # Planned features
 
 - Audio
-- Input
-- A Lua VM customized for emulating programming on PS1 hardware limits
 - A development environment for making games with the console
 - Development tools such as level editors made in the lua development environment
 - Some sample games

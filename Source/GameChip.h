@@ -180,7 +180,7 @@ class GameChip
 public:
     void Init();
     void ProcessEvent(SDL_Event* event);
-    void UpdateAxes(float deltaTime);
+    void UpdateInputs(float deltaTime, Vec2f targetRes, Vec2f realWindowRes);
     void ClearStates();
     void Shutdown();
 
@@ -239,4 +239,7 @@ private:
     SDL_GameController* m_pOpenController{ nullptr };
 
     std::string m_textInputString;
+
+    Vec2f m_targetResolution;
+    Vec2f m_windowResolution;
 };

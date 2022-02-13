@@ -633,8 +633,11 @@ void GameChip::ProcessEvent(SDL_Event* event)
 
 // ***********************************************************************
 
-void GameChip::UpdateAxes(float deltaTime)
+void GameChip::UpdateInputs(float deltaTime, Vec2f targetRes, Vec2f realWindowRes)
 {
+    m_targetResolution = targetRes;
+    m_windowResolution = realWindowRes;
+
     // TODO: This should be configurable
     float gravity = 1.0f;
     float sensitivity = 1.0f;
@@ -740,7 +743,9 @@ Vec2i GameChip::GetMousePosition()
 {
     Vec2i mousePosition;
     SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
-    return mousePosition;
+    float xAdjusted = (float)mousePosition.x / m_windowResolution.x * m_targetResolution.x;
+    float yAdjusted = m_targetResolution.y - ((float)mousePosition.y / m_windowResolution.y * m_targetResolution.y);
+    return Vec2i((int)xAdjusted, (int)yAdjusted);
 }
 
 // ***********************************************************************

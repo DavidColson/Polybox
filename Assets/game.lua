@@ -36,8 +36,8 @@ function Update(deltaTime)
     MatrixMode("Projection")
     Perspective(320, 240, 1, 20, 60)
 
-    camX = camX + deltaTime * GetAxis(Axis.RightY)
-    camY = camY + deltaTime * GetAxis(Axis.RightX)
+    -- camX = camX + deltaTime * GetAxis(Axis.RightY)
+    -- camY = camY + deltaTime * GetAxis(Axis.RightX)
 
     MatrixMode("View")
     Rotate(camX, camY, 0)
@@ -140,13 +140,11 @@ function Update(deltaTime)
         text = text:sub(1, text:len()-1)
     end
 
-    --DrawCircle(x, y, 50, 1, 1, 1, 1)
-    DrawText("LeftX: " .. GetAxis(Axis.LeftX), 20, 20, 20)
-    DrawText("LeftY: " .. GetAxis(Axis.LeftY), 20, 40, 20)
-    DrawText("RightX: " .. GetAxis(Axis.RightX), 20, 60, 20)
-    DrawText("RightY: " .. GetAxis(Axis.RightY), 20, 80, 20)
-    DrawText("TriggerLeft: " .. GetAxis(Axis.TriggerLeft), 20, 100, 20)
-    DrawText("TriggerRight: " .. GetAxis(Axis.TriggerRight), 20, 120, 20)
+    x, y = GetMousePosition()
+
+    DrawCircle(x, y, 5, 1, 1, 1, 1)
+    DrawText("MouseX: " .. x, 20, 20, 20)
+    DrawText("MouseY: " .. y, 20, 40, 20)
     DrawText("Text Input: " .. text, 20, 140, 20)
 end
 

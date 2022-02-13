@@ -1,4 +1,3 @@
-// Copyright 2020-2022 David Colson. All rights reserved.
 
 local BUILD_DIR = path.join("Build", _ACTION)
 if _OPTIONS["cc"] ~= nil then

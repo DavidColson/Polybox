@@ -739,8 +739,8 @@ void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Fon
         Character ch = pFont->characters[c];
 
         // Center alignment
-        float xpos = (x + ch.bearing.x * scale.x) - textWidth * 0.5f;
-        //float xpos = (x + ch.bearing.x * scale.x);
+        //float xpos = (x + ch.bearing.x * scale.x) - textWidth * 0.5f;
+        float xpos = (x + ch.bearing.x * scale.x);
         float ypos = y - (ch.size.y - ch.bearing.y) * scale.y;
         float w = (float)ch.size.x * scale.x;
         float h = (float)ch.size.y * scale.y;

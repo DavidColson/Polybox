@@ -36,6 +36,8 @@ struct JsonValue
 	static JsonValue NewArray();
 
 	bool IsNull() const;
+	bool IsArray() const;
+	bool IsObject() const;
 	bool HasKey(std::string identifier) const;
 	int Count() const;
 

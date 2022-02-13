@@ -610,6 +610,20 @@ bool JsonValue::IsNull() const
 
 // ***********************************************************************
 
+bool JsonValue::IsArray() const
+{
+	return m_type == Type::Array;
+}
+
+// ***********************************************************************
+
+bool JsonValue::IsObject() const
+{
+	return m_type == Type::Object;
+}
+
+// ***********************************************************************
+
 bool JsonValue::HasKey(std::string identifier) const
 {
 	ASSERT(m_type == Type::Object, "Attempting to treat this value as an object when it is not.");

@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 
 		int winWidth = 1280;
 		int winHeight = 960;
-		
+
 		SDL_Window* pWindow = SDL_CreateWindow(
 			"Polybox",
 			SDL_WINDOWPOS_UNDEFINED,
@@ -143,6 +143,7 @@ int main(int argc, char *argv[])
 				}
 			}
 			bgfx::touch(0);
+			game.UpdateAxes(deltaTime);
 
 			// Lua updates
 

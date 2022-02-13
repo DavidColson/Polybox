@@ -28,6 +28,7 @@ enum class ControllerButton
 
 enum class ControllerAxis
 {
+    Invalid,
     LeftX,
     LeftY,
     RightX,
@@ -44,6 +45,7 @@ class GameChip
 public:
     void Init();
     void ProcessEvent(SDL_Event* event);
+    void UpdateAxes(float deltaTime);
     void ClearStates();
     void Shutdown();
 
@@ -65,11 +67,13 @@ private:
 
     struct Axis
     {
-        float axisValue{ 0.0f };
+        float m_axisValue{ 0.0f };
+
+        bool m_ignoreVirtual{ false };
 
         // Virtual axis input state
-        bool positiveInput{ false };
-        bool negativeInput{ false };
+        bool m_positiveInput{ false };
+        bool m_negativeInput{ false };
 
         // Virtual axis mapping
         SDL_Scancode m_positiveScanCode{ SDL_SCANCODE_UNKNOWN };

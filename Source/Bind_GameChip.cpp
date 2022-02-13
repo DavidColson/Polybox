@@ -86,6 +86,7 @@ namespace Bind
 
         lua_newtable(pLua);
         {
+            lua_pushinteger(pLua, (int)ControllerAxis::Invalid); lua_setfield(pLua, -2, "Invalid");
             lua_pushinteger(pLua, (int)ControllerAxis::LeftX); lua_setfield(pLua, -2, "LeftX");
             lua_pushinteger(pLua, (int)ControllerAxis::LeftY); lua_setfield(pLua, -2, "LeftY");
             lua_pushinteger(pLua, (int)ControllerAxis::RightX); lua_setfield(pLua, -2, "RightX");

@@ -123,7 +123,11 @@ function Update(deltaTime)
     x = x + GetAxis(Axis.RightX)
     y = y - GetAxis(Axis.RightY)
 
-    DrawCircle(x, y, 50, 1, 1, 1, 1)
+    --DrawCircle(x, y, 50, 1, 1, 1, 1)
+    DrawText("LeftX: " .. GetAxis(Axis.LeftX), 20, 20, 20)
+    DrawText("LeftY: " .. GetAxis(Axis.LeftY), 20, 40, 20)
+    DrawText("TriggerLeft: " .. GetAxis(Axis.TriggerLeft), 20, 60, 20)
+    DrawText("TriggerRight: " .. GetAxis(Axis.TriggerRight), 20, 80, 20)
 end
 
 function End()

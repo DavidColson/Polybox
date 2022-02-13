@@ -9,17 +9,6 @@
 #include <bimg/bimg.h>
 #include <bx/allocator.h>
 
-namespace
-{
-	FT_Library* pFreetype{ nullptr };
-}
-
-// ***********************************************************************
-
-FT_Library* FreeType::Get()
-{
-	return pFreetype;
-}
 
 // ***********************************************************************
 
@@ -33,15 +22,12 @@ void FontTextureFreeCallback(void* ptr, void* userData)
 
 Font::Font(std::string path, bool antialiasing, float weight)
 {
-    if (FreeType::Get() == nullptr)
-    {
-        pFreetype = new FT_Library();
-	    FT_Init_FreeType(pFreetype);
-    }
+    FT_Library freetype;
+	FT_Init_FreeType(&freetype);
 
     FT_Face face;
 
-    FT_Error err = FT_New_Face(*FreeType::Get(), path.c_str(), 0, &face);
+    FT_Error err = FT_New_Face(freetype, path.c_str(), 0, &face);
 	if (err)
 	{
 		//Log::Warn("FreeType Error: %s", FT_Error_String(err));
@@ -172,4 +158,7 @@ Font::Font(std::string path, bool antialiasing, float weight)
     fontTexture.m_width = texWidth;
 
     delete[] pTextureDataAsR8;
+
+    FT_Done_Face(face);
+    FT_Done_FreeType(freetype);
 }

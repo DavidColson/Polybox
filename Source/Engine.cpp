@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 				}
 			}
 			bgfx::touch(0);
-			game.UpdateInputs(deltaTime, Vec2f(320.0f, 240.0f), Vec2f(winWidth, winHeight));
+			game.UpdateInputs(deltaTime, Vec2f(320.0f, 240.0f), Vec2f((float)winWidth, (float)winHeight));
 
 			// Lua updates
 

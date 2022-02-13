@@ -47,6 +47,15 @@ namespace Bind
 
     // ***********************************************************************
 
+    int EnableMouseRelativeMode(lua_State* pLua)
+    {
+        bool enable = luax_checkboolean(pLua, 1);
+        pGame->EnableMouseRelativeMode(enable);
+        return 0;
+    }
+
+    // ***********************************************************************
+
     int BindGameChip(lua_State* pLua, GameChip* pGameChip)
     {
         pGame = pGameChip;
@@ -57,6 +66,7 @@ namespace Bind
             { "GetButtonDown", GetButtonDown },
             { "GetButtonUp", GetButtonUp },
             { "GetAxis", GetAxis },
+            { "EnableMouseRelativeMode", EnableMouseRelativeMode },
             { NULL, NULL }
         };
 

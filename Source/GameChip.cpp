@@ -438,12 +438,34 @@ void GameChip::ProcessEvent(SDL_Event* event)
         }
         break;
     }
+    case SDL_MOUSEMOTION:
+    {
+        float mouseSensitivity = 0.08f; // TODO: Make configurable
+        SDL_MouseMotionEvent motionEvent = event->motion;
+        ControllerAxis axis;
+        if (abs(motionEvent.xrel) > 0)
+        {
+            axis = m_mouseAxisBindings[stringToMouseCode["Mouse_AxisX"_hash]];
+            m_axes[(size_t)axis].m_axisValue = (float)motionEvent.xrel * mouseSensitivity;
+            m_axes[(size_t)axis].m_ignoreVirtual = true;
+            m_axes[(size_t)axis].m_isMouseDriver = true;
+        }
+        if (abs(motionEvent.yrel) > 0)
+        {
+            axis = m_mouseAxisBindings[stringToMouseCode["Mouse_AxisY"_hash]];
+            m_axes[(size_t)axis].m_axisValue = (float)motionEvent.yrel * mouseSensitivity;
+            m_axes[(size_t)axis].m_ignoreVirtual = true;
+            m_axes[(size_t)axis].m_isMouseDriver = true;
+        }
+        break;
+    }
     case SDL_CONTROLLERAXISMOTION:
     {
         SDL_ControllerAxisEvent axisEvent = event->caxis;
         ControllerAxis axis = m_primaryAxisBindings[(SDL_GameControllerAxis)axisEvent.axis];
         m_axes[(size_t)axis].m_axisValue = (float)axisEvent.value / 32768.f; 
         m_axes[(size_t)axis].m_ignoreVirtual = true;
+        m_axes[(size_t)axis].m_isMouseDriver = false;
         break;
     }
     default: break;
@@ -454,6 +476,7 @@ void GameChip::ProcessEvent(SDL_Event* event)
 
 void GameChip::UpdateAxes(float deltaTime)
 {
+    // TODO: This should be configurable
     float gravity = 1.0f;
     float sensitivity = 1.0f;
     float deadzone = 0.09f;
@@ -461,8 +484,11 @@ void GameChip::UpdateAxes(float deltaTime)
     for (size_t axisIndex = 0; axisIndex < (size_t)ControllerAxis::Count; axisIndex++)
     {
         ControllerAxis axisEnum = (ControllerAxis)axisIndex;
-
         Axis& axis = m_axes[axisIndex];
+
+        if (axis.m_isMouseDriver)
+            continue;
+
         if (axis.m_ignoreVirtual)
         { 
             if (abs(axis.m_axisValue) <= deadzone)
@@ -498,6 +524,15 @@ void GameChip::ClearStates()
 {
     m_buttonDowns.reset();
 	m_buttonUps.reset();
+
+    for (Axis& axis : m_axes)
+    {
+        if (axis.m_isMouseDriver)
+        {
+            axis.m_axisValue = 0.0f;
+        }
+    }
+    
 }
 
 // ***********************************************************************
@@ -536,4 +571,11 @@ bool GameChip::GetButtonUp(ControllerButton buttonCode)
 float GameChip::GetAxis(ControllerAxis axis)
 {
     return m_axes[(size_t)axis].m_axisValue;
+}
+
+// ***********************************************************************
+
+void GameChip::EnableMouseRelativeMode(bool enable)
+{
+    SDL_SetRelativeMouseMode(enable ? SDL_TRUE : SDL_FALSE);
 }

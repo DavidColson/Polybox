@@ -54,6 +54,7 @@ public:
     bool GetButtonDown(ControllerButton buttonCode);
     bool GetButtonUp(ControllerButton buttonCode);
     float GetAxis(ControllerAxis axis);
+    void EnableMouseRelativeMode(bool enable);
 
 private:
     std::map<SDL_GameControllerButton, ControllerButton> m_primaryBindings;
@@ -70,6 +71,7 @@ private:
         float m_axisValue{ 0.0f };
 
         bool m_ignoreVirtual{ false };
+        bool m_isMouseDriver{ false };
 
         // Virtual axis input state
         bool m_positiveInput{ false };

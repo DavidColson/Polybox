@@ -21,6 +21,11 @@ function Start()
 
     x = 50
     y = 50
+
+    camX = 0.0
+    camY = 3.6
+
+    --EnableMouseRelativeMode(true)
 end
 
 function Update(deltaTime)
@@ -29,8 +34,11 @@ function Update(deltaTime)
     MatrixMode("Projection")
     Perspective(320, 240, 1, 20, 60)
 
+    camX = camX + deltaTime * GetAxis(Axis.RightY)
+    camY = camY + deltaTime * GetAxis(Axis.RightX)
+
     MatrixMode("View")
-    Rotate(0.0, 3.6, 0)
+    Rotate(camX, camY, 0)
     Translate(1, -2.5, 6.5)
 
     NormalsMode("Custom")
@@ -126,8 +134,10 @@ function Update(deltaTime)
     --DrawCircle(x, y, 50, 1, 1, 1, 1)
     DrawText("LeftX: " .. GetAxis(Axis.LeftX), 20, 20, 20)
     DrawText("LeftY: " .. GetAxis(Axis.LeftY), 20, 40, 20)
-    DrawText("TriggerLeft: " .. GetAxis(Axis.TriggerLeft), 20, 60, 20)
-    DrawText("TriggerRight: " .. GetAxis(Axis.TriggerRight), 20, 80, 20)
+    DrawText("RightX: " .. GetAxis(Axis.RightX), 20, 60, 20)
+    DrawText("RightY: " .. GetAxis(Axis.RightY), 20, 80, 20)
+    DrawText("TriggerLeft: " .. GetAxis(Axis.TriggerLeft), 20, 100, 20)
+    DrawText("TriggerRight: " .. GetAxis(Axis.TriggerRight), 20, 120, 20)
 end
 
 function End()

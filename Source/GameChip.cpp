@@ -238,6 +238,21 @@ void GameChip::Init()
             }
         }
     }
+    if (mapping.HasKey("Axes"))
+    {
+        JsonValue& axes = mapping["Axes"];
+        for (size_t i = 0; i < axes.Count(); i++)
+        {
+            JsonValue& jsonAxis = axes[i];
+            ControllerAxis axis = stringToControllerAxis[Fnv1a::Hash(jsonAxis["Name"].ToString().c_str())];
+
+            // TODO: What if someone tries to bind a controller button(s) to an axis? Support that probably
+            SDL_GameControllerAxis primaryBinding = stringToSDLControllerAxis[Fnv1a::Hash(jsonAxis["Primary"].ToString().c_str())];
+            m_primaryAxisBindings[primaryBinding] = axis;
+
+            // TODO: Keyboard mouse button axis bindings
+        }
+    }
 
     SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER);
     SDL_InitSubSystem(SDL_INIT_JOYSTICK);
@@ -327,11 +342,18 @@ void GameChip::ProcessEvent(SDL_Event* event)
     {
         int sdlMouseButton = event->button.button;
         ControllerButton button = m_mouseAltBindings[sdlMouseButton];
-       if (button != ControllerButton::Invalid)
+        if (button != ControllerButton::Invalid)
         {
             m_buttonDowns[(size_t)button] = true;
             m_buttonStates[(size_t)button] = true;
         }
+        break;
+    }
+    case SDL_CONTROLLERAXISMOTION:
+    {
+        SDL_ControllerAxisEvent axisEvent = event->caxis;
+        ControllerAxis axis = m_primaryAxisBindings[(SDL_GameControllerAxis)axisEvent.axis];
+        m_axes[(size_t)axis].axisValue = (float)axisEvent.value / 32768.f; 
         break;
     }
     default: break;
@@ -375,4 +397,11 @@ bool GameChip::GetButtonDown(ControllerButton buttonCode)
 bool GameChip::GetButtonUp(ControllerButton buttonCode)
 {
     return m_buttonUps[(size_t)buttonCode];
+}
+
+// ***********************************************************************
+
+float GameChip::GetAxis(ControllerAxis axis)
+{
+    return m_axes[(size_t)axis].axisValue;
 }

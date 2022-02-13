@@ -51,6 +51,7 @@ public:
     bool GetButton(ControllerButton buttonCode);
     bool GetButtonDown(ControllerButton buttonCode);
     bool GetButtonUp(ControllerButton buttonCode);
+    float GetAxis(ControllerAxis axis);
 
 private:
     std::map<SDL_GameControllerButton, ControllerButton> m_primaryBindings;

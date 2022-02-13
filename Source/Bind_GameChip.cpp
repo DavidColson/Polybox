@@ -9,12 +9,16 @@ namespace
 
 namespace Bind
 {
+    // ***********************************************************************
+
     int GetButton(lua_State* pLua)
     {
         ControllerButton button = (ControllerButton)luaL_checkinteger(pLua, 1);
         lua_pushboolean(pLua, pGame->GetButton(button));
         return 1;
     }
+
+    // ***********************************************************************
 
     int GetButtonDown(lua_State* pLua)
     {
@@ -23,10 +27,21 @@ namespace Bind
         return 1;
     }
 
+    // ***********************************************************************
+
     int GetButtonUp(lua_State* pLua)
     {
         ControllerButton button = (ControllerButton)luaL_checkinteger(pLua, 1);
         lua_pushboolean(pLua, pGame->GetButtonUp(button));
+        return 1;
+    }
+
+    // ***********************************************************************
+
+    int GetAxis(lua_State* pLua)
+    {
+        ControllerAxis axis = (ControllerAxis)luaL_checkinteger(pLua, 1);
+        lua_pushnumber(pLua, pGame->GetAxis(axis));
         return 1;
     }
 
@@ -41,6 +56,7 @@ namespace Bind
             { "GetButton", GetButton },
             { "GetButtonDown", GetButtonDown },
             { "GetButtonUp", GetButtonUp },
+            { "GetAxis", GetAxis },
             { NULL, NULL }
         };
 
@@ -67,6 +83,17 @@ namespace Bind
             lua_pushinteger(pLua, (int)ControllerButton::Select); lua_setfield(pLua, -2, "Select");
         }
         lua_setglobal(pLua, "Button");
+
+        lua_newtable(pLua);
+        {
+            lua_pushinteger(pLua, (int)ControllerAxis::LeftX); lua_setfield(pLua, -2, "LeftX");
+            lua_pushinteger(pLua, (int)ControllerAxis::LeftY); lua_setfield(pLua, -2, "LeftY");
+            lua_pushinteger(pLua, (int)ControllerAxis::RightX); lua_setfield(pLua, -2, "RightX");
+            lua_pushinteger(pLua, (int)ControllerAxis::RightY); lua_setfield(pLua, -2, "RightY");
+            lua_pushinteger(pLua, (int)ControllerAxis::TriggerLeft); lua_setfield(pLua, -2, "TriggerLeft");
+            lua_pushinteger(pLua, (int)ControllerAxis::TriggerRight); lua_setfield(pLua, -2, "TriggerRight");
+        }
+        lua_setglobal(pLua, "Axis");
 
         return 0;
     }

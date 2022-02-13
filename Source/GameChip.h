@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Vec2.h"
+
 #include <bitset>
 #include <array>
 #include <map>
@@ -54,8 +56,11 @@ public:
     bool GetButtonDown(ControllerButton buttonCode);
     bool GetButtonUp(ControllerButton buttonCode);
     float GetAxis(ControllerAxis axis);
+
+    Vec2i GetMousePosition();
     void EnableMouseRelativeMode(bool enable);
 
+    std::string InputString();
 private:
     std::map<SDL_GameControllerButton, ControllerButton> m_primaryBindings;
     std::map<SDL_GameControllerAxis, ControllerAxis> m_primaryAxisBindings;
@@ -91,4 +96,6 @@ private:
     std::array<Axis, (size_t)ControllerAxis::Count> m_axes;
 
     SDL_GameController* m_pOpenController{ nullptr };
+
+    std::string m_textInputString;
 };

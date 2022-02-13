@@ -26,6 +26,8 @@ function Start()
     camY = 3.6
 
     --EnableMouseRelativeMode(true)
+
+    text = ""
 end
 
 function Update(deltaTime)
@@ -131,6 +133,8 @@ function Update(deltaTime)
     x = x + GetAxis(Axis.RightX)
     y = y - GetAxis(Axis.RightY)
 
+    text = text .. InputString()
+
     --DrawCircle(x, y, 50, 1, 1, 1, 1)
     DrawText("LeftX: " .. GetAxis(Axis.LeftX), 20, 20, 20)
     DrawText("LeftY: " .. GetAxis(Axis.LeftY), 20, 40, 20)
@@ -138,6 +142,7 @@ function Update(deltaTime)
     DrawText("RightY: " .. GetAxis(Axis.RightY), 20, 80, 20)
     DrawText("TriggerLeft: " .. GetAxis(Axis.TriggerLeft), 20, 100, 20)
     DrawText("TriggerRight: " .. GetAxis(Axis.TriggerRight), 20, 120, 20)
+    DrawText("Text Input: " .. text, 20, 140, 20)
 end
 
 function End()

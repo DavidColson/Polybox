@@ -47,11 +47,30 @@ namespace Bind
 
     // ***********************************************************************
 
+    int GetMousePosition(lua_State* pLua)
+    {
+        Vec2i mousePos = pGame->GetMousePosition();
+        lua_pushinteger(pLua, mousePos.x);
+        lua_pushinteger(pLua, mousePos.y);
+        return 2;
+    }
+
+    // ***********************************************************************
+
     int EnableMouseRelativeMode(lua_State* pLua)
     {
         bool enable = luax_checkboolean(pLua, 1);
         pGame->EnableMouseRelativeMode(enable);
         return 0;
+    }
+
+    // ***********************************************************************
+
+    int InputString(lua_State* pLua)
+    {
+        std::string input = pGame->InputString();
+        lua_pushstring(pLua, input.c_str()); 
+        return 1;
     }
 
     // ***********************************************************************
@@ -66,7 +85,9 @@ namespace Bind
             { "GetButtonDown", GetButtonDown },
             { "GetButtonUp", GetButtonUp },
             { "GetAxis", GetAxis },
+            { "GetMousePosition", GetMousePosition },
             { "EnableMouseRelativeMode", EnableMouseRelativeMode },
+            { "InputString", InputString },
             { NULL, NULL }
         };
 

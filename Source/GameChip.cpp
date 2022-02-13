@@ -306,6 +306,8 @@ void GameChip::Init()
     SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER);
     SDL_InitSubSystem(SDL_INIT_JOYSTICK);
 
+    SDL_StartTextInput();
+
     for (int i = 0; i < SDL_NumJoysticks(); i++)
     {
         if (SDL_IsGameController(i))
@@ -332,6 +334,11 @@ void GameChip::ProcessEvent(SDL_Event* event)
     // Update Input States
     switch (event->type)
 	{
+    case SDL_TEXTINPUT:
+    {
+        m_textInputString += event->text.text;
+        break;
+    }
     case SDL_KEYDOWN:
     {
         SDL_Scancode scancode = event->key.keysym.scancode;
@@ -524,7 +531,7 @@ void GameChip::ClearStates()
 {
     m_buttonDowns.reset();
 	m_buttonUps.reset();
-
+    m_textInputString.clear();
     for (Axis& axis : m_axes)
     {
         if (axis.m_isMouseDriver)
@@ -575,7 +582,23 @@ float GameChip::GetAxis(ControllerAxis axis)
 
 // ***********************************************************************
 
+Vec2i GameChip::GetMousePosition()
+{
+    Vec2i mousePosition;
+    SDL_GetMouseState(mousePosition.x, mousePosition.y);
+    return mousePosition;
+}
+
+// ***********************************************************************
+
 void GameChip::EnableMouseRelativeMode(bool enable)
 {
     SDL_SetRelativeMouseMode(enable ? SDL_TRUE : SDL_FALSE);
+}
+
+// ***********************************************************************
+
+std::string GameChip::InputString()
+{
+    return m_textInputString;
 }

@@ -10,13 +10,14 @@ SAMPLER2D(fullscreenFrameSampler, 0);
 
 float2 curve(float2 uv)
 {
-	// Figure out what the shit is happening here and make it more understandable
-	uv = (uv - 0.5) * 2.0;
-	uv *= 1.1;	
-	uv.x *= 1.0 + pow((abs(uv.y) / 5.0), 2.0);
-	uv.y *= 1.0 + pow((abs(uv.x) / 4.0), 2.0);
-	uv  = (uv / 2.0) + 0.5;
-	uv =  uv *0.92 + 0.04;
+	// To apply to mouse positions, remap mouse into 0-1 range, then do this, then back to pixel space
+
+	uv = (uv - 0.5) * 2.0; // Put in -1 to 1 range
+	uv *= 1.1;			// Decrease size slightly to give space for bulge
+	uv.x *= 1.0 + pow((abs(uv.y) / 5.0), 2.0); // The actual bulge
+	uv.y *= 1.0 + pow((abs(uv.x) / 4.0), 2.0); 
+	uv  = (uv / 2.0) + 0.5; // Remap into right space again (0-1)
+	uv =  uv *0.92 + 0.04; // increase size
 	return uv;
 }
 

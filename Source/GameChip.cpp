@@ -743,6 +743,7 @@ float GameChip::GetAxis(ControllerAxis axis)
 
 Vec2i GameChip::GetMousePosition()
 {
+    // TODO: This becomes wrong at the edge of the screen, must apply screen warning to it as well
     Vec2i mousePosition;
     SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
     float xAdjusted = (float)mousePosition.x / m_windowResolution.x * m_targetResolution.x;

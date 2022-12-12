@@ -2,7 +2,8 @@
 
 #include "GameChip.h"
 
-#include "Core/Json.h"
+#include <json.h>
+#include <defer.h>
 #include "Core/StringHash.h"
 #include "Core/Maths.h"
 
@@ -359,9 +360,11 @@ void GameChip::Init()
     char* pData = new char[size];
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
-    std::string file(pData, pData + size);
-    delete[] pData;
-
+   
+    String file;
+    defer(FreeString(file));
+    file.pData = pData;
+    file.length = size;;
     JsonValue mapping = ParseJsonFile(file);
 
     // Going through all elements of the json file
@@ -371,19 +374,19 @@ void GameChip::Init()
         for (size_t i = 0; i < buttons.Count(); i++)
         {
             JsonValue& jsonButton = buttons[i];
-            ControllerButton button = stringToControllerButton[Fnv1a::Hash(jsonButton["Name"].ToString().c_str())];
-            SDL_GameControllerButton primaryBinding = stringToSDLControllerButton[Fnv1a::Hash(jsonButton["Primary"].ToString().c_str())];
+            ControllerButton button = stringToControllerButton[Fnv1a::Hash(jsonButton["Name"].ToString().pData)];
+            SDL_GameControllerButton primaryBinding = stringToSDLControllerButton[Fnv1a::Hash(jsonButton["Primary"].ToString().pData)];
             m_primaryBindings[primaryBinding] = button;
 
-            std::string altBindingLabel = jsonButton["Alt"].ToString();
-            if (altBindingLabel.substr(0, 5) == "Keyco")
+            String altBindingLabel = jsonButton["Alt"].ToString();
+            if (altBindingLabel.SubStr(0, 5) == "Keyco")
             {
-                SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                 m_keyboardAltBindings[keycode] = button;
             }
-            else if (altBindingLabel.substr(0, 5) == "Mouse")
+            else if (altBindingLabel.SubStr(0, 5) == "Mouse")
             {
-                int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                 m_mouseAltBindings[mousecode] = button;
             }
         }
@@ -394,56 +397,56 @@ void GameChip::Init()
         for (size_t i = 0; i < axes.Count(); i++)
         {
             JsonValue& jsonAxis = axes[i];
-            ControllerAxis axis = stringToControllerAxis[Fnv1a::Hash(jsonAxis["Name"].ToString().c_str())];
+            ControllerAxis axis = stringToControllerAxis[Fnv1a::Hash(jsonAxis["Name"].ToString().pData)];
 
             // TODO: What if someone tries to bind a controller button(s) to an axis? Support that probably
-            SDL_GameControllerAxis primaryBinding = stringToSDLControllerAxis[Fnv1a::Hash(jsonAxis["Primary"].ToString().c_str())];
+            SDL_GameControllerAxis primaryBinding = stringToSDLControllerAxis[Fnv1a::Hash(jsonAxis["Primary"].ToString().pData)];
             m_primaryAxisBindings[primaryBinding] = axis;
 
             if (jsonAxis.HasKey("Alt"))
             {
-                std::string altBindingLabel = jsonAxis["Alt"].ToString();
-                if (altBindingLabel.substr(0, 5) == "Scanc")
+                String altBindingLabel = jsonAxis["Alt"].ToString();
+                if (altBindingLabel.SubStr(0, 5) == "Scanc")
                 {
-                    SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                    SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                     m_keyboardAxisBindings[keycode] = axis;
                     m_axes[(size_t)axis].m_positiveScanCode = keycode;
                 }
-                else if (altBindingLabel.substr(0, 5) == "Mouse")
+                else if (altBindingLabel.SubStr(0, 5) == "Mouse")
                 {
-                    int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                    int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                     m_mouseAxisBindings[mousecode] = axis;
                     m_axes[(size_t)axis].m_positiveMouseButton = mousecode;
                 }
             }
             if (jsonAxis.HasKey("AltPositive"))
             {
-                std::string altBindingLabel = jsonAxis["AltPositive"].ToString();
-                if (altBindingLabel.substr(0, 5) == "Scanc")
+                String altBindingLabel = jsonAxis["AltPositive"].ToString();
+                if (altBindingLabel.SubStr(0, 5) == "Scanc")
                 {
-                    SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                    SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                     m_keyboardAxisBindings[keycode] = axis;
                     m_axes[(size_t)axis].m_positiveScanCode = keycode;
                 }
-                else if (altBindingLabel.substr(0, 5) == "Mouse")
+                else if (altBindingLabel.SubStr(0, 5) == "Mouse")
                 {
-                    int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                    int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                     m_mouseAxisBindings[mousecode] = axis;
                     m_axes[(size_t)axis].m_positiveMouseButton = mousecode;
                 }
             }
             if (jsonAxis.HasKey("AltNegative"))
             {
-                std::string altBindingLabel = jsonAxis["AltNegative"].ToString();
-                if (altBindingLabel.substr(0, 5) == "Scanc")
+                String altBindingLabel = jsonAxis["AltNegative"].ToString();
+                if (altBindingLabel.SubStr(0, 5) == "Scanc")
                 {
-                    SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                    SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                     m_keyboardAxisBindings[keycode] = axis;
                     m_axes[(size_t)axis].m_negativeScanCode = keycode;
                 }
-                else if (altBindingLabel.substr(0, 5) == "Mouse")
+                else if (altBindingLabel.SubStr(0, 5) == "Mouse")
                 {
-                    int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.c_str())];
+                    int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                     m_mouseAxisBindings[mousecode] = axis;
                     m_axes[(size_t)axis].m_negativeMouseButton = mousecode;
                 }

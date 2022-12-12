@@ -2,12 +2,15 @@
 
 #pragma once
 
+
+
 #include <vector>
 #include <map>
 
+#include "light_string.h"
+
 #include "Mesh.h"
 #include "LuaCommon.h"
-#include "Core/Json.h"
 
 struct Node : public LuaObject
 {
@@ -34,7 +37,7 @@ struct Node : public LuaObject
     Node* GetChild(int index);
 
     // User table info
-    std::string m_name;
+    String m_name;
     uint32_t m_meshId;
 
     // Tree data

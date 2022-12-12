@@ -86,7 +86,7 @@ namespace Bind
     int Mesh_GetName(lua_State* pLua)
     {
         Mesh* pMesh = *(Mesh**)luaL_checkudata(pLua, 1, "Mesh");
-        lua_pushlstring(pLua, pMesh->m_name.data(), pMesh->m_name.size());
+        lua_pushlstring(pLua, pMesh->m_name.pData, pMesh->m_name.length);
         return 1;
     }
 

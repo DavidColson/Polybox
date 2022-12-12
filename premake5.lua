@@ -44,6 +44,7 @@ solution "Polybox"
             ["ALWAYS_SEARCH_USER_PATHS"] = "YES", -- This is the minimum version of macos we'll be able to run on
         };
     
+    dofile("Source/CommonLib/commonlib.lua")
     dofile("Source/ThirdParty/bx.lua")
     dofile("Source/ThirdParty/bimg.lua")
     dofile("Source/ThirdParty/bgfx.lua")
@@ -67,6 +68,7 @@ solution "Polybox"
         includedirs
         {
             "Source/",
+            "Source/CommonLib/source",
             "Source/ThirdParty/bgfx/include",
             "Source/ThirdParty/bimg/include",
             "Source/ThirdParty/bx/include",
@@ -86,6 +88,7 @@ solution "Polybox"
             "lua",
             "SDL2",
             "SDL2main",
+            "CommonLib"
         }
         defines 
         {

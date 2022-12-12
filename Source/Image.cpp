@@ -2,6 +2,8 @@
 
 #include "Image.h"
 
+#include <light_string.h>
+
 #include <bimg/decode.h>
 #include <bimg/bimg.h>
 #include <bx/bx.h>
@@ -19,13 +21,13 @@ void ImageFreeCallback(void* ptr, void* userData)
 
 // ***********************************************************************
 
-Image::Image(std::string path)
+Image::Image(String path)
 {
     // Load and cache texture files and upload to bgfx
-    SDL_RWops* pFileRead = SDL_RWFromFile(path.c_str(), "rb");
+    SDL_RWops* pFileRead = SDL_RWFromFile(path.pData, "rb");
 
     uint64_t size = SDL_RWsize(pFileRead);
-    void* pData = new char[size];
+    void* pData = gAllocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
     
@@ -38,8 +40,8 @@ Image::Image(std::string path)
     m_width = pContainer->m_width;
     m_height = pContainer->m_height;
 
-    bgfx::setName(m_handle, path.c_str());
-    delete pData;
+    bgfx::setName(m_handle, path.pData);
+    gAllocator.Free(pData);
 }
 
 // ***********************************************************************

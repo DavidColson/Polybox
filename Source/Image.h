@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <string>
+#include <light_string.h>
 #include <bgfx/bgfx.h>
 
 #include "LuaCommon.h"
@@ -10,7 +10,7 @@
 struct Image : public LuaObject
 {
     Image() {}
-    Image(std::string path);
+    Image(String path);
     virtual ~Image();
 
 	bgfx::TextureHandle m_handle{ BGFX_INVALID_HANDLE };

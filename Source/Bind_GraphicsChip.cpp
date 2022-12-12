@@ -4,6 +4,8 @@
 
 #include "GraphicsChip.h"
 
+#include <light_string.h>
+
 namespace
 {
     GraphicsChip* pGpu{ nullptr };
@@ -474,7 +476,7 @@ namespace Bind
     {
         size_t len;
         const char *str = luaL_checklstring(pLua, 1, &len);
-        std::string path(str, len);
+        String path(str);
 
         // Create a new userdata for our object
         Image** ppImage = (Image**)lua_newuserdata(pLua, sizeof(Image*));

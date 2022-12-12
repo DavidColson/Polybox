@@ -2,8 +2,12 @@
 
 #include "Mesh.h"
 
-#include "Core/Json.h"
+#include "json.h"
+#include "defer.h"
+#include "string_builder.h"
+
 #include "Core/Base64.h"
+
 
 #include <SDL_rwops.h>
 #include <string>
@@ -136,9 +140,11 @@ std::vector<Mesh*> Mesh::LoadMeshes(const char* filePath)
     char* pData = new char[size];
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
-    std::string file(pData, pData + size);
-    delete[] pData;
 
+    String file;
+    defer(FreeString(file));
+    file.pData = pData;
+    file.length = size;;
     JsonValue parsed = ParseJsonFile(file);
 
     bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
@@ -151,10 +157,10 @@ std::vector<Mesh*> Mesh::LoadMeshes(const char* filePath)
     {
         Buffer buf;
         buf.byteLength = jsonBuffers[i]["byteLength"].ToInt();
-        buf.pBytes = new char[buf.byteLength];
         
-        std::string encodedBuffer = jsonBuffers[i]["uri"].ToString().substr(37);
-        memcpy(buf.pBytes, DecodeBase64(encodedBuffer).data(), buf.byteLength);
+        String encodedBuffer = jsonBuffers[i]["uri"].ToString();
+        String decoded = DecodeBase64(encodedBuffer.SubStr(37));
+        buf.pBytes = decoded.pData;
 
         rawDataBuffers.push_back(buf);
     }
@@ -206,7 +212,7 @@ std::vector<Mesh*> Mesh::LoadMeshes(const char* filePath)
         default: break;
         }
 
-        std::string type = jsonAcc["type"].ToString();
+        String type = jsonAcc["type"].ToString();
         if (type == "SCALAR") acc.type = Accessor::Scalar;
         else if (type == "VEC2") acc.type = Accessor::Vec2;
         else if (type == "VEC3") acc.type = Accessor::Vec3;
@@ -224,7 +230,8 @@ std::vector<Mesh*> Mesh::LoadMeshes(const char* filePath)
         JsonValue& jsonMesh = parsed["meshes"][i];
 
         Mesh* pMesh = new Mesh();
-        pMesh->m_name = jsonMesh.HasKey("name") ? jsonMesh["name"].ToString() : "";
+        String meshName = jsonMesh.HasKey("name") ? jsonMesh["name"].ToString() : String("");
+        pMesh->m_name = CopyString(meshName);
 
         for (int j = 0; j < jsonMesh["primitives"].Count(); j++)
         {
@@ -315,9 +322,11 @@ std::vector<Image*> Mesh::LoadTextures(const char* filePath)
     char* pData = new char[size];
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
-    std::string file(pData, pData + size);
-    delete[] pData;
-
+    
+    String file;
+    defer(FreeString(file));
+    file.pData = pData;
+    file.length = size;;
     JsonValue parsed = ParseJsonFile(file);
 
     bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
@@ -330,8 +339,16 @@ std::vector<Image*> Mesh::LoadTextures(const char* filePath)
         for (size_t i = 0; i < parsed["images"].Count(); i++)
         {
             JsonValue& jsonImage = parsed["images"][i];
-            std::string type = jsonImage["mimeType"].ToString();
-            std::string imagePath = "Assets/" + jsonImage["name"].ToString() + "." + type.substr(6, 4);
+            String type = jsonImage["mimeType"].ToString();
+
+            StringBuilder builder;
+            builder.Append("Assets/");
+            builder.Append(jsonImage["name"].ToString());
+            builder.Append(".");
+            builder.Append(type.SubStr(6, 4));
+            
+            String imagePath = builder.CreateString();
+            defer(FreeString(imagePath));
             Image* pImage = new Image(imagePath);
             outImages.emplace_back(pImage);
         }

@@ -28,7 +28,7 @@ namespace Bind
                 lua_setfield(pLua, -2, "meshId");
             }
 
-            lua_pushlstring(pLua, pNode->m_name.data(), pNode->m_name.size());
+            lua_pushlstring(pLua, pNode->m_name.pData, pNode->m_name.length);
             lua_setfield(pLua, -2, "name");
 
             lua_pushinteger(pLua, pNode->m_id);

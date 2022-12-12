@@ -5,6 +5,7 @@
 #include "GraphicsChip.h"
 #include "LuaCommon.h"
 
+#include <light_string.h>
 #include <vector>
 
 struct Primitive : public LuaObject
@@ -28,7 +29,7 @@ struct Mesh : public LuaObject
 {
     virtual ~Mesh();
 
-    std::string m_name;
+    String m_name;
     std::vector<Primitive> m_primitives;
 
     int GetNumPrimitives();

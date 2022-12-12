@@ -2,7 +2,11 @@
 
 #include "Scene.h"
 
-#include "Core/Json.h"
+
+#include "json.h"
+#include "light_string.h"
+#include "defer.h"
+
 #include "Core/Base64.h"
 
 #include <SDL_rwops.h>
@@ -155,7 +159,8 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, std::vector<Node>& outN
         outNodes.emplace_back();
         Node& node = outNodes.back();
 
-        node.m_name = jsonNode.HasKey("name") ? jsonNode["name"].ToString() : "";
+        String nodeName = jsonNode.HasKey("name") ? jsonNode["name"].ToString() : String("");
+        node.m_name = CopyString(nodeName);
 
         node.m_meshId = UINT32_MAX;
 
@@ -229,8 +234,11 @@ Scene* Scene::LoadScene(const char* filePath)
     char* pData = new char[size];
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
-    std::string file(pData, pData + size);
-    delete[] pData;
+
+    String file;
+    defer(FreeString(file));
+    file.pData = pData;
+    file.length = size;;
 
     JsonValue parsed = ParseJsonFile(file);
 
@@ -240,6 +248,8 @@ Scene* Scene::LoadScene(const char* filePath)
 
     pScene->m_nodes.reserve(parsed["nodes"].Count());
     ParseNodesRecursively(pScene, nullptr, pScene->m_nodes, parsed["scenes"][0]["nodes"], parsed["nodes"]);
+
+    // TODO: Need to free jsonValue
 
     return pScene;
 }

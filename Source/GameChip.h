@@ -5,9 +5,7 @@
 #include "Core/Vec2.h"
 
 #include <string_builder.h>
-#include <bitset>
-#include <array>
-#include <map>
+#include <hashmap.h>
 #include <SDL_keycode.h>
 #include <SDL_gamecontroller.h>
 
@@ -202,14 +200,14 @@ public:
 
     String InputString();
 private:
-    std::map<SDL_GameControllerButton, ControllerButton> m_primaryBindings;
-    std::map<SDL_GameControllerAxis, ControllerAxis> m_primaryAxisBindings;
+    HashMap<SDL_GameControllerButton, ControllerButton> m_primaryBindings;
+    HashMap<SDL_GameControllerAxis, ControllerAxis> m_primaryAxisBindings;
 
-    std::map<SDL_Keycode, ControllerButton> m_keyboardAltBindings;
-    std::map<int, ControllerButton> m_mouseAltBindings;
+    HashMap<SDL_Keycode, ControllerButton> m_keyboardAltBindings;
+    HashMap<int, ControllerButton> m_mouseAltBindings;
 
-    std::map<SDL_Keycode, ControllerAxis> m_keyboardAxisBindings;
-    std::map<int, ControllerAxis> m_mouseAxisBindings;
+    HashMap<SDL_Keycode, ControllerAxis> m_keyboardAxisBindings;
+    HashMap<int, ControllerAxis> m_mouseAxisBindings;
 
     struct Axis
     {
@@ -229,15 +227,15 @@ private:
         int m_negativeMouseButton{ 0 };
     };
 
-    std::bitset<(size_t)Key::Count> m_keyDowns;
-    std::bitset<(size_t)Key::Count> m_keyUps;
-    std::bitset<(size_t)Key::Count> m_keyStates;
+    bool m_keyDowns[(size_t)Key::Count];
+    bool m_keyUps[(size_t)Key::Count];
+    bool m_keyStates[(size_t)Key::Count];
 
-    std::bitset<(size_t)ControllerButton::Count> m_buttonDowns;
-    std::bitset<(size_t)ControllerButton::Count> m_buttonUps;
-    std::bitset<(size_t)ControllerButton::Count> m_buttonStates;
+    bool m_buttonDowns[(size_t)ControllerButton::Count];
+    bool m_buttonUps[(size_t)ControllerButton::Count];
+    bool m_buttonStates[(size_t)ControllerButton::Count];
 
-    std::array<Axis, (size_t)ControllerAxis::Count> m_axes;
+    Axis m_axes[(size_t)ControllerAxis::Count];
 
     SDL_GameController* m_pOpenController{ nullptr };
 

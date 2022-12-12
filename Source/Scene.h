@@ -5,7 +5,6 @@
 #include "Mesh.h"
 #include "LuaCommon.h"
 
-#include <map>
 #include <light_string.h>
 
 struct Node : public LuaObject

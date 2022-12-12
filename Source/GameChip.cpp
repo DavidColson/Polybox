@@ -13,8 +13,6 @@
 #include <SDL_events.h>
 #include <SDL_joystick.h>
 
-// TODO: remove when we have decent logging
-#include <format>
 #include <SDL.h>
 #include <SDL_syswm.h>
 #undef DrawText
@@ -22,338 +20,351 @@
 
 namespace {
     // Mapping of strings to virtual controller buttons
-    std::map<uint32_t, ControllerButton> stringToControllerButton = {
-        {"FaceBottom"_hash, ControllerButton::FaceBottom },
-        {"FaceRight"_hash, ControllerButton::FaceRight },
-        {"FaceLeft"_hash, ControllerButton::FaceLeft },
-        {"FaceTop"_hash, ControllerButton::FaceTop },
-        {"LeftStick"_hash, ControllerButton::LeftStick },
-        {"RightStick"_hash, ControllerButton::RightStick },
-        {"LeftShoulder"_hash, ControllerButton::LeftShoulder },
-        {"RightShoulder"_hash, ControllerButton::RightShoulder },
-        {"DpadDown"_hash, ControllerButton::DpadDown },
-        {"DpadLeft"_hash, ControllerButton::DpadLeft },
-        {"DpadRight"_hash, ControllerButton::DpadRight },
-        {"DpadUp"_hash, ControllerButton::DpadUp },
-        {"Start"_hash, ControllerButton::Start },
-        {"Select"_hash, ControllerButton::Select },
-    };
+    HashMap<uint32_t, ControllerButton> stringToControllerButton;
+
     // Mapping of strings to virtual controller axis
-    std::map<uint32_t, ControllerAxis> stringToControllerAxis = {
-        {"LeftX"_hash, ControllerAxis::LeftX },
-        {"LeftY"_hash, ControllerAxis::LeftY },
-        {"RightX"_hash, ControllerAxis::RightX },
-        {"RightY"_hash, ControllerAxis::RightY },
-        {"TriggerLeft"_hash, ControllerAxis::TriggerLeft },
-        {"TriggerRight"_hash, ControllerAxis::TriggerRight },
-    };
-    // Mapping of strings to SDL scancodes
-    std::map<uint32_t, SDL_Keycode> stringToKeyCode = {
-        {"Keycode_A"_hash, SDLK_a },
-        {"Keycode_B"_hash, SDLK_b },
-        {"Keycode_C"_hash, SDLK_c },
-        {"Keycode_D"_hash, SDLK_d },
-        {"Keycode_E"_hash, SDLK_e },
-        {"Keycode_F"_hash, SDLK_f },
-        {"Keycode_G"_hash, SDLK_g },
-        {"Keycode_H"_hash, SDLK_h },
-        {"Keycode_I"_hash, SDLK_i },
-        {"Keycode_J"_hash, SDLK_j },
-        {"Keycode_K"_hash, SDLK_k },
-        {"Keycode_L"_hash, SDLK_l },
-        {"Keycode_M"_hash, SDLK_m },
-        {"Keycode_N"_hash, SDLK_n },
-        {"Keycode_O"_hash, SDLK_o },
-        {"Keycode_P"_hash, SDLK_p },
-        {"Keycode_Q"_hash, SDLK_q },
-        {"Keycode_R"_hash, SDLK_e },
-        {"Keycode_S"_hash, SDLK_s },
-        {"Keycode_T"_hash, SDLK_t },
-        {"Keycode_U"_hash, SDLK_u },
-        {"Keycode_V"_hash, SDLK_v },
-        {"Keycode_W"_hash, SDLK_w },
-        {"Keycode_X"_hash, SDLK_x },
-        {"Keycode_Y"_hash, SDLK_y },
-        {"Keycode_Z"_hash, SDLK_z },
-
-        {"Keycode_1"_hash, SDLK_1 },
-        {"Keycode_2"_hash, SDLK_2 },
-        {"Keycode_3"_hash, SDLK_3 },
-        {"Keycode_4"_hash, SDLK_4 },
-        {"Keycode_5"_hash, SDLK_5 },
-        {"Keycode_6"_hash, SDLK_6 },
-        {"Keycode_7"_hash, SDLK_7 },
-        {"Keycode_8"_hash, SDLK_8 },
-        {"Keycode_9"_hash, SDLK_9 },
-        {"Keycode_0"_hash, SDLK_0 },
-
-        {"Keycode_Return"_hash, SDLK_RETURN },
-        {"Keycode_Escape"_hash, SDLK_ESCAPE },
-        {"Keycode_Backspace"_hash, SDLK_BACKSPACE },
-        {"Keycode_Tab"_hash, SDLK_TAB },
-        {"Keycode_Space"_hash, SDLK_SPACE },
-        {"Keycode_Exclaim"_hash, SDLK_EXCLAIM },
-        {"Keycode_QuoteDbl"_hash, SDLK_QUOTEDBL },
-        {"Keycode_Hash"_hash, SDLK_HASH },
-        {"Keycode_Percent"_hash, SDLK_PERCENT },
-        {"Keycode_Dollar"_hash, SDLK_DOLLAR },
-        {"Keycode_Ampersand"_hash, SDLK_AMPERSAND },
-        {"Keycode_Quote"_hash, SDLK_QUOTE },
-        {"Keycode_LeftParen"_hash, SDLK_LEFTPAREN },
-        {"Keycode_RightParen"_hash, SDLK_RIGHTPAREN },
-        {"Keycode_Asterisk"_hash, SDLK_ASTERISK },
-        {"Keycode_Plus"_hash, SDLK_PLUS },
-        {"Keycode_Comma"_hash, SDLK_COMMA },
-        {"Keycode_Minus"_hash, SDLK_MINUS },
-        {"Keycode_Period"_hash, SDLK_PERIOD },
-        {"Keycode_Slash"_hash, SDLK_SLASH },
-        {"Keycode_Colon"_hash, SDLK_COLON },
-        {"Keycode_Semicolon"_hash, SDLK_SEMICOLON },
-        {"Keycode_Less"_hash, SDLK_LESS },
-        {"Keycode_Equals"_hash, SDLK_EQUALS },
-        {"Keycode_Greater"_hash, SDLK_GREATER },
-        {"Keycode_Question"_hash, SDLK_QUESTION },
-        {"Keycode_At"_hash, SDLK_AT },
-        {"Keycode_LeftBracket"_hash, SDLK_LEFTBRACKET },
-        {"Keycode_Backslash"_hash, SDLK_BACKSLASH },
-        {"Keycode_RightBracket"_hash, SDLK_RIGHTBRACKET },
-        {"Keycode_Caret"_hash, SDLK_CARET },
-        {"Keycode_Underscore"_hash, SDLK_UNDERSCORE },
-        {"Keycode_BackQuote"_hash, SDLK_BACKQUOTE },
-
-        {"Keycode_CapsLock"_hash, SDLK_CAPSLOCK},
-
-        {"Keycode_F1"_hash, SDLK_F1},
-        {"Keycode_F2"_hash, SDLK_F2},
-        {"Keycode_F3"_hash, SDLK_F3},
-        {"Keycode_F4"_hash, SDLK_F4},
-        {"Keycode_F5"_hash, SDLK_F5},
-        {"Keycode_F6"_hash, SDLK_F6},
-        {"Keycode_F7"_hash, SDLK_F7},
-        {"Keycode_F8"_hash, SDLK_F8},
-        {"Keycode_F9"_hash, SDLK_F9},
-        {"Keycode_F10"_hash, SDLK_F10},
-        {"Keycode_F11"_hash, SDLK_F11},
-        {"Keycode_F12"_hash, SDLK_F12},
-
-        {"Keycode_PrintScreen"_hash, SDLK_PRINTSCREEN},
-        {"Keycode_ScrollLock"_hash, SDLK_SCROLLLOCK},
-        {"Keycode_Pause"_hash, SDLK_PAUSE},
-        {"Keycode_Insert"_hash, SDLK_INSERT},
-        {"Keycode_Home"_hash, SDLK_HOME},
-        {"Keycode_PageUp"_hash, SDLK_PAGEUP},
-        {"Keycode_Delete"_hash, SDLK_DELETE},
-        {"Keycode_End"_hash, SDLK_END},
-        {"Keycode_PageDown"_hash, SDLK_PAGEDOWN},
-        {"Keycode_Right"_hash, SDLK_RIGHT},
-        {"Keycode_Left"_hash, SDLK_LEFT},
-        {"Keycode_Down"_hash, SDLK_DOWN},
-        {"Keycode_Up"_hash, SDLK_UP},
-
-        {"Keycode_NumLock"_hash, SDLK_NUMLOCKCLEAR},
-        {"Keycode_KpDivide"_hash, SDLK_KP_DIVIDE},
-        {"Keycode_KpMultiply"_hash, SDLK_KP_MULTIPLY},
-        {"Keycode_KpMinus"_hash, SDLK_KP_MINUS},
-        {"Keycode_KpPlus"_hash, SDLK_KP_PLUS},
-        {"Keycode_KpEnter"_hash, SDLK_KP_ENTER},
-        {"Keycode_Kp1"_hash, SDLK_KP_1},
-        {"Keycode_Kp2"_hash, SDLK_KP_2},
-        {"Keycode_Kp3"_hash, SDLK_KP_3},
-        {"Keycode_Kp4"_hash, SDLK_KP_4},
-        {"Keycode_Kp5"_hash, SDLK_KP_5},
-        {"Keycode_Kp6"_hash, SDLK_KP_6},
-        {"Keycode_Kp7"_hash, SDLK_KP_7},
-        {"Keycode_Kp8"_hash, SDLK_KP_8},
-        {"Keycode_Kp9"_hash, SDLK_KP_9},
-        {"Keycode_Kp0"_hash, SDLK_KP_0},
-        {"Keycode_KpPeriod"_hash, SDLK_KP_PERIOD},
-
-        {"Keycode_LeftCtrl"_hash, SDLK_LCTRL},
-        {"Keycode_LeftShift"_hash, SDLK_LSHIFT},
-        {"Keycode_LeftAlt"_hash, SDLK_LALT},
-        {"Keycode_LeftGui"_hash, SDLK_LGUI},
-        {"Keycode_RightCtrl"_hash, SDLK_RCTRL},
-        {"Keycode_RightShift"_hash, SDLK_RSHIFT},
-        {"Keycode_RightAlt"_hash, SDLK_RALT},
-        {"Keycode_RightGui"_hash, SDLK_RGUI}
-    };
+    HashMap<uint32_t, ControllerAxis> stringToControllerAxis;
 
     // Mapping of strings to SDL scancodes
-    std::map<SDL_Keycode, Key> keyCodeToInternalKeyCode = {
-        { SDLK_a, Key::A },
-        { SDLK_b, Key::B },
-        { SDLK_c, Key::C },
-        { SDLK_d, Key::D },
-        { SDLK_e, Key::E },
-        { SDLK_f, Key::F },
-        { SDLK_g, Key::G },
-        { SDLK_h, Key::H },
-        { SDLK_i, Key::I },
-        { SDLK_j, Key::J },
-        { SDLK_k, Key::K },
-        { SDLK_l, Key::L },
-        { SDLK_m, Key::M },
-        { SDLK_n, Key::N },
-        { SDLK_o, Key::O },
-        { SDLK_p, Key::P },
-        { SDLK_q, Key::Q },
-        { SDLK_e, Key::R },
-        { SDLK_s, Key::S },
-        { SDLK_t, Key::T },
-        { SDLK_u, Key::U },
-        { SDLK_v, Key::V },
-        { SDLK_w, Key::W },
-        { SDLK_x, Key::X },
-        { SDLK_y, Key::Y },
-        { SDLK_z, Key::Z },
+    HashMap<uint32_t, SDL_Keycode> stringToKeyCode;
 
-        { SDLK_1, Key::No1 },
-        { SDLK_2, Key::No2 },
-        { SDLK_3, Key::No3 },
-        { SDLK_4, Key::No4 },
-        { SDLK_5, Key::No5 },
-        { SDLK_6, Key::No6 },
-        { SDLK_7, Key::No7 },
-        { SDLK_8, Key::No8 },
-        { SDLK_9, Key::No9 },
-        { SDLK_0, Key::No0 },
-
-        { SDLK_RETURN, Key::Return },
-        { SDLK_ESCAPE, Key::Escape },
-        { SDLK_BACKSPACE, Key::Backspace },
-        { SDLK_TAB, Key::Tab },
-        { SDLK_SPACE, Key::Space },
-        { SDLK_EXCLAIM, Key::Exclaim },
-        { SDLK_QUOTEDBL, Key::QuoteDbl },
-        { SDLK_HASH, Key::Hash },
-        { SDLK_PERCENT, Key::Percent },
-        { SDLK_DOLLAR, Key::Dollar },
-        { SDLK_AMPERSAND, Key::Ampersand },
-        { SDLK_QUOTE, Key::Quote },
-        { SDLK_LEFTPAREN, Key::LeftParen },
-        { SDLK_RIGHTPAREN, Key::RightParen },
-        { SDLK_ASTERISK, Key::Asterisk },
-        { SDLK_PLUS, Key::Plus },
-        { SDLK_COMMA, Key::Comma },
-        { SDLK_MINUS, Key::Minus },
-        { SDLK_PERIOD, Key::Period },
-        { SDLK_SLASH, Key::Slash },
-        { SDLK_COLON, Key::Colon },
-        { SDLK_SEMICOLON, Key::Semicolon },
-        { SDLK_LESS, Key::Less },
-        { SDLK_EQUALS, Key::Equals },
-        { SDLK_GREATER, Key::Greater },
-        { SDLK_QUESTION, Key::Question },
-        { SDLK_AT, Key::At },
-        { SDLK_LEFTBRACKET, Key::LeftBracket },
-        { SDLK_BACKSLASH, Key::Backslash },
-        { SDLK_RIGHTBRACKET, Key::RightBracket },
-        { SDLK_CARET, Key::Caret },
-        { SDLK_UNDERSCORE, Key::Underscore },
-        { SDLK_BACKQUOTE, Key::BackQuote },
-
-        { SDLK_CAPSLOCK, Key::CapsLock },
-        
-        { SDLK_F1, Key::F1 },
-        { SDLK_F2, Key::F2 },
-        { SDLK_F3, Key::F3 },
-        { SDLK_F4, Key::F4 },
-        { SDLK_F5, Key::F5 },
-        { SDLK_F6, Key::F6 },
-        { SDLK_F7, Key::F7 },
-        { SDLK_F8, Key::F8 },
-        { SDLK_F9, Key::F9 },
-        { SDLK_F10, Key::F10 },
-        { SDLK_F11, Key::F11 },
-        { SDLK_F12, Key::F12 },
-
-        { SDLK_PRINTSCREEN, Key::PrintScreen },
-        { SDLK_SCROLLLOCK, Key::ScrollLock },
-        { SDLK_PAUSE, Key::Pause },
-        { SDLK_INSERT, Key::Insert },
-        { SDLK_HOME, Key::Home },
-        { SDLK_PAGEUP, Key::PageUp },
-        { SDLK_DELETE, Key::Delete },
-        { SDLK_END, Key::End },
-        { SDLK_PAGEDOWN, Key::PageDown },
-        { SDLK_RIGHT, Key::Right },
-        { SDLK_LEFT, Key::Left},
-        { SDLK_DOWN, Key::Down},
-        { SDLK_UP, Key::Up },
-
-        { SDLK_NUMLOCKCLEAR, Key::NumLock },
-        { SDLK_KP_DIVIDE, Key::KpDivide },
-        { SDLK_KP_MULTIPLY, Key::KpMultiply },
-        { SDLK_KP_MINUS, Key::KpMinus },
-        { SDLK_KP_PLUS, Key::KpPlus },
-        { SDLK_KP_ENTER, Key::KpEnter },
-        { SDLK_KP_1, Key::Kp1 },
-        { SDLK_KP_2, Key::Kp2 },
-        { SDLK_KP_3, Key::Kp3 },
-        { SDLK_KP_4, Key::Kp4 },
-        { SDLK_KP_5, Key::Kp5 },
-        { SDLK_KP_6, Key::Kp6 },
-        { SDLK_KP_7, Key::Kp7 },
-        { SDLK_KP_8, Key::Kp8 },
-        { SDLK_KP_9, Key::Kp9 },
-        { SDLK_KP_0, Key::Kp0 },
-        { SDLK_KP_PERIOD, Key::KpPeriod },
-
-        { SDLK_LCTRL, Key::LeftCtrl },
-        { SDLK_LSHIFT, Key::LeftShift },
-        { SDLK_LALT, Key::LeftAlt },
-        { SDLK_LGUI, Key::LeftGui },
-        { SDLK_RCTRL, Key::RightCtrl },
-        { SDLK_RSHIFT, Key::RightShift },
-        { SDLK_RALT, Key::RightAlt },
-        { SDLK_RGUI, Key::RightGui }
-    };
+    // Mapping of strings to SDL scancodes
+    HashMap<SDL_Keycode, Key> keyCodeToInternalKeyCode;
 
     // Mapping of strings to SDL mouse codes
-    std::map<uint32_t, int> stringToMouseCode = {
-        { "Mouse_Button0"_hash, SDL_BUTTON_LEFT },
-        { "Mouse_Button1"_hash, SDL_BUTTON_MIDDLE },
-        { "Mouse_Button2"_hash, SDL_BUTTON_RIGHT },
-        { "Mouse_AxisY"_hash, 128 },
-        { "Mouse_AxisX"_hash, 127 },
-    };
+    HashMap<uint32_t, int> stringToMouseCode;
 
     // Mapping of strings to SDL controller buttons
-    std::map<uint32_t, SDL_GameControllerButton> stringToSDLControllerButton = {
-        { "Controller_A"_hash, SDL_CONTROLLER_BUTTON_A },
-        { "Controller_B"_hash, SDL_CONTROLLER_BUTTON_B },
-        { "Controller_X"_hash, SDL_CONTROLLER_BUTTON_X },
-        { "Controller_Y"_hash, SDL_CONTROLLER_BUTTON_Y },
-        { "Controller_LeftStick"_hash, SDL_CONTROLLER_BUTTON_LEFTSTICK },
-        { "Controller_RightStick"_hash, SDL_CONTROLLER_BUTTON_RIGHTSTICK },
-        { "Controller_LeftShoulder"_hash, SDL_CONTROLLER_BUTTON_LEFTSHOULDER },
-        { "Controller_RightShoulder"_hash, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER },
-        { "Controller_DpadUp"_hash, SDL_CONTROLLER_BUTTON_DPAD_UP },
-        { "Controller_DpadDown"_hash, SDL_CONTROLLER_BUTTON_DPAD_DOWN },
-        { "Controller_DpadLeft"_hash, SDL_CONTROLLER_BUTTON_DPAD_LEFT },
-        { "Controller_DpadRight"_hash, SDL_CONTROLLER_BUTTON_DPAD_RIGHT },
-        { "Controller_Start"_hash, SDL_CONTROLLER_BUTTON_START },
-        { "Controller_Select"_hash, SDL_CONTROLLER_BUTTON_BACK },
-    };
+    HashMap<uint32_t, SDL_GameControllerButton> stringToSDLControllerButton;
 
     // Mapping of strings to SDL controller axes
-    std::map<uint32_t, SDL_GameControllerAxis> stringToSDLControllerAxis = {
-        { "Controller_LeftX"_hash, SDL_CONTROLLER_AXIS_LEFTX },
-        { "Controller_LeftY"_hash, SDL_CONTROLLER_AXIS_LEFTY },
-        { "Controller_RightX"_hash, SDL_CONTROLLER_AXIS_RIGHTX },
-        { "Controller_RightY"_hash, SDL_CONTROLLER_AXIS_RIGHTY },
-        { "Controller_TriggerLeft"_hash, SDL_CONTROLLER_AXIS_TRIGGERLEFT },
-        { "Controller_TriggerRight"_hash, SDL_CONTROLLER_AXIS_TRIGGERRIGHT },
-    };
+    HashMap<uint32_t, SDL_GameControllerAxis> stringToSDLControllerAxis;
 }
-
-// TODO: Bring over our string hashing function
-// All the key codes need to be put into maps where the stringhash is the key
 
 // ***********************************************************************
 
 void GameChip::Init()
 {
+    // Setup hashmaps for controller labels
+    stringToControllerButton.Add("FaceBottom"_hash, ControllerButton::FaceBottom);
+    stringToControllerButton.Add("FaceRight"_hash, ControllerButton::FaceRight);
+    stringToControllerButton.Add("FaceLeft"_hash, ControllerButton::FaceLeft);
+    stringToControllerButton.Add("FaceTop"_hash, ControllerButton::FaceTop);
+    stringToControllerButton.Add("LeftStick"_hash, ControllerButton::LeftStick);
+    stringToControllerButton.Add("RightStick"_hash, ControllerButton::RightStick);
+    stringToControllerButton.Add("LeftShoulder"_hash, ControllerButton::LeftShoulder);
+    stringToControllerButton.Add("RightShoulder"_hash, ControllerButton::RightShoulder);
+    stringToControllerButton.Add("DpadDown"_hash, ControllerButton::DpadDown);
+    stringToControllerButton.Add("DpadLeft"_hash, ControllerButton::DpadLeft);
+    stringToControllerButton.Add("DpadRight"_hash, ControllerButton::DpadRight);
+    stringToControllerButton.Add("DpadUp"_hash, ControllerButton::DpadUp);
+    stringToControllerButton.Add("Start"_hash, ControllerButton::Start);
+    stringToControllerButton.Add("Select"_hash, ControllerButton::Select);
+
+
+
+    stringToControllerAxis.Add("LeftX"_hash, ControllerAxis::LeftX);
+    stringToControllerAxis.Add("LeftY"_hash, ControllerAxis::LeftY);
+    stringToControllerAxis.Add("RightX"_hash, ControllerAxis::RightX);
+    stringToControllerAxis.Add("RightY"_hash, ControllerAxis::RightY);
+    stringToControllerAxis.Add("TriggerLeft"_hash, ControllerAxis::TriggerLeft);
+    stringToControllerAxis.Add("TriggerRight"_hash, ControllerAxis::TriggerRight);
+
+
+
+    stringToKeyCode.Add("Keycode_A"_hash, SDLK_a);
+    stringToKeyCode.Add("Keycode_B"_hash, SDLK_b);
+    stringToKeyCode.Add("Keycode_C"_hash, SDLK_c);
+    stringToKeyCode.Add("Keycode_D"_hash, SDLK_d);
+    stringToKeyCode.Add("Keycode_E"_hash, SDLK_e);
+    stringToKeyCode.Add("Keycode_F"_hash, SDLK_f);
+    stringToKeyCode.Add("Keycode_G"_hash, SDLK_g);
+    stringToKeyCode.Add("Keycode_H"_hash, SDLK_h);
+    stringToKeyCode.Add("Keycode_I"_hash, SDLK_i);
+    stringToKeyCode.Add("Keycode_J"_hash, SDLK_j);
+    stringToKeyCode.Add("Keycode_K"_hash, SDLK_k);
+    stringToKeyCode.Add("Keycode_L"_hash, SDLK_l);
+    stringToKeyCode.Add("Keycode_M"_hash, SDLK_m);
+    stringToKeyCode.Add("Keycode_N"_hash, SDLK_n);
+    stringToKeyCode.Add("Keycode_O"_hash, SDLK_o);
+    stringToKeyCode.Add("Keycode_P"_hash, SDLK_p);
+    stringToKeyCode.Add("Keycode_Q"_hash, SDLK_q);
+    stringToKeyCode.Add("Keycode_R"_hash, SDLK_e);
+    stringToKeyCode.Add("Keycode_S"_hash, SDLK_s);
+    stringToKeyCode.Add("Keycode_T"_hash, SDLK_t);
+    stringToKeyCode.Add("Keycode_U"_hash, SDLK_u);
+    stringToKeyCode.Add("Keycode_V"_hash, SDLK_v);
+    stringToKeyCode.Add("Keycode_W"_hash, SDLK_w);
+    stringToKeyCode.Add("Keycode_X"_hash, SDLK_x);
+    stringToKeyCode.Add("Keycode_Y"_hash, SDLK_y);
+    stringToKeyCode.Add("Keycode_Z"_hash, SDLK_z);
+
+    stringToKeyCode.Add("Keycode_1"_hash, SDLK_1);
+    stringToKeyCode.Add("Keycode_2"_hash, SDLK_2);
+    stringToKeyCode.Add("Keycode_3"_hash, SDLK_3);
+    stringToKeyCode.Add("Keycode_4"_hash, SDLK_4);
+    stringToKeyCode.Add("Keycode_5"_hash, SDLK_5);
+    stringToKeyCode.Add("Keycode_6"_hash, SDLK_6);
+    stringToKeyCode.Add("Keycode_7"_hash, SDLK_7);
+    stringToKeyCode.Add("Keycode_8"_hash, SDLK_8);
+    stringToKeyCode.Add("Keycode_9"_hash, SDLK_9);
+    stringToKeyCode.Add("Keycode_0"_hash, SDLK_0);
+
+    stringToKeyCode.Add("Keycode_Return"_hash, SDLK_RETURN);
+    stringToKeyCode.Add("Keycode_Escape"_hash, SDLK_ESCAPE);
+    stringToKeyCode.Add("Keycode_Backspace"_hash, SDLK_BACKSPACE);
+    stringToKeyCode.Add("Keycode_Tab"_hash, SDLK_TAB);
+    stringToKeyCode.Add("Keycode_Space"_hash, SDLK_SPACE);
+    stringToKeyCode.Add("Keycode_Exclaim"_hash, SDLK_EXCLAIM);
+    stringToKeyCode.Add("Keycode_QuoteDbl"_hash, SDLK_QUOTEDBL);
+    stringToKeyCode.Add("Keycode_Hash"_hash, SDLK_HASH);
+    stringToKeyCode.Add("Keycode_Percent"_hash, SDLK_PERCENT);
+    stringToKeyCode.Add("Keycode_Dollar"_hash, SDLK_DOLLAR);
+    stringToKeyCode.Add("Keycode_Ampersand"_hash, SDLK_AMPERSAND);
+    stringToKeyCode.Add("Keycode_Quote"_hash, SDLK_QUOTE);
+    stringToKeyCode.Add("Keycode_LeftParen"_hash, SDLK_LEFTPAREN);
+    stringToKeyCode.Add("Keycode_RightParen"_hash, SDLK_RIGHTPAREN);
+    stringToKeyCode.Add("Keycode_Asterisk"_hash, SDLK_ASTERISK);
+    stringToKeyCode.Add("Keycode_Plus"_hash, SDLK_PLUS);
+    stringToKeyCode.Add("Keycode_Comma"_hash, SDLK_COMMA);
+    stringToKeyCode.Add("Keycode_Minus"_hash, SDLK_MINUS);
+    stringToKeyCode.Add("Keycode_Period"_hash, SDLK_PERIOD);
+    stringToKeyCode.Add("Keycode_Slash"_hash, SDLK_SLASH);
+    stringToKeyCode.Add("Keycode_Colon"_hash, SDLK_COLON);
+    stringToKeyCode.Add("Keycode_Semicolon"_hash, SDLK_SEMICOLON);
+    stringToKeyCode.Add("Keycode_Less"_hash, SDLK_LESS);
+    stringToKeyCode.Add("Keycode_Equals"_hash, SDLK_EQUALS);
+    stringToKeyCode.Add("Keycode_Greater"_hash, SDLK_GREATER);
+    stringToKeyCode.Add("Keycode_Question"_hash, SDLK_QUESTION);
+    stringToKeyCode.Add("Keycode_At"_hash, SDLK_AT);
+    stringToKeyCode.Add("Keycode_LeftBracket"_hash, SDLK_LEFTBRACKET);
+    stringToKeyCode.Add("Keycode_Backslash"_hash, SDLK_BACKSLASH);
+    stringToKeyCode.Add("Keycode_RightBracket"_hash, SDLK_RIGHTBRACKET);
+    stringToKeyCode.Add("Keycode_Caret"_hash, SDLK_CARET);
+    stringToKeyCode.Add("Keycode_Underscore"_hash, SDLK_UNDERSCORE);
+    stringToKeyCode.Add("Keycode_BackQuote"_hash, SDLK_BACKQUOTE);
+
+    stringToKeyCode.Add("Keycode_CapsLock"_hash, SDLK_CAPSLOCK);
+
+    stringToKeyCode.Add("Keycode_F1"_hash, SDLK_F1);
+    stringToKeyCode.Add("Keycode_F2"_hash, SDLK_F2);
+    stringToKeyCode.Add("Keycode_F3"_hash, SDLK_F3);
+    stringToKeyCode.Add("Keycode_F4"_hash, SDLK_F4);
+    stringToKeyCode.Add("Keycode_F5"_hash, SDLK_F5);
+    stringToKeyCode.Add("Keycode_F6"_hash, SDLK_F6);
+    stringToKeyCode.Add("Keycode_F7"_hash, SDLK_F7);
+    stringToKeyCode.Add("Keycode_F8"_hash, SDLK_F8);
+    stringToKeyCode.Add("Keycode_F9"_hash, SDLK_F9);
+    stringToKeyCode.Add("Keycode_F10"_hash, SDLK_F10);
+    stringToKeyCode.Add("Keycode_F11"_hash, SDLK_F11);
+    stringToKeyCode.Add("Keycode_F12"_hash, SDLK_F12);
+
+    stringToKeyCode.Add("Keycode_PrintScreen"_hash, SDLK_PRINTSCREEN);
+    stringToKeyCode.Add("Keycode_ScrollLock"_hash, SDLK_SCROLLLOCK);
+    stringToKeyCode.Add("Keycode_Pause"_hash, SDLK_PAUSE);
+    stringToKeyCode.Add("Keycode_Insert"_hash, SDLK_INSERT);
+    stringToKeyCode.Add("Keycode_Home"_hash, SDLK_HOME);
+    stringToKeyCode.Add("Keycode_PageUp"_hash, SDLK_PAGEUP);
+    stringToKeyCode.Add("Keycode_Delete"_hash, SDLK_DELETE);
+    stringToKeyCode.Add("Keycode_End"_hash, SDLK_END);
+    stringToKeyCode.Add("Keycode_PageDown"_hash, SDLK_PAGEDOWN);
+    stringToKeyCode.Add("Keycode_Right"_hash, SDLK_RIGHT);
+    stringToKeyCode.Add("Keycode_Left"_hash, SDLK_LEFT);
+    stringToKeyCode.Add("Keycode_Down"_hash, SDLK_DOWN);
+    stringToKeyCode.Add("Keycode_Up"_hash, SDLK_UP);
+
+    stringToKeyCode.Add("Keycode_NumLock"_hash, SDLK_NUMLOCKCLEAR);
+    stringToKeyCode.Add("Keycode_KpDivide"_hash, SDLK_KP_DIVIDE);
+    stringToKeyCode.Add("Keycode_KpMultiply"_hash, SDLK_KP_MULTIPLY);
+    stringToKeyCode.Add("Keycode_KpMinus"_hash, SDLK_KP_MINUS);
+    stringToKeyCode.Add("Keycode_KpPlus"_hash, SDLK_KP_PLUS);
+    stringToKeyCode.Add("Keycode_KpEnter"_hash, SDLK_KP_ENTER);
+    stringToKeyCode.Add("Keycode_Kp1"_hash, SDLK_KP_1);
+    stringToKeyCode.Add("Keycode_Kp2"_hash, SDLK_KP_2);
+    stringToKeyCode.Add("Keycode_Kp3"_hash, SDLK_KP_3);
+    stringToKeyCode.Add("Keycode_Kp4"_hash, SDLK_KP_4);
+    stringToKeyCode.Add("Keycode_Kp5"_hash, SDLK_KP_5);
+    stringToKeyCode.Add("Keycode_Kp6"_hash, SDLK_KP_6);
+    stringToKeyCode.Add("Keycode_Kp7"_hash, SDLK_KP_7);
+    stringToKeyCode.Add("Keycode_Kp8"_hash, SDLK_KP_8);
+    stringToKeyCode.Add("Keycode_Kp9"_hash, SDLK_KP_9);
+    stringToKeyCode.Add("Keycode_Kp0"_hash, SDLK_KP_0);
+    stringToKeyCode.Add("Keycode_KpPeriod"_hash, SDLK_KP_PERIOD);
+
+    stringToKeyCode.Add("Keycode_LeftCtrl"_hash, SDLK_LCTRL);
+    stringToKeyCode.Add("Keycode_LeftShift"_hash, SDLK_LSHIFT);
+    stringToKeyCode.Add("Keycode_LeftAlt"_hash, SDLK_LALT);
+    stringToKeyCode.Add("Keycode_LeftGui"_hash, SDLK_LGUI);
+    stringToKeyCode.Add("Keycode_RightCtrl"_hash, SDLK_RCTRL);
+    stringToKeyCode.Add("Keycode_RightShift"_hash, SDLK_RSHIFT);
+    stringToKeyCode.Add("Keycode_RightAlt"_hash, SDLK_RALT);
+    stringToKeyCode.Add("Keycode_RightGui"_hash, SDLK_RGUI);
+
+
+
+    keyCodeToInternalKeyCode.Add(SDLK_a, Key::A);
+    keyCodeToInternalKeyCode.Add(SDLK_b, Key::B);
+    keyCodeToInternalKeyCode.Add(SDLK_c, Key::C);
+    keyCodeToInternalKeyCode.Add(SDLK_d, Key::D);
+    keyCodeToInternalKeyCode.Add(SDLK_e, Key::E);
+    keyCodeToInternalKeyCode.Add(SDLK_f, Key::F);
+    keyCodeToInternalKeyCode.Add(SDLK_g, Key::G);
+    keyCodeToInternalKeyCode.Add(SDLK_h, Key::H);
+    keyCodeToInternalKeyCode.Add(SDLK_i, Key::I);
+    keyCodeToInternalKeyCode.Add(SDLK_j, Key::J);
+    keyCodeToInternalKeyCode.Add(SDLK_k, Key::K);
+    keyCodeToInternalKeyCode.Add(SDLK_l, Key::L);
+    keyCodeToInternalKeyCode.Add(SDLK_m, Key::M);
+    keyCodeToInternalKeyCode.Add(SDLK_n, Key::N);
+    keyCodeToInternalKeyCode.Add(SDLK_o, Key::O);
+    keyCodeToInternalKeyCode.Add(SDLK_p, Key::P);
+    keyCodeToInternalKeyCode.Add(SDLK_q, Key::Q);
+    keyCodeToInternalKeyCode.Add(SDLK_e, Key::R);
+    keyCodeToInternalKeyCode.Add(SDLK_s, Key::S);
+    keyCodeToInternalKeyCode.Add(SDLK_t, Key::T);
+    keyCodeToInternalKeyCode.Add(SDLK_u, Key::U);
+    keyCodeToInternalKeyCode.Add(SDLK_v, Key::V);
+    keyCodeToInternalKeyCode.Add(SDLK_w, Key::W);
+    keyCodeToInternalKeyCode.Add(SDLK_x, Key::X);
+    keyCodeToInternalKeyCode.Add(SDLK_y, Key::Y);
+    keyCodeToInternalKeyCode.Add(SDLK_z, Key::Z);
+
+    keyCodeToInternalKeyCode.Add(SDLK_1, Key::No1);
+    keyCodeToInternalKeyCode.Add(SDLK_2, Key::No2);
+    keyCodeToInternalKeyCode.Add(SDLK_3, Key::No3);
+    keyCodeToInternalKeyCode.Add(SDLK_4, Key::No4);
+    keyCodeToInternalKeyCode.Add(SDLK_5, Key::No5);
+    keyCodeToInternalKeyCode.Add(SDLK_6, Key::No6);
+    keyCodeToInternalKeyCode.Add(SDLK_7, Key::No7);
+    keyCodeToInternalKeyCode.Add(SDLK_8, Key::No8);
+    keyCodeToInternalKeyCode.Add(SDLK_9, Key::No9);
+    keyCodeToInternalKeyCode.Add(SDLK_0, Key::No0);
+
+    keyCodeToInternalKeyCode.Add(SDLK_RETURN, Key::Return);
+    keyCodeToInternalKeyCode.Add(SDLK_ESCAPE, Key::Escape);
+    keyCodeToInternalKeyCode.Add(SDLK_BACKSPACE, Key::Backspace);
+    keyCodeToInternalKeyCode.Add(SDLK_TAB, Key::Tab);
+    keyCodeToInternalKeyCode.Add(SDLK_SPACE, Key::Space);
+    keyCodeToInternalKeyCode.Add(SDLK_EXCLAIM, Key::Exclaim);
+    keyCodeToInternalKeyCode.Add(SDLK_QUOTEDBL, Key::QuoteDbl);
+    keyCodeToInternalKeyCode.Add(SDLK_HASH, Key::Hash);
+    keyCodeToInternalKeyCode.Add(SDLK_PERCENT, Key::Percent);
+    keyCodeToInternalKeyCode.Add(SDLK_DOLLAR, Key::Dollar);
+    keyCodeToInternalKeyCode.Add(SDLK_AMPERSAND, Key::Ampersand);
+    keyCodeToInternalKeyCode.Add(SDLK_QUOTE, Key::Quote);
+    keyCodeToInternalKeyCode.Add(SDLK_LEFTPAREN, Key::LeftParen);
+    keyCodeToInternalKeyCode.Add(SDLK_RIGHTPAREN, Key::RightParen);
+    keyCodeToInternalKeyCode.Add(SDLK_ASTERISK, Key::Asterisk);
+    keyCodeToInternalKeyCode.Add(SDLK_PLUS, Key::Plus);
+    keyCodeToInternalKeyCode.Add(SDLK_COMMA, Key::Comma);
+    keyCodeToInternalKeyCode.Add(SDLK_MINUS, Key::Minus);
+    keyCodeToInternalKeyCode.Add(SDLK_PERIOD, Key::Period);
+    keyCodeToInternalKeyCode.Add(SDLK_SLASH, Key::Slash);
+    keyCodeToInternalKeyCode.Add(SDLK_COLON, Key::Colon);
+    keyCodeToInternalKeyCode.Add(SDLK_SEMICOLON, Key::Semicolon);
+    keyCodeToInternalKeyCode.Add(SDLK_LESS, Key::Less);
+    keyCodeToInternalKeyCode.Add(SDLK_EQUALS, Key::Equals);
+    keyCodeToInternalKeyCode.Add(SDLK_GREATER, Key::Greater);
+    keyCodeToInternalKeyCode.Add(SDLK_QUESTION, Key::Question);
+    keyCodeToInternalKeyCode.Add(SDLK_AT, Key::At);
+    keyCodeToInternalKeyCode.Add(SDLK_LEFTBRACKET, Key::LeftBracket);
+    keyCodeToInternalKeyCode.Add(SDLK_BACKSLASH, Key::Backslash);
+    keyCodeToInternalKeyCode.Add(SDLK_RIGHTBRACKET, Key::RightBracket);
+    keyCodeToInternalKeyCode.Add(SDLK_CARET, Key::Caret);
+    keyCodeToInternalKeyCode.Add(SDLK_UNDERSCORE, Key::Underscore);
+    keyCodeToInternalKeyCode.Add(SDLK_BACKQUOTE, Key::BackQuote);
+
+    keyCodeToInternalKeyCode.Add(SDLK_CAPSLOCK, Key::CapsLock);
+
+    keyCodeToInternalKeyCode.Add(SDLK_F1, Key::F1);
+    keyCodeToInternalKeyCode.Add(SDLK_F2, Key::F2);
+    keyCodeToInternalKeyCode.Add(SDLK_F3, Key::F3);
+    keyCodeToInternalKeyCode.Add(SDLK_F4, Key::F4);
+    keyCodeToInternalKeyCode.Add(SDLK_F5, Key::F5);
+    keyCodeToInternalKeyCode.Add(SDLK_F6, Key::F6);
+    keyCodeToInternalKeyCode.Add(SDLK_F7, Key::F7);
+    keyCodeToInternalKeyCode.Add(SDLK_F8, Key::F8);
+    keyCodeToInternalKeyCode.Add(SDLK_F9, Key::F9);
+    keyCodeToInternalKeyCode.Add(SDLK_F10, Key::F10);
+    keyCodeToInternalKeyCode.Add(SDLK_F11, Key::F11);
+    keyCodeToInternalKeyCode.Add(SDLK_F12, Key::F12);
+
+    keyCodeToInternalKeyCode.Add(SDLK_PRINTSCREEN, Key::PrintScreen);
+    keyCodeToInternalKeyCode.Add(SDLK_SCROLLLOCK, Key::ScrollLock);
+    keyCodeToInternalKeyCode.Add(SDLK_PAUSE, Key::Pause);
+    keyCodeToInternalKeyCode.Add(SDLK_INSERT, Key::Insert);
+    keyCodeToInternalKeyCode.Add(SDLK_HOME, Key::Home);
+    keyCodeToInternalKeyCode.Add(SDLK_PAGEUP, Key::PageUp);
+    keyCodeToInternalKeyCode.Add(SDLK_DELETE, Key::Delete);
+    keyCodeToInternalKeyCode.Add(SDLK_END, Key::End);
+    keyCodeToInternalKeyCode.Add(SDLK_PAGEDOWN, Key::PageDown);
+    keyCodeToInternalKeyCode.Add(SDLK_RIGHT, Key::Right);
+    keyCodeToInternalKeyCode.Add(SDLK_LEFT, Key::Left);
+    keyCodeToInternalKeyCode.Add(SDLK_DOWN, Key::Down);
+    keyCodeToInternalKeyCode.Add(SDLK_UP, Key::Up);
+
+    keyCodeToInternalKeyCode.Add(SDLK_NUMLOCKCLEAR, Key::NumLock);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_DIVIDE, Key::KpDivide);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_MULTIPLY, Key::KpMultiply);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_MINUS, Key::KpMinus);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_PLUS, Key::KpPlus);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_ENTER, Key::KpEnter);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_1, Key::Kp1);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_2, Key::Kp2);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_3, Key::Kp3);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_4, Key::Kp4);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_5, Key::Kp5);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_6, Key::Kp6);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_7, Key::Kp7);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_8, Key::Kp8);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_9, Key::Kp9);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_0, Key::Kp0);
+    keyCodeToInternalKeyCode.Add(SDLK_KP_PERIOD, Key::KpPeriod);
+
+    keyCodeToInternalKeyCode.Add(SDLK_LCTRL, Key::LeftCtrl);
+    keyCodeToInternalKeyCode.Add(SDLK_LSHIFT, Key::LeftShift);
+    keyCodeToInternalKeyCode.Add(SDLK_LALT, Key::LeftAlt);
+    keyCodeToInternalKeyCode.Add(SDLK_LGUI, Key::LeftGui);
+    keyCodeToInternalKeyCode.Add(SDLK_RCTRL, Key::RightCtrl);
+    keyCodeToInternalKeyCode.Add(SDLK_RSHIFT, Key::RightShift);
+    keyCodeToInternalKeyCode.Add(SDLK_RALT, Key::RightAlt);
+    keyCodeToInternalKeyCode.Add(SDLK_RGUI, Key::RightGui);
+
+
+
+    stringToMouseCode.Add("Mouse_Button0"_hash, SDL_BUTTON_LEFT);
+    stringToMouseCode.Add("Mouse_Button1"_hash, SDL_BUTTON_MIDDLE);
+    stringToMouseCode.Add("Mouse_Button2"_hash, SDL_BUTTON_RIGHT);
+    stringToMouseCode.Add("Mouse_AxisY"_hash, 128);
+    stringToMouseCode.Add("Mouse_AxisX"_hash, 127);
+
+
+
+    stringToSDLControllerButton.Add("Controller_A"_hash, SDL_CONTROLLER_BUTTON_A);
+    stringToSDLControllerButton.Add("Controller_B"_hash, SDL_CONTROLLER_BUTTON_B);
+    stringToSDLControllerButton.Add("Controller_X"_hash, SDL_CONTROLLER_BUTTON_X);
+    stringToSDLControllerButton.Add("Controller_Y"_hash, SDL_CONTROLLER_BUTTON_Y);
+    stringToSDLControllerButton.Add("Controller_LeftStick"_hash, SDL_CONTROLLER_BUTTON_LEFTSTICK);
+    stringToSDLControllerButton.Add("Controller_RightStick"_hash, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
+    stringToSDLControllerButton.Add("Controller_LeftShoulder"_hash, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+    stringToSDLControllerButton.Add("Controller_RightShoulder"_hash, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+    stringToSDLControllerButton.Add("Controller_DpadUp"_hash, SDL_CONTROLLER_BUTTON_DPAD_UP);
+    stringToSDLControllerButton.Add("Controller_DpadDown"_hash, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+    stringToSDLControllerButton.Add("Controller_DpadLeft"_hash, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+    stringToSDLControllerButton.Add("Controller_DpadRight"_hash, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+    stringToSDLControllerButton.Add("Controller_Start"_hash, SDL_CONTROLLER_BUTTON_START);
+    stringToSDLControllerButton.Add("Controller_Select"_hash, SDL_CONTROLLER_BUTTON_BACK);
+
+
+
+    stringToSDLControllerAxis.Add("Controller_LeftX"_hash, SDL_CONTROLLER_AXIS_LEFTX);
+    stringToSDLControllerAxis.Add("Controller_LeftY"_hash, SDL_CONTROLLER_AXIS_LEFTY);
+    stringToSDLControllerAxis.Add("Controller_RightX"_hash, SDL_CONTROLLER_AXIS_RIGHTX);
+    stringToSDLControllerAxis.Add("Controller_RightY"_hash, SDL_CONTROLLER_AXIS_RIGHTY);
+    stringToSDLControllerAxis.Add("Controller_TriggerLeft"_hash, SDL_CONTROLLER_AXIS_TRIGGERLEFT);
+    stringToSDLControllerAxis.Add("Controller_TriggerRight"_hash, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+
+
     // Load json mapping file
     SDL_RWops* pFileRead = SDL_RWFromFile("Assets/ControllerMapping.json", "rb");
     uint64_t size = SDL_RWsize(pFileRead);
@@ -686,10 +697,16 @@ void GameChip::UpdateInputs(float deltaTime, Vec2f targetRes, Vec2f realWindowRe
 
 void GameChip::ClearStates()
 {
-    m_keyDowns.reset();
-	m_keyUps.reset();
-    m_buttonDowns.reset();
-	m_buttonUps.reset();
+    for (int i = 0; i < (int)Key::Count; i++)
+        m_keyDowns[i] = false;
+    for (int i = 0; i < (int)Key::Count; i++)
+        m_keyUps[i] = false;
+
+    for (int i = 0; i < (int)ControllerButton::Count; i++)
+        m_buttonDowns[i] = false;
+    for (int i = 0; i < (int)ControllerButton::Count; i++)
+        m_buttonUps[i] = false;
+
     m_textInputString.Reset();
     for (Axis& axis : m_axes)
     {

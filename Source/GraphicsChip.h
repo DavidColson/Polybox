@@ -9,7 +9,6 @@
 
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
-#include <map>
 #include <resizable_array.h>
 
 #define MAX_TEXTURES 8

@@ -2,8 +2,6 @@
 
 #include "Bind_Scene.h"
 
-#include <string>
-
 #include "Scene.h"
 
 namespace Bind
@@ -236,10 +234,8 @@ namespace Bind
     int LoadScene(lua_State* pLua)
     {
         size_t len;
-        const char *str = luaL_checklstring(pLua, 1, &len);
-        std::string path(str, len);
-
-        Scene* pScene = Scene::LoadScene(path.c_str());
+        const char* path = luaL_checklstring(pLua, 1, &len);
+        Scene* pScene = Scene::LoadScene(path);
 
         // Create a new userdata for our object
         Scene** ppScene = (Scene**)lua_newuserdata(pLua, sizeof(Scene*));

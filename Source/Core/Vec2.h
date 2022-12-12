@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include <string>
-
 template<typename T>
 struct Vec3;
 
@@ -296,11 +294,11 @@ struct Vec2
 	*
 	* @return The string
 	**/
-	inline std::string ToString() const
-	{
-		//eastl::string str;
-		return ""; //str.sprintf("{ %.5f, %.5f }", x, y);
-	}
+	//inline String ToString() const
+	//{
+	//	//eastl::string str;
+	//	return ""; //str.sprintf("{ %.5f, %.5f }", x, y);
+	//}
 
 	/**
 	* Projects a 4D vector into 2D space

@@ -8,9 +8,7 @@
 #include "defer.h"
 #include "base64.h"
 
-
 #include <SDL_rwops.h>
-#include <string>
 
 uint64_t Node::s_nodeIdCounter = 0;
 

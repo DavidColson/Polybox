@@ -324,11 +324,11 @@ struct Vec4
 	*
 	* @return The string
 	**/
-	inline std::string ToString() const
-	{
-		//eastl::string str;
-		return ""; //str.sprintf("{ %.5f, %.5f, %.5f, %.5f }", x, y, z, w);
-	}
+	//inline String ToString() const
+	//{
+	//	//eastl::string str;
+	//	return ""; //str.sprintf("{ %.5f, %.5f, %.5f, %.5f }", x, y, z, w);
+	//}
 
 	/**
 	* Embeds a 3D vector into 4D space

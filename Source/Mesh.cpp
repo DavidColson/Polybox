@@ -7,11 +7,7 @@
 #include "string_builder.h"
 #include "base64.h"
 
-
-
 #include <SDL_rwops.h>
-#include <string>
-
 
 // ***********************************************************************
 

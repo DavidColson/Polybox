@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <string>
+#include <light_string.h>
 #include <vector>
 #include <bgfx/bgfx.h>
 #include <ft2build.h>
@@ -29,7 +29,7 @@ struct Character
 struct Font : public LuaObject
 {
     Font() {}
-    Font(std::string path, bool antialiasing = true, float weight = 0.0f);
+    Font(String path, bool antialiasing = true, float weight = 0.0f);
 
 	Image fontTexture;
 	std::vector<Character> characters;

@@ -337,13 +337,12 @@ namespace Bind
     {
         size_t len;
         const char *str = luaL_checklstring(pLua, 1, &len);
-        std::string text(str, len);
         Vec2f position;
         position.x = (float)luaL_checknumber(pLua, 2);
         position.y = (float)luaL_checknumber(pLua, 3);
         float size = (float)luaL_checknumber(pLua, 4);
 
-        pGpu->DrawText(text.c_str(), position, size);
+        pGpu->DrawText(str, position, size);
         return 0;
     }
 
@@ -353,7 +352,6 @@ namespace Bind
     {
         size_t len;
         const char *str = luaL_checklstring(pLua, 1, &len);
-        std::string text(str, len);
         Vec2f position;
         position.x = (float)luaL_checknumber(pLua, 2);
         position.y = (float)luaL_checknumber(pLua, 3);
@@ -365,7 +363,7 @@ namespace Bind
         Font* pFont = *(Font**)luaL_checkudata(pLua, 8, "Font");
         float size = (float)luaL_checknumber(pLua, 9);
 
-        pGpu->DrawTextEx(text.c_str(), position, color, pFont, size);
+        pGpu->DrawTextEx(str, position, color, pFont, size);
         return 0;
     }
 
@@ -512,8 +510,7 @@ namespace Bind
     int NewFont(lua_State* pLua)
     {
         size_t len;
-        const char *str = luaL_checklstring(pLua, 1, &len);
-        std::string path(str, len);
+        const char *path = luaL_checklstring(pLua, 1, &len);
         bool antialiasing = luax_checkboolean(pLua, 2);
         float weight = (float)luaL_checknumber(pLua, 3);
 

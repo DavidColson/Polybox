@@ -4,6 +4,7 @@
 
 #include "RectPacking.h"
 
+#include <log.h>
 #include <algorithm>
 #include <freetype/ftmm.h>
 #include <bimg/bimg.h>
@@ -15,26 +16,26 @@
 void FontTextureFreeCallback(void* ptr, void* userData)
 {
     uint8_t* pTextureData = (uint8_t*)ptr;
-    delete[] pTextureData;
+    delete[] pTextureData; // TODO: replace with our allocators
 }
 
 // ***********************************************************************
 
-Font::Font(std::string path, bool antialiasing, float weight)
+Font::Font(String path, bool antialiasing, float weight)
 {
     FT_Library freetype;
 	FT_Init_FreeType(&freetype);
 
     FT_Face face;
 
-    FT_Error err = FT_New_Face(freetype, path.c_str(), 0, &face);
+    FT_Error err = FT_New_Face(freetype, path.pData, 0, &face);
 	if (err)
 	{
-		//Log::Warn("FreeType Error: %s", FT_Error_String(err));
+		Log::Warn("FreeType Error: %s", FT_Error_String(err));
 	}
     
     // Modify weight for variable fonts
-    FT_MM_Var* pVar = new FT_MM_Var;
+    FT_MM_Var* pVar = new FT_MM_Var; // TODO: Replace with our allocators
     FT_Get_MM_Var(face, &pVar);
 
     int weightIndex = -1;
@@ -60,7 +61,7 @@ Font::Font(std::string path, bool antialiasing, float weight)
 	int texHeight = 512;
 	int texWidth = 512;
 	uint8_t* pTextureDataAsR8{ nullptr };
-	pTextureDataAsR8 = new uint8_t[texHeight * texWidth];
+	pTextureDataAsR8 = new uint8_t[texHeight * texWidth]; // TODO: replace with our allocators
 	memset(pTextureDataAsR8, 0, texHeight * texWidth);
 
 	std::vector<Packing::Rect> rects;

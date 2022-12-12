@@ -4,6 +4,8 @@
 
 #include "GameChip.h"
 
+#include <defer.h>
+
 namespace
 {
     GameChip* pGame{ nullptr };
@@ -97,8 +99,9 @@ namespace Bind
 
     int InputString(lua_State* pLua)
     {
-        std::string input = pGame->InputString();
-        lua_pushstring(pLua, input.c_str()); 
+        String input = pGame->InputString();
+        defer(FreeString(input));
+        lua_pushstring(pLua, input.pData); 
         return 1;
     }
 

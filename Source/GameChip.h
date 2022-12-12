@@ -4,6 +4,7 @@
 
 #include "Core/Vec2.h"
 
+#include <string_builder.h>
 #include <bitset>
 #include <array>
 #include <map>
@@ -199,7 +200,7 @@ public:
     bool GetKeyDown(Key keyCode);
     bool GetKeyUp(Key keyCode);
 
-    std::string InputString();
+    String InputString();
 private:
     std::map<SDL_GameControllerButton, ControllerButton> m_primaryBindings;
     std::map<SDL_GameControllerAxis, ControllerAxis> m_primaryAxisBindings;
@@ -240,7 +241,7 @@ private:
 
     SDL_GameController* m_pOpenController{ nullptr };
 
-    std::string m_textInputString;
+    StringBuilder m_textInputString;
 
     Vec2f m_targetResolution;
     Vec2f m_windowResolution;

@@ -120,10 +120,8 @@ namespace Bind
     int LoadMeshes(lua_State* pLua)
     {
         size_t len;
-        const char *str = luaL_checklstring(pLua, 1, &len);
-        std::string path(str, len);
-
-        std::vector<Mesh*> meshes = Mesh::LoadMeshes(path.c_str());
+        const char *path = luaL_checklstring(pLua, 1, &len);
+        std::vector<Mesh*> meshes = Mesh::LoadMeshes(path);
 
         // Create a table, and put all these mesh userdatas in there.
         lua_createtable(pLua, (int)meshes.size(), 0);
@@ -150,10 +148,8 @@ namespace Bind
     int LoadTextures(lua_State* pLua)
     {
         size_t len;
-        const char *str = luaL_checklstring(pLua, 1, &len);
-        std::string path(str, len);
-
-        std::vector<Image*> images = Mesh::LoadTextures(path.c_str());
+        const char *path = luaL_checklstring(pLua, 1, &len);
+        std::vector<Image*> images = Mesh::LoadTextures(path);
 
         // Create a table, and put all these mesh userdatas in there.
         lua_createtable(pLua, (int)images.size(), 0);

@@ -22,6 +22,10 @@ extern "C" {
 	#include "lauxlib.h"
 }
 
+#include <log.h>
+#include <platform_debug.h>
+#include <defer.h>
+
 #include <SDL.h>
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
@@ -31,10 +35,69 @@ extern "C" {
 #undef DrawText
 #undef DrawTextEx
 
+
+int ShowAssertDialog(String errorMsg)
+{
+	const SDL_MessageBoxButtonData buttons[] = {
+		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Abort" },
+	{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Debug" },
+	{ 0, 2, "Continue" },
+	};
+
+	StringBuilder builder;
+
+	builder.Append(errorMsg);
+	builder.Append("\n");
+	builder.Append("Trace: \n");
+
+	void* trace[100];
+	size_t frames = PlatformDebug::CollectStackTrace(trace, 100, 2);
+	String stackTrace = PlatformDebug::PrintStackTraceToString(trace, frames);
+	builder.Append(stackTrace);
+
+	String message = builder.CreateString();
+	defer(FreeString(message));
+
+	const SDL_MessageBoxData messageboxdata = {
+		SDL_MESSAGEBOX_ERROR,
+		NULL,
+		"Error",
+		message.pData,
+		SDL_arraysize(buttons),
+		buttons,
+		nullptr
+	};
+	int buttonid;
+	SDL_ShowMessageBox(&messageboxdata, &buttonid);
+	return buttonid;
+}
+
+void AssertHandler(Log::LogLevel level, String message)
+{
+	if (level <= Log::ECrit)
+	{
+		switch (ShowAssertDialog(message))
+		{
+		case 0:
+			_set_abort_behavior(0, _WRITE_ABORT_MSG);
+			abort();
+			break;
+		case 1:
+			__debugbreak();
+			break;
+		default:
+			break;
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	{
-		std::string hello = std::format("{} {}!", "hello", "world");
+		Log::LogConfig log;
+		log.critCrashes = false;
+		log.customHandler1 = AssertHandler;
+		Log::SetConfig(log);
 
 		int winWidth = 1280;
 		int winHeight = 960;
@@ -79,8 +142,7 @@ int main(int argc, char *argv[])
 
 		if (luaL_dofile(pLua, "Assets/game.lua") != LUA_OK)
 		{
-			std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
-			OutputDebugStringA(format.c_str());
+			Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
 		}
 
 		lua_getglobal(pLua, "Start");
@@ -88,8 +150,7 @@ int main(int argc, char *argv[])
 		{
 			if (lua_pcall(pLua, 0, 0, 0) != LUA_OK)
 			{
-				std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
-				OutputDebugStringA(format.c_str());
+				Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
 			}
 		}
 
@@ -153,9 +214,7 @@ int main(int argc, char *argv[])
 				lua_pushnumber(pLua, deltaTime);
 				if (lua_pcall(pLua, 1, 0, 0) != LUA_OK)
 				{
-					std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
-					OutputDebugStringA(format.c_str());
-					__debugbreak();
+					Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
 				}
 			}
 			else
@@ -176,8 +235,7 @@ int main(int argc, char *argv[])
 		{
 			if (lua_pcall(pLua, 0, 0, 0) != LUA_OK)
 			{
-				std::string format = std::format("Lua Runtime Error: {}", lua_tostring(pLua, lua_gettop(pLua)));
-				OutputDebugStringA(format.c_str());
+				Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
 			}
 		}
 

@@ -464,16 +464,13 @@ void GameChip::Init()
         if (SDL_IsGameController(i))
         {
             const char *name = SDL_GameControllerNameForIndex(i);
-            std::string format = std::format("Using first detected controller: {}\n", name);
-			OutputDebugStringA(format.c_str());
-
+            Log::Info("Using first detected controller: %s", name);
             m_pOpenController = SDL_GameControllerOpen(i);
         }
         else
         {
             const char *name = SDL_JoystickNameForIndex(i);
-            std::string format = std::format("Detected Joystick: {}\n", name);
-			OutputDebugStringA(format.c_str());
+            Log::Info("Detected Joystick: %s", name);
         }
     }
 }
@@ -487,7 +484,7 @@ void GameChip::ProcessEvent(SDL_Event* event)
 	{
     case SDL_TEXTINPUT:
     {
-        m_textInputString += event->text.text;
+        m_textInputString.Append(event->text.text);
         break;
     }
     case SDL_KEYDOWN:
@@ -693,7 +690,7 @@ void GameChip::ClearStates()
 	m_keyUps.reset();
     m_buttonDowns.reset();
 	m_buttonUps.reset();
-    m_textInputString.clear();
+    m_textInputString.Reset();
     for (Axis& axis : m_axes)
     {
         if (axis.m_isMouseDriver)
@@ -784,7 +781,7 @@ bool GameChip::GetKeyUp(Key keyCode)
 
 // ***********************************************************************
 
-std::string GameChip::InputString()
+String GameChip::InputString()
 {
-    return m_textInputString;
+    return m_textInputString.CreateString();
 }

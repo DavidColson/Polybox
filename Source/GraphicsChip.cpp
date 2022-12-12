@@ -729,15 +729,19 @@ void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Fon
     float y = position.y;
     Vec2f scale = Vec2f(size / baseSize, size / baseSize);
 
-    for (char const& c : std::string(text))
+    String stringText(text);
+    for (size_t i = 0; i < stringText.length; i++)
     {
+        char c = *(stringText.pData + i);
         Character ch = pFont->characters[c];
         textWidth += ch.advance * scale.x;
     }
 
     BindTexture(&pFont->fontTexture);
     BeginObject2D(EPrimitiveType::Triangles);
-    for (char const& c : std::string(text)) {
+    for (size_t i = 0; i < stringText.length; i++)
+    {
+        char c = *(stringText.pData + i);
         Character ch = pFont->characters[c];
 
         // Center alignment

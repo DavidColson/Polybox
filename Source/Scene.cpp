@@ -6,8 +6,8 @@
 #include "json.h"
 #include "light_string.h"
 #include "defer.h"
+#include "base64.h"
 
-#include "Core/Base64.h"
 
 #include <SDL_rwops.h>
 #include <string>

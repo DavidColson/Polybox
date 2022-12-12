@@ -368,15 +368,16 @@ void GameChip::Init()
     // Load json mapping file
     SDL_RWops* pFileRead = SDL_RWFromFile("Assets/ControllerMapping.json", "rb");
     uint64_t size = SDL_RWsize(pFileRead);
-    char* pData = new char[size];
+    char* pData = (char*)gAllocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
    
     String file;
     defer(FreeString(file));
     file.pData = pData;
-    file.length = size;;
+    file.length = size;
     JsonValue mapping = ParseJsonFile(file);
+    defer(mapping.Free());
 
     // Going through all elements of the json file
     if (mapping.HasKey("Buttons"))
@@ -722,6 +723,24 @@ void GameChip::ClearStates()
 
 void GameChip::Shutdown()
 {
+    m_primaryBindings.Free();
+    m_primaryAxisBindings.Free();
+
+    m_keyboardAltBindings.Free();
+    m_mouseAltBindings.Free();
+
+    m_keyboardAxisBindings.Free();
+    m_mouseAxisBindings.Free();
+
+    // Might be worth marking these as not leaks
+    stringToControllerButton.Free();
+    stringToControllerAxis.Free();
+    stringToKeyCode.Free();
+    keyCodeToInternalKeyCode.Free();
+    stringToMouseCode.Free();
+    stringToSDLControllerButton.Free();
+    stringToSDLControllerAxis.Free();
+
     if (m_pOpenController)
     {
         SDL_GameControllerClose(m_pOpenController);

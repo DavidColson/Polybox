@@ -240,8 +240,11 @@ int main(int argc, char *argv[])
 		}
 
 		lua_close(pLua);
+		game.Shutdown();
 	}
 	bgfx::shutdown();
+	int n = ReportMemoryLeaks();
+	Log::Info("Memory Leak Reports %i leaks", n);
 
 	return 0;
 }

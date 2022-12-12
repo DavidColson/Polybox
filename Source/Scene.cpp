@@ -132,6 +132,16 @@ void Node::UpdateWorldTransforms()
 
 // ***********************************************************************
 
+Scene::~Scene() {
+    m_nodes.Free([](Node& node) {
+        FreeString(node.m_name);
+        node.m_children.Free();
+        });
+
+}
+
+// ***********************************************************************
+
 int Scene::GetNumNodes()
 {
     return (int)m_nodes.count;
@@ -226,17 +236,17 @@ Scene* Scene::LoadScene(const char* filePath)
 {
     SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
 
-    Scene* pScene = new Scene();
+    Scene* pScene = new Scene(); // TODO: Use our allocators
 
     uint64_t size = SDL_RWsize(pFileRead);
-    char* pData = new char[size];
+    char* pData = (char*)gAllocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
     String file;
     defer(FreeString(file));
     file.pData = pData;
-    file.length = size;;
+    file.length = size;
 
     JsonValue parsed = ParseJsonFile(file);
     defer(parsed.Free());

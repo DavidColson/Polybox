@@ -89,14 +89,7 @@ struct BufferView
 {
     // pointer to some place in a buffer
     char* pBuffer{ nullptr };
-    size_t length{ 0 };
-
-    enum Target
-    {
-        Array,
-        ElementArray
-    };
-    Target target;    
+    size_t length{ 0 }; 
 };
 
 struct Accessor
@@ -137,7 +130,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath)
     // Consider caching loaded json files somewhere since LoadScene and LoadMeshes are doing duplicate work here
     SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
     uint64_t size = SDL_RWsize(pFileRead);
-    char* pData = new char[size];
+    char* pData = (char*)gAllocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
@@ -146,6 +139,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath)
     file.pData = pData;
     file.length = size;;
     JsonValue parsed = ParseJsonFile(file);
+    defer(parsed.Free());
 
     bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
     if (!validGltf)
@@ -177,13 +171,6 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath)
         view.pBuffer = rawDataBuffers[bufIndex].pBytes + jsonBufferViews[i]["byteOffset"].ToInt(); //@Incomplete, byte offset could not be provided, in which case we assume 0
 
         view.length = jsonBufferViews[i]["byteLength"].ToInt();
-
-        // @Incomplete, target may not be provided
-        int target = jsonBufferViews[i]["target"].ToInt();
-        if (target == 34963)
-            view.target = BufferView::ElementArray;
-        else if (target = 34962)
-            view.target = BufferView::Array;
         bufferViews.PushBack(view);
     }
 
@@ -198,7 +185,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath)
         JsonValue& jsonAcc = jsonAccessors[i];
 
         int idx = jsonAcc["bufferView"].ToInt();
-        acc.pBuffer = bufferViews[idx].pBuffer + jsonAcc["byteOffset"].ToInt();
+        acc.pBuffer = bufferViews[idx].pBuffer;
         
         acc.count = jsonAcc["count"].ToInt();
 
@@ -321,7 +308,7 @@ ResizableArray<Image*> Mesh::LoadTextures(const char* filePath)
     // Consider caching loaded json files somewhere since LoadScene/LoadMeshes/LoadImages are doing duplicate work here
     SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
     uint64_t size = SDL_RWsize(pFileRead);
-    char* pData = new char[size];
+    char* pData = (char*)gAllocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
     
@@ -329,7 +316,9 @@ ResizableArray<Image*> Mesh::LoadTextures(const char* filePath)
     defer(FreeString(file));
     file.pData = pData;
     file.length = size;;
+
     JsonValue parsed = ParseJsonFile(file);
+    defer(parsed.Free());
 
     bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
     if (!validGltf)

@@ -51,6 +51,8 @@ private:
 
 struct Scene : public LuaObject
 {
+    virtual ~Scene();
+
     int GetNumNodes();
     Node* GetNode(int index);
 

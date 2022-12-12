@@ -3,7 +3,7 @@
 #pragma once
 
 #include <light_string.h>
-#include <vector>
+#include <resizable_array.h>
 #include <bgfx/bgfx.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -32,6 +32,6 @@ struct Font : public LuaObject
     Font(String path, bool antialiasing = true, float weight = 0.0f);
 
 	Image fontTexture;
-	std::vector<Character> characters;
+	ResizableArray<Character> characters;
 };
 

@@ -6,11 +6,11 @@
 #include "LuaCommon.h"
 
 #include <light_string.h>
-#include <vector>
+#include <resizable_array.h>
 
 struct Primitive : public LuaObject
 {
-    std::vector<VertexData> m_vertices;
+    ResizableArray<VertexData> m_vertices;
 
     uint32_t m_baseColorTexture{ UINT32_MAX };
 
@@ -30,11 +30,11 @@ struct Mesh : public LuaObject
     virtual ~Mesh();
 
     String m_name;
-    std::vector<Primitive> m_primitives;
+    ResizableArray<Primitive> m_primitives;
 
     int GetNumPrimitives();
     Primitive* GetPrimitive(int index);
 
-    static std::vector<Mesh*> LoadMeshes(const char* filePath);
-    static std::vector<Image*> LoadTextures(const char* filePath);  
+    static ResizableArray<Mesh*> LoadMeshes(const char* filePath);
+    static ResizableArray<Image*> LoadTextures(const char* filePath);
 };

@@ -2,15 +2,11 @@
 
 #pragma once
 
-
-
-#include <vector>
-#include <map>
-
-#include "light_string.h"
-
 #include "Mesh.h"
 #include "LuaCommon.h"
+
+#include <map>
+#include <light_string.h>
 
 struct Node : public LuaObject
 {
@@ -43,7 +39,7 @@ struct Node : public LuaObject
     // Tree data
     // TODO: Make private when we have proper tree editing API
     Node* m_pParent{ nullptr };
-    std::vector<Node*> m_children;
+    ResizableArray<Node*> m_children;
 
     uint64_t m_id;
     static uint64_t s_nodeIdCounter;
@@ -61,7 +57,7 @@ struct Scene : public LuaObject
 
     // TODO: Note that we currently cannot add or modify this tree without invalidating the pointers inside the nodes
     // what the fuck do we do
-    std::vector<Node> m_nodes;
+    ResizableArray<Node> m_nodes;
     
     static Scene* LoadScene(const char* filePath);
 };

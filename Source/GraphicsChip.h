@@ -9,8 +9,8 @@
 
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
-#include <vector>
 #include <map>
+#include <resizable_array.h>
 
 #define MAX_TEXTURES 8
 #define MAX_LIGHTS 3
@@ -131,7 +131,7 @@ private:
     // Drawing state
     ERenderMode m_mode{ ERenderMode::None };
     EPrimitiveType m_typeState;
-    std::vector<VertexData> m_vertexState;
+    ResizableArray<VertexData> m_vertexState;
     Vec4f m_vertexColorState{ Vec4f(1.0f, 1.0f, 1.0f, 1.0f) };
     Vec2f m_vertexTexCoordState{ Vec2f(0.0f, 0.0f) };
     Vec3f m_vertexNormalState{ Vec3f(0.0f, 0.0f, 0.0f) };

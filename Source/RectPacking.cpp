@@ -2,8 +2,10 @@
 
 #include "RectPacking.h"
 
-#include <algorithm>
+#include <sort.h>
+#include <defer.h>
 
+#include <algorithm>
 namespace Packing
 {
     
@@ -13,7 +15,7 @@ namespace Packing
     {
         bool operator()(const Rect& a, const Rect& b)
         {
-            return a.h > b.h;
+            return a.h < b.h;
         }
     };
 
@@ -23,20 +25,20 @@ namespace Packing
     {
         bool operator()(const Rect& a, const Rect& b)
         {
-            return a.ordering < b.ordering;
+            return a.ordering > b.ordering;
         }
     };
 
     // ***********************************************************************
 
-    void Packing::RowPackRects(std::vector<Rect>& rects, int width, int height)
+    void Packing::RowPackRects(ResizableArray<Rect>& rects, int width, int height)
     {
-        for (int i = 0; i < rects.size(); i++)
+        for (size_t i = 0; i < rects.count; i++)
         {
-            rects[i].ordering = i;
+            rects[i].ordering = (int)i;
         }
 
-        std::sort(rects.begin(), rects.end(), SortByHeight());
+        Sort(rects.pData, rects.count, SortByHeight());
 
         int xPos = 0;
         int yPos = 0;
@@ -71,7 +73,7 @@ namespace Packing
             rect.wasPacked = true;
         }
 
-        std::sort(rects.begin(), rects.end(), SortToOriginalOrder());
+        Sort(rects.pData, rects.count, SortToOriginalOrder());
     }
 
     // ***********************************************************************
@@ -81,7 +83,7 @@ namespace Packing
         int x, y, width;
     };
 
-    int CanRectFit(std::vector<SkylineNode>& nodes, int atNode, int rectWidth, int rectHeight, int width, int height)
+    int CanRectFit(ResizableArray<SkylineNode>& nodes, int atNode, int rectWidth, int rectHeight, int width, int height)
     {
         // See if there's space for this rect at node "atNode"
 
@@ -92,14 +94,14 @@ namespace Packing
 
         
         // We're going to loop over all the nodes from atNode to however many this new rect "covers"
-        // We want to find the highest rect under neath this rect to place it at.
+        // We want to find the highest rect underneath this rect to place it at.
         int remainingSpace = rectWidth;
         int i = atNode;
         while (remainingSpace > 0)
         {
-            SkylineNode& node = nodes[i];
+            if (i == nodes.count) return -1;
 
-            if (i == nodes.size()) return -1;
+            SkylineNode& node = nodes[i];
 
             if (node.y > y)
                 y = node.y;
@@ -113,23 +115,24 @@ namespace Packing
     
     // ***********************************************************************
 
-    void Packing::SkylinePackRects(std::vector<Rect>& rects, int width, int height)
+    void Packing::SkylinePackRects(ResizableArray<Rect>& rects, int width, int height)
     {
-        for (int i = 0; i < rects.size(); i++)
+        for (size_t i = 0; i < rects.count; i++)
         {
-            rects[i].ordering = i;
+            rects[i].ordering = (int)i;
         }
 
         // Sort by a heuristic
-        std::sort(rects.begin(), rects.end(), SortByHeight());
+        Sort(rects.pData, rects.count, SortByHeight());
 
         int maxX = 0;
         int maxY = 0;
         int totalArea = 0;
         
-        std::vector<SkylineNode> nodes;
+        ResizableArray<SkylineNode> nodes;
+        defer(nodes.Free());
 
-        nodes.push_back({0, 0, width});
+        nodes.PushBack({0, 0, width});
 
         for (Rect& rect : rects)
         {
@@ -138,16 +141,16 @@ namespace Packing
             int bestNode = -1;
             int bestX, bestY;
             // We're going to search for the best location for this rect along the skyline
-            for(int i = 0; i < nodes.size(); i++)
+            for(size_t i = 0; i < nodes.count; i++)
             {
                 SkylineNode& node = nodes[i];
-                int highestY = CanRectFit(nodes, i, rect.w, rect.h, width, height);
+                int highestY = CanRectFit(nodes, (int)i, rect.w, rect.h, width, height);
                 if (highestY != -1)
                 {
                     // Settling a tie here on best height by checking lowest width we can use up
                     if (highestY + rect.h < bestHeight || (highestY + rect.h == bestHeight && node.width < bestWidth))
                     {
-                        bestNode = i;
+                        bestNode = (int)i;
                         bestWidth = node.width;
                         bestHeight = highestY + rect.h;
                         bestX = node.x;
@@ -166,10 +169,10 @@ namespace Packing
             newNode.width = rect.w;
             newNode.x = bestX;
             newNode.y = bestY + rect.h;
-            nodes.insert(nodes.begin() + bestNode, newNode);
+            nodes.Insert(bestNode, newNode);
 
             // Now we have to find all the nodes underneath that new skyline level and remove them
-            for(int i = bestNode+1; i < nodes.size(); i++)
+            for(int i = bestNode+1; i < (int)nodes.count; i++)
             {
                 SkylineNode& node = nodes[i];
                 SkylineNode& prevNode = nodes[i - 1];
@@ -184,7 +187,7 @@ namespace Packing
 
                     if (node.width <= 0) // We've reduced this nodes with so much it can be removed
                     {
-                        nodes.erase(nodes.begin() + i);
+                        nodes.Erase(i);
                         i--; // Move back since we've removed a node
                     }
                     else
@@ -199,12 +202,12 @@ namespace Packing
             }
 
             // Find any skyline nodes that are the same height and remove them
-            for(int i = 0; i < nodes.size() - 1; i++)
+            for(int i = 0; i < (int)nodes.count - 1; i++)
             {
                 if (nodes[i].y == nodes[i + 1].y)
                 {
                     nodes[i].width += nodes[i + 1].width;
-                    nodes.erase(nodes.begin() + (i + 1));
+                    nodes.Erase(i + 1);
                     i--;
                 }
             }
@@ -214,7 +217,6 @@ namespace Packing
 
             rect.wasPacked = true;
         }
-        std::sort(rects.begin(), rects.end(), SortToOriginalOrder());
+        Sort(rects.pData, rects.count, SortToOriginalOrder());
     }
-
 }

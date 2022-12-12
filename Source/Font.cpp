@@ -5,6 +5,7 @@
 #include "RectPacking.h"
 
 #include <log.h>
+#include <defer.h>
 #include <algorithm>
 #include <freetype/ftmm.h>
 #include <bimg/bimg.h>
@@ -64,7 +65,8 @@ Font::Font(String path, bool antialiasing, float weight)
 	pTextureDataAsR8 = new uint8_t[texHeight * texWidth]; // TODO: replace with our allocators
 	memset(pTextureDataAsR8, 0, texHeight * texWidth);
 
-	std::vector<Packing::Rect> rects;
+	ResizableArray<Packing::Rect> rects;
+    defer(rects.Free());
 
 	FT_Set_Char_Size(face, 32 * 64, 32 * 64, 0, 0);
 
@@ -75,7 +77,7 @@ Font::Font(String path, bool antialiasing, float weight)
 		Packing::Rect newRect;
 		newRect.w = face->glyph->bitmap.width + 1;
 		newRect.h = face->glyph->bitmap.rows + 1;
-		rects.push_back(newRect);
+		rects.PushBack(newRect);
 	}
 	Packing::SkylinePackRects(rects, texWidth, texHeight);
 
@@ -99,7 +101,7 @@ Font::Font(String path, bool antialiasing, float weight)
 		character.advance = (face->glyph->advance.x) >> 6;
 		character.UV0 = Vec2f((float)rect.x / (float)texWidth, (float)rect.y / (float)texHeight);
 		character.UV1 = Vec2f((float)(rect.x + character.size.x) / (float)texWidth, (float)(rect.y + character.size.y) / (float)texHeight);
-		characters.push_back(character);
+		characters.PushBack(character);
 
         if (antialiasing == false)
         { 

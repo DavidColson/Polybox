@@ -6,7 +6,7 @@
 
 #include <shaderc/shaderc.h>
 #include <SDL_timer.h>
-#include <format>
+#include <defer.h>
 
 
 // ***********************************************************************
@@ -301,12 +301,12 @@ void GraphicsChip::EndObject2D()
 
     // create vertex buffer
     bgfx::TransientVertexBuffer vertexBuffer;
-    uint32_t numVertices = (uint32_t)m_vertexState.size();
+    uint32_t numVertices = (uint32_t)m_vertexState.count;
     if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
         return; // TODO: Log some error
     bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
     VertexData* verts = (VertexData*)vertexBuffer.data;
-    bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
+    bx::memCopy(verts, m_vertexState.pData, numVertices * sizeof(VertexData) );
     bgfx::setVertexBuffer(0, &vertexBuffer);
 
     if (m_pTextureState && bgfx::isValid(m_pTextureState->m_handle))
@@ -319,7 +319,7 @@ void GraphicsChip::EndObject2D()
         bgfx::submit(m_scene2DView, m_programBase2D); // TODO: a program that supports no textures
     }
 
-    m_vertexState.clear();
+    m_vertexState.Free(); // TODO: See about using reset here instead
     m_vertexColorState = Vec4f(1.0f);
     m_vertexTexCoordState = Vec2f();
     m_vertexNormalState = Vec3f();
@@ -369,7 +369,7 @@ void GraphicsChip::EndObject3D()
     {
         if (m_normalsModeState == ENormalsMode::Flat)
         {
-            for (size_t i = 0; i < m_vertexState.size(); i+=3)
+            for (size_t i = 0; i < m_vertexState.count; i+=3)
             {
                 Vec3f v1 = m_vertexState[i+1].pos - m_vertexState[i].pos;
                 Vec3f v2 = m_vertexState[i+2].pos - m_vertexState[i].pos;
@@ -381,35 +381,37 @@ void GraphicsChip::EndObject3D()
             }
 
             // create vertex buffer
-            uint32_t numVertices = (uint32_t)m_vertexState.size();
+            uint32_t numVertices = (uint32_t)m_vertexState.count;
             if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
                 return;
             bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
             VertexData* verts = (VertexData*)vertexBuffer.data;
-            bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
+            bx::memCopy(verts, m_vertexState.pData, numVertices * sizeof(VertexData) );
         }
         else if (m_normalsModeState == ENormalsMode::Smooth)
         {
             // Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list.
-            std::vector<VertexData> uniqueVerts;
-            std::vector<uint16_t> indices;
-            for (size_t i = 0; i < m_vertexState.size(); i++)
+            ResizableArray<VertexData> uniqueVerts;
+            defer(uniqueVerts.Free());
+            ResizableArray<uint16_t> indices;
+            defer(indices.Free());
+            for (size_t i = 0; i < m_vertexState.count; i++)
             {
-                std::vector<VertexData>::iterator it = std::find(uniqueVerts.begin(), uniqueVerts.end(), m_vertexState[i]);
-                if (it == uniqueVerts.end())
+                VertexData* pVertData = uniqueVerts.Find(m_vertexState[i]);
+                if (pVertData == uniqueVerts.end())
                 {
                     // New vertex
-                    uniqueVerts.push_back(m_vertexState[i]);
-                    indices.push_back((uint16_t)uniqueVerts.size() - 1);
+                    uniqueVerts.PushBack(m_vertexState[i]);
+                    indices.PushBack((uint16_t)uniqueVerts.count - 1);
                 }
                 else
                 {
-                    indices.push_back((uint16_t)std::distance(uniqueVerts.begin(), it));
+                    indices.PushBack((uint16_t)uniqueVerts.IndexFromPointer(pVertData));
                 }
             }
 
             // Then run your flat shading algo on the list of vertices looping through index list. If you have a new normal for a vert, then average with the existing one
-            for (size_t i = 0; i < indices.size(); i+=3)
+            for (size_t i = 0; i < indices.count; i+=3)
             {
                 Vec3f v1 = uniqueVerts[indices[i+1]].pos - uniqueVerts[indices[i]].pos;
                 Vec3f v2 = uniqueVerts[indices[i+2]].pos - uniqueVerts[indices[i]].pos;
@@ -420,26 +422,26 @@ void GraphicsChip::EndObject3D()
                 uniqueVerts[indices[i+2]].norm += faceNormal;
             }
 
-            for (size_t i = 0; i < uniqueVerts.size(); i++)
+            for (size_t i = 0; i < uniqueVerts.count; i++)
             {
                 uniqueVerts[i].norm = uniqueVerts[i].norm.GetNormalized();
             }
 
             // create vertex buffer
-            uint32_t numVertices = (uint32_t)uniqueVerts.size();
+            uint32_t numVertices = (uint32_t)uniqueVerts.count;
             if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
                 return;
             bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
             VertexData* pDstVerts = (VertexData*)vertexBuffer.data;
-            bx::memCopy(pDstVerts, uniqueVerts.data(), numVertices * sizeof(VertexData) );
+            bx::memCopy(pDstVerts, uniqueVerts.pData, numVertices * sizeof(VertexData) );
 
             // Create index buffer
-            numIndices = (uint32_t)indices.size();
+            numIndices = (uint32_t)indices.count;
             if (numIndices != bgfx::getAvailTransientIndexBuffer(numIndices) )
                 return;
             bgfx::allocTransientIndexBuffer(&indexBuffer, numIndices);
             uint16_t* pDstIndices = (uint16_t*)indexBuffer.data;
-            bx::memCopy(pDstIndices, indices.data(), numIndices * sizeof(uint16_t));
+            bx::memCopy(pDstIndices, indices.pData, numIndices * sizeof(uint16_t));
         }
     }
     default:
@@ -449,12 +451,12 @@ void GraphicsChip::EndObject3D()
     if (vertexBuffer.data == nullptr)
     {
         // create vertex buffer
-        uint32_t numVertices = (uint32_t)m_vertexState.size();
+        uint32_t numVertices = (uint32_t)m_vertexState.count;
         if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout) )
             return;
         bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
         VertexData* verts = (VertexData*)vertexBuffer.data;
-        bx::memCopy(verts, m_vertexState.data(), numVertices * sizeof(VertexData) );
+        bx::memCopy(verts, m_vertexState.pData, numVertices * sizeof(VertexData) );
     }
 
     // Submit draw call
@@ -495,7 +497,7 @@ void GraphicsChip::EndObject3D()
         bgfx::submit(m_scene3DView, m_programBase3D);
     }
 
-    m_vertexState.clear();
+    m_vertexState.Free();
     m_vertexColorState = Vec4f(1.0f);
     m_vertexTexCoordState = Vec2f();
     m_vertexNormalState = Vec3f();
@@ -506,14 +508,14 @@ void GraphicsChip::EndObject3D()
 
 void GraphicsChip::Vertex(Vec3f vec)
 {
-    m_vertexState.push_back({vec, m_vertexColorState, m_vertexTexCoordState, m_vertexNormalState});
+    m_vertexState.PushBack({vec, m_vertexColorState, m_vertexTexCoordState, m_vertexNormalState});
 }
 
 // ***********************************************************************
 
 void GraphicsChip::Vertex(Vec2f vec)
 {
-    m_vertexState.push_back({Vec3f::Embed2D(vec), m_vertexColorState, m_vertexTexCoordState, Vec3f()});
+    m_vertexState.PushBack({Vec3f::Embed2D(vec), m_vertexColorState, m_vertexTexCoordState, Vec3f()});
 }
 
 // ***********************************************************************

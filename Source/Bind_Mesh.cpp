@@ -4,6 +4,7 @@
 
 #include "Mesh.h"
 
+#include <defer.h>
 
 namespace Bind
 {
@@ -121,12 +122,13 @@ namespace Bind
     {
         size_t len;
         const char *path = luaL_checklstring(pLua, 1, &len);
-        std::vector<Mesh*> meshes = Mesh::LoadMeshes(path);
+        ResizableArray<Mesh*> meshes = Mesh::LoadMeshes(path);
+        defer(meshes.Free());
 
         // Create a table, and put all these mesh userdatas in there.
-        lua_createtable(pLua, (int)meshes.size(), 0);
+        lua_createtable(pLua, (int)meshes.count, 0);
 
-        for (int i = 0; i < meshes.size(); i++)
+        for (size_t i = 0; i < meshes.count; i++)
         {
             // Create a new userdata for our object
             Mesh** ppMesh = (Mesh**)lua_newuserdata(pLua, sizeof(Mesh*));
@@ -149,12 +151,13 @@ namespace Bind
     {
         size_t len;
         const char *path = luaL_checklstring(pLua, 1, &len);
-        std::vector<Image*> images = Mesh::LoadTextures(path);
+        ResizableArray<Image*> images = Mesh::LoadTextures(path);
+        defer(images.Free());
 
         // Create a table, and put all these mesh userdatas in there.
-        lua_createtable(pLua, (int)images.size(), 0);
+        lua_createtable(pLua, (int)images.count, 0);
 
-        for (int i = 0; i < images.size(); i++)
+        for (size_t i = 0; i < images.count; i++)
         {
             // Create a new userdata for our object
             Image** ppImage = (Image**)lua_newuserdata(pLua, sizeof(Image*));

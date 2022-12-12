@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <vector>
+#include <resizable_array.h>
 
 namespace Packing
 {
@@ -19,6 +19,6 @@ namespace Packing
         int ordering{ -1 };
     };
 
-    void RowPackRects(std::vector<Rect>& rects, int width, int height);
-    void SkylinePackRects(std::vector<Rect>& rects, int width, int height);
+    void RowPackRects(ResizableArray<Rect>& rects, int width, int height);
+    void SkylinePackRects(ResizableArray<Rect>& rects, int width, int height);
 }

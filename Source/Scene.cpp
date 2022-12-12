@@ -97,7 +97,7 @@ Node* Node::GetParent()
 
 int Node::GetNumChildren()
 {
-    return (int)m_children.size();
+    return (int)m_children.count;
 }
 
 // ***********************************************************************
@@ -121,7 +121,7 @@ void Node::UpdateWorldTransforms()
         m_worldTransform = m_localTransform;
     }
 
-    if (!m_children.empty())
+    if (!m_children.count)
     {
         for (Node* pChild : m_children)
         {
@@ -134,7 +134,7 @@ void Node::UpdateWorldTransforms()
 
 int Scene::GetNumNodes()
 {
-    return (int)m_nodes.size();
+    return (int)m_nodes.count;
 }
 
 // ***********************************************************************
@@ -146,7 +146,7 @@ Node* Scene::GetNode(int index)
 
 // ***********************************************************************
 
-void ParseNodesRecursively(Scene* pScene, Node* pParent, std::vector<Node>& outNodes, JsonValue& nodeToParse, JsonValue& nodesData)
+void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& outNodes, JsonValue& nodeToParse, JsonValue& nodesData)
 {
     for (int i = 0; i < nodeToParse.Count(); i++)
     {
@@ -154,8 +154,8 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, std::vector<Node>& outN
         JsonValue& jsonNode = nodesData[nodeId];
 
         // extract the nodes
-        outNodes.emplace_back();
-        Node& node = outNodes.back();
+        outNodes.PushBack(Node());
+        Node& node = outNodes[outNodes.count - 1];
 
         String nodeName = jsonNode.HasKey("name") ? jsonNode["name"].ToString() : String("");
         node.m_name = CopyString(nodeName);
@@ -164,7 +164,7 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, std::vector<Node>& outN
 
         if (pParent)
         {
-            pParent->m_children.push_back(&node);
+            pParent->m_children.PushBack(&node);
             node.m_pParent = pParent;
         }
 
@@ -239,15 +239,14 @@ Scene* Scene::LoadScene(const char* filePath)
     file.length = size;;
 
     JsonValue parsed = ParseJsonFile(file);
+    defer(parsed.Free());
 
     bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
     if (!validGltf)
         return nullptr;
 
-    pScene->m_nodes.reserve(parsed["nodes"].Count());
+    pScene->m_nodes.Reserve(parsed["nodes"].Count());
     ParseNodesRecursively(pScene, nullptr, pScene->m_nodes, parsed["scenes"][0]["nodes"], parsed["nodes"]);
-
-    // TODO: Need to free jsonValue
 
     return pScene;
 }

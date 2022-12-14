@@ -36,11 +36,9 @@ namespace bgfx
 					}                                              \
 				BX_MACRO_BLOCK_END
 
-#ifndef BX_TRACE
 #define BX_TRACE  _BX_TRACE
 #define BX_WARN   _BX_WARN
 #define BX_ASSERT _BX_ASSERT
-#endif
 
 #ifndef SHADERC_CONFIG_HLSL
 #	define SHADERC_CONFIG_HLSL BX_PLATFORM_WINDOWS
@@ -81,8 +79,8 @@ namespace bgfx
 		| kUniformCompareBit
 		;
 
-	extern const char* getUniformTypeName(UniformType::Enum _enum);
-	extern UniformType::Enum nameToUniformTypeEnum(const char* _name);
+	const char* getUniformTypeName(UniformType::Enum _enum);
+	UniformType::Enum nameToUniformTypeEnum(const char* _name);
 
 	struct Uniform
 	{
@@ -93,6 +91,7 @@ namespace bgfx
 			, regCount(0)
 			, texComponent(0)
 			, texDimension(0)
+			, texFormat(0)
 		{
 		}
 
@@ -156,36 +155,7 @@ namespace bgfx
 	bool compileSPIRVShader(const Options& _options, uint32_t _version, const std::string& _code, bx::WriterI* _writer);
 
 	const char* getPsslPreamble();
+
 } // namespace bgfx
-
-namespace shaderc
-{
-	enum ShaderType
-    {
-        ST_VERTEX      = 'v',   /// vertex
-        ST_FRAGMENT    = 'f',   /// fragment
-        ST_COMPUTE     = 'c',   /// compute
-    };
-
-	int32_t printf(const char* _format, ...);
-
-    /**
-     * Compile a shader from source file and return memory pointer that contains the compiled shader.
-     *
-     * @param type : Shader type to comile (vertex, fragment or compute)
-     * @param filePath : Shader source file path.
-     * @param defines : List of defines semicolon separated ex: "foo=1;bar;baz=1".
-     * @param varyingPath : File path for varying.def.sc, or assume default name is "varying.def.sc" in current dir.
-     * @param profile : shader profile ("ps_4_0", "vs_4_0", ...). If null, library try to set default profile for current context.
-     * @return a memory block of compiled shader ready to use with bgfx::createShader, or null if failed.
-     */
-    const bgfx::Memory* compileShader(
-            ShaderType type
-          , const char* filePath
-          , const char* defines = nullptr
-          , const char* varyingPath = nullptr
-          , const char* profile = nullptr
-          );
-}
 
 #endif // SHADERC_H_HEADER_GUARD

@@ -506,7 +506,7 @@ project "glsl-optimizer"
 group "ThirdParty/bgfx/tools"
 
 project "shaderc"
-    kind "StaticLib"
+    kind "ConsoleApp"
     language "C++"
     cppdialect "C++14"
     exceptionhandling "Off"
@@ -543,6 +543,8 @@ project "shaderc"
     links 
     {
 		"bx",
+		"bgfx",
+		"bimg",
 		"fcpp",
 		"glslang",
 		"glsl-optimizer",

@@ -26,17 +26,15 @@ BX_PRAGMA_DIAGNOSTIC_POP()
 
 namespace bgfx
 {
-#ifndef BGFX_SHADERC_LIB
 	static bx::DefaultAllocator s_allocator;
 	bx::AllocatorI* g_allocator = &s_allocator;
-#endif
+
 	struct TinyStlAllocator
 	{
 		static void* static_allocate(size_t _bytes);
 		static void static_deallocate(void* _ptr, size_t /*_bytes*/);
 	};
 
-#ifndef BGFX_SHADERC_LIB
 	void* TinyStlAllocator::static_allocate(size_t _bytes)
 	{
 		return BX_ALLOC(g_allocator, _bytes);
@@ -49,7 +47,6 @@ namespace bgfx
 			BX_FREE(g_allocator, _ptr);
 		}
 	}
-#endif
 } // namespace bgfx
 
 #define TINYSTL_ALLOCATOR bgfx::TinyStlAllocator
@@ -433,7 +430,7 @@ namespace bgfx { namespace spirv
 		EShLanguage stage = getLang(_options.shaderType);
 		if (EShLangCount == stage)
 		{
-			shaderc::printf("Error: Unknown shader type '%c'.\n", _options.shaderType);
+			bx::printf("Error: Unknown shader type '%c'.\n", _options.shaderType);
 			return false;
 		}
 
@@ -505,7 +502,7 @@ namespace bgfx { namespace spirv
 
 				printCode(_code.c_str(), line, start, end, column);
 
-				shaderc::printf("%s\n", log);
+				bx::printf("%s\n", log);
 			}
 		}
 		else
@@ -521,7 +518,7 @@ namespace bgfx { namespace spirv
 				const char* log = program->getInfoLog();
 				if (NULL != log)
 				{
-					shaderc::printf("%s\n", log);
+					bx::printf("%s\n", log);
 				}
 			}
 			else
@@ -696,7 +693,7 @@ namespace bgfx { namespace spirv
 					, const char* m
 					)
 				{
-					shaderc::printf("Error: %s\n", m);
+					bx::printf("Error: %s\n", m);
 				};
 
 				opt.SetMessageConsumer(print_msg_to_stderr);

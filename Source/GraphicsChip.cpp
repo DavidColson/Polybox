@@ -6,6 +6,7 @@
 
 #include <shaderc/shaderc.h>
 #include <SDL_timer.h>
+#include <SDL_rwops.h>
 #include <defer.h>
 
 
@@ -84,6 +85,21 @@ void GraphicsChip::FullScreenQuad(float _textureWidth, float _textureHeight, flo
 
 // ***********************************************************************
 
+void ShaderFreeCallback(void* ptr, void* userData)
+{
+    gAllocator.Free(ptr);
+}
+
+bgfx::ShaderHandle LoadShader(const char* path) {
+    SDL_RWops* pFileRead = SDL_RWFromFile(path, "rb");
+    uint64_t size = SDL_RWsize(pFileRead);
+    char* pData = (char*)gAllocator.Allocate(size * sizeof(char));
+    SDL_RWread(pFileRead, pData, size, 1);
+    SDL_RWclose(pFileRead);
+
+    return bgfx::createShader(bgfx::makeRef(pData, (uint32_t)size, ShaderFreeCallback));
+}
+
 void GraphicsChip::Init()
 {
     m_layout
@@ -95,74 +111,38 @@ void GraphicsChip::Init()
     .end();
 
     {
-        const bgfx::Memory* pFsShaderMem = nullptr;
-        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/core3d.fs", "", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
-
-        const bgfx::Memory* pVsShaderMem = nullptr;
-        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core3d.vs", "", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
-
+        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/core3d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/core3d.fbin");
         m_programBase3D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        const bgfx::Memory* pFsShaderMem = nullptr;
-        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/core3d.fs", "TEXTURING", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
-
-        const bgfx::Memory* pVsShaderMem = nullptr;
-        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core3d.vs", "TEXTURING", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
-
+        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/core3d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/core3d_textured.fbin");
         m_programTexturing3D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        const bgfx::Memory* pFsShaderMem = nullptr;
-        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/core2d.fs", "", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
-
-        const bgfx::Memory* pVsShaderMem = nullptr;
-        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core2d.vs", "", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
-
+        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/core2d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/core2d.fbin");
         m_programBase2D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        const bgfx::Memory* pFsShaderMem = nullptr;
-        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/core2d.fs", "TEXTURING", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
-
-        const bgfx::Memory* pVsShaderMem = nullptr;
-        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/core2d.vs", "TEXTURING", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
-
+        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/core2d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/core2d_textured.fbin");
         m_programTexturing2D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        const bgfx::Memory* pFsShaderMem = nullptr;
-        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/fullscreen.fs", "", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
-
-        const bgfx::Memory* pVsShaderMem = nullptr;
-        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/fullscreen.vs", "", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
-
+        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/fullscreen.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/fullscreen.fbin");
         m_fullscreenTexProgram = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        const bgfx::Memory* pFsShaderMem = nullptr;
-        pFsShaderMem = shaderc::compileShader(shaderc::ST_FRAGMENT, "Shaders/crt.fs", "", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle fsShader = bgfx::createShader(pFsShaderMem);
-
-        const bgfx::Memory* pVsShaderMem = nullptr;
-        pVsShaderMem = shaderc::compileShader(shaderc::ST_VERTEX, "Shaders/fullscreen.vs", "", "Shaders/varying.def.sc");
-        bgfx::ShaderHandle vsShader = bgfx::createShader(pVsShaderMem);
-
+        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/fullscreen.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/crt.fbin");
         m_crtProgram = bgfx::createProgram(vsShader, fsShader, true);
     }
 

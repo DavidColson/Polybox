@@ -35,7 +35,7 @@ solution "Polybox"
         defines "NDEBUG"
         optimize "Full"
     filter "configurations:Debug*"
-        defines "_DEBUG"
+        defines { "_DEBUG", "MEMORY_TRACKING" }
         optimize "Debug"
         symbols "On"
     filter "system:macosx"
@@ -64,6 +64,10 @@ solution "Polybox"
             "Source/*.h",
             "Source/Core/**.cpp",
             "Source/Core/**.h",
+            "Shaders/**.fsc",
+            "Shaders/**.vsc",
+            "Shaders/**.sc",
+            "Shaders/**.sh"
         }
         includedirs
         {
@@ -80,7 +84,6 @@ solution "Polybox"
         links 
         { 
             "bgfx",
-            "shaderc",
             "bimg",
             "bimg_decode",
             "bx",
@@ -97,6 +100,37 @@ solution "Polybox"
             "__STDC_FORMAT_MACROS",
             "__STDC_CONSTANT_MACROS",
         }
+        dependson { "shaderc" }
+        filter "files:**.fsc"
+            buildmessage 'Compiling %{file.relpath}'
+            buildcommands {
+                '%{cfg.buildtarget.directory}/shaderc.exe -f "%{file.path}" -o "%{file.directory}/Bin/%{file.basename}.fbin" --type f --varyingdef "%{file.directory}/varying.def.sc" -p ps_4_0 --platform windows'
+            }
+            buildoutputs { '%{file.directory}/Bin/%{file.basename}.fbin' }
+            buildinputs 
+            { 
+                '%{file.directory}/varying.def.sc',  
+                '%{file.directory}/shaderlib.sh',  
+                '%{file.directory}/common.sh',  
+                '%{file.directory}/bgfx_shader.sh'
+            }
+        filter "files:**.vsc"
+            buildmessage 'Compiling %{file.relpath}'
+            buildcommands {
+                '%{cfg.buildtarget.directory}/shaderc.exe -f "%{file.path}" -o "%{file.directory}/Bin/%{file.basename}.vbin" --type v --varyingdef "%{file.directory}/varying.def.sc" -p vs_4_0 --platform windows'
+            }
+            buildoutputs { '%{file.directory}/Bin/%{file.basename}.vbin' }
+            buildinputs 
+            { 
+                '%{file.directory}/varying.def.sc',  
+                '%{file.directory}/shaderlib.sh',  
+                '%{file.directory}/common.sh',  
+                '%{file.directory}/bgfx_shader.sh'
+            }
+        filter { "system:windows", "configurations:Debug*" }
+            buildoptions { "/fsanitize=address" }
+            flags { "NoIncrementalLink" }
+            editandcontinue "Off"
         filter "platforms:x86_64"
             libdirs { "Lib/SDL2-2.0.8/lib/x64" }
         filter "platforms:x86"

@@ -723,6 +723,7 @@ void GameChip::ClearStates()
 
 void GameChip::Shutdown()
 {
+    // TODO: Mark as not a leak?
     m_primaryBindings.Free();
     m_primaryAxisBindings.Free();
 

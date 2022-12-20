@@ -2,13 +2,13 @@
 
 #pragma once
 
+#include <vec2.h>
 #include <light_string.h>
 #include <resizable_array.h>
 #include <bgfx/bgfx.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#include "Core/Vec2.h"
 #include "Image.h"
 #include "LuaCommon.h"
 

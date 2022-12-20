@@ -2,8 +2,6 @@
 
 #include "Engine.h"
 
-#include "Core/Vec3.h"
-#include "Core/Matrix.h"
 #include "GraphicsChip.h"
 #include "GameChip.h"
 #include "Shapes.h"
@@ -22,14 +20,14 @@ extern "C" {
 	#include "lauxlib.h"
 }
 
+#include <vec3.h>
+#include <matrix.h>
 #include <log.h>
 #include <platform_debug.h>
 #include <defer.h>
-
 #include <SDL.h>
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
-#include <format>
 #include <SDL.h>
 #include <SDL_syswm.h>
 #undef DrawText

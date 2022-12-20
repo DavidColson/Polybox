@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "Core/Vec3.h"
-#include "Core/Vec4.h"
-#include "Core/Matrix.h"
 #include "Font.h"
 
+#include <vec3.h>
+#include <vec4.h>
+#include <matrix.h>
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
 #include <resizable_array.h>

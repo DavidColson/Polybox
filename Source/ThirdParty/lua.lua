@@ -44,5 +44,9 @@ project "lua"
     {
         "lua/src/"
     }
+    filter { "system:windows", "configurations:Debug*" }
+        buildoptions { "/fsanitize=address" }
+        flags { "NoIncrementalLink" }
+        editandcontinue "Off"
 
 group ""

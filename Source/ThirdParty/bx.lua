@@ -24,6 +24,10 @@ project "bx"
         "bx/3rdparty",
         "bx/include"
     }
+    filter { "system:windows", "configurations:Debug*" }
+        buildoptions { "/fsanitize=address" }
+        flags { "NoIncrementalLink" }
+        editandcontinue "Off"
     filter "action:vs*"
         defines "_CRT_SECURE_NO_WARNINGS"
     filter "action:vs*"

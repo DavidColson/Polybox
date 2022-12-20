@@ -2,8 +2,7 @@
 
 #pragma once
 
-#include "Core/Vec2.h"
-
+#include <vec2.h>
 #include <string_builder.h>
 #include <hashmap.h>
 #include <SDL_keycode.h>

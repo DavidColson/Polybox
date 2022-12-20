@@ -62,8 +62,6 @@ solution "Polybox"
         {
             "Source/*.cpp",
             "Source/*.h",
-            "Source/Core/**.cpp",
-            "Source/Core/**.h",
             "Shaders/**.fsc",
             "Shaders/**.vsc",
             "Shaders/**.sc",

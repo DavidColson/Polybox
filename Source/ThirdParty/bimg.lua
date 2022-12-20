@@ -22,6 +22,10 @@ project "bimg"
         "bimg/3rdparty/astc-codec",
         "bimg/3rdparty/astc-codec/include",
     }
+    filter { "system:windows", "configurations:Debug*" }
+        buildoptions { "/fsanitize=address" }
+        flags { "NoIncrementalLink" }
+        editandcontinue "Off"
     filter "action:vs*"
         defines "_CRT_SECURE_NO_WARNINGS"
     filter "action:vs*"
@@ -49,6 +53,10 @@ project "bimg_decode"
         "bimg/include/**",
         "bimg/src/image_decode.*",
     }
+    filter { "system:windows", "configurations:Debug*" }
+        buildoptions { "/fsanitize=address" }
+        flags { "NoIncrementalLink" }
+        editandcontinue "Off"
     filter { "system:linux" }
         buildoptions { "-fPIC" }
     filter "action:vs*"

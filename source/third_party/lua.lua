@@ -44,9 +44,11 @@ project "lua"
     {
         "lua/src/"
     }
+    if ASAN_Enabled then
     filter { "system:windows", "configurations:Debug*" }
         buildoptions { "/fsanitize=address" }
         flags { "NoIncrementalLink" }
         editandcontinue "Off"
+    end
 
 group ""

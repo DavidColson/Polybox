@@ -600,10 +600,12 @@ project "bgfx"
         "bgfx/3rdparty/dxsdk/include",
         "bgfx/3rdparty/khronos"
     }
+	if ASAN_Enabled then
 	filter { "system:windows", "configurations:Debug*" }
 		buildoptions { "/fsanitize=address" }
 		flags { "NoIncrementalLink" }
 		editandcontinue "Off"
+	end
     filter "configurations:Debug"
         defines "BGFX_CONFIG_DEBUG=0"
     filter "action:vs*"

@@ -7,6 +7,8 @@ end
 GAME_DIR    = "game/source"
 ENGINE_DIR  = "engine/source"
 
+ASAN_Enabled = false
+
 -- Third party locations
 local SDL_DIR     = "Engine/lib/SDL2-2.0.8"
 local BGFX_DIR    = "Engine/source/third_party/bgfx"
@@ -35,7 +37,7 @@ solution "polybox"
         defines "NDEBUG"
         optimize "Full"
     filter "configurations:Debug*"
-        defines { "_DEBUG", "MEMORY_TRACKING" }
+        defines { "_DEBUG" }
         optimize "Debug"
         symbols "On"
     filter "system:macosx"
@@ -125,10 +127,12 @@ solution "polybox"
                 '%{file.directory}/common.sh',  
                 '%{file.directory}/bgfx_shader.sh'
             }
+        if ASAN_Enabled then
         filter { "system:windows", "configurations:Debug*" }
             buildoptions { "/fsanitize=address" }
             flags { "NoIncrementalLink" }
             editandcontinue "Off"
+        end
         filter "platforms:x86_64"
             libdirs { "lib/SDL2-2.0.8/lib/x64" }
         filter "platforms:x86"

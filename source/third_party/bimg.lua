@@ -22,10 +22,12 @@ project "bimg"
         "bimg/3rdparty/astc-codec",
         "bimg/3rdparty/astc-codec/include",
     }
+    if ASAN_Enabled then
     filter { "system:windows", "configurations:Debug*" }
         buildoptions { "/fsanitize=address" }
         flags { "NoIncrementalLink" }
         editandcontinue "Off"
+    end
     filter "action:vs*"
         defines "_CRT_SECURE_NO_WARNINGS"
     filter "action:vs*"
@@ -53,10 +55,12 @@ project "bimg_decode"
         "bimg/include/**",
         "bimg/src/image_decode.*",
     }
+    if ASAN_Enabled then
     filter { "system:windows", "configurations:Debug*" }
         buildoptions { "/fsanitize=address" }
         flags { "NoIncrementalLink" }
         editandcontinue "Off"
+    end
     filter { "system:linux" }
         buildoptions { "-fPIC" }
     filter "action:vs*"

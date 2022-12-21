@@ -2,14 +2,15 @@
 
 #pragma once
 
-#include "Mesh.h"
 #include "LuaCommon.h"
+#include "Mesh.h"
 
 #include <light_string.h>
 
-struct Node : public LuaObject
-{
-    Node() { m_id = s_nodeIdCounter++; }
+struct Node : public LuaObject {
+    Node() {
+        m_id = s_nodeIdCounter++;
+    }
 
     Vec3f GetLocalPosition();
     Vec3f GetWorldPosition();
@@ -23,7 +24,7 @@ struct Node : public LuaObject
     Vec3f GetLocalScale();
     Vec3f GetWorldScale();
     void SetLocalScale(Vec3f scale);
-    
+
     // TODO: Set world transforms
     // Get and set matrices directly
 
@@ -37,7 +38,7 @@ struct Node : public LuaObject
 
     // Tree data
     // TODO: Make private when we have proper tree editing API
-    Node* m_pParent{ nullptr };
+    Node* m_pParent { nullptr };
     ResizableArray<Node*> m_children;
 
     uint64_t m_id;
@@ -45,12 +46,11 @@ struct Node : public LuaObject
     Matrixf m_localTransform;
     Matrixf m_worldTransform;
 
-private:
+   private:
     void UpdateWorldTransforms();
 };
 
-struct Scene : public LuaObject
-{
+struct Scene : public LuaObject {
     virtual ~Scene();
 
     int GetNumNodes();
@@ -59,6 +59,6 @@ struct Scene : public LuaObject
     // TODO: Note that we currently cannot add or modify this tree without invalidating the pointers inside the nodes
     // what the fuck do we do
     ResizableArray<Node> m_nodes;
-    
+
     static Scene* LoadScene(const char* filePath);
 };

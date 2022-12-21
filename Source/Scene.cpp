@@ -3,10 +3,10 @@
 #include "Scene.h"
 
 
+#include "base64.h"
+#include "defer.h"
 #include "json.h"
 #include "light_string.h"
-#include "defer.h"
-#include "base64.h"
 
 #include <SDL_rwops.h>
 
@@ -14,117 +14,98 @@ uint64_t Node::s_nodeIdCounter = 0;
 
 // ***********************************************************************
 
-Vec3f Node::GetLocalPosition()
-{
+Vec3f Node::GetLocalPosition() {
     return m_localTransform.GetTranslation();
 }
 
 // ***********************************************************************
 
-Vec3f Node::GetWorldPosition()
-{
+Vec3f Node::GetWorldPosition() {
     return m_worldTransform.GetTranslation();
 }
 
 // ***********************************************************************
 
-void Node::SetLocalPosition(Vec3f translation)
-{
+void Node::SetLocalPosition(Vec3f translation) {
     m_localTransform.SetTranslation(translation);
     UpdateWorldTransforms();
 }
 
 // ***********************************************************************
 
-Vec3f Node::GetLocalRotation()
-{
+Vec3f Node::GetLocalRotation() {
     return m_localTransform.GetEulerRotation();
 }
 
 // ***********************************************************************
 
-Vec3f Node::GetWorldRotation()
-{
+Vec3f Node::GetWorldRotation() {
     return m_worldTransform.GetEulerRotation();
 }
 
 // ***********************************************************************
 
-void Node::SetLocalRotation(Vec3f rotation)
-{
+void Node::SetLocalRotation(Vec3f rotation) {
     m_localTransform.SetEulerRotation(rotation);
     UpdateWorldTransforms();
 }
 
 // ***********************************************************************
 
-void Node::SetLocalRotation(Quatf rotation)
-{
+void Node::SetLocalRotation(Quatf rotation) {
     m_localTransform.SetQuatRotation(rotation);
     UpdateWorldTransforms();
 }
 
 // ***********************************************************************
 
-Vec3f Node::GetLocalScale()
-{
+Vec3f Node::GetLocalScale() {
     return m_localTransform.GetScaling();
 }
 
 // ***********************************************************************
 
-Vec3f Node::GetWorldScale()
-{
+Vec3f Node::GetWorldScale() {
     return m_worldTransform.GetScaling();
 }
 
 // ***********************************************************************
 
-void Node::SetLocalScale(Vec3f scale)
-{
+void Node::SetLocalScale(Vec3f scale) {
     m_localTransform.SetScaling(scale);
     UpdateWorldTransforms();
 }
 
 // ***********************************************************************
 
-Node* Node::GetParent()
-{
+Node* Node::GetParent() {
     return m_pParent;
 }
 
 // ***********************************************************************
 
-int Node::GetNumChildren()
-{
+int Node::GetNumChildren() {
     return (int)m_children.count;
 }
 
 // ***********************************************************************
 
-Node* Node::GetChild(int index)
-{
+Node* Node::GetChild(int index) {
     return m_children[index];
 }
 
 // ***********************************************************************
 
-void Node::UpdateWorldTransforms()
-{
+void Node::UpdateWorldTransforms() {
     // Recalculate local world matrix
-    if (m_pParent)
-    {
+    if (m_pParent) {
         m_worldTransform = m_pParent->m_worldTransform * m_localTransform;
-    }
-    else
-    {
+    } else {
         m_worldTransform = m_localTransform;
     }
 
-    if (!m_children.count)
-    {
-        for (Node* pChild : m_children)
-        {
+    if (!m_children.count) {
+        for (Node* pChild : m_children) {
             pChild->m_worldTransform = m_worldTransform * pChild->m_localTransform;
         }
     }
@@ -136,30 +117,25 @@ Scene::~Scene() {
     m_nodes.Free([](Node& node) {
         FreeString(node.m_name);
         node.m_children.Free();
-        });
-
+    });
 }
 
 // ***********************************************************************
 
-int Scene::GetNumNodes()
-{
+int Scene::GetNumNodes() {
     return (int)m_nodes.count;
 }
 
 // ***********************************************************************
 
-Node* Scene::GetNode(int index)
-{
+Node* Scene::GetNode(int index) {
     return &m_nodes[index];
 }
 
 // ***********************************************************************
 
-void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& outNodes, JsonValue& nodeToParse, JsonValue& nodesData)
-{
-    for (int i = 0; i < nodeToParse.Count(); i++)
-    {
+void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& outNodes, JsonValue& nodeToParse, JsonValue& nodesData) {
+    for (int i = 0; i < nodeToParse.Count(); i++) {
         int nodeId = nodeToParse[i].ToInt();
         JsonValue& jsonNode = nodesData[nodeId];
 
@@ -172,71 +148,58 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& o
 
         node.m_meshId = UINT32_MAX;
 
-        if (pParent)
-        {
+        if (pParent) {
             pParent->m_children.PushBack(&node);
             node.m_pParent = pParent;
         }
 
-        if (jsonNode.HasKey("mesh"))
-        {
+        if (jsonNode.HasKey("mesh")) {
             node.m_meshId = jsonNode["mesh"].ToInt();
         }
 
-        if (jsonNode.HasKey("rotation"))
-        {
+        if (jsonNode.HasKey("rotation")) {
             Quatf rotation;
             rotation.x = float(jsonNode["rotation"][0].ToFloat());
             rotation.y = float(jsonNode["rotation"][1].ToFloat());
             rotation.z = float(jsonNode["rotation"][2].ToFloat());
             rotation.w = float(jsonNode["rotation"][3].ToFloat());
             node.SetLocalRotation(rotation);
-        }
-        else
-        {
+        } else {
             node.SetLocalRotation(Quatf::Identity());
         }
 
-        if (jsonNode.HasKey("translation"))
-        {
+        if (jsonNode.HasKey("translation")) {
             Vec3f translation;
             translation.x = float(jsonNode["translation"][0].ToFloat());
             translation.y = float(jsonNode["translation"][1].ToFloat());
             translation.z = float(jsonNode["translation"][2].ToFloat());
             node.SetLocalPosition(translation);
-        }
-        else
-        {
+        } else {
             node.SetLocalPosition(Vec3f(0.0f));
         }
 
-        if (jsonNode.HasKey("scale"))
-        {
+        if (jsonNode.HasKey("scale")) {
             Vec3f scale;
             scale.x = float(jsonNode["scale"][0].ToFloat());
             scale.y = float(jsonNode["scale"][1].ToFloat());
             scale.z = float(jsonNode["scale"][2].ToFloat());
             node.SetLocalScale(scale);
-        }
-        else
-        {
+        } else {
             node.SetLocalScale(Vec3f(1.0f));
         }
 
-        if (jsonNode.HasKey("children"))
-        {
+        if (jsonNode.HasKey("children")) {
             ParseNodesRecursively(pScene, &node, outNodes, jsonNode["children"], nodesData);
         }
-    } 
+    }
 }
 
 // ***********************************************************************
 
-Scene* Scene::LoadScene(const char* filePath)
-{
+Scene* Scene::LoadScene(const char* filePath) {
     SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
 
-    Scene* pScene = new Scene(); // TODO: Use our allocators
+    Scene* pScene = new Scene();  // TODO: Use our allocators
 
     uint64_t size = SDL_RWsize(pFileRead);
     char* pData = (char*)gAllocator.Allocate(size * sizeof(char));

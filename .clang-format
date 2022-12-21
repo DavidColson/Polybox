@@ -1,0 +1,21 @@
+# Format Style Options - Created with Clang Power Tools
+---
+BasedOnStyle: Google
+AlignAfterOpenBracket: AlwaysBreak
+AllowAllArgumentsOnNextLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBinaryOperators: NonAssignment
+ColumnLimit: 0
+Cpp11BracedListStyle: false
+FixNamespaceComments: false
+IncludeBlocks: Preserve
+IndentWidth: 4
+MaxEmptyLinesToKeep: 2
+SpaceAfterTemplateKeyword: false
+SpaceBeforeCpp11BracedList: true
+...

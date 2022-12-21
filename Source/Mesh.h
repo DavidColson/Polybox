@@ -8,11 +8,10 @@
 #include <light_string.h>
 #include <resizable_array.h>
 
-struct Primitive : public LuaObject
-{
+struct Primitive : public LuaObject {
     ResizableArray<VertexData> m_vertices;
 
-    uint32_t m_baseColorTexture{ UINT32_MAX };
+    uint32_t m_baseColorTexture { UINT32_MAX };
 
     int GetNumVertices();
     Vec3f GetVertexPosition(int index);
@@ -25,8 +24,7 @@ struct Primitive : public LuaObject
     // TODO: API for modifying vertex data (i.e. allow creating meshes on the fly)
 };
 
-struct Mesh : public LuaObject
-{
+struct Mesh : public LuaObject {
     virtual ~Mesh();
 
     String m_name;

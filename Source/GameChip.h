@@ -2,14 +2,13 @@
 
 #pragma once
 
-#include <vec2.h>
-#include <string_builder.h>
-#include <hashmap.h>
-#include <SDL_keycode.h>
 #include <SDL_gamecontroller.h>
+#include <SDL_keycode.h>
+#include <hashmap.h>
+#include <string_builder.h>
+#include <vec2.h>
 
-enum class ControllerButton
-{
+enum class ControllerButton {
     Invalid,
     FaceBottom,
     FaceRight,
@@ -28,8 +27,7 @@ enum class ControllerButton
     Count
 };
 
-enum class ControllerAxis
-{
+enum class ControllerAxis {
     Invalid,
     LeftX,
     LeftY,
@@ -40,8 +38,7 @@ enum class ControllerAxis
     Count
 };
 
-enum class Key
-{
+enum class Key {
     Invalid,
     A,
     B,
@@ -175,9 +172,8 @@ enum class Key
 
 union SDL_Event;
 
-class GameChip
-{
-public:
+class GameChip {
+   public:
     void Init();
     void ProcessEvent(SDL_Event* event);
     void UpdateInputs(float deltaTime, Vec2f targetRes, Vec2f realWindowRes);
@@ -192,13 +188,14 @@ public:
 
     Vec2i GetMousePosition();
     void EnableMouseRelativeMode(bool enable);
-    
+
     bool GetKey(Key keyCode);
     bool GetKeyDown(Key keyCode);
     bool GetKeyUp(Key keyCode);
 
     String InputString();
-private:
+
+   private:
     HashMap<SDL_GameControllerButton, ControllerButton> m_primaryBindings;
     HashMap<SDL_GameControllerAxis, ControllerAxis> m_primaryAxisBindings;
 
@@ -208,22 +205,21 @@ private:
     HashMap<SDL_Keycode, ControllerAxis> m_keyboardAxisBindings;
     HashMap<int, ControllerAxis> m_mouseAxisBindings;
 
-    struct Axis
-    {
-        float m_axisValue{ 0.0f };
+    struct Axis {
+        float m_axisValue { 0.0f };
 
-        bool m_ignoreVirtual{ false };
-        bool m_isMouseDriver{ false };
+        bool m_ignoreVirtual { false };
+        bool m_isMouseDriver { false };
 
         // Virtual axis input state
-        bool m_positiveInput{ false };
-        bool m_negativeInput{ false };
+        bool m_positiveInput { false };
+        bool m_negativeInput { false };
 
         // Virtual axis mapping
-        SDL_Keycode m_positiveScanCode{ SDLK_UNKNOWN };
-        SDL_Keycode m_negativeScanCode{ SDLK_UNKNOWN };
-        int m_positiveMouseButton{ 0 };
-        int m_negativeMouseButton{ 0 };
+        SDL_Keycode m_positiveScanCode { SDLK_UNKNOWN };
+        SDL_Keycode m_negativeScanCode { SDLK_UNKNOWN };
+        int m_positiveMouseButton { 0 };
+        int m_negativeMouseButton { 0 };
     };
 
     bool m_keyDowns[(size_t)Key::Count];
@@ -236,7 +232,7 @@ private:
 
     Axis m_axes[(size_t)ControllerAxis::Count];
 
-    SDL_GameController* m_pOpenController{ nullptr };
+    SDL_GameController* m_pOpenController { nullptr };
 
     StringBuilder m_textInputString;
 

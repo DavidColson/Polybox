@@ -2,7 +2,7 @@
 
 #include "Font.h"
 
-#include "RectPacking.h"
+#include "rect_packing.h"
 
 #include <bimg/bimg.h>
 #include <bx/allocator.h>

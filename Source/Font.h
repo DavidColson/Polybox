@@ -9,8 +9,8 @@
 #include <vec2.h>
 #include FT_FREETYPE_H
 
-#include "Image.h"
-#include "LuaCommon.h"
+#include "image.h"
+#include "lua_common.h"
 
 namespace FreeType {
 FT_Library* Get();

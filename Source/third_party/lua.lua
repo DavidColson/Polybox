@@ -1,5 +1,5 @@
 
-group "ThirdParty/lua"
+group "third_party/lua"
 
 project "lua"
     kind "StaticLib"

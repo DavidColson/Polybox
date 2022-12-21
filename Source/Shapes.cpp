@@ -1,8 +1,8 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "Shapes.h"
+#include "shapes.h"
 
-#include "GraphicsChip.h"
+#include "graphics_chip.h"
 
 // ***********************************************************************
 

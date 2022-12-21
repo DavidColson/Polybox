@@ -1,6 +1,6 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "GameChip.h"
+#include "game_chip.h"
 
 #include <SDL.h>
 #include <SDL_events.h>
@@ -357,7 +357,7 @@ void GameChip::Init() {
 
 
     // Load json mapping file
-    SDL_RWops* pFileRead = SDL_RWFromFile("Assets/ControllerMapping.json", "rb");
+    SDL_RWops* pFileRead = SDL_RWFromFile("assets/ControllerMapping.json", "rb");
     uint64_t size = SDL_RWsize(pFileRead);
     char* pData = (char*)gAllocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);

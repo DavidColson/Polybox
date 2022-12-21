@@ -1,5 +1,5 @@
 
-group "ThirdParty/bx"
+group "third_party/bx"
 
 project "bx"
     kind "StaticLib"

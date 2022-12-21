@@ -1,9 +1,9 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "LuaCommon.h"
+#include "lua_common.h"
 
-#include "Image.h"
-#include "Mesh.h"
+#include "image.h"
+#include "mesh.h"
 
 #include <SDL_syswm.h>
 #include <log.h>

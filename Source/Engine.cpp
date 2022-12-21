@@ -1,18 +1,18 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "Engine.h"
+#include "engine.h"
 
-#include "Bind_GameChip.h"
-#include "Bind_GraphicsChip.h"
-#include "Bind_Mesh.h"
-#include "Bind_Scene.h"
-#include "Font.h"
-#include "GameChip.h"
-#include "GraphicsChip.h"
-#include "Image.h"
-#include "Mesh.h"
-#include "Scene.h"
-#include "Shapes.h"
+#include "bind_game_chip.h"
+#include "bind_graphics_chip.h"
+#include "bind_mesh.h"
+#include "bind_scene.h"
+#include "font.h"
+#include "game_chip.h"
+#include "graphics_chip.h"
+#include "image.h"
+#include "mesh.h"
+#include "scene.h"
+#include "shapes.h"
 
 extern "C" {
 #include "lua.h"
@@ -137,7 +137,7 @@ int main(int argc, char* argv[]) {
         Bind::BindScene(pLua);
         Bind::BindGameChip(pLua, &game);
 
-        if (luaL_dofile(pLua, "Assets/game.lua") != LUA_OK) {
+        if (luaL_dofile(pLua, "assets/game.lua") != LUA_OK) {
             Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
         }
 

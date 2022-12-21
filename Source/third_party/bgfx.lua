@@ -6,7 +6,7 @@ local GLSLANG           = "bgfx/3rdparty/glslang"
 local FCPP_DIR          = "bgfx/3rdparty/fcpp"
 local GLSL_OPTIMIZER    = "bgfx/3rdparty/glsl-optimizer"
 
-group "ThirdParty/bgfx/3rdparty"
+group "third_party/bgfx/3rdparty"
 
 project "fcpp"
 	kind "StaticLib"

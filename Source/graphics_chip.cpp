@@ -1,8 +1,8 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "GraphicsChip.h"
+#include "graphics_chip.h"
 
-#include "Image.h"
+#include "image.h"
 
 #include <SDL_rwops.h>
 #include <SDL_timer.h>
@@ -104,38 +104,38 @@ void GraphicsChip::Init() {
         .end();
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/core3d.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/core3d.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/core3d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/core3d.fbin");
         m_programBase3D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/core3d.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/core3d_textured.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/core3d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/core3d_textured.fbin");
         m_programTexturing3D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/core2d.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/core2d.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/core2d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/core2d.fbin");
         m_programBase2D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/core2d.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/core2d_textured.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/core2d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/core2d_textured.fbin");
         m_programTexturing2D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/fullscreen.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/fullscreen.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/fullscreen.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/fullscreen.fbin");
         m_fullscreenTexProgram = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("Shaders/Bin/fullscreen.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("Shaders/Bin/crt.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/fullscreen.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/crt.fbin");
         m_crtProgram = bgfx::createProgram(vsShader, fsShader, true);
     }
 
@@ -166,7 +166,7 @@ void GraphicsChip::Init() {
     };
     m_frameBufferComposite = bgfx::createFrameBuffer(BX_COUNTOF(gbufferCompositeTex), gbufferCompositeTex, true);
 
-    m_defaultFont = Font("Assets/Roboto-Bold.ttf");
+    m_defaultFont = Font("assets/Roboto-Bold.ttf");
 
     m_frameBufferSampler = bgfx::createUniform("fullscreenFrameSampler", bgfx::UniformType::Sampler);
     m_colorTextureSampler = bgfx::createUniform("colorTextureSampler", bgfx::UniformType::Sampler);

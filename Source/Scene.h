@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "LuaCommon.h"
-#include "Mesh.h"
+#include "lua_common.h"
+#include "mesh.h"
 
 #include <light_string.h>
 

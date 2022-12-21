@@ -308,7 +308,7 @@ ResizableArray<Image*> Mesh::LoadTextures(const char* filePath) {
             String type = jsonImage["mimeType"].ToString();
 
             StringBuilder builder;
-            builder.Append("Assets/");
+            builder.Append("assets/");
             builder.Append(jsonImage["name"].ToString());
             builder.Append(".");
             builder.Append(type.SubStr(6, 4));

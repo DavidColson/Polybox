@@ -1,8 +1,9 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "Bind_GameChip.h"
+#include "bind_game_chip.h"
 
-#include "GameChip.h"
+#include "game_chip.h"
+#include "lua_common.h"
 
 #include <defer.h>
 

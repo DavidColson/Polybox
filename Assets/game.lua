@@ -15,9 +15,9 @@ function RecursePrintNode(node, stringEdge)
 end
 
 function Start()
-    tankMeshes = LoadMeshes("Assets/tank.gltf")
-    tankImages = LoadTextures("Assets/tank.gltf")
-    tankScene = LoadScene("Assets/tank.gltf")
+    tankMeshes = LoadMeshes("assets/tank.gltf")
+    tankImages = LoadTextures("assets/tank.gltf")
+    tankScene = LoadScene("assets/tank.gltf")
 
     x = 50
     y = 50

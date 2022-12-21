@@ -1,6 +1,6 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "RectPacking.h"
+#include "rect_packing.h"
 
 #include <defer.h>
 #include <sort.h>

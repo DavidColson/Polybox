@@ -1,5 +1,5 @@
 # Specify filepatterns you want git to ignore.
 
-Build/
+build/
 *.log
-Shaders/Bin
+shaders/Bin

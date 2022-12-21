@@ -1,8 +1,9 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "Bind_GraphicsChip.h"
+#include "bind_graphics_chip.h"
 
-#include "GraphicsChip.h"
+#include "graphics_chip.h"
+#include "lua_common.h"
 
 #include <light_string.h>
 

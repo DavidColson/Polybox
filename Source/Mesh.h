@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "GraphicsChip.h"
-#include "LuaCommon.h"
+#include "graphics_chip.h"
+#include "lua_common.h"
 
 #include <light_string.h>
 #include <resizable_array.h>

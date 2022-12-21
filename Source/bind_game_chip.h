@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "LuaCommon.h"
-
 struct lua_State;
 class GameChip;
 

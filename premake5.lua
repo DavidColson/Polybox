@@ -1,19 +1,19 @@
 
-local BUILD_DIR = path.join("Build", _ACTION)
+local BUILD_DIR = path.join("build", _ACTION)
 if _OPTIONS["cc"] ~= nil then
 	BUILD_DIR = BUILD_DIR .. "_" .. _OPTIONS["cc"]
 end
 
-GAME_DIR    = "Game/Source"
-ENGINE_DIR  = "Engine/Source"
+GAME_DIR    = "game/source"
+ENGINE_DIR  = "engine/source"
 
 -- Third party locations
-local SDL_DIR     = "Engine/Lib/SDL2-2.0.8"
-local BGFX_DIR    = "Engine/Source/ThirdParty/bgfx"
-local BIMG_DIR    = "Engine/Source/ThirdParty/bimg"
-local BX_DIR      = "Engine/Source/ThirdParty/bx"
-local EABASE_DIR  = "Engine/Source/ThirdParty/EABase"
-local EASTL_DIR   = "Engine/Source/ThirdParty/EASTL"
+local SDL_DIR     = "Engine/lib/SDL2-2.0.8"
+local BGFX_DIR    = "Engine/source/third_party/bgfx"
+local BIMG_DIR    = "Engine/source/third_party/bimg"
+local BX_DIR      = "Engine/source/third_party/bx"
+local EABASE_DIR  = "Engine/source/third_party/EABase"
+local EASTL_DIR   = "Engine/source/third_party/EASTL"
 
 function setBxCompat()
 	filter "action:vs*"
@@ -25,9 +25,9 @@ function setBxCompat()
 		buildoptions { "-x objective-c++" }
 end
 
-solution "Polybox"
+solution "polybox"
     location(BUILD_DIR)
-    startproject "Polybox"
+    startproject "polybox"
     configurations { "Release", "Debug" }
     platforms "x86_64"
     architecture "x86_64"
@@ -44,14 +44,14 @@ solution "Polybox"
             ["ALWAYS_SEARCH_USER_PATHS"] = "YES", -- This is the minimum version of macos we'll be able to run on
         };
     
-    dofile("Source/CommonLib/commonlib.lua")
-    dofile("Source/ThirdParty/bx.lua")
-    dofile("Source/ThirdParty/bimg.lua")
-    dofile("Source/ThirdParty/bgfx.lua")
-    dofile("Source/ThirdParty/FreeType.lua")
-    dofile("Source/ThirdParty/lua.lua")
+    dofile("source/Commonlib/commonlib.lua")
+    dofile("source/third_party/bx.lua")
+    dofile("source/third_party/bimg.lua")
+    dofile("source/third_party/bgfx.lua")
+    dofile("source/third_party/FreeType.lua")
+    dofile("source/third_party/lua.lua")
     
-    project "Polybox"
+    project "polybox"
         kind "WindowedApp"
         language "C++"
         cppdialect "C++20"
@@ -60,24 +60,24 @@ solution "Polybox"
         debugdir ""
         files 
         {
-            "Source/*.cpp",
-            "Source/*.h",
-            "Shaders/**.fsc",
-            "Shaders/**.vsc",
-            "Shaders/**.sc",
-            "Shaders/**.sh"
+            "source/*.cpp",
+            "source/*.h",
+            "shaders/**.fsc",
+            "shaders/**.vsc",
+            "shaders/**.sc",
+            "shaders/**.sh"
         }
         includedirs
         {
-            "Source/",
-            "Source/CommonLib/source",
-            "Source/ThirdParty/bgfx/include",
-            "Source/ThirdParty/bimg/include",
-            "Source/ThirdParty/bx/include",
-            "Source/ThirdParty/bgfx/tools",
-            "Source/ThirdParty/FreeType/include",
-            "Source/ThirdParty/lua/src",
-            "Lib/SDL2-2.0.8/include",
+            "source/",
+            "source/Commonlib/source",
+            "source/third_party/bgfx/include",
+            "source/third_party/bimg/include",
+            "source/third_party/bx/include",
+            "source/third_party/bgfx/tools",
+            "source/third_party/FreeType/include",
+            "source/third_party/lua/src",
+            "lib/SDL2-2.0.8/include",
         }
         links 
         { 
@@ -89,7 +89,7 @@ solution "Polybox"
             "lua",
             "SDL2",
             "SDL2main",
-            "CommonLib"
+            "common_lib"
         }
         defines 
         {
@@ -130,19 +130,19 @@ solution "Polybox"
             flags { "NoIncrementalLink" }
             editandcontinue "Off"
         filter "platforms:x86_64"
-            libdirs { "Lib/SDL2-2.0.8/lib/x64" }
+            libdirs { "lib/SDL2-2.0.8/lib/x64" }
         filter "platforms:x86"
-            libdirs { "Lib/SDL2-2.0.8/lib/x86" }
+            libdirs { "lib/SDL2-2.0.8/lib/x86" }
         filter "system:windows"
             links { "gdi32", "kernel32", "psapi" }
         filter "system:linux"
             links { "dl", "GL", "pthread", "X11" }
         filter "system:macosx"
             links { "QuartzCore.framework", "Metal.framework", "Cocoa.framework", "IOKit.framework", "CoreVideo.framework" }
-            includedirs { "Source/ThirdParty/bx/include/compat/osx" }
+            includedirs { "source/third_party/bx/include/compat/osx" }
             buildoptions { "-x objective-c++" }
         filter "action:vs*"
             defines "_CRT_SECURE_NO_WARNINGS"
-            includedirs { "Source/ThirdParty/bx/include/compat/msvc" }
+            includedirs { "source/third_party/bx/include/compat/msvc" }
         filter { "system:windows", "action:gmake" }
-            includedirs { "Source/ThirdParty/bx/include/compat/mingw" }
+            includedirs { "source/third_party/bx/include/compat/mingw" }

@@ -1,5 +1,5 @@
 
-group "ThirdParty/bimg"
+group "third_party/bimg"
 
 project "bimg"
     kind "StaticLib"

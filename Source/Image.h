@@ -5,7 +5,7 @@
 #include <bgfx/bgfx.h>
 #include <light_string.h>
 
-#include "LuaCommon.h"
+#include "lua_common.h"
 
 struct Image : public LuaObject {
     Image() {}

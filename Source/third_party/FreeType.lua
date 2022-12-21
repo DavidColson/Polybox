@@ -1,5 +1,5 @@
 
-group "ThirdParty/FreeType"
+group "third_party/FreeType"
 
 project "FreeType"
     kind "StaticLib"

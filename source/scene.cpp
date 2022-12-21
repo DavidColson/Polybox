@@ -2,12 +2,12 @@
 
 #include "Scene.h"
 
-#include <matrix.inl>
-#include <quat.inl>
-#include <base64.h>
-#include <defer.h>
-#include <json.h>
-#include <light_string.h>
+
+#include "base64.h"
+#include "defer.h"
+#include "json.h"
+#include "light_string.h"
+
 #include <SDL_rwops.h>
 
 uint64_t Node::s_nodeIdCounter = 0;

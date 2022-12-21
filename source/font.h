@@ -2,14 +2,15 @@
 
 #pragma once
 
+#include <bgfx/bgfx.h>
+#include <ft2build.h>
+#include <light_string.h>
 #include <resizable_array.h>
 #include <vec2.h>
+#include FT_FREETYPE_H
 
 #include "image.h"
 #include "lua_common.h"
-
-struct String;
-typedef struct FT_LibraryRec_* FT_Library;
 
 namespace FreeType {
 FT_Library* Get();

@@ -4,11 +4,6 @@
 
 #include "Mesh.h"
 
-extern "C" {
-#include <lauxlib.h>
-#include <lua.h>
-#include <lualib.h>
-}
 #include <defer.h>
 
 namespace Bind {

@@ -4,14 +4,13 @@
 
 #include "rect_packing.h"
 
-#include <ft2build.h>
 #include <bimg/bimg.h>
 #include <bx/allocator.h>
 #include <defer.h>
 #include <freetype/ftmm.h>
 #include <log.h>
-#include <math.h>
-#include FT_FREETYPE_H
+#include <algorithm>
+
 
 // ***********************************************************************
 

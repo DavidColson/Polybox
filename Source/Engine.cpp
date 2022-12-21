@@ -33,6 +33,8 @@ extern "C" {
 #undef DrawTextEx
 
 
+// ***********************************************************************
+
 int ShowAssertDialog(String errorMsg) {
     const SDL_MessageBoxButtonData buttons[] = {
         { SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Abort" },
@@ -68,6 +70,8 @@ int ShowAssertDialog(String errorMsg) {
     return buttonid;
 }
 
+// ***********************************************************************
+
 void AssertHandler(Log::LogLevel level, String message) {
     if (level <= Log::ECrit) {
         switch (ShowAssertDialog(message)) {
@@ -83,6 +87,8 @@ void AssertHandler(Log::LogLevel level, String message) {
         }
     }
 }
+
+// ***********************************************************************
 
 int main(int argc, char* argv[]) {
     {

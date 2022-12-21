@@ -44,7 +44,7 @@ solution "polybox"
             ["ALWAYS_SEARCH_USER_PATHS"] = "YES", -- This is the minimum version of macos we'll be able to run on
         };
     
-    dofile("source/CommonLib/common_lib.lua")
+    dofile("source/common_lib/common_lib.lua")
     dofile("source/third_party/bx.lua")
     dofile("source/third_party/bimg.lua")
     dofile("source/third_party/bgfx.lua")
@@ -70,7 +70,7 @@ solution "polybox"
         includedirs
         {
             "source/",
-            "source/Commonlib/source",
+            "source/common_lib/source",
             "source/third_party/bgfx/include",
             "source/third_party/bimg/include",
             "source/third_party/bx/include",

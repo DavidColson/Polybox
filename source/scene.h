@@ -7,6 +7,10 @@
 
 #include <light_string.h>
 
+template<typename T>
+struct Quat;
+typedef Quat<float> Quatf;
+
 struct Node : public LuaObject {
     Node() {
         m_id = s_nodeIdCounter++;

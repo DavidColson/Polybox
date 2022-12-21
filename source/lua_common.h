@@ -2,11 +2,8 @@
 
 #pragma once
 
-extern "C" {
-#include "lua.h"
-#include "lualib.h"
-#include "lauxlib.h"
-}
+struct lua_State;
+struct luaL_Reg;
 
 // Some helpers and extensions to the lua C library
 

@@ -5,7 +5,6 @@
 #include "Font.h"
 
 #include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
 #include <matrix.h>
 #include <resizable_array.h>
 #include <vec3.h>

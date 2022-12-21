@@ -5,6 +5,11 @@
 #include "game_chip.h"
 #include "lua_common.h"
 
+extern "C" {
+#include <lauxlib.h>
+#include <lua.h>
+#include <lualib.h>
+}
 #include <defer.h>
 
 namespace {

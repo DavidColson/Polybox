@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include <bgfx/bgfx.h>
-#include <light_string.h>
-
 #include "lua_common.h"
+
+#include <bgfx/bgfx.h>
+
+struct String;
 
 struct Image : public LuaObject {
     Image() {}

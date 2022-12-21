@@ -44,7 +44,7 @@ solution "polybox"
             ["ALWAYS_SEARCH_USER_PATHS"] = "YES", -- This is the minimum version of macos we'll be able to run on
         };
     
-    dofile("source/Commonlib/commonlib.lua")
+    dofile("source/CommonLib/common_lib.lua")
     dofile("source/third_party/bx.lua")
     dofile("source/third_party/bimg.lua")
     dofile("source/third_party/bgfx.lua")

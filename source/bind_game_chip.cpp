@@ -90,7 +90,7 @@ int GetKeyUp(lua_State* pLua) {
 int InputString(lua_State* pLua) {
     String input = pGame->InputString();
     defer(FreeString(input));
-    lua_pushstring(pLua, input.pData);
+    lua_pushstring(pLua, input.m_pData);
     return 1;
 }
 

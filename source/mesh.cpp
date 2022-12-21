@@ -12,31 +12,31 @@
 // ***********************************************************************
 
 int Primitive::GetNumVertices() {
-    return (int)m_vertices.count;
+    return (int)m_vertices.m_count;
 }
 
 // ***********************************************************************
 
 Vec3f Primitive::GetVertexPosition(int index) {
-    return m_vertices[index].pos;
+    return m_vertices[index].m_pos;
 }
 
 // ***********************************************************************
 
 Vec4f Primitive::GetVertexColor(int index) {
-    return m_vertices[index].col;
+    return m_vertices[index].m_col;
 }
 
 // ***********************************************************************
 
 Vec2f Primitive::GetVertexTexCoord(int index) {
-    return m_vertices[index].tex;
+    return m_vertices[index].m_tex;
 }
 
 // ***********************************************************************
 
 Vec3f Primitive::GetVertexNormal(int index) {
-    return m_vertices[index].norm;
+    return m_vertices[index].m_norm;
 }
 
 // ***********************************************************************
@@ -57,7 +57,7 @@ Mesh::~Mesh() {
 // ***********************************************************************
 
 int Mesh::GetNumPrimitives() {
-    return (int)m_primitives.count;
+    return (int)m_primitives.m_count;
 }
 
 // ***********************************************************************
@@ -115,14 +115,14 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
     // Consider caching loaded json files somewhere since LoadScene and LoadMeshes are doing duplicate work here
     SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
     uint64_t size = SDL_RWsize(pFileRead);
-    char* pData = (char*)gAllocator.Allocate(size * sizeof(char));
+    char* pData = (char*)g_Allocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
     String file;
     defer(FreeString(file));
-    file.pData = pData;
-    file.length = size;
+    file.m_pData = pData;
+    file.m_length = size;
     ;
     JsonValue parsed = ParseJsonFile(file);
     defer(parsed.Free());
@@ -139,7 +139,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
 
         String encodedBuffer = jsonBuffers[i]["uri"].ToString();
         String decoded = DecodeBase64(encodedBuffer.SubStr(37));
-        buf.pBytes = decoded.pData;
+        buf.pBytes = decoded.m_pData;
 
         rawDataBuffers.PushBack(buf);
     }
@@ -271,7 +271,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
     }
 
     rawDataBuffers.Free([](Buffer& buf) {
-        gAllocator.Free(buf.pBytes);
+        g_Allocator.Free(buf.pBytes);
     });
     return outMeshes;
 }
@@ -284,14 +284,14 @@ ResizableArray<Image*> Mesh::LoadTextures(const char* filePath) {
     // Consider caching loaded json files somewhere since LoadScene/LoadMeshes/LoadImages are doing duplicate work here
     SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
     uint64_t size = SDL_RWsize(pFileRead);
-    char* pData = (char*)gAllocator.Allocate(size * sizeof(char));
+    char* pData = (char*)g_Allocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
     String file;
     defer(FreeString(file));
-    file.pData = pData;
-    file.length = size;
+    file.m_pData = pData;
+    file.m_length = size;
     ;
 
     JsonValue parsed = ParseJsonFile(file);

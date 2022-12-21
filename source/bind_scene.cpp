@@ -22,7 +22,7 @@ void CheckAndInitPropertyTable(lua_State* pLua, Node* pNode) {
             lua_setfield(pLua, -2, "meshId");
         }
 
-        lua_pushlstring(pLua, pNode->m_name.pData, pNode->m_name.length);
+        lua_pushlstring(pLua, pNode->m_name.m_pData, pNode->m_name.m_length);
         lua_setfield(pLua, -2, "name");
 
         lua_pushinteger(pLua, pNode->m_id);

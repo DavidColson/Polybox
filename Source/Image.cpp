@@ -22,10 +22,10 @@ void ImageFreeCallback(void* ptr, void* userData) {
 
 Image::Image(String path) {
     // Load and cache texture files and upload to bgfx
-    SDL_RWops* pFileRead = SDL_RWFromFile(path.pData, "rb");
+    SDL_RWops* pFileRead = SDL_RWFromFile(path.m_pData, "rb");
 
     uint64_t size = SDL_RWsize(pFileRead);
-    void* pData = gAllocator.Allocate(size * sizeof(char));
+    void* pData = g_Allocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
@@ -38,8 +38,8 @@ Image::Image(String path) {
     m_width = pContainer->m_width;
     m_height = pContainer->m_height;
 
-    bgfx::setName(m_handle, path.pData);
-    gAllocator.Free(pData);
+    bgfx::setName(m_handle, path.m_pData);
+    g_Allocator.Free(pData);
 }
 
 // ***********************************************************************

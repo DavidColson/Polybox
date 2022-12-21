@@ -56,23 +56,23 @@ void GraphicsChip::FullScreenQuad(float _textureWidth, float _textureHeight, flo
             maxv -= 1.0f;
         }
 
-        vertex[0].pos.x = minx;
-        vertex[0].pos.y = miny;
-        vertex[0].pos.z = zz;
-        vertex[0].tex.x = minu;
-        vertex[0].tex.y = minv;
+        vertex[0].m_pos.x = minx;
+        vertex[0].m_pos.y = miny;
+        vertex[0].m_pos.z = zz;
+        vertex[0].m_tex.x = minu;
+        vertex[0].m_tex.y = minv;
 
-        vertex[1].pos.x = maxx;
-        vertex[1].pos.y = miny;
-        vertex[1].pos.z = zz;
-        vertex[1].tex.x = maxu;
-        vertex[1].tex.y = minv;
+        vertex[1].m_pos.x = maxx;
+        vertex[1].m_pos.y = miny;
+        vertex[1].m_pos.z = zz;
+        vertex[1].m_tex.x = maxu;
+        vertex[1].m_tex.y = minv;
 
-        vertex[2].pos.x = maxx;
-        vertex[2].pos.y = maxy;
-        vertex[2].pos.z = zz;
-        vertex[2].tex.x = maxu;
-        vertex[2].tex.y = maxv;
+        vertex[2].m_pos.x = maxx;
+        vertex[2].m_pos.y = maxy;
+        vertex[2].m_pos.z = zz;
+        vertex[2].m_tex.x = maxu;
+        vertex[2].m_tex.y = maxv;
 
         bgfx::setVertexBuffer(0, &vb);
     }
@@ -81,13 +81,13 @@ void GraphicsChip::FullScreenQuad(float _textureWidth, float _textureHeight, flo
 // ***********************************************************************
 
 void ShaderFreeCallback(void* ptr, void* userData) {
-    gAllocator.Free(ptr);
+    g_Allocator.Free(ptr);
 }
 
 bgfx::ShaderHandle LoadShader(const char* path) {
     SDL_RWops* pFileRead = SDL_RWFromFile(path, "rb");
     uint64_t size = SDL_RWsize(pFileRead);
-    char* pData = (char*)gAllocator.Allocate(size * sizeof(char));
+    char* pData = (char*)g_Allocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
@@ -269,12 +269,12 @@ void GraphicsChip::EndObject2D() {
 
     // create vertex buffer
     bgfx::TransientVertexBuffer vertexBuffer;
-    uint32_t numVertices = (uint32_t)m_vertexState.count;
+    uint32_t numVertices = (uint32_t)m_vertexState.m_count;
     if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout))
         return;  // TODO: Log some error
     bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
     VertexData* verts = (VertexData*)vertexBuffer.data;
-    bx::memCopy(verts, m_vertexState.pData, numVertices * sizeof(VertexData));
+    bx::memCopy(verts, m_vertexState.m_pData, numVertices * sizeof(VertexData));
     bgfx::setVertexBuffer(0, &vertexBuffer);
 
     if (m_pTextureState && bgfx::isValid(m_pTextureState->m_handle)) {
@@ -329,70 +329,70 @@ void GraphicsChip::EndObject3D() {
             break;
         case EPrimitiveType::Triangles: {
             if (m_normalsModeState == ENormalsMode::Flat) {
-                for (size_t i = 0; i < m_vertexState.count; i += 3) {
-                    Vec3f v1 = m_vertexState[i + 1].pos - m_vertexState[i].pos;
-                    Vec3f v2 = m_vertexState[i + 2].pos - m_vertexState[i].pos;
+                for (size_t i = 0; i < m_vertexState.m_count; i += 3) {
+                    Vec3f v1 = m_vertexState[i + 1].m_pos - m_vertexState[i].m_pos;
+                    Vec3f v2 = m_vertexState[i + 2].m_pos - m_vertexState[i].m_pos;
                     Vec3f faceNormal = Vec3f::Cross(v1, v2).GetNormalized();
 
-                    m_vertexState[i].norm = faceNormal;
-                    m_vertexState[i + 1].norm = faceNormal;
-                    m_vertexState[i + 2].norm = faceNormal;
+                    m_vertexState[i].m_norm = faceNormal;
+                    m_vertexState[i + 1].m_norm = faceNormal;
+                    m_vertexState[i + 2].m_norm = faceNormal;
                 }
 
                 // create vertex buffer
-                uint32_t numVertices = (uint32_t)m_vertexState.count;
+                uint32_t numVertices = (uint32_t)m_vertexState.m_count;
                 if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout))
                     return;
                 bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
                 VertexData* verts = (VertexData*)vertexBuffer.data;
-                bx::memCopy(verts, m_vertexState.pData, numVertices * sizeof(VertexData));
+                bx::memCopy(verts, m_vertexState.m_pData, numVertices * sizeof(VertexData));
             } else if (m_normalsModeState == ENormalsMode::Smooth) {
                 // Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list.
                 ResizableArray<VertexData> uniqueVerts;
                 defer(uniqueVerts.Free());
                 ResizableArray<uint16_t> indices;
                 defer(indices.Free());
-                for (size_t i = 0; i < m_vertexState.count; i++) {
+                for (size_t i = 0; i < m_vertexState.m_count; i++) {
                     VertexData* pVertData = uniqueVerts.Find(m_vertexState[i]);
                     if (pVertData == uniqueVerts.end()) {
                         // New vertex
                         uniqueVerts.PushBack(m_vertexState[i]);
-                        indices.PushBack((uint16_t)uniqueVerts.count - 1);
+                        indices.PushBack((uint16_t)uniqueVerts.m_count - 1);
                     } else {
                         indices.PushBack((uint16_t)uniqueVerts.IndexFromPointer(pVertData));
                     }
                 }
 
                 // Then run your flat shading algo on the list of vertices looping through index list. If you have a new normal for a vert, then average with the existing one
-                for (size_t i = 0; i < indices.count; i += 3) {
-                    Vec3f v1 = uniqueVerts[indices[i + 1]].pos - uniqueVerts[indices[i]].pos;
-                    Vec3f v2 = uniqueVerts[indices[i + 2]].pos - uniqueVerts[indices[i]].pos;
+                for (size_t i = 0; i < indices.m_count; i += 3) {
+                    Vec3f v1 = uniqueVerts[indices[i + 1]].m_pos - uniqueVerts[indices[i]].m_pos;
+                    Vec3f v2 = uniqueVerts[indices[i + 2]].m_pos - uniqueVerts[indices[i]].m_pos;
                     Vec3f faceNormal = Vec3f::Cross(v1, v2);
 
-                    uniqueVerts[indices[i]].norm += faceNormal;
-                    uniqueVerts[indices[i + 1]].norm += faceNormal;
-                    uniqueVerts[indices[i + 2]].norm += faceNormal;
+                    uniqueVerts[indices[i]].m_norm += faceNormal;
+                    uniqueVerts[indices[i + 1]].m_norm += faceNormal;
+                    uniqueVerts[indices[i + 2]].m_norm += faceNormal;
                 }
 
-                for (size_t i = 0; i < uniqueVerts.count; i++) {
-                    uniqueVerts[i].norm = uniqueVerts[i].norm.GetNormalized();
+                for (size_t i = 0; i < uniqueVerts.m_count; i++) {
+                    uniqueVerts[i].m_norm = uniqueVerts[i].m_norm.GetNormalized();
                 }
 
                 // create vertex buffer
-                uint32_t numVertices = (uint32_t)uniqueVerts.count;
+                uint32_t numVertices = (uint32_t)uniqueVerts.m_count;
                 if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout))
                     return;
                 bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
                 VertexData* pDstVerts = (VertexData*)vertexBuffer.data;
-                bx::memCopy(pDstVerts, uniqueVerts.pData, numVertices * sizeof(VertexData));
+                bx::memCopy(pDstVerts, uniqueVerts.m_pData, numVertices * sizeof(VertexData));
 
                 // Create index buffer
-                numIndices = (uint32_t)indices.count;
+                numIndices = (uint32_t)indices.m_count;
                 if (numIndices != bgfx::getAvailTransientIndexBuffer(numIndices))
                     return;
                 bgfx::allocTransientIndexBuffer(&indexBuffer, numIndices);
                 uint16_t* pDstIndices = (uint16_t*)indexBuffer.data;
-                bx::memCopy(pDstIndices, indices.pData, numIndices * sizeof(uint16_t));
+                bx::memCopy(pDstIndices, indices.m_pData, numIndices * sizeof(uint16_t));
             }
         }
         default:
@@ -401,12 +401,12 @@ void GraphicsChip::EndObject3D() {
 
     if (vertexBuffer.data == nullptr) {
         // create vertex buffer
-        uint32_t numVertices = (uint32_t)m_vertexState.count;
+        uint32_t numVertices = (uint32_t)m_vertexState.m_count;
         if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, m_layout))
             return;
         bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, m_layout);
         VertexData* verts = (VertexData*)vertexBuffer.data;
-        bx::memCopy(verts, m_vertexState.pData, numVertices * sizeof(VertexData));
+        bx::memCopy(verts, m_vertexState.m_pData, numVertices * sizeof(VertexData));
     }
 
     // Submit draw call
@@ -653,56 +653,56 @@ void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Fon
     Vec2f scale = Vec2f(size / baseSize, size / baseSize);
 
     String stringText(text);
-    for (size_t i = 0; i < stringText.length; i++) {
-        char c = *(stringText.pData + i);
-        Character ch = pFont->characters[c];
-        textWidth += ch.advance * scale.x;
+    for (size_t i = 0; i < stringText.m_length; i++) {
+        char c = *(stringText.m_pData + i);
+        Character ch = pFont->m_characters[c];
+        textWidth += ch.m_advance * scale.x;
     }
 
-    BindTexture(&pFont->fontTexture);
+    BindTexture(&pFont->m_fontTexture);
     BeginObject2D(EPrimitiveType::Triangles);
-    for (size_t i = 0; i < stringText.length; i++) {
-        char c = *(stringText.pData + i);
-        Character ch = pFont->characters[c];
+    for (size_t i = 0; i < stringText.m_length; i++) {
+        char c = *(stringText.m_pData + i);
+        Character ch = pFont->m_characters[c];
 
         // Center alignment
         // float xpos = (x + ch.bearing.x * scale.x) - textWidth * 0.5f;
-        float xpos = (x + ch.bearing.x * scale.x);
-        float ypos = y - (ch.size.y - ch.bearing.y) * scale.y;
-        float w = (float)ch.size.x * scale.x;
-        float h = (float)ch.size.y * scale.y;
+        float xpos = (x + ch.m_bearing.x * scale.x);
+        float ypos = y - (ch.m_size.y - ch.m_bearing.y) * scale.y;
+        float w = (float)ch.m_size.x * scale.x;
+        float h = (float)ch.m_size.y * scale.y;
 
         // 0
         Color(color);
-        TexCoord(Vec2f(ch.UV0.x, ch.UV1.y));
+        TexCoord(Vec2f(ch.m_UV0.x, ch.m_UV1.y));
         Vertex(Vec2f(xpos, ypos));
 
         // 1
         Color(color);
-        TexCoord(Vec2f(ch.UV1.x, ch.UV0.y));
+        TexCoord(Vec2f(ch.m_UV1.x, ch.m_UV0.y));
         Vertex(Vec2f(xpos + w, ypos + h));
 
         // 2
         Color(color);
-        TexCoord(Vec2f(ch.UV0.x, ch.UV0.y));
+        TexCoord(Vec2f(ch.m_UV0.x, ch.m_UV0.y));
         Vertex(Vec2f(xpos, ypos + h));
 
         // 0
         Color(color);
-        TexCoord(Vec2f(ch.UV0.x, ch.UV1.y));
+        TexCoord(Vec2f(ch.m_UV0.x, ch.m_UV1.y));
         Vertex(Vec2f(xpos, ypos));
 
         // 3
         Color(color);
-        TexCoord(Vec2f(ch.UV1.x, ch.UV1.y));
+        TexCoord(Vec2f(ch.m_UV1.x, ch.m_UV1.y));
         Vertex(Vec2f(xpos + w, ypos));
 
         // 1
         Color(color);
-        TexCoord(Vec2f(ch.UV1.x, ch.UV0.y));
+        TexCoord(Vec2f(ch.m_UV1.x, ch.m_UV0.y));
         Vertex(Vec2f(xpos + w, ypos + h));
 
-        x += ch.advance * scale.x;
+        x += ch.m_advance * scale.x;
     }
     EndObject2D();
     UnbindTexture();

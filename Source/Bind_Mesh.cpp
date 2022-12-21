@@ -79,7 +79,7 @@ int Primitive_GetMaterialTextureId(lua_State* pLua) {
 
 int Mesh_GetName(lua_State* pLua) {
     Mesh* pMesh = *(Mesh**)luaL_checkudata(pLua, 1, "Mesh");
-    lua_pushlstring(pLua, pMesh->m_name.pData, pMesh->m_name.length);
+    lua_pushlstring(pLua, pMesh->m_name.m_pData, pMesh->m_name.m_length);
     return 1;
 }
 
@@ -115,9 +115,9 @@ int LoadMeshes(lua_State* pLua) {
     defer(meshes.Free());
 
     // Create a table, and put all these mesh userdatas in there.
-    lua_createtable(pLua, (int)meshes.count, 0);
+    lua_createtable(pLua, (int)meshes.m_count, 0);
 
-    for (size_t i = 0; i < meshes.count; i++) {
+    for (size_t i = 0; i < meshes.m_count; i++) {
         // Create a new userdata for our object
         Mesh** ppMesh = (Mesh**)lua_newuserdata(pLua, sizeof(Mesh*));
         *ppMesh = meshes[i];
@@ -142,9 +142,9 @@ int LoadTextures(lua_State* pLua) {
     defer(images.Free());
 
     // Create a table, and put all these mesh userdatas in there.
-    lua_createtable(pLua, (int)images.count, 0);
+    lua_createtable(pLua, (int)images.m_count, 0);
 
-    for (size_t i = 0; i < images.count; i++) {
+    for (size_t i = 0; i < images.m_count; i++) {
         // Create a new userdata for our object
         Image** ppImage = (Image**)lua_newuserdata(pLua, sizeof(Image*));
         *ppImage = images[i];

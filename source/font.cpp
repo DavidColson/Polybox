@@ -27,7 +27,7 @@ Font::Font(String path, bool antialiasing, float weight) {
 
     FT_Face face;
 
-    FT_Error err = FT_New_Face(freetype, path.pData, 0, &face);
+    FT_Error err = FT_New_Face(freetype, path.m_pData, 0, &face);
     if (err) {
         Log::Warn("FreeType Error: %s", FT_Error_String(err));
     }
@@ -88,12 +88,12 @@ Font::Font(String path, bool antialiasing, float weight) {
 
         // Create the character with all it's appropriate data
         Character character;
-        character.size = Vec2i(face->glyph->bitmap.width, face->glyph->bitmap.rows);
-        character.bearing = Vec2i(face->glyph->bitmap_left, face->glyph->bitmap_top);
-        character.advance = (face->glyph->advance.x) >> 6;
-        character.UV0 = Vec2f((float)rect.x / (float)texWidth, (float)rect.y / (float)texHeight);
-        character.UV1 = Vec2f((float)(rect.x + character.size.x) / (float)texWidth, (float)(rect.y + character.size.y) / (float)texHeight);
-        characters.PushBack(character);
+        character.m_size = Vec2i(face->glyph->bitmap.width, face->glyph->bitmap.rows);
+        character.m_bearing = Vec2i(face->glyph->bitmap_left, face->glyph->bitmap_top);
+        character.m_advance = (face->glyph->advance.x) >> 6;
+        character.m_UV0 = Vec2f((float)rect.x / (float)texWidth, (float)rect.y / (float)texHeight);
+        character.m_UV1 = Vec2f((float)(rect.x + character.m_size.x) / (float)texWidth, (float)(rect.y + character.m_size.y) / (float)texHeight);
+        m_characters.PushBack(character);
 
         if (antialiasing == false) {
             // Blit the glyph's image into our texture atlas, but converting from 8 pixels per bit to 1 byte per pixel (monochrome)
@@ -139,9 +139,9 @@ Font::Font(String path, bool antialiasing, float weight) {
     }
 
     const bgfx::Memory* pMem = bgfx::makeRef(pTextureDataAsRGBA8, dstSize, FontTextureFreeCallback, nullptr);
-    fontTexture.m_handle = bgfx::createTexture2D(texWidth, texHeight, false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE | BGFX_SAMPLER_POINT, pMem);
-    fontTexture.m_height = texHeight;
-    fontTexture.m_width = texWidth;
+    m_fontTexture.m_handle = bgfx::createTexture2D(texWidth, texHeight, false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE | BGFX_SAMPLER_POINT, pMem);
+    m_fontTexture.m_height = texHeight;
+    m_fontTexture.m_width = texWidth;
 
     delete[] pTextureDataAsR8;
 

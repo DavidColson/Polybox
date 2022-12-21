@@ -42,17 +42,17 @@ enum class ENormalsMode {
 };
 
 struct VertexData {
-    Vec3f pos;
-    Vec4f col;
-    Vec2f tex;
-    Vec3f norm;
+    Vec3f m_pos;
+    Vec4f m_col;
+    Vec2f m_tex;
+    Vec3f m_norm;
 
     VertexData() {}
-    VertexData(Vec3f _pos, Vec4f _col, Vec2f _tex, Vec3f _norm)
-        : pos(_pos), col(_col), tex(_tex), norm(_norm) {}
+    VertexData(Vec3f pos, Vec4f col, Vec2f tex, Vec3f norm)
+        : m_pos(pos), m_col(col), m_tex(tex), m_norm(norm) {}
 
     bool operator==(const VertexData& other) {
-        return pos == other.pos;
+        return m_pos == other.m_pos;
     }
 };
 

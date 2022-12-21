@@ -85,7 +85,7 @@ Node* Node::GetParent() {
 // ***********************************************************************
 
 int Node::GetNumChildren() {
-    return (int)m_children.count;
+    return (int)m_children.m_count;
 }
 
 // ***********************************************************************
@@ -104,7 +104,7 @@ void Node::UpdateWorldTransforms() {
         m_worldTransform = m_localTransform;
     }
 
-    if (!m_children.count) {
+    if (!m_children.m_count) {
         for (Node* pChild : m_children) {
             pChild->m_worldTransform = m_worldTransform * pChild->m_localTransform;
         }
@@ -123,7 +123,7 @@ Scene::~Scene() {
 // ***********************************************************************
 
 int Scene::GetNumNodes() {
-    return (int)m_nodes.count;
+    return (int)m_nodes.m_count;
 }
 
 // ***********************************************************************
@@ -141,7 +141,7 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& o
 
         // extract the nodes
         outNodes.PushBack(Node());
-        Node& node = outNodes[outNodes.count - 1];
+        Node& node = outNodes[outNodes.m_count - 1];
 
         String nodeName = jsonNode.HasKey("name") ? jsonNode["name"].ToString() : String("");
         node.m_name = CopyString(nodeName);
@@ -202,14 +202,14 @@ Scene* Scene::LoadScene(const char* filePath) {
     Scene* pScene = new Scene();  // TODO: Use our allocators
 
     uint64_t size = SDL_RWsize(pFileRead);
-    char* pData = (char*)gAllocator.Allocate(size * sizeof(char));
+    char* pData = (char*)g_Allocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
     String file;
     defer(FreeString(file));
-    file.pData = pData;
-    file.length = size;
+    file.m_pData = pData;
+    file.m_length = size;
 
     JsonValue parsed = ParseJsonFile(file);
     defer(parsed.Free());

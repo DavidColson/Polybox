@@ -17,17 +17,17 @@ FT_Library* Get();
 }
 
 struct Character {
-    Vec2i size { Vec2i(0, 0) };
-    Vec2i bearing { Vec2i(0, 0) };
-    Vec2f UV0 { Vec2f(0.f, 0.f) };
-    Vec2f UV1 { Vec2f(1.f, 1.f) };
-    int advance;
+    Vec2i m_size { Vec2i(0, 0) };
+    Vec2i m_bearing { Vec2i(0, 0) };
+    Vec2f m_UV0 { Vec2f(0.f, 0.f) };
+    Vec2f m_UV1 { Vec2f(1.f, 1.f) };
+    int m_advance;
 };
 
 struct Font : public LuaObject {
     Font() {}
     Font(String path, bool antialiasing = true, float weight = 0.0f);
 
-    Image fontTexture;
-    ResizableArray<Character> characters;
+    Image m_fontTexture;
+    ResizableArray<Character> m_characters;
 };

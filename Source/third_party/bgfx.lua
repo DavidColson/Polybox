@@ -503,7 +503,7 @@ project "glsl-optimizer"
 			"/wd4996", -- warning C4996: 'strdup': The POSIX name for this item is deprecated. Instead, use the ISO C++ conformant name: _strdup.
 		}
 
-group "ThirdParty/bgfx/tools"
+group "third_party/bgfx/tools"
 
 project "shaderc"
     kind "ConsoleApp"

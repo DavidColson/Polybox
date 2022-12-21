@@ -84,6 +84,8 @@ void ShaderFreeCallback(void* ptr, void* userData) {
     g_Allocator.Free(ptr);
 }
 
+// ***********************************************************************
+
 bgfx::ShaderHandle LoadShader(const char* path) {
     SDL_RWops* pFileRead = SDL_RWFromFile(path, "rb");
     uint64_t size = SDL_RWsize(pFileRead);
@@ -93,6 +95,8 @@ bgfx::ShaderHandle LoadShader(const char* path) {
 
     return bgfx::createShader(bgfx::makeRef(pData, (uint32_t)size, ShaderFreeCallback));
 }
+
+// ***********************************************************************
 
 void GraphicsChip::Init() {
     m_layout
@@ -776,6 +780,8 @@ void GraphicsChip::DrawCircle(Vec2f center, float radius, Vec4f color) {
     }
     EndObject2D();
 }
+
+// ***********************************************************************
 
 void GraphicsChip::DrawCircleOutline(Vec2f center, float radius, Vec4f color) {
     BeginObject2D(EPrimitiveType::Lines);

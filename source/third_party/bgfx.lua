@@ -572,7 +572,7 @@ project "shaderc"
 		includedirs { "bx/include/compat/osx" }
 		buildoptions { "-x objective-c++" }
 
-group "ThirdParty/bgfx"
+group "third_party/bgfx"
 
 project "bgfx"
     kind "StaticLib"

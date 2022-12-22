@@ -5,6 +5,7 @@
 #include "image.h"
 
 #include <matrix.inl>
+#include <vec3.inl>
 #include <SDL_rwops.h>
 #include <SDL_timer.h>
 #include <defer.h>

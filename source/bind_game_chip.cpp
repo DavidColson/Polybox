@@ -3,6 +3,7 @@
 #include "bind_game_chip.h"
 
 #include "game_chip.h"
+#include "light_string.h"
 #include "lua_common.h"
 
 extern "C" {

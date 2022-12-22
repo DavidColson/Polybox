@@ -13,6 +13,7 @@
 #include <json.h>
 #include <maths.h>
 #include <string_hash.h>
+#include <hashmap.inl>
 #undef DrawText
 #undef DrawTextEx
 

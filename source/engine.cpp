@@ -29,6 +29,7 @@ extern "C" {
 #include <matrix.h>
 #include <platform_debug.h>
 #include <vec3.h>
+#include <hashmap.inl>
 #undef DrawText
 #undef DrawTextEx
 

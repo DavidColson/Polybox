@@ -52,6 +52,8 @@ solution "polybox"
     dofile("source/third_party/bgfx.lua")
     dofile("source/third_party/FreeType.lua")
     dofile("source/third_party/lua.lua")
+
+    dofile("source/polyscript/polyscript.lua")
     
     project "polybox"
         kind "WindowedApp"
@@ -102,11 +104,11 @@ solution "polybox"
         }
         dependson { "shaderc" }
         filter "files:**.fsc"
-            buildmessage 'Compiling %{file.relpath}'
+            buildmessage '%{file.name}'
             buildcommands {
-                '%{cfg.buildtarget.directory}/shaderc.exe -f "%{file.path}" -o "%{file.directory}/Bin/%{file.basename}.fbin" --type f --varyingdef "%{file.directory}/varying.def.sc" -p ps_4_0 --platform windows'
+                '%{cfg.buildtarget.directory}/shaderc.exe -f "%{file.path}" -o "%{file.directory}/bin/%{file.basename}.fbin" --type f --varyingdef "%{file.directory}/varying.def.sc" -p ps_4_0 --platform windows'
             }
-            buildoutputs { '%{file.directory}/Bin/%{file.basename}.fbin' }
+            buildoutputs { '%{file.directory}/bin/%{file.basename}.fbin' }
             buildinputs 
             { 
                 '%{file.directory}/varying.def.sc',  
@@ -115,11 +117,11 @@ solution "polybox"
                 '%{file.directory}/bgfx_shader.sh'
             }
         filter "files:**.vsc"
-            buildmessage 'Compiling %{file.relpath}'
+            buildmessage '%{file.name}'
             buildcommands {
-                '%{cfg.buildtarget.directory}/shaderc.exe -f "%{file.path}" -o "%{file.directory}/Bin/%{file.basename}.vbin" --type v --varyingdef "%{file.directory}/varying.def.sc" -p vs_4_0 --platform windows'
+                '%{cfg.buildtarget.directory}/shaderc.exe -f "%{file.path}" -o "%{file.directory}/bin/%{file.basename}.vbin" --type v --varyingdef "%{file.directory}/varying.def.sc" -p vs_4_0 --platform windows'
             }
-            buildoutputs { '%{file.directory}/Bin/%{file.basename}.vbin' }
+            buildoutputs { '%{file.directory}/bin/%{file.basename}.vbin' }
             buildinputs 
             { 
                 '%{file.directory}/varying.def.sc',  

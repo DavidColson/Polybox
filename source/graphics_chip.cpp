@@ -113,38 +113,39 @@ void GraphicsChip::Init() {
         .end();
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/core3d.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/core3d.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/bin/core3d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/bin/core3d.fbin");
         m_programBase3D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/core3d.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/core3d_textured.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/bin/core3d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/bin/core3d_textured.fbin");
         m_programTexturing3D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/core2d.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/core2d.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/bin/core2d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/bin/core2d.fbin");
         m_programBase2D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/core2d.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/core2d_textured.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/bin/core2d.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/bin/core2d_textured.fbin");
         m_programTexturing2D = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/fullscreen.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/fullscreen.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/bin/fullscreen.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/bin/fullscreen.fbin");
         m_fullscreenTexProgram = bgfx::createProgram(vsShader, fsShader, true);
     }
 
     {
-        bgfx::ShaderHandle vsShader = LoadShader("shaders/Bin/fullscreen.vbin");
-        bgfx::ShaderHandle fsShader = LoadShader("shaders/Bin/crt.fbin");
+        bgfx::ShaderHandle vsShader = LoadShader("shaders/bin/fullscreen.vbin");
+        bgfx::ShaderHandle fsShader = LoadShader("shaders/bin/crt.fbin");
+
         m_crtProgram = bgfx::createProgram(vsShader, fsShader, true);
     }
 

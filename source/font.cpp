@@ -11,6 +11,7 @@
 #include <freetype/ftmm.h>
 #include <log.h>
 #include <maths.h>
+#include <resizable_array.inl>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 

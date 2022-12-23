@@ -10,6 +10,7 @@ extern "C" {
 #include <lualib.h>
 }
 #include <defer.h>
+#include <resizable_array.inl>
 
 namespace Bind {
 // ***********************************************************************

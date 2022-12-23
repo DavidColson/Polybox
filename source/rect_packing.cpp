@@ -4,6 +4,7 @@
 
 #include <defer.h>
 #include <sort.h>
+#include <resizable_array.inl>
 
 namespace Packing {
 

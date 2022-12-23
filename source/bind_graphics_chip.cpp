@@ -11,6 +11,7 @@ extern "C" {
 #include <lualib.h>
 }
 #include <light_string.h>
+#include <string.h>
 
 namespace {
 GraphicsChip* pGpu { nullptr };

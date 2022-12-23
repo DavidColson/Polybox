@@ -14,6 +14,7 @@
 #include <maths.h>
 #include <string_hash.h>
 #include <hashmap.inl>
+#include <log.h>
 #undef DrawText
 #undef DrawTextEx
 
@@ -610,7 +611,7 @@ void GameChip::UpdateInputs(float deltaTime, Vec2f targetRes, Vec2f realWindowRe
             continue;
 
         if (axis.m_ignoreVirtual) {
-            if (abs(axis.m_axisValue) <= deadzone)
+            if (fabs(axis.m_axisValue) <= deadzone)
                 axis.m_axisValue = 0.0f;
             continue;
         }
@@ -623,7 +624,7 @@ void GameChip::UpdateInputs(float deltaTime, Vec2f targetRes, Vec2f realWindowRe
         }
         if (!axis.m_negativeInput && !axis.m_positiveInput) {
             axis.m_axisValue += (0 - axis.m_axisValue) * gravity * deltaTime;
-            if (abs(axis.m_axisValue) <= deadzone)
+            if (fabs(axis.m_axisValue) <= deadzone)
                 axis.m_axisValue = 0.0f;
         }
 

@@ -8,6 +8,7 @@
 #include "string_builder.h"
 
 #include <SDL_rwops.h>
+#include <resizable_array.inl>
 
 // ***********************************************************************
 

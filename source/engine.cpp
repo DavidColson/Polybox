@@ -30,6 +30,7 @@ extern "C" {
 #include <platform_debug.h>
 #include <vec3.h>
 #include <hashmap.inl>
+#include <resizable_array.inl>
 #undef DrawText
 #undef DrawTextEx
 

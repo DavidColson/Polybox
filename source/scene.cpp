@@ -11,6 +11,7 @@
 #include <quat.inl>
 #include <matrix.inl>
 #include <SDL_rwops.h>
+#include <resizable_array.inl>
 
 uint64_t Node::s_nodeIdCounter = 0;
 

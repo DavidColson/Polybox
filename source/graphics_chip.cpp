@@ -5,11 +5,14 @@
 #include "image.h"
 
 #include <matrix.inl>
+#include <vec2.inl>
 #include <vec3.inl>
+#include <vec4.inl>
 #include <SDL_rwops.h>
 #include <SDL_timer.h>
 #include <defer.h>
 #include <bx/bx.h>
+#include <resizable_array.inl>
 
 
 // ***********************************************************************
@@ -777,8 +780,8 @@ void GraphicsChip::DrawCircle(Vec2f center, float radius, Vec4f color) {
         float x2 = (PI2 / segments) * (i + 1);
         Color(color);
         Vertex(center);
-        Vertex(center + Vec2f(sin(x1), cos(x1)) * radius);
-        Vertex(center + Vec2f(sin(x2), cos(x2)) * radius);
+        Vertex(center + Vec2f(sinf(x1), cosf(x1)) * radius);
+        Vertex(center + Vec2f(sinf(x2), cosf(x2)) * radius);
     }
     EndObject2D();
 }
@@ -792,8 +795,8 @@ void GraphicsChip::DrawCircleOutline(Vec2f center, float radius, Vec4f color) {
         float x1 = (PI2 / segments) * i;
         float x2 = (PI2 / segments) * (i + 1);
         Color(color);
-        Vertex(center + Vec2f(sin(x1), cos(x1)) * radius);
-        Vertex(center + Vec2f(sin(x2), cos(x2)) * radius);
+        Vertex(center + Vec2f(sinf(x1), cosf(x1)) * radius);
+        Vertex(center + Vec2f(sinf(x2), cosf(x2)) * radius);
     }
     EndObject2D();
 }

@@ -5,7 +5,6 @@
 #include <defer.h>
 #include <sort.h>
 
-#include <algorithm>
 namespace Packing {
 
 // ***********************************************************************

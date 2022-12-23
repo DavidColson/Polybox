@@ -3,6 +3,7 @@
 #include "shapes.h"
 
 #include "graphics_chip.h"
+#include "vec3.inl"
 
 // ***********************************************************************
 

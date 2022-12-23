@@ -9,7 +9,7 @@
 #include <SDL_rwops.h>
 #include <SDL_timer.h>
 #include <defer.h>
-#include <shaderc/shaderc.h>
+#include <bx/bx.h>
 
 
 // ***********************************************************************

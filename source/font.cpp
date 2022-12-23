@@ -4,13 +4,19 @@
 
 #include "rect_packing.h"
 
+#include <light_string.h>
 #include <bimg/bimg.h>
 #include <bx/allocator.h>
 #include <defer.h>
 #include <freetype/ftmm.h>
 #include <log.h>
-#include <algorithm>
+#include <maths.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
+namespace FreeType {
+FT_Library* Get();
+}
 
 // ***********************************************************************
 

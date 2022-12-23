@@ -2,19 +2,13 @@
 
 #pragma once
 
-#include <bgfx/bgfx.h>
-#include <ft2build.h>
-#include <light_string.h>
 #include <resizable_array.h>
 #include <vec2.h>
-#include FT_FREETYPE_H
 
 #include "image.h"
 #include "lua_common.h"
 
-namespace FreeType {
-FT_Library* Get();
-}
+struct String;
 
 struct Character {
     Vec2i m_size { Vec2i(0, 0) };

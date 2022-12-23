@@ -7,7 +7,7 @@ end
 GAME_DIR    = "game/source"
 ENGINE_DIR  = "engine/source"
 
-ASAN_Enabled = false
+ASAN_Enabled = true
 
 -- Third party locations
 local SDL_DIR     = "Engine/lib/SDL2-2.0.8"

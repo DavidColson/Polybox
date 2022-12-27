@@ -5,11 +5,25 @@
 
 enum class OpCode : uint8_t {
     LoadConstant,
+    
+    // Arithmetic
     Negate,
     Add,
     Subtract,
     Multiply,
     Divide,
+    
+    // Logical
+    Not,
+    And,
+    Or,
+
+    // Comparison
+    Greater,
+    Less,
+    Equal,
+
+    // Misc
     Print,
     Return
 };
@@ -25,6 +39,17 @@ struct Value {
         bool m_boolValue;
         double m_floatValue;
     };
+
+    bool operator==(Value& other) const {
+        switch (m_type) {
+            case ValueType::Float:
+                return m_floatValue == other.m_floatValue;
+            case ValueType::Bool:
+                return m_boolValue == other.m_boolValue;
+            default:
+                return false;
+        }
+    }
 };
 
 inline Value MakeValue(bool value) {

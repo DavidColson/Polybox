@@ -153,7 +153,7 @@ struct ParsingState {
     }
 
     Ast::Expression* ParseUnary() {
-        while (Match(1, TokenType::Minus)) {
+        while (Match(2, TokenType::Minus, TokenType::Bang)) {
             Ast::Unary* pUnaryExpr = (Ast::Unary*)g_Allocator.Allocate(sizeof(Ast::Unary));
             pUnaryExpr->m_type = Ast::NodeType::Unary;
 
@@ -197,8 +197,72 @@ struct ParsingState {
         return pExpr;
     }
 
+    Ast::Expression* ParseComparison() {
+        Ast::Expression* pExpr = ParseAddSub();
+
+        while (Match(4, TokenType::Greater, TokenType::Less, TokenType::GreaterEqual, TokenType::LessEqual)) {
+            Ast::Binary* pBinaryExpr = (Ast::Binary*)g_Allocator.Allocate(sizeof(Ast::Binary));
+            pBinaryExpr->m_type = Ast::NodeType::Binary;
+
+            pBinaryExpr->m_pLeft = pExpr;
+            pBinaryExpr->m_operator = Previous();
+            pBinaryExpr->m_pRight = ParseAddSub();
+
+            pExpr = (Ast::Expression*)pBinaryExpr;
+        }
+        return pExpr;
+    }
+
+    Ast::Expression* ParseEquality() {
+        Ast::Expression* pExpr = ParseComparison();
+
+        while (Match(2, TokenType::EqualEqual, TokenType::BangEqual)) {
+            Ast::Binary* pBinaryExpr = (Ast::Binary*)g_Allocator.Allocate(sizeof(Ast::Binary));
+            pBinaryExpr->m_type = Ast::NodeType::Binary;
+
+            pBinaryExpr->m_pLeft = pExpr;
+            pBinaryExpr->m_operator = Previous();
+            pBinaryExpr->m_pRight = ParseComparison();
+
+            pExpr = (Ast::Expression*)pBinaryExpr;
+        }
+        return pExpr;
+    }
+
+    Ast::Expression* ParseLogicAnd() {
+        Ast::Expression* pExpr = ParseEquality();
+
+        while (Match(1, TokenType::And)) {
+            Ast::Binary* pBinaryExpr = (Ast::Binary*)g_Allocator.Allocate(sizeof(Ast::Binary));
+            pBinaryExpr->m_type = Ast::NodeType::Binary;
+
+            pBinaryExpr->m_pLeft = pExpr;
+            pBinaryExpr->m_operator = Previous();
+            pBinaryExpr->m_pRight = ParseEquality();
+
+            pExpr = (Ast::Expression*)pBinaryExpr;
+        }
+        return pExpr;
+    }
+
+    Ast::Expression* ParseLogicOr() {
+        Ast::Expression* pExpr = ParseLogicAnd();
+
+        while (Match(1, TokenType::Or)) {
+            Ast::Binary* pBinaryExpr = (Ast::Binary*)g_Allocator.Allocate(sizeof(Ast::Binary));
+            pBinaryExpr->m_type = Ast::NodeType::Binary;
+
+            pBinaryExpr->m_pLeft = pExpr;
+            pBinaryExpr->m_operator = Previous();
+            pBinaryExpr->m_pRight = ParseLogicAnd();
+
+            pExpr = (Ast::Expression*)pBinaryExpr;
+        }
+        return pExpr;
+    }
+    
     Ast::Expression* ParseExpression() {
-        return ParseAddSub();
+        return ParseLogicOr();
     }
 };
 
@@ -244,6 +308,30 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel = 0) {
                 case TokenType::Star:
                     Log::Debug("%*s- Binary (*)", indentationLevel, "");
                     break;
+                case TokenType::Greater:
+                    Log::Debug("%*s- Binary (>)", indentationLevel, "");
+                    break;
+                case TokenType::Less:
+                    Log::Debug("%*s- Binary (<)", indentationLevel, "");
+                    break;
+                case TokenType::GreaterEqual:
+                    Log::Debug("%*s- Binary (>=)", indentationLevel, "");
+                    break;
+                case TokenType::LessEqual:
+                    Log::Debug("%*s- Binary (<=)", indentationLevel, "");
+                    break;
+                case TokenType::EqualEqual:
+                    Log::Debug("%*s- Binary (==)", indentationLevel, "");
+                    break;
+                case TokenType::BangEqual:
+                    Log::Debug("%*s- Binary (!=)", indentationLevel, "");
+                    break;
+                case TokenType::And:
+                    Log::Debug("%*s- Binary (&&)", indentationLevel, "");
+                    break;
+                case TokenType::Or:
+                    Log::Debug("%*s- Binary (||)", indentationLevel, "");
+                    break;
                 default:
                     break;
             }
@@ -256,6 +344,9 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel = 0) {
             switch (pUnary->m_operator.m_type) {
                 case TokenType::Minus:
                     Log::Debug("%*s- Unary (-)", indentationLevel, "");
+                    break;
+                case TokenType::Bang:
+                    Log::Debug("%*s- Unary (!)", indentationLevel, "");
                     break;
                 default:
                     break;
@@ -304,6 +395,33 @@ void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk) {
                 case TokenType::Star:
                     pChunk->code.PushBack((uint8_t)OpCode::Multiply);
                     break;
+                case TokenType::Greater:
+                    pChunk->code.PushBack((uint8_t)OpCode::Greater);
+                    break;
+                case TokenType::Less:
+                    pChunk->code.PushBack((uint8_t)OpCode::Less);
+                    break;
+                case TokenType::GreaterEqual:
+                    pChunk->code.PushBack((uint8_t)OpCode::Less);
+                    pChunk->code.PushBack((uint8_t)OpCode::Not);
+                    break;
+                case TokenType::LessEqual:
+                    pChunk->code.PushBack((uint8_t)OpCode::Greater);
+                    pChunk->code.PushBack((uint8_t)OpCode::Not);
+                    break;
+                case TokenType::EqualEqual:
+                    pChunk->code.PushBack((uint8_t)OpCode::Equal);
+                    break;
+                case TokenType::BangEqual:
+                    pChunk->code.PushBack((uint8_t)OpCode::Equal);
+                    pChunk->code.PushBack((uint8_t)OpCode::Not);
+                    break;
+                case TokenType::And:
+                    pChunk->code.PushBack((uint8_t)OpCode::And);
+                    break;
+                case TokenType::Or:
+                    pChunk->code.PushBack((uint8_t)OpCode::Or);
+                    break;
                 default:
                     break;
             }
@@ -315,6 +433,9 @@ void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk) {
             switch (pUnary->m_operator.m_type) {
                 case TokenType::Minus:
                     pChunk->code.PushBack((uint8_t)OpCode::Negate);
+                    break;
+                case TokenType::Bang:
+                    pChunk->code.PushBack((uint8_t)OpCode::Not);
                     break;
                 default:
                     break;
@@ -337,14 +458,14 @@ int main() {
 
     String actualCode;
     //actualCode = "( 5 - (12+3) ) * 12 / 3";
-    actualCode = "true";
+    actualCode = "true && true";
 
     ResizableArray<Token> tokens = Tokenize(&g_Allocator, actualCode);
     defer(tokens.Free());
 
     Ast::Expression* pAst = ParseToAst(tokens);
 
-    Log::Info("---- AST -----");
+    Log::Debug("---- AST -----");
     DebugAst(pAst);
 
     CodeChunk chunk;

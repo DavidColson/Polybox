@@ -25,7 +25,6 @@ enum class TokenType {
     Slash,
     Equal,
     Bang,
-    Bar,
     Percent,
     Caret,
     Greater,
@@ -36,6 +35,8 @@ enum class TokenType {
     EqualEqual,
     LessEqual,
     GreaterEqual,
+    And,
+    Or,
 
     // Literals
     LiteralString,

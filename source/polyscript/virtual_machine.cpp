@@ -52,6 +52,11 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             pReturnInstruction += 1;
             break;
         }
+        case (uint8_t)OpCode::Not: {
+            builder.Append("OpNot ");
+            pReturnInstruction += 1;
+            break;
+        }
         case (uint8_t)OpCode::Add: {
             builder.Append("OpAdd ");
             pReturnInstruction += 1;
@@ -69,6 +74,31 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
         }
         case (uint8_t)OpCode::Divide: {
             builder.Append("OpDivide ");
+            pReturnInstruction += 1;
+            break;
+        }
+        case (uint8_t)OpCode::Greater: {
+            builder.Append("OpGreater ");
+            pReturnInstruction += 1;
+            break;
+        }
+        case (uint8_t)OpCode::Less: {
+            builder.Append("OpLess ");
+            pReturnInstruction += 1;
+            break;
+        }
+        case (uint8_t)OpCode::Equal: {
+            builder.Append("OpEqual ");
+            pReturnInstruction += 1;
+            break;
+        }
+        case (uint8_t)OpCode::And: {
+            builder.Append("OpAnd ");
+            pReturnInstruction += 1;
+            break;
+        }
+        case (uint8_t)OpCode::Or: {
+            builder.Append("OpOr ");
             pReturnInstruction += 1;
             break;
         }
@@ -121,6 +151,12 @@ void Run(CodeChunk* pChunkToRun) {
                 vm.stack.Push(v);
                 break;
             }
+            case (uint8_t)OpCode::Not: {
+                Value v = vm.stack.Pop();
+                v.m_boolValue = !v.m_boolValue;
+                vm.stack.Push(v);
+                break;
+            }
             case (uint8_t)OpCode::Add: {
                 double b = vm.stack.Pop().m_floatValue;
                 double a = vm.stack.Pop().m_floatValue;
@@ -143,6 +179,36 @@ void Run(CodeChunk* pChunkToRun) {
                 double b = vm.stack.Pop().m_floatValue;
                 double a = vm.stack.Pop().m_floatValue;
                 vm.stack.Push(MakeValue(float(a / b)));
+                break;
+            }
+            case (uint8_t)OpCode::Greater: {
+                double b = vm.stack.Pop().m_floatValue;
+                double a = vm.stack.Pop().m_floatValue;
+                vm.stack.Push(MakeValue(bool(a > b)));
+                break;
+            }
+            case (uint8_t)OpCode::Less: {
+                double b = vm.stack.Pop().m_floatValue;
+                double a = vm.stack.Pop().m_floatValue;
+                vm.stack.Push(MakeValue(bool(a < b)));
+                break;
+            }
+            case (uint8_t)OpCode::Equal: {
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(MakeValue(bool(a == b)));
+                break;
+            }
+            case (uint8_t)OpCode::And: {
+                bool b = vm.stack.Pop().m_boolValue;
+                bool a = vm.stack.Pop().m_boolValue;
+                vm.stack.Push(MakeValue(bool(a && b)));
+                break;
+            }
+            case (uint8_t)OpCode::Or: {
+                bool b = vm.stack.Pop().m_boolValue;
+                bool a = vm.stack.Pop().m_boolValue;
+                vm.stack.Push(MakeValue(bool(a || b)));
                 break;
             }
             case (uint8_t)OpCode::Print: {

@@ -6,6 +6,8 @@ struct String;
 struct IAllocator;
 
 enum class TokenType {
+    Invalid,
+
     // Simple one character tokens
     LeftParen,
     RightParen,
@@ -54,7 +56,7 @@ enum class TokenType {
 };
 
 struct Token {
-    TokenType m_type;
+    TokenType m_type { TokenType::Invalid };
 
     char* m_pLocation { nullptr };
     size_t m_length { 0 };

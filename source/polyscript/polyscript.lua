@@ -13,6 +13,14 @@ project "polyscript"
 		"*.h",
 		"*.inl"
 	}
+	includedirs
+	{
+		"../../source/common_lib/source/"
+	}
+	links
+	{
+		"common_lib"
+	}
 	filter { "system:windows", "configurations:Debug*" }
 		links { "dbghelp" }
 	if ASAN_Enabled then
@@ -34,11 +42,13 @@ project "polyscript_tests"
 	}
 	includedirs
 	{
-		"../../source/common_lib/source/"
+		"../../source/common_lib/source/",
+		""
 	}
 	links
 	{
-		"common_lib"
+		"common_lib",
+		"polyscript"
 	}
 	filter { "system:windows", "configurations:Debug*" }
 		links { "dbghelp" }

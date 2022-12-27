@@ -11,8 +11,6 @@
 #include "virtual_machine.h"
 #include "lexer.h"
 
-#define DEBUG_TRACE
-
 
 namespace Ast {
 enum class NodeType {
@@ -198,8 +196,6 @@ Ast::Expression* ParseToAst(ResizableArray<Token>& tokens) {
 
 
 void DebugAst(Ast::Expression* pExpr, int indentationLevel = 0) {
-    StringBuilder builder;
-
     switch (pExpr->m_type) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
@@ -251,57 +247,97 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel = 0) {
     }
 }
 
+
+void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk) {
+    switch (pExpr->m_type) {
+        case Ast::NodeType::Literal: {
+            Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
+            
+            pChunk->constants.PushBack(pLiteral->m_value);
+            uint8_t constIndex = (uint8_t)pChunk->constants.m_count - 1;
+
+            pChunk->code.PushBack((uint8_t)OpCode::LoadConstant);
+            pChunk->code.PushBack(constIndex);
+            break;
+        }
+        case Ast::NodeType::Grouping: {
+            Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
+            
+            CodeGen(pGroup->m_pExpression, pChunk);
+            break;
+        }
+        case Ast::NodeType::Binary: {
+            Ast::Binary* pBinary = (Ast::Binary*)pExpr;
+            CodeGen(pBinary->m_pLeft, pChunk);
+            CodeGen(pBinary->m_pRight, pChunk);
+            switch (pBinary->m_operator.m_type) {
+                case TokenType::Plus:
+                    pChunk->code.PushBack((uint8_t)OpCode::Add);
+                    break;
+                case TokenType::Minus:
+                    pChunk->code.PushBack((uint8_t)OpCode::Subtract);
+                    break;
+                case TokenType::Slash:
+                    pChunk->code.PushBack((uint8_t)OpCode::Divide);
+                    break;
+                case TokenType::Star:
+                    pChunk->code.PushBack((uint8_t)OpCode::Multiply);
+                    break;
+                default:
+                    break;
+            }
+            break;
+        }
+        case Ast::NodeType::Unary: {
+            Ast::Unary* pUnary = (Ast::Unary*)pExpr;
+            CodeGen(pUnary->m_pRight, pChunk);
+            switch (pUnary->m_operator.m_type) {
+                case TokenType::Minus:
+                    pChunk->code.PushBack((uint8_t)OpCode::Negate);
+                    break;
+                default:
+                    break;
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 // TODO for cleanup of my prototype code
 
 // [ ] Implement a nicer stack structure with custom indexing
+// [ ] Move AST parser to it's own file
 
 int main() {
     // Scanning?
     // Want to reuse scanner from commonLib don't we
 
     String actualCode;
-    actualCode = "( 5 - 2 ) * 12";
+    actualCode = "( 5 - (12+3) ) * 12 / 3";
 
     ResizableArray<Token> tokens = Tokenize(&g_Allocator, actualCode);
     defer(tokens.Free());
 
     Ast::Expression* pAst = ParseToAst(tokens);
 
+    Log::Info("---- AST -----");
     DebugAst(pAst);
 
     CodeChunk chunk;
     defer(chunk.code.Free());
     defer(chunk.constants.Free());
 
-    // Add constant to table and get it's index
-    chunk.constants.PushBack(7);
-    uint8_t constIndex7 = (uint8_t)chunk.constants.m_count - 1;
-
-    chunk.constants.PushBack(14);
-    uint8_t constIndex14 = (uint8_t)chunk.constants.m_count - 1;
-
-    chunk.constants.PushBack(6);
-    uint8_t constIndex6 = (uint8_t)chunk.constants.m_count - 1;
-
-    // Add a load constant opcode
-    chunk.code.PushBack((uint8_t)OpCode::LoadConstant);
-    chunk.code.PushBack(constIndex6);
-
-    chunk.code.PushBack((uint8_t)OpCode::LoadConstant);
-    chunk.code.PushBack(constIndex7);
-
-    chunk.code.PushBack((uint8_t)OpCode::LoadConstant);
-    chunk.code.PushBack(constIndex14);
-
-    // return opcode
-    chunk.code.PushBack((uint8_t)OpCode::Subtract);
-    //chunk.code.PushBack((uint8_t)OpCode::Add);
+    CodeGen(pAst, &chunk);
     chunk.code.PushBack((uint8_t)OpCode::Print);
     chunk.code.PushBack((uint8_t)OpCode::Return);
 
-    Run(&chunk);
+    Disassemble(chunk);
+    
+    Log::Info("---- Program Running -----");
 
-    //Disassemble(chunk);
+    Run(&chunk);
 
     __debugbreak();
     return 0;

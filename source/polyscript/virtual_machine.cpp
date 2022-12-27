@@ -4,6 +4,8 @@
 #include <light_string.h>
 #include <string_builder.h>
 
+//#define DEBUG_TRACE
+
 // Consider, we make a resizable array type structure, but with a special indexing mechanism, similar to lua's stack operations
 template<typename T>
 struct Stack {

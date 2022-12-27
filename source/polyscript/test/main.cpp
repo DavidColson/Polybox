@@ -36,7 +36,7 @@ struct Unary : public Expression {
 };
 
 struct Literal : public Expression {
-    double m_value;
+    Value m_value;
 };
 
 struct Grouping : public Expression {
@@ -44,21 +44,6 @@ struct Grouping : public Expression {
 };
 
 }
-
-enum class ValueType {
-    Float,
-    Integer,
-    Bool
-};
-
-struct Value {
-    ValueType m_type;
-    union {
-        bool m_boolValue;
-        float m_floatValue;
-        uint32_t m_intValue;
-    };
-};
 
 struct ParsingState {
     Token* m_pTokensStart { nullptr };
@@ -120,7 +105,8 @@ struct ParsingState {
 
             Token token = Previous();
             char* endPtr = token.m_pLocation + token.m_length;
-            pLiteralExpr->m_value = (double)strtol(token.m_pLocation, &endPtr, 10);
+            pLiteralExpr->m_value.m_type = ValueType::Float;
+            pLiteralExpr->m_value.m_floatValue = (double)strtol(token.m_pLocation, &endPtr, 10);
             return pLiteralExpr;
         }
 
@@ -130,7 +116,22 @@ struct ParsingState {
             
             Token token = Previous();
             char* endPtr = token.m_pLocation + token.m_length;
-            pLiteralExpr->m_value = strtod(token.m_pLocation, &endPtr);
+            pLiteralExpr->m_value.m_type = ValueType::Float;
+            pLiteralExpr->m_value.m_floatValue = strtod(token.m_pLocation, &endPtr);
+            return pLiteralExpr;
+        }
+
+        if (Match(1, TokenType::LiteralBool)) {
+            Ast::Literal* pLiteralExpr = (Ast::Literal*)g_Allocator.Allocate(sizeof(Ast::Literal));
+            pLiteralExpr->m_type = Ast::NodeType::Literal;
+
+            Token token = Previous();
+            char* endPtr = token.m_pLocation + token.m_length;
+            pLiteralExpr->m_value.m_type = ValueType::Bool;
+            if (strncmp("true", token.m_pLocation, 4) == 0)
+                pLiteralExpr->m_value.m_boolValue = true;
+            else if (strncmp("false", token.m_pLocation, 4) == 0)
+                pLiteralExpr->m_value.m_boolValue = false;
             return pLiteralExpr;
         }
 
@@ -216,7 +217,10 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel = 0) {
     switch (pExpr->m_type) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-            Log::Debug("%*s- Literal (%f)", indentationLevel, "", pLiteral->m_value);
+            if (pLiteral->m_value.m_type == ValueType::Float)
+                Log::Debug("%*s- Literal (%f)", indentationLevel, "", pLiteral->m_value.m_floatValue);
+            else if (pLiteral->m_value.m_type == ValueType::Bool)
+                Log::Debug("%*s- Literal (%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false");
             break;
         }
         case Ast::NodeType::Grouping: {
@@ -332,7 +336,8 @@ int main() {
     // Want to reuse scanner from commonLib don't we
 
     String actualCode;
-    actualCode = "( 5 - (12+3) ) * 12 / 3";
+    //actualCode = "( 5 - (12+3) ) * 12 / 3";
+    actualCode = "true";
 
     ResizableArray<Token> tokens = Tokenize(&g_Allocator, actualCode);
     defer(tokens.Free());

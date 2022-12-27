@@ -29,7 +29,7 @@ struct Stack {
 struct VirtualMachine {
     CodeChunk* pCurrentChunk;
     uint8_t* pInstructionPointer;
-    Stack<double> stack;
+    Stack<Value> stack;
 };
 
 uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
@@ -39,7 +39,11 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
         case (uint8_t)OpCode::LoadConstant: {
             builder.Append("OpLoadConstant ");
             uint8_t constIndex = *(pInstruction + 1);
-            builder.AppendFormat("%f", chunk.constants[constIndex]);
+            Value& v = chunk.constants[constIndex];
+            if (v.m_type == ValueType::Float)
+                builder.AppendFormat("%f", v.m_floatValue);
+            else if (v.m_type == ValueType::Bool)
+                builder.AppendFormat("%s", v.m_boolValue ? "true" : "false");
             pReturnInstruction += 2;
             break;
         }
@@ -107,41 +111,46 @@ void Run(CodeChunk* pChunkToRun) {
 #endif
         switch (*vm.pInstructionPointer++) {
             case (uint8_t)OpCode::LoadConstant: {
-                double constant = vm.pCurrentChunk->constants[*vm.pInstructionPointer++];
+                Value constant = vm.pCurrentChunk->constants[*vm.pInstructionPointer++];
                 vm.stack.Push(constant);
                 break;
             }
             case (uint8_t)OpCode::Negate: {
-                vm.stack.Push(-vm.stack.Pop());
+                Value v = vm.stack.Pop();
+                v.m_floatValue = -v.m_floatValue;
+                vm.stack.Push(v);
                 break;
             }
             case (uint8_t)OpCode::Add: {
-                double b = vm.stack.Pop();
-                double a = vm.stack.Pop();
-                vm.stack.Push(a + b);
+                double b = vm.stack.Pop().m_floatValue;
+                double a = vm.stack.Pop().m_floatValue;
+                vm.stack.Push(MakeValue(float(a + b)));
                 break;
             }
             case (uint8_t)OpCode::Subtract: {
-                double b = vm.stack.Pop();
-                double a = vm.stack.Pop();
-                vm.stack.Push(a - b);
+                double b = vm.stack.Pop().m_floatValue;
+                double a = vm.stack.Pop().m_floatValue;
+                vm.stack.Push(MakeValue(float(a - b)));
                 break;
             }
             case (uint8_t)OpCode::Multiply: {
-                double b = vm.stack.Pop();
-                double a = vm.stack.Pop();
-                vm.stack.Push(a * b);
+                double b = vm.stack.Pop().m_floatValue;
+                double a = vm.stack.Pop().m_floatValue;
+                vm.stack.Push(MakeValue(float(a * b)));
                 break;
             }
             case (uint8_t)OpCode::Divide: {
-                double b = vm.stack.Pop();
-                double a = vm.stack.Pop();
-                vm.stack.Push(a / b);
+                double b = vm.stack.Pop().m_floatValue;
+                double a = vm.stack.Pop().m_floatValue;
+                vm.stack.Push(MakeValue(float(a / b)));
                 break;
             }
             case (uint8_t)OpCode::Print: {
-                double value = vm.stack.Pop();
-                Log::Info("%f", value);
+                Value v = vm.stack.Pop();
+                if (v.m_type == ValueType::Float)
+                    Log::Info("%f", v.m_floatValue);
+                else if (v.m_type == ValueType::Bool)
+                    Log::Info("%s", v.m_boolValue ? "true" : "false");
                 break;
             }
             case (uint8_t)OpCode::Return:

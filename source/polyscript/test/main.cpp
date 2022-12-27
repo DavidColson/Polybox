@@ -45,11 +45,28 @@ struct Grouping : public Expression {
 
 }
 
+enum class ValueType {
+    Float,
+    Integer,
+    Bool
+};
+
+struct Value {
+    ValueType m_type;
+    union {
+        bool m_boolValue;
+        float m_floatValue;
+        uint32_t m_intValue;
+    };
+};
 
 struct ParsingState {
     Token* m_pTokensStart { nullptr };
     Token* m_pTokensEnd { nullptr };
     Token* m_pCurrent { nullptr };
+
+    // TODO: Store an allocator in here that can control the whole parse process and AST production
+    // Probably do a linear pool, since we probably want to just yeet this entire thing at once
 
     Token Previous() {
         return *(m_pCurrent - 1);

@@ -4,6 +4,8 @@
 
 #include "parser.h"
 
+// ***********************************************************************
+
 void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk) {
     switch (pExpr->m_type) {
         case Ast::NodeType::Literal: {

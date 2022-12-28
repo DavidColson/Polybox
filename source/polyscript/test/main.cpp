@@ -14,14 +14,7 @@
 #include "lexer.h"
 #include "code_gen.h"
 
-// TODO for cleanup of my prototype code
-
-// [ ] Implement a nicer stack structure with custom indexing
-
 int main() {
-    // Scanning?
-    // Want to reuse scanner from commonLib don't we
-
     String actualCode;
     //actualCode = "( 5 - (12+3) ) * 12 / 3";
     actualCode = "5<3 && 12 >= 14 || 9<15";

@@ -5,28 +5,9 @@
 #include <resizable_array.inl>
 #include <light_string.h>
 #include <string_builder.h>
+#include <stack.inl>
 
 //#define DEBUG_TRACE
-
-// Consider, we make a resizable array type structure, but with a special indexing mechanism, similar to lua's stack operations
-template<typename T>
-struct Stack {
-    ResizableArray<T> m_internalArray;
-
-    T& GetTop() {
-        return m_internalArray[m_internalArray.m_count - 1];
-    }
-
-    void Push(T value) {
-        m_internalArray.PushBack(value);
-    }
-
-    T Pop() {
-        T v = m_internalArray[m_internalArray.m_count - 1];
-        m_internalArray.Erase(m_internalArray.m_count - 1);
-        return v;
-    }
-};
 
 struct VirtualMachine {
     CodeChunk* pCurrentChunk;

@@ -1,3 +1,5 @@
+// Copyright 2020-2022 David Colson. All rights reserved.
+
 #include "virtual_machine.h"
 
 #include <resizable_array.inl>
@@ -31,6 +33,8 @@ struct VirtualMachine {
     uint8_t* pInstructionPointer;
     Stack<Value> stack;
 };
+
+// ***********************************************************************
 
 uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
     StringBuilder builder;
@@ -121,6 +125,8 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
     return pReturnInstruction;
 }
 
+// ***********************************************************************
+
 void Disassemble(CodeChunk& chunk) {
     Log::Debug("--------- Disassembly ---------");
     uint8_t* pInstructionPointer = chunk.code.m_pData;
@@ -128,6 +134,8 @@ void Disassemble(CodeChunk& chunk) {
         pInstructionPointer = DisassembleInstruction(chunk, pInstructionPointer);
     }
 }
+
+// ***********************************************************************
 
 void Run(CodeChunk* pChunkToRun) {
     VirtualMachine vm;

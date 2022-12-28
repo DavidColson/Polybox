@@ -1,8 +1,12 @@
+// Copyright 2020-2022 David Colson. All rights reserved.
+
 #include "lexer.h"
 
 #include <scanning.h>
 #include <resizable_array.inl>
 #include <light_string.h>
+
+// ***********************************************************************
 
 Token MakeToken(Scan::ScanningState& scanner, TokenType type) {
     Token token;
@@ -13,6 +17,8 @@ Token MakeToken(Scan::ScanningState& scanner, TokenType type) {
     token.m_line = scanner.m_line;
     return token;
 }
+
+// ***********************************************************************
 
 Token ParseString(IAllocator* pAllocator, Scan::ScanningState& scan) {
     char* start = scan.m_pCurrent;
@@ -25,6 +31,8 @@ Token ParseString(IAllocator* pAllocator, Scan::ScanningState& scan) {
     scan.m_pCurrent++;  // advance over closing quote
     return MakeToken(scan, TokenType::LiteralString);
 }
+
+// ***********************************************************************
 
 Token ParseNumber(Scan::ScanningState& scan) {
     scan.m_pCurrent -= 1;  // Go back to get the first digit or symbol
@@ -45,6 +53,8 @@ Token ParseNumber(Scan::ScanningState& scan) {
         return MakeToken(scan, TokenType::LiteralInteger);
     }
 }
+
+// ***********************************************************************
 
 ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
     Scan::ScanningState scan;

@@ -82,8 +82,8 @@ struct ParsingState {
 
             Token token = Previous();
             char* endPtr = token.m_pLocation + token.m_length;
-            pLiteralExpr->m_value.m_type = ValueType::Float;
-            pLiteralExpr->m_value.m_floatValue = (double)strtol(token.m_pLocation, &endPtr, 10);
+            pLiteralExpr->m_value.m_type = ValueType::I32;
+            pLiteralExpr->m_value.m_i32Value = strtol(token.m_pLocation, &endPtr, 10);
             return pLiteralExpr;
         }
 
@@ -93,8 +93,8 @@ struct ParsingState {
 
             Token token = Previous();
             char* endPtr = token.m_pLocation + token.m_length;
-            pLiteralExpr->m_value.m_type = ValueType::Float;
-            pLiteralExpr->m_value.m_floatValue = strtod(token.m_pLocation, &endPtr);
+            pLiteralExpr->m_value.m_type = ValueType::F32;
+            pLiteralExpr->m_value.m_f32Value = (float)strtod(token.m_pLocation, &endPtr);
             return pLiteralExpr;
         }
 
@@ -277,8 +277,10 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel) {
     switch (pExpr->m_type) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-            if (pLiteral->m_value.m_type == ValueType::Float)
-                Log::Debug("%*s- Literal (%f)", indentationLevel, "", pLiteral->m_value.m_floatValue);
+            if (pLiteral->m_value.m_type == ValueType::F32)
+                Log::Debug("%*s- Literal (%f)", indentationLevel, "", pLiteral->m_value.m_f32Value);
+            else if (pLiteral->m_value.m_type == ValueType::I32)
+                Log::Debug("%*s- Literal (%i)", indentationLevel, "", pLiteral->m_value.m_i32Value);
             else if (pLiteral->m_value.m_type == ValueType::Bool)
                 Log::Debug("%*s- Literal (%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false");
             break;

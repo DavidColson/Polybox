@@ -14,7 +14,19 @@
 #include "lexer.h"
 #include "code_gen.h"
 
+
+ // Type checking?
+// Firstly, climb up the tree, taking the types from each leaf node, and pulling them up to the parent nodes
+// The operators in expressions need to be checked if they take the two types, and what the return type is
+// the the binary node stores it's result type and we continue up the tree
+
+// Need some operation like
+// OperatorCheck(Operator, TypeA, TypeB)
+// Operators will probably be defined per type will they not?
+
 int main() {
+    InitValueTables();
+
     String actualCode;
     //actualCode = "( 5 - (12+3) ) * 12 / 3";
     actualCode = "5<3 && 12 >= 14 || 9<15";

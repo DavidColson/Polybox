@@ -25,10 +25,12 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             builder.Append("OpLoadConstant ");
             uint8_t constIndex = *(pInstruction + 1);
             Value& v = chunk.constants[constIndex];
-            if (v.m_type == ValueType::Float)
-                builder.AppendFormat("%f", v.m_floatValue);
+            if (v.m_type == ValueType::F32)
+                builder.AppendFormat("%f", v.m_f32Value);
             else if (v.m_type == ValueType::Bool)
                 builder.AppendFormat("%s", v.m_boolValue ? "true" : "false");
+            else if (v.m_type == ValueType::I32)
+                builder.AppendFormat("%i", v.m_i32Value);
             pReturnInstruction += 2;
             break;
         }
@@ -136,7 +138,7 @@ void Run(CodeChunk* pChunkToRun) {
             }
             case (uint8_t)OpCode::Negate: {
                 Value v = vm.stack.Pop();
-                v.m_floatValue = -v.m_floatValue;
+                v.m_f32Value = -v.m_f32Value;
                 vm.stack.Push(v);
                 break;
             }
@@ -147,63 +149,65 @@ void Run(CodeChunk* pChunkToRun) {
                 break;
             }
             case (uint8_t)OpCode::Add: {
-                double b = vm.stack.Pop().m_floatValue;
-                double a = vm.stack.Pop().m_floatValue;
-                vm.stack.Push(MakeValue(float(a + b)));
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::Add, a, b));
                 break;
             }
             case (uint8_t)OpCode::Subtract: {
-                double b = vm.stack.Pop().m_floatValue;
-                double a = vm.stack.Pop().m_floatValue;
-                vm.stack.Push(MakeValue(float(a - b)));
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::Subtract, a, b));
                 break;
             }
             case (uint8_t)OpCode::Multiply: {
-                double b = vm.stack.Pop().m_floatValue;
-                double a = vm.stack.Pop().m_floatValue;
-                vm.stack.Push(MakeValue(float(a * b)));
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::Multiply, a, b));
                 break;
             }
             case (uint8_t)OpCode::Divide: {
-                double b = vm.stack.Pop().m_floatValue;
-                double a = vm.stack.Pop().m_floatValue;
-                vm.stack.Push(MakeValue(float(a / b)));
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::Divide, a, b));
                 break;
             }
             case (uint8_t)OpCode::Greater: {
-                double b = vm.stack.Pop().m_floatValue;
-                double a = vm.stack.Pop().m_floatValue;
-                vm.stack.Push(MakeValue(bool(a > b)));
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::Greater, a, b));
                 break;
             }
             case (uint8_t)OpCode::Less: {
-                double b = vm.stack.Pop().m_floatValue;
-                double a = vm.stack.Pop().m_floatValue;
-                vm.stack.Push(MakeValue(bool(a < b)));
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::Less, a, b));
                 break;
             }
             case (uint8_t)OpCode::Equal: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
-                vm.stack.Push(MakeValue(bool(a == b)));
+                vm.stack.Push(EvaluateOperator(Operator::Equal, a, b));
                 break;
             }
             case (uint8_t)OpCode::And: {
-                bool b = vm.stack.Pop().m_boolValue;
-                bool a = vm.stack.Pop().m_boolValue;
-                vm.stack.Push(MakeValue(bool(a && b)));
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::And, a, b));
                 break;
             }
             case (uint8_t)OpCode::Or: {
-                bool b = vm.stack.Pop().m_boolValue;
-                bool a = vm.stack.Pop().m_boolValue;
-                vm.stack.Push(MakeValue(bool(a || b)));
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::Or, a, b));
                 break;
             }
             case (uint8_t)OpCode::Print: {
                 Value v = vm.stack.Pop();
-                if (v.m_type == ValueType::Float)
-                    Log::Info("%f", v.m_floatValue);
+                if (v.m_type == ValueType::F32)
+                    Log::Info("%f", v.m_f32Value);
+                else if (v.m_type == ValueType::I32)
+                    Log::Info("%i", v.m_i32Value);
                 else if (v.m_type == ValueType::Bool)
                     Log::Info("%s", v.m_boolValue ? "true" : "false");
                 break;

@@ -2,8 +2,9 @@
 
 #pragma once
 
+#include "value.h"
+
 #include <resizable_array.h>
-#include <stdint.h>
 
 enum class OpCode : uint8_t {
     LoadConstant,
@@ -30,43 +31,6 @@ enum class OpCode : uint8_t {
     Return
 };
 
-enum class ValueType {
-    Float,
-    Bool
-};
-
-struct Value {
-    ValueType m_type;
-    union {
-        bool m_boolValue;
-        double m_floatValue;
-    };
-
-    bool operator==(Value& other) const {
-        switch (m_type) {
-            case ValueType::Float:
-                return m_floatValue == other.m_floatValue;
-            case ValueType::Bool:
-                return m_boolValue == other.m_boolValue;
-            default:
-                return false;
-        }
-    }
-};
-
-inline Value MakeValue(bool value) {
-    Value v;
-    v.m_type = ValueType::Bool;
-    v.m_boolValue = value;
-    return v;
-}
-
-inline Value MakeValue(float value) {
-    Value v;
-    v.m_type = ValueType::Float;
-    v.m_floatValue = value;
-    return v;
-}
 
 struct CodeChunk {
     ResizableArray<Value> constants;  // This should be a variant or something at some stage?

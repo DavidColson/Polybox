@@ -41,7 +41,7 @@ struct ParsingState {
 
     // ***********************************************************************
 
-    bool Check(TokenType type) {
+    bool Check(TokenType::Enum type) {
         if (IsAtEnd())
             return false;
 
@@ -50,7 +50,7 @@ struct ParsingState {
     
     // ***********************************************************************
 
-    Token Consume(TokenType type) {
+    Token Consume(TokenType::Enum type) {
         if (Check(type))
             return Advance();
 
@@ -65,7 +65,7 @@ struct ParsingState {
 
         va_start(args, numTokens);
         for (int i = 0; i < numTokens; i++) {
-            if (Check(va_arg(args, TokenType))) {
+            if (Check(va_arg(args, TokenType::Enum))) {
                 Advance();
                 return true;
             }
@@ -136,7 +136,10 @@ struct ParsingState {
             Ast::Unary* pUnaryExpr = (Ast::Unary*)pAllocator->Allocate(sizeof(Ast::Unary));
             pUnaryExpr->m_type = Ast::NodeType::Unary;
 
-            pUnaryExpr->m_operator = Previous();
+            if (Previous().m_type == TokenType::Minus)
+                pUnaryExpr->m_operator = Operator::UnaryMinus;
+            else if (Previous().m_type == TokenType::Bang)
+                pUnaryExpr->m_operator = Operator::Not;
             pUnaryExpr->m_pRight = ParseUnary();
 
             return (Ast::Expression*)pUnaryExpr;
@@ -154,7 +157,7 @@ struct ParsingState {
             pBinaryExpr->m_type = Ast::NodeType::Binary;
 
             pBinaryExpr->m_pLeft = pExpr;
-            pBinaryExpr->m_operator = Previous();
+            pBinaryExpr->m_operator = TokenToOperator(Previous().m_type);
             pBinaryExpr->m_pRight = ParseUnary();
 
             pExpr = (Ast::Expression*)pBinaryExpr;
@@ -172,7 +175,7 @@ struct ParsingState {
             pBinaryExpr->m_type = Ast::NodeType::Binary;
 
             pBinaryExpr->m_pLeft = pExpr;
-            pBinaryExpr->m_operator = Previous();
+            pBinaryExpr->m_operator = TokenToOperator(Previous().m_type);
             pBinaryExpr->m_pRight = ParseMulDiv();
 
             pExpr = (Ast::Expression*)pBinaryExpr;
@@ -190,7 +193,7 @@ struct ParsingState {
             pBinaryExpr->m_type = Ast::NodeType::Binary;
 
             pBinaryExpr->m_pLeft = pExpr;
-            pBinaryExpr->m_operator = Previous();
+            pBinaryExpr->m_operator = TokenToOperator(Previous().m_type);
             pBinaryExpr->m_pRight = ParseAddSub();
 
             pExpr = (Ast::Expression*)pBinaryExpr;
@@ -208,7 +211,7 @@ struct ParsingState {
             pBinaryExpr->m_type = Ast::NodeType::Binary;
 
             pBinaryExpr->m_pLeft = pExpr;
-            pBinaryExpr->m_operator = Previous();
+            pBinaryExpr->m_operator = TokenToOperator(Previous().m_type);
             pBinaryExpr->m_pRight = ParseComparison();
 
             pExpr = (Ast::Expression*)pBinaryExpr;
@@ -226,7 +229,7 @@ struct ParsingState {
             pBinaryExpr->m_type = Ast::NodeType::Binary;
 
             pBinaryExpr->m_pLeft = pExpr;
-            pBinaryExpr->m_operator = Previous();
+            pBinaryExpr->m_operator = TokenToOperator(Previous().m_type);
             pBinaryExpr->m_pRight = ParseEquality();
 
             pExpr = (Ast::Expression*)pBinaryExpr;
@@ -244,7 +247,7 @@ struct ParsingState {
             pBinaryExpr->m_type = Ast::NodeType::Binary;
 
             pBinaryExpr->m_pLeft = pExpr;
-            pBinaryExpr->m_operator = Previous();
+            pBinaryExpr->m_operator = TokenToOperator(Previous().m_type);
             pBinaryExpr->m_pRight = ParseLogicAnd();
 
             pExpr = (Ast::Expression*)pBinaryExpr;
@@ -278,57 +281,57 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
             if (pLiteral->m_value.m_type == ValueType::F32)
-                Log::Debug("%*s- Literal (%f)", indentationLevel, "", pLiteral->m_value.m_f32Value);
+                Log::Debug("%*s- Literal (%f:%s)", indentationLevel, "", pLiteral->m_value.m_f32Value, ValueToString(pLiteral->m_valueType));
             else if (pLiteral->m_value.m_type == ValueType::I32)
-                Log::Debug("%*s- Literal (%i)", indentationLevel, "", pLiteral->m_value.m_i32Value);
+                Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->m_value.m_i32Value, ValueToString(pLiteral->m_valueType));
             else if (pLiteral->m_value.m_type == ValueType::Bool)
-                Log::Debug("%*s- Literal (%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false");
+                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false", ValueToString(pLiteral->m_valueType));
             break;
         }
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
-            Log::Debug("%*s- Group", indentationLevel, "");
+            Log::Debug("%*s- Group (:%s)", indentationLevel, "", ValueToString(pGroup->m_valueType));
             DebugAst(pGroup->m_pExpression, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
-            switch (pBinary->m_operator.m_type) {
-                case TokenType::Plus:
-                    Log::Debug("%*s- Binary (+)", indentationLevel, "");
+            switch (pBinary->m_operator) {
+                case Operator::Add:
+                    Log::Debug("%*s- Binary (+:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::Minus:
-                    Log::Debug("%*s- Binary (-)", indentationLevel, "");
+                case Operator::Subtract:
+                    Log::Debug("%*s- Binary (-:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::Slash:
-                    Log::Debug("%*s- Binary (/)", indentationLevel, "");
+                case Operator::Divide:
+                    Log::Debug("%*s- Binary (/:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::Star:
-                    Log::Debug("%*s- Binary (*)", indentationLevel, "");
+                case Operator::Multiply:
+                    Log::Debug("%*s- Binary (*:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::Greater:
-                    Log::Debug("%*s- Binary (>)", indentationLevel, "");
+                case Operator::Greater:
+                    Log::Debug("%*s- Binary (>:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::Less:
-                    Log::Debug("%*s- Binary (<)", indentationLevel, "");
+                case Operator::Less:
+                    Log::Debug("%*s- Binary (<:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::GreaterEqual:
-                    Log::Debug("%*s- Binary (>=)", indentationLevel, "");
+                case Operator::GreaterEqual:
+                    Log::Debug("%*s- Binary (>=:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::LessEqual:
-                    Log::Debug("%*s- Binary (<=)", indentationLevel, "");
+                case Operator::LessEqual:
+                    Log::Debug("%*s- Binary (<=:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::EqualEqual:
-                    Log::Debug("%*s- Binary (==)", indentationLevel, "");
+                case Operator::Equal:
+                    Log::Debug("%*s- Binary (==:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::BangEqual:
-                    Log::Debug("%*s- Binary (!=)", indentationLevel, "");
+                case Operator::NotEqual:
+                    Log::Debug("%*s- Binary (!=:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::And:
-                    Log::Debug("%*s- Binary (&&)", indentationLevel, "");
+                case Operator::And:
+                    Log::Debug("%*s- Binary (&&:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
-                case TokenType::Or:
-                    Log::Debug("%*s- Binary (||)", indentationLevel, "");
+                case Operator::Or:
+                    Log::Debug("%*s- Binary (||:%s)", indentationLevel, "", ValueToString(pBinary->m_valueType));
                     break;
                 default:
                     break;
@@ -339,12 +342,12 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel) {
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
-            switch (pUnary->m_operator.m_type) {
-                case TokenType::Minus:
-                    Log::Debug("%*s- Unary (-)", indentationLevel, "");
+            switch (pUnary->m_operator) {
+                case Operator::UnaryMinus:
+                    Log::Debug("%*s- Unary (-:%s)", indentationLevel, "", ValueToString(pUnary->m_valueType));
                     break;
-                case TokenType::Bang:
-                    Log::Debug("%*s- Unary (!)", indentationLevel, "");
+                case Operator::Not:
+                    Log::Debug("%*s- Unary (!:%s)", indentationLevel, "", ValueToString(pUnary->m_valueType));
                     break;
                 default:
                     break;

@@ -28,44 +28,41 @@ void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk) {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             CodeGen(pBinary->m_pLeft, pChunk);
             CodeGen(pBinary->m_pRight, pChunk);
-            switch (pBinary->m_operator.m_type) {
-                case TokenType::Plus:
+            switch (pBinary->m_operator) {
+                case Operator::Add:
                     pChunk->code.PushBack((uint8_t)OpCode::Add);
                     break;
-                case TokenType::Minus:
+                case Operator::Subtract:
                     pChunk->code.PushBack((uint8_t)OpCode::Subtract);
                     break;
-                case TokenType::Slash:
+                case Operator::Divide:
                     pChunk->code.PushBack((uint8_t)OpCode::Divide);
                     break;
-                case TokenType::Star:
+                case Operator::Multiply:
                     pChunk->code.PushBack((uint8_t)OpCode::Multiply);
                     break;
-                case TokenType::Greater:
+                case Operator::Greater:
                     pChunk->code.PushBack((uint8_t)OpCode::Greater);
                     break;
-                case TokenType::Less:
+                case Operator::Less:
                     pChunk->code.PushBack((uint8_t)OpCode::Less);
                     break;
-                case TokenType::GreaterEqual:
-                    pChunk->code.PushBack((uint8_t)OpCode::Less);
-                    pChunk->code.PushBack((uint8_t)OpCode::Not);
+                case Operator::GreaterEqual:
+                    pChunk->code.PushBack((uint8_t)OpCode::GreaterEqual);
                     break;
-                case TokenType::LessEqual:
-                    pChunk->code.PushBack((uint8_t)OpCode::Greater);
-                    pChunk->code.PushBack((uint8_t)OpCode::Not);
+                case Operator::LessEqual:
+                    pChunk->code.PushBack((uint8_t)OpCode::LessEqual);
                     break;
-                case TokenType::EqualEqual:
+                case Operator::Equal:
                     pChunk->code.PushBack((uint8_t)OpCode::Equal);
                     break;
-                case TokenType::BangEqual:
-                    pChunk->code.PushBack((uint8_t)OpCode::Equal);
-                    pChunk->code.PushBack((uint8_t)OpCode::Not);
+                case Operator::NotEqual:
+                    pChunk->code.PushBack((uint8_t)OpCode::NotEqual);
                     break;
-                case TokenType::And:
+                case Operator::And:
                     pChunk->code.PushBack((uint8_t)OpCode::And);
                     break;
-                case TokenType::Or:
+                case Operator::Or:
                     pChunk->code.PushBack((uint8_t)OpCode::Or);
                     break;
                 default:
@@ -76,11 +73,11 @@ void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk) {
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             CodeGen(pUnary->m_pRight, pChunk);
-            switch (pUnary->m_operator.m_type) {
-                case TokenType::Minus:
+            switch (pUnary->m_operator) {
+                case Operator::Subtract:
                     pChunk->code.PushBack((uint8_t)OpCode::Negate);
                     break;
-                case TokenType::Bang:
+                case Operator::Not:
                     pChunk->code.PushBack((uint8_t)OpCode::Not);
                     break;
                 default:

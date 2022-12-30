@@ -74,8 +74,23 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             pReturnInstruction += 1;
             break;
         }
+        case (uint8_t)OpCode::GreaterEqual: {
+            builder.Append("OpGreaterEqual ");
+            pReturnInstruction += 1;
+            break;
+        }
+        case (uint8_t)OpCode::LessEqual: {
+            builder.Append("OpLessEqual ");
+            pReturnInstruction += 1;
+            break;
+        }
         case (uint8_t)OpCode::Equal: {
             builder.Append("OpEqual ");
+            pReturnInstruction += 1;
+            break;
+        }
+        case (uint8_t)OpCode::NotEqual: {
+            builder.Append("OpNotEqual ");
             pReturnInstruction += 1;
             break;
         }
@@ -99,6 +114,8 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             pReturnInstruction += 1;
             break;
         default:
+            builder.Append("OpUnknown");
+            pReturnInstruction += 1;
             break;
     }
 
@@ -138,14 +155,12 @@ void Run(CodeChunk* pChunkToRun) {
             }
             case (uint8_t)OpCode::Negate: {
                 Value v = vm.stack.Pop();
-                v.m_f32Value = -v.m_f32Value;
-                vm.stack.Push(v);
+                vm.stack.Push(EvaluateOperator(Operator::UnaryMinus, v, Value()));
                 break;
             }
             case (uint8_t)OpCode::Not: {
                 Value v = vm.stack.Pop();
-                v.m_boolValue = !v.m_boolValue;
-                vm.stack.Push(v);
+                vm.stack.Push(EvaluateOperator(Operator::Not, v, Value()));
                 break;
             }
             case (uint8_t)OpCode::Add: {
@@ -184,10 +199,28 @@ void Run(CodeChunk* pChunkToRun) {
                 vm.stack.Push(EvaluateOperator(Operator::Less, a, b));
                 break;
             }
+            case (uint8_t)OpCode::GreaterEqual: {
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::GreaterEqual, a, b));
+                break;
+            }
+            case (uint8_t)OpCode::LessEqual: {
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::LessEqual, a, b));
+                break;
+            }
             case (uint8_t)OpCode::Equal: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::Equal, a, b));
+                break;
+            }
+            case (uint8_t)OpCode::NotEqual: {
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
+                vm.stack.Push(EvaluateOperator(Operator::NotEqual, a, b));
                 break;
             }
             case (uint8_t)OpCode::And: {

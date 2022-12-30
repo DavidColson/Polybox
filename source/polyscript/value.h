@@ -1,6 +1,11 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
+#pragma once
 
 #include <stdint.h>
+
+namespace TokenType {
+enum Enum;
+}
 
 namespace ValueType {
 enum Enum : uint32_t {
@@ -20,7 +25,10 @@ enum Enum : uint32_t {
     Divide,
     Less,
     Greater,
+    GreaterEqual,
+    LessEqual,
     Equal,
+    NotEqual,
     And,
     Or,
     UnaryMinus,
@@ -62,3 +70,9 @@ inline Value MakeValue(int32_t value) {
 void InitValueTables();
 
 Value EvaluateOperator(Operator::Enum op, Value v1, Value v2);
+
+ValueType::Enum OperatorReturnType(Operator::Enum op, ValueType::Enum t1, ValueType::Enum t2);
+
+Operator::Enum TokenToOperator(TokenType::Enum tokenType);
+
+const char* ValueToString(ValueType::Enum type);

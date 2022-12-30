@@ -2,14 +2,16 @@
 
 #pragma once
 
+#include <stdint.h>
+
 template<typename T>
 struct ResizableArray;
 struct String;
 struct IAllocator;
 
-enum class TokenType {
+namespace TokenType {
+enum Enum : uint32_t {
     Invalid,
-
     // Simple one character tokens
     LeftParen,
     RightParen,
@@ -31,7 +33,6 @@ enum class TokenType {
     Caret,
     Greater,
     Less,
-
     // Two character tokens
     BangEqual,
     EqualEqual,
@@ -39,27 +40,26 @@ enum class TokenType {
     GreaterEqual,
     And,
     Or,
-
     // Literals
     LiteralString,
     LiteralInteger,
     LiteralFloat,
     LiteralBool,
-
     // Keywords
     If,
     Else,
     For,
     Struct,
     Return,
-
     // Other
     Identifier,
-    EndOfFile
+    EndOfFile,
+    Count
 };
+}
 
 struct Token {
-    TokenType m_type { TokenType::Invalid };
+    TokenType::Enum m_type { TokenType::Invalid };
 
     char* m_pLocation { nullptr };
     size_t m_length { 0 };

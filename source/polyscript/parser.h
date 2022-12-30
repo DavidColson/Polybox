@@ -4,6 +4,7 @@
 
 #include "virtual_machine.h"
 #include "lexer.h"
+#include "value.h"
 
 template<typename T>
 struct ResizableArray;
@@ -21,16 +22,17 @@ enum class NodeType {
 
 struct Expression {
     NodeType m_type;
+    ValueType::Enum m_valueType;
 };
 
 struct Binary : public Expression {
     Expression* m_pLeft;
-    Token m_operator;
+    Operator::Enum m_operator;
     Expression* m_pRight;
 };
 
 struct Unary : public Expression {
-    Token m_operator;
+    Operator::Enum m_operator;
     Expression* m_pRight;
 };
 

@@ -25,6 +25,9 @@ enum class OpCode : uint8_t {
     Greater,
     Less,
     Equal,
+    NotEqual,
+    GreaterEqual,
+    LessEqual,
 
     // Misc
     Print,

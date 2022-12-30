@@ -8,7 +8,7 @@
 
 // ***********************************************************************
 
-Token MakeToken(Scan::ScanningState& scanner, TokenType type) {
+Token MakeToken(Scan::ScanningState& scanner, TokenType::Enum type) {
     Token token;
     token.m_type = type;
     token.m_pLocation = scanner.m_pTokenStart;

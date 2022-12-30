@@ -61,6 +61,7 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
     scan.m_pTextStart = sourceText.m_pData;
     scan.m_pTextEnd = sourceText.m_pData + sourceText.m_length;
     scan.m_pCurrent = (char*)scan.m_pTextStart;
+    scan.m_pCurrentLineStart = (char*)scan.m_pTextStart;
     scan.m_line = 1;
 
     ResizableArray<Token> tokens(pAllocator);

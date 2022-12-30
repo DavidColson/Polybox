@@ -8,6 +8,7 @@ enum Enum;
 }
 
 namespace ValueType {
+
 enum Enum : uint32_t {
     Invalid,
     F32,
@@ -15,6 +16,11 @@ enum Enum : uint32_t {
     Bool,
     Count
 };
+
+static const char* stringNames[] = { "invalid", "f32", "i32", "bool", "count" };
+static const char* ToString(ValueType::Enum type) {
+    return stringNames[type];
+}
 }
 
 namespace Operator {
@@ -35,6 +41,11 @@ enum Enum : uint32_t {
     Not,
     Count
 };
+
+static const char* stringNames[] = { "+", "-", "*", "/", "<", ">", ">=", "<=", "==", "!=", "&&", "||", "-", "!", "count" };
+static const char* ToString(Operator::Enum type) {
+    return stringNames[type];
+}
 }
 
 struct Value {
@@ -75,4 +86,3 @@ ValueType::Enum OperatorReturnType(Operator::Enum op, ValueType::Enum t1, ValueT
 
 Operator::Enum TokenToOperator(TokenType::Enum tokenType);
 
-const char* ValueToString(ValueType::Enum type);

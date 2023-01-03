@@ -22,7 +22,7 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
     uint8_t* pReturnInstruction = pInstruction;
     switch (*pInstruction) {
         case (uint8_t)OpCode::LoadConstant: {
-            builder.Append("OpLoadConstant ");
+            builder.Append("LoadConstant ");
             uint8_t constIndex = *(pInstruction + 1);
             Value& v = chunk.constants[constIndex];
             if (v.m_type == ValueType::F32)
@@ -35,84 +35,90 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             break;
         }
         case (uint8_t)OpCode::Negate: {
-            builder.Append("OpNegate ");
+            builder.Append("Negate ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::Not: {
-            builder.Append("OpNot ");
+            builder.Append("Not ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::Add: {
-            builder.Append("OpAdd ");
+            builder.Append("Add ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::Subtract: {
-            builder.Append("OpSubtract ");
+            builder.Append("Subtract ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::Multiply: {
-            builder.Append("OpMultiply ");
+            builder.Append("Multiply ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::Divide: {
-            builder.Append("OpDivide ");
+            builder.Append("Divide ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::Greater: {
-            builder.Append("OpGreater ");
+            builder.Append("Greater ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::Less: {
-            builder.Append("OpLess ");
+            builder.Append("Less ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::GreaterEqual: {
-            builder.Append("OpGreaterEqual ");
+            builder.Append("GreaterEqual ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::LessEqual: {
-            builder.Append("OpLessEqual ");
+            builder.Append("LessEqual ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::Equal: {
-            builder.Append("OpEqual ");
+            builder.Append("Equal ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::NotEqual: {
-            builder.Append("OpNotEqual ");
+            builder.Append("NotEqual ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::And: {
-            builder.Append("OpAnd ");
+            builder.Append("And ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::Or: {
-            builder.Append("OpOr ");
+            builder.Append("Or ");
             pReturnInstruction += 1;
             break;
         }
         case (uint8_t)OpCode::Print: {
-            builder.Append("OpPrint ");
+            builder.Append("Print ");
             pReturnInstruction += 1;
             break;
         }
-        case (uint8_t)OpCode::Return:
-            builder.Append("OpReturn");
+        case (uint8_t)OpCode::Return: {
+            builder.Append("Return");
             pReturnInstruction += 1;
             break;
+        }
+        case (uint8_t)OpCode::Pop: {
+            builder.Append("Pop");
+            pReturnInstruction += 1;
+            break;
+        }
         default:
             builder.Append("OpUnknown");
             pReturnInstruction += 1;
@@ -245,8 +251,10 @@ void Run(CodeChunk* pChunkToRun) {
                     Log::Info("%s", v.m_boolValue ? "true" : "false");
                 break;
             }
+            case (uint8_t)OpCode::Pop:
+                vm.stack.Pop();
+                break;
             case (uint8_t)OpCode::Return:
-
                 break;
             default:
                 break;

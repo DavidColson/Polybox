@@ -29,7 +29,7 @@ Token ParsingState::Advance() {
 // ***********************************************************************
 
 bool ParsingState::IsAtEnd() {
-    return m_pCurrent > m_pTokensEnd;
+    return m_pCurrent >= m_pTokensEnd;
 }
 
 // ***********************************************************************
@@ -74,6 +74,21 @@ bool ParsingState::Match(int numTokens, ...) {
 
 // ***********************************************************************
 
+void ParsingState::Synchronize() {
+    m_panicMode = false;
+
+    while (m_pCurrent->m_type != TokenType::EndOfFile) {
+        if (m_pCurrent->m_type == TokenType::Semicolon) {
+            Advance(); // Consume semicolon we found
+            return;
+        }
+
+        Advance();
+    }
+}
+
+// ***********************************************************************
+
 void ParsingState::PushError(Ast::Expression* pNode, const char* formatMessage, ...) {
     StringBuilder builder;
     va_list args;
@@ -96,6 +111,7 @@ void ParsingState::PushError(Ast::Expression* pNode, const char* formatMessage, 
         er.m_message = builder.CreateString();
     }
     m_errors.PushBack(er);
+    m_panicMode = true;
 }
 
 // ***********************************************************************
@@ -169,7 +185,6 @@ Ast::Expression* ParsingState::ParsePrimary() {
         return nullptr;
     }
 
-    PushError(nullptr, "Expected literal or grouping, but found nothing");
     return nullptr;
 }
 
@@ -342,18 +357,113 @@ Ast::Expression* ParsingState::ParseExpression() {
 
 // ***********************************************************************
 
-Ast::Expression* ParsingState::InitAndParse(ResizableArray<Token>& tokens, IAllocator* pAlloc) {
-    m_pTokensStart = tokens.m_pData;
-    m_pTokensEnd = tokens.m_pData + tokens.m_count - 1;
-    m_pCurrent = tokens.m_pData;
-    pAllocator = pAlloc;
+Ast::Statement* ParsingState::ParseStatement() {
+    Ast::Statement* pStmt;
 
-    return ParseExpression();
+    if (Match(1, TokenType::Identifier)) {
+        if (strncmp("print", Previous().m_pLocation, 5) == 0) {
+            pStmt = ParsePrintStatement();
+        } else {
+            m_pCurrent--;
+        }
+    } else {
+        pStmt = ParseExpressionStatement();
+    }
+
+    if (m_panicMode)
+        Synchronize();
+
+    return pStmt;
 }
 
 // ***********************************************************************
 
-void DebugAst(Ast::Expression* pExpr, int indentationLevel) {
+Ast::Statement* ParsingState::ParseExpressionStatement() {
+    Ast::Expression* pExpr = ParseExpression();
+    Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
+
+    Ast::ExpressionStatement* pStmt = (Ast::ExpressionStatement*)pAllocator->Allocate(sizeof(Ast::ExpressionStatement));
+    pStmt->m_type = Ast::NodeType::ExpressionStmt;
+
+    pStmt->m_pExpr = pExpr;
+
+    pStmt->m_pLocation = Previous().m_pLocation;
+    pStmt->m_pLineStart = Previous().m_pLineStart;
+    pStmt->m_line = Previous().m_line;
+    return pStmt;
+}
+
+// ***********************************************************************
+
+Ast::Statement* ParsingState::ParsePrintStatement() {
+    Consume(TokenType::LeftParen, "Expected \"(\" following print, before the expression starts");
+    Ast::Expression* pExpr = ParseExpression();
+    Consume(TokenType::RightParen, "Expected \")\" to close print expression");
+    Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
+    
+    Ast::PrintStatement* pPrintStmt = (Ast::PrintStatement*)pAllocator->Allocate(sizeof(Ast::PrintStatement));
+    pPrintStmt->m_type = Ast::NodeType::PrintStmt;
+
+    pPrintStmt->m_pExpr = pExpr;
+
+    pPrintStmt->m_pLocation = Previous().m_pLocation;
+    pPrintStmt->m_pLineStart = Previous().m_pLineStart;
+    pPrintStmt->m_line = Previous().m_line;
+    return pPrintStmt;
+}
+
+// ***********************************************************************
+
+ResizableArray<Ast::Statement*> ParsingState::InitAndParse(ResizableArray<Token>& tokens, IAllocator* pAlloc) {
+    m_pTokensStart = tokens.m_pData;
+    m_pTokensEnd = tokens.m_pData + tokens.m_count - 1;
+    m_pCurrent = tokens.m_pData;
+    pAllocator = pAlloc;
+    m_errors.m_pAlloc = pAlloc;
+
+    ResizableArray<Ast::Statement*> statements;
+    statements.m_pAlloc = pAlloc;
+
+    while (!IsAtEnd()) {
+        statements.PushBack(ParseStatement());
+    }
+
+    return statements;
+}
+
+// ***********************************************************************
+
+void DebugAst(ResizableArray<Ast::Statement*>& program) {
+    for (size_t i = 0; i < program.m_count; i++) {
+        Ast::Statement* pStmt = program[i];
+
+        switch (pStmt->m_type) {
+            case Ast::NodeType::PrintStmt: {
+                Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
+                Log::Debug("> PrintStmt");
+                DebugExpression(pPrint->m_pExpr, 2);
+                break;
+            }
+            case Ast::NodeType::ExpressionStmt: {
+                Ast::ExpressionStatement* pExprStmt = (Ast::ExpressionStatement*)pStmt;
+                Log::Debug("> ExpressionStmt");
+                DebugExpression(pExprStmt->m_pExpr, 2);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+}
+
+// ***********************************************************************
+
+void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
+    if (pExpr == nullptr) {
+        Log::Debug("%*s- NULL", indentationLevel, "");
+        return;
+    }
+
     switch (pExpr->m_type) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
@@ -368,7 +478,7 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel) {
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
             Log::Debug("%*s- Group (:%s)", indentationLevel, "", ValueType::ToString(pGroup->m_valueType));
-            DebugAst(pGroup->m_pExpression, indentationLevel + 2);
+            DebugExpression(pGroup->m_pExpression, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Binary: {
@@ -413,8 +523,8 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel) {
                 default:
                     break;
             }
-            DebugAst(pBinary->m_pLeft, indentationLevel + 2);
-            DebugAst(pBinary->m_pRight, indentationLevel + 2);
+            DebugExpression(pBinary->m_pLeft, indentationLevel + 2);
+            DebugExpression(pBinary->m_pRight, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Unary: {
@@ -429,7 +539,7 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel) {
                 default:
                     break;
             }
-            DebugAst(pUnary->m_pRight, indentationLevel + 2);
+            DebugExpression(pUnary->m_pRight, indentationLevel + 2);
             break;
         }
         default:

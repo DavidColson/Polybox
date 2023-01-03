@@ -3,8 +3,11 @@
 #pragma once
 
 namespace Ast {
-struct Expression;
+struct Statement;
 }
 struct ParsingState;
 
-void TypeCheck(Ast::Expression* pExpr, ParsingState* pParser);
+template<typename T>
+struct ResizableArray;
+
+void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ParsingState* pParser);

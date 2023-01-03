@@ -5,9 +5,11 @@
 #include "parser.h"
 #include "virtual_machine.h"
 
+#include <resizable_array.inl>
+
 // ***********************************************************************
 
-void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk) {
+void CodeGenExpression(Ast::Expression* pExpr, CodeChunk* pChunk) {
     switch (pExpr->m_type) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
@@ -22,13 +24,13 @@ void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk) {
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
 
-            CodeGen(pGroup->m_pExpression, pChunk);
+            CodeGenExpression(pGroup->m_pExpression, pChunk);
             break;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
-            CodeGen(pBinary->m_pLeft, pChunk);
-            CodeGen(pBinary->m_pRight, pChunk);
+            CodeGenExpression(pBinary->m_pLeft, pChunk);
+            CodeGenExpression(pBinary->m_pRight, pChunk);
             switch (pBinary->m_operator) {
                 case Operator::Add:
                     pChunk->code.PushBack((uint8_t)OpCode::Add);
@@ -73,7 +75,7 @@ void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk) {
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
-            CodeGen(pUnary->m_pRight, pChunk);
+            CodeGenExpression(pUnary->m_pRight, pChunk);
             switch (pUnary->m_operator) {
                 case Operator::Subtract:
                     pChunk->code.PushBack((uint8_t)OpCode::Negate);
@@ -88,5 +90,30 @@ void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk) {
         }
         default:
             break;
+    }
+}
+
+// ***********************************************************************
+
+void CodeGen(ResizableArray<Ast::Statement*>& program, CodeChunk* pChunk) {
+    for (size_t i = 0; i < program.m_count; i++) {
+        Ast::Statement* pStmt = program[i];
+
+        switch (pStmt->m_type) {
+            case Ast::NodeType::PrintStmt: {
+                Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
+                CodeGenExpression(pPrint->m_pExpr, pChunk);
+                pChunk->code.PushBack((uint8_t)OpCode::Print);
+                break;
+            }
+            case Ast::NodeType::ExpressionStmt: {
+                Ast::ExpressionStatement* pExprStmt = (Ast::ExpressionStatement*)pStmt;
+                CodeGenExpression(pExprStmt->m_pExpr, pChunk);
+                pChunk->code.PushBack((uint8_t)OpCode::Pop);
+                break;
+            }
+            default:
+                break;
+        }
     }
 }

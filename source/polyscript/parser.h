@@ -15,19 +15,29 @@ struct IAllocator;
 namespace Ast {
 
 enum class NodeType {
+    // Expressions
     Binary,
     Unary,
     Literal,
-    Grouping
+    Grouping,
+
+    // Statements
+    ExpressionStmt,
+    PrintStmt
 };
 
-struct Expression {
+// Base AST Node
+struct Node {
     NodeType m_type;
-    ValueType::Enum m_valueType;
-    
+
     char* m_pLocation { nullptr };
     char* m_pLineStart { nullptr };
     size_t m_line { 0 };
+};
+
+// Expression type nodes
+struct Expression : public Node {
+    ValueType::Enum m_valueType;
 };
 
 struct Binary : public Expression {
@@ -49,6 +59,18 @@ struct Grouping : public Expression {
     Expression* m_pExpression;
 };
 
+// Statement type nodes
+struct Statement : public Node {
+};
+
+struct ExpressionStatement : public Statement {
+    Expression* m_pExpr;
+};
+
+struct PrintStatement : public Statement {
+    Expression* m_pExpr;
+};
+
 }
 
 struct Error {
@@ -68,10 +90,10 @@ struct ParsingState {
     Token* m_pTokensEnd { nullptr };
     Token* m_pCurrent { nullptr };
     IAllocator* pAllocator { nullptr };
-    bool m_panicMode;
+    bool m_panicMode { false };
     ResizableArray<Error> m_errors;
 
-    Ast::Expression* InitAndParse(ResizableArray<Token>& tokens, IAllocator* pAlloc);
+    ResizableArray<Ast::Statement*> InitAndParse(ResizableArray<Token>& tokens, IAllocator* pAlloc);
 
     Token Previous();
 
@@ -86,6 +108,8 @@ struct ParsingState {
     Token Consume(TokenType::Enum type, String message);
 
     bool Match(int numTokens, ...);
+
+    void Synchronize();
 
     void PushError(Ast::Expression* pNode, const char* formatMessage, ...);
 
@@ -106,8 +130,16 @@ struct ParsingState {
     Ast::Expression* ParseLogicOr();
 
     Ast::Expression* ParseExpression();
+
+    Ast::Statement* ParseStatement();
+
+    Ast::Statement* ParseExpressionStatement();
+
+    Ast::Statement* ParsePrintStatement();
 };
 
-void DebugAst(Ast::Expression* pExpr, int indentationLevel = 0);
+void DebugAst(ResizableArray<Ast::Statement*>& program);
+
+void DebugExpression(Ast::Expression* pExpr, int indentationLevel = 0);
 
 bool ReportCompilationResult(ParsingState& parser);

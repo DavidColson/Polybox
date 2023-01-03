@@ -3,8 +3,11 @@
 #pragma once
 
 namespace Ast {
-struct Expression;
+struct Statement;
 }
 struct CodeChunk;
 
-void CodeGen(Ast::Expression* pExpr, CodeChunk* pChunk);
+template<typename T>
+struct ResizableArray;
+
+void CodeGen(ResizableArray<Ast::Statement*>& program, CodeChunk* pChunk);

@@ -17,14 +17,14 @@
 #include "type_checker.h"
 
 // TODO: 
-
+// [ ] Instead of storing pLocation and a length in tokens, store a String type, so we can more easily compare it and do useful things with it (replace strncmp with it)
 
 int main() {
     InitValueTables();
 
     String actualCode;
-    actualCode = "( 5 - (12+5.0)) * 12 / 3";
-    //actualCode = "false<3 && 12.4 >= 14 || 9<15";
+    actualCode = "print( (5 - (12+5.0)) * 12 / 3 );";
+    //actualCode = "(2<3 && 12.4 >= 14 || 9<15);";
 
     LinearAllocator compilerMemory;
 
@@ -34,16 +34,16 @@ int main() {
 
     // Parse
     ParsingState parser;
-    Ast::Expression* pAst = parser.InitAndParse(tokens, &compilerMemory);
+    ResizableArray<Ast::Statement*> program = parser.InitAndParse(tokens, &compilerMemory);
 
     // Type check
-    TypeCheck(pAst, &parser);
+    TypeCheckProgram(program, &parser);
 
     // Error report
     bool success = ReportCompilationResult(parser);
 
     Log::Debug("---- AST -----");
-    DebugAst(pAst);
+    DebugAst(program);
 
     if (success) {
         // Compile to bytecode
@@ -51,9 +51,7 @@ int main() {
         defer(chunk.code.Free());
         defer(chunk.constants.Free());
 
-        CodeGen(pAst, &chunk);
-        chunk.code.PushBack((uint8_t)OpCode::Print);
-        chunk.code.PushBack((uint8_t)OpCode::Return);
+        CodeGen(program, &chunk);
 
         // For debugging
         Disassemble(chunk);

@@ -6,7 +6,10 @@
 
 // ***********************************************************************
 
-void TypeCheck(Ast::Expression* pExpr, ParsingState* pParser) {
+void TypeCheckExpression(Ast::Expression* pExpr, ParsingState* pParser) {
+    if (pExpr == nullptr)
+        return;
+
     switch (pExpr->m_type) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
@@ -15,14 +18,14 @@ void TypeCheck(Ast::Expression* pExpr, ParsingState* pParser) {
         }
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
-            TypeCheck(pGroup->m_pExpression, pParser);
+            TypeCheckExpression(pGroup->m_pExpression, pParser);
             pGroup->m_valueType = pGroup->m_pExpression->m_valueType;
             break;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
-            TypeCheck(pBinary->m_pLeft, pParser);
-            TypeCheck(pBinary->m_pRight, pParser);
+            TypeCheckExpression(pBinary->m_pLeft, pParser);
+            TypeCheckExpression(pBinary->m_pRight, pParser);
             pBinary->m_valueType = OperatorReturnType(pBinary->m_operator, pBinary->m_pLeft->m_valueType, pBinary->m_pRight->m_valueType);
 
             if (pBinary->m_valueType == ValueType::Invalid && pBinary->m_pLeft->m_valueType != ValueType::Invalid && pBinary->m_pRight->m_valueType != ValueType::Invalid) {
@@ -35,7 +38,7 @@ void TypeCheck(Ast::Expression* pExpr, ParsingState* pParser) {
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
-            TypeCheck(pUnary->m_pRight, pParser);
+            TypeCheckExpression(pUnary->m_pRight, pParser);
             pUnary->m_valueType = OperatorReturnType(pUnary->m_operator, pUnary->m_pRight->m_valueType, ValueType::Invalid);
 
             if (pUnary->m_valueType == ValueType::Invalid && pUnary->m_pRight->m_valueType != ValueType::Invalid) {
@@ -45,5 +48,28 @@ void TypeCheck(Ast::Expression* pExpr, ParsingState* pParser) {
         }
         default:
             break;
+    }
+}
+
+// ***********************************************************************
+
+void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ParsingState* pParser) {
+    for (size_t i = 0; i < program.m_count; i++) {
+        Ast::Statement* pStmt = program[i];
+
+        switch (pStmt->m_type) {
+            case Ast::NodeType::PrintStmt: {
+                Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
+                TypeCheckExpression(pPrint->m_pExpr, pParser);
+                break;
+            }
+            case Ast::NodeType::ExpressionStmt: {
+                Ast::ExpressionStatement* pExprStmt = (Ast::ExpressionStatement*)pStmt;
+                TypeCheckExpression(pExprStmt->m_pExpr, pParser);
+                break;
+            }
+            default:
+                break;
+        }
     }
 }

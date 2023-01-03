@@ -31,7 +31,8 @@ enum class OpCode : uint8_t {
 
     // Misc
     Print,
-    Return
+    Return,
+    Pop
 };
 
 

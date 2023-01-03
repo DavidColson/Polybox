@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "virtual_machine.h"
-#include "lexer.h"
 #include "value.h"
-#include "light_string.h"
+
+#include <light_string.h>
+#include <resizable_array.h>
 
 template<typename T>
 struct ResizableArray;
@@ -58,6 +58,11 @@ struct Error {
     size_t m_line { 0 };
 };
 
+struct Token;
+namespace TokenType {
+enum Enum : uint32_t;
+}
+
 struct ParsingState {
     Token* m_pTokensStart { nullptr };
     Token* m_pTokensEnd { nullptr };
@@ -104,3 +109,5 @@ struct ParsingState {
 };
 
 void DebugAst(Ast::Expression* pExpr, int indentationLevel = 0);
+
+bool ReportCompilationResult(ParsingState& parser);

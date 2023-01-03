@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 namespace TokenType {
-enum Enum;
+enum Enum : uint32_t;
 }
 
 namespace ValueType {

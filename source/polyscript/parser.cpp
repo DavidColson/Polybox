@@ -9,6 +9,8 @@
 #include <string.h>
 #include <resizable_array.inl>
 #include <string_builder.h>
+#include <defer.h>
+#include <maths.h>
 
 
 // ***********************************************************************
@@ -433,4 +435,43 @@ void DebugAst(Ast::Expression* pExpr, int indentationLevel) {
         default:
             break;
     }
+}
+
+// ***********************************************************************
+
+bool ReportCompilationResult(ParsingState& parser) {
+    bool success = parser.m_errors.m_count == 0;
+    if (!success) {
+        Log::Info("Compilation failed with %i errors", parser.m_errors.m_count);
+
+        StringBuilder builder;
+
+        for (size_t i = 0; i < parser.m_errors.m_count; i++) {
+            Error& err = parser.m_errors[i];
+            builder.AppendFormat("Error At: filename:%i:%i\n", err.m_line, err.m_pLocation - err.m_pLineStart);
+
+            uint32_t lineNumberSpacing = uint32_t(log10f((float)err.m_line) + 1);
+            builder.AppendFormat("%*s|\n", lineNumberSpacing + 2, "");
+
+            String line;
+            char* lineEnd;
+            if (lineEnd = strchr(err.m_pLineStart, '\n')) {
+                line = CopyCStringRange(err.m_pLineStart, lineEnd);
+            } else if (lineEnd = strchr(err.m_pLineStart, '\0')) {
+                line = CopyCStringRange(err.m_pLineStart, lineEnd);
+            }
+            defer(FreeString(line));
+            builder.AppendFormat(" %i | %s\n", err.m_line, line.m_pData);
+
+            int32_t errorAtColumn = int32_t(err.m_pLocation - err.m_pLineStart);
+            builder.AppendFormat("%*s|%*s^\n", lineNumberSpacing + 2, "", errorAtColumn + 1, "");
+            builder.AppendFormat("%s\n", err.m_message.m_pData);
+
+            String output = builder.CreateString();
+            Log::Info("%s", output.m_pData);
+        }
+    } else {
+        Log::Info("Compilation Succeeded");
+    }
+    return success;
 }

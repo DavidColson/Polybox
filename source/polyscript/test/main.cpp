@@ -23,7 +23,10 @@ int main() {
     InitValueTables();
 
     String actualCode;
-    actualCode = "print( (5 - (12+5.0)) * 12 / 3 );";
+    actualCode = "\
+        myVar:= 5+5*2;\n\
+        print( (5 - (12+5.0)) * 12 / 3 );";
+
     //actualCode = "(2<3 && 12.4 >= 14 || 9<15);";
 
     LinearAllocator compilerMemory;
@@ -45,7 +48,7 @@ int main() {
     Log::Debug("---- AST -----");
     DebugAst(program);
 
-    if (success) {
+    if (false) {
         // Compile to bytecode
         CodeChunk chunk;
         defer(chunk.code.Free());

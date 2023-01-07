@@ -358,7 +358,7 @@ Ast::Expression* ParsingState::ParseExpression() {
 // ***********************************************************************
 
 Ast::Statement* ParsingState::ParseStatement() {
-    Ast::Statement* pStmt;
+    Ast::Statement* pStmt = nullptr;
 
     if (Match(1, TokenType::Identifier)) {
         if (strncmp("print", Previous().m_pLocation, 5) == 0) {
@@ -366,12 +366,16 @@ Ast::Statement* ParsingState::ParseStatement() {
         } else {
             m_pCurrent--;
         }
-    } else {
-        pStmt = ParseExpressionStatement();
+    } 
+    
+    if (pStmt == nullptr) {
+        if (Match(8, TokenType::Identifier, TokenType::LiteralString, TokenType::LiteralInteger, TokenType::LiteralBool, TokenType::LiteralFloat, TokenType::LeftParen, TokenType::Bang, TokenType::Minus)) {
+            m_pCurrent--;
+            pStmt = ParseExpressionStatement();
+        } else {
+            PushError(nullptr, "Unable to parse statement");
+        }
     }
-
-    if (m_panicMode)
-        Synchronize();
 
     return pStmt;
 }
@@ -414,6 +418,49 @@ Ast::Statement* ParsingState::ParsePrintStatement() {
 
 // ***********************************************************************
 
+Ast::Statement* ParsingState::ParseDeclaration() {
+    Ast::Statement* pStmt = nullptr;
+    
+    if (Match(1, TokenType::Identifier)) {
+        if (Advance().m_type == TokenType::Colon) {
+            pStmt = ParseVarDeclaration();
+        } else {
+            m_pCurrent -= 2;
+        }
+    }
+    
+    if (pStmt == nullptr) {
+        pStmt = ParseStatement();
+    }
+
+    if (m_panicMode)
+        Synchronize();
+
+    return pStmt;
+}
+
+// ***********************************************************************
+
+Ast::Statement* ParsingState::ParseVarDeclaration() {
+    Token name = *(m_pCurrent - 2);
+    Consume(TokenType::Equal, "Expected an equal sign before variable initializer");
+    Ast::Expression* pExpr = ParseExpression();
+    Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
+
+    Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pAllocator->Allocate(sizeof(Ast::VariableDeclaration));
+    pVarDecl->m_type = Ast::NodeType::VarDecl;
+
+    pVarDecl->m_name = CopyCStringRange(name.m_pLocation, name.m_pLocation + name.m_length, pAllocator);
+    pVarDecl->m_pInitializerExpr = pExpr;
+
+    pVarDecl->m_pLocation = name.m_pLocation;
+    pVarDecl->m_pLineStart = name.m_pLineStart;
+    pVarDecl->m_line = name.m_line;
+    return pVarDecl;
+}
+
+// ***********************************************************************
+
 ResizableArray<Ast::Statement*> ParsingState::InitAndParse(ResizableArray<Token>& tokens, IAllocator* pAlloc) {
     m_pTokensStart = tokens.m_pData;
     m_pTokensEnd = tokens.m_pData + tokens.m_count - 1;
@@ -425,7 +472,9 @@ ResizableArray<Ast::Statement*> ParsingState::InitAndParse(ResizableArray<Token>
     statements.m_pAlloc = pAlloc;
 
     while (!IsAtEnd()) {
-        statements.PushBack(ParseStatement());
+        Ast::Statement* pStmt = ParseDeclaration();
+        if (pStmt)
+            statements.PushBack(pStmt);
     }
 
     return statements;
@@ -438,6 +487,12 @@ void DebugAst(ResizableArray<Ast::Statement*>& program) {
         Ast::Statement* pStmt = program[i];
 
         switch (pStmt->m_type) {
+            case Ast::NodeType::VarDecl: {
+                Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
+                Log::Debug("> VarDecl (%s)", pVarDecl->m_name.m_pData);
+                DebugExpression(pVarDecl->m_pInitializerExpr, 2);
+                break;
+            }
             case Ast::NodeType::PrintStmt: {
                 Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
                 Log::Debug("> PrintStmt");

@@ -58,6 +58,11 @@ void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ParsingState* pP
         Ast::Statement* pStmt = program[i];
 
         switch (pStmt->m_type) {
+            case Ast::NodeType::VarDecl: {
+                Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
+                TypeCheckExpression(pVarDecl->m_pInitializerExpr, pParser);
+                break;
+            }
             case Ast::NodeType::PrintStmt: {
                 Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
                 TypeCheckExpression(pPrint->m_pExpr, pParser);

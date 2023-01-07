@@ -23,7 +23,10 @@ enum class NodeType {
 
     // Statements
     ExpressionStmt,
-    PrintStmt
+    PrintStmt,
+
+    // Declarations
+    VarDecl
 };
 
 // Base AST Node
@@ -69,6 +72,11 @@ struct ExpressionStatement : public Statement {
 
 struct PrintStatement : public Statement {
     Expression* m_pExpr;
+};
+
+struct VariableDeclaration : public Statement {
+    String m_name;
+    Expression* m_pInitializerExpr;
 };
 
 }
@@ -136,6 +144,10 @@ struct ParsingState {
     Ast::Statement* ParseExpressionStatement();
 
     Ast::Statement* ParsePrintStatement();
+
+    Ast::Statement* ParseDeclaration();
+
+    Ast::Statement* ParseVarDeclaration();
 };
 
 void DebugAst(ResizableArray<Ast::Statement*>& program);

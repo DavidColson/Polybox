@@ -42,6 +42,13 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             pReturnInstruction += 2;
             break;
         }
+        case (uint8_t)OpCode::GetGlobal: {
+            builder.Append("GetGlobal ");
+            uint8_t globalIndex = *(pInstruction + 1);
+            builder.AppendFormat("%i", globalIndex);
+            pReturnInstruction += 2;
+            break;
+        }
         case (uint8_t)OpCode::Negate: {
             builder.Append("Negate ");
             pReturnInstruction += 1;
@@ -270,6 +277,12 @@ void Run(CodeChunk* pChunkToRun) {
             case (uint8_t)OpCode::SetGlobal: {
                 uint8_t opIndex = *vm.pInstructionPointer++;
                 vm.globalsMemory[opIndex] = vm.stack.Pop();
+                break;
+            }
+            case (uint8_t)OpCode::GetGlobal: {
+                uint8_t opIndex = *vm.pInstructionPointer++;
+                vm.stack.Push(vm.globalsMemory[opIndex]);
+                break;
             }
             case (uint8_t)OpCode::Return:
                 break;

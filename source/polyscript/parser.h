@@ -15,11 +15,14 @@ struct IAllocator;
 namespace Ast {
 
 enum class NodeType {
+    Invalid,
+
     // Expressions
     Binary,
     Unary,
     Literal,
     Grouping,
+    Variable,
 
     // Statements
     ExpressionStmt,
@@ -62,6 +65,10 @@ struct Grouping : public Expression {
     Expression* m_pExpression;
 };
 
+struct Variable : public Expression {
+    String m_identifier;
+};
+
 // Statement type nodes
 struct Statement : public Node {
 };
@@ -75,7 +82,7 @@ struct PrintStatement : public Statement {
 };
 
 struct VariableDeclaration : public Statement {
-    String m_name;
+    String m_identifier;
     Expression* m_pInitializerExpr;
 };
 

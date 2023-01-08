@@ -4,9 +4,15 @@
 
 #include "parser.h"
 
+#include <hashmap.inl>
+
+struct TypeCheckerState {
+    HashMap<String, Ast::VariableDeclaration*> m_variableDeclarations;
+};
+
 // ***********************************************************************
 
-void TypeCheckExpression(Ast::Expression* pExpr, ErrorState* pErrors) {
+void TypeCheckExpression(TypeCheckerState* pState, Ast::Expression* pExpr, ErrorState* pErrors) {
     if (pExpr == nullptr)
         return;
 
@@ -16,16 +22,28 @@ void TypeCheckExpression(Ast::Expression* pExpr, ErrorState* pErrors) {
             pLiteral->m_valueType = pLiteral->m_value.m_type;
             break;
         }
+        case Ast::NodeType::Variable: {
+            Ast::Variable* pVariable = (Ast::Variable*)pExpr;
+
+            Ast::VariableDeclaration** pDecl = pState->m_variableDeclarations.Get(pVariable->m_identifier);
+            if (pDecl) {
+                pVariable->m_valueType = (*pDecl)->m_pInitializerExpr->m_valueType;
+            } else {
+                pErrors->PushError(pVariable, "Undeclared identifier \'%s\', missing a declaration somewhere before?", pVariable->m_identifier.m_pData);
+            }
+
+            break;
+        }
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
-            TypeCheckExpression(pGroup->m_pExpression, pErrors);
+            TypeCheckExpression(pState, pGroup->m_pExpression, pErrors);
             pGroup->m_valueType = pGroup->m_pExpression->m_valueType;
             break;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
-            TypeCheckExpression(pBinary->m_pLeft, pErrors);
-            TypeCheckExpression(pBinary->m_pRight, pErrors);
+            TypeCheckExpression(pState, pBinary->m_pLeft, pErrors);
+            TypeCheckExpression(pState, pBinary->m_pRight, pErrors);
             pBinary->m_valueType = OperatorReturnType(pBinary->m_operator, pBinary->m_pLeft->m_valueType, pBinary->m_pRight->m_valueType);
 
             if (pBinary->m_valueType == ValueType::Invalid && pBinary->m_pLeft->m_valueType != ValueType::Invalid && pBinary->m_pRight->m_valueType != ValueType::Invalid) {
@@ -38,7 +56,7 @@ void TypeCheckExpression(Ast::Expression* pExpr, ErrorState* pErrors) {
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
-            TypeCheckExpression(pUnary->m_pRight, pErrors);
+            TypeCheckExpression(pState, pUnary->m_pRight, pErrors);
             pUnary->m_valueType = OperatorReturnType(pUnary->m_operator, pUnary->m_pRight->m_valueType, ValueType::Invalid);
 
             if (pUnary->m_valueType == ValueType::Invalid && pUnary->m_pRight->m_valueType != ValueType::Invalid) {
@@ -54,23 +72,26 @@ void TypeCheckExpression(Ast::Expression* pExpr, ErrorState* pErrors) {
 // ***********************************************************************
 
 void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErrors) {
+    TypeCheckerState state;
+
     for (size_t i = 0; i < program.m_count; i++) {
         Ast::Statement* pStmt = program[i];
 
         switch (pStmt->m_type) {
             case Ast::NodeType::VarDecl: {
                 Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
-                TypeCheckExpression(pVarDecl->m_pInitializerExpr, pErrors);
+                state.m_variableDeclarations.Add(pVarDecl->m_identifier, pVarDecl);
+                TypeCheckExpression(&state, pVarDecl->m_pInitializerExpr, pErrors);
                 break;
             }
             case Ast::NodeType::PrintStmt: {
                 Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
-                TypeCheckExpression(pPrint->m_pExpr, pErrors);
+                TypeCheckExpression(&state, pPrint->m_pExpr, pErrors);
                 break;
             }
             case Ast::NodeType::ExpressionStmt: {
                 Ast::ExpressionStatement* pExprStmt = (Ast::ExpressionStatement*)pStmt;
-                TypeCheckExpression(pExprStmt->m_pExpr, pErrors);
+                TypeCheckExpression(&state, pExprStmt->m_pExpr, pErrors);
                 break;
             }
             default:

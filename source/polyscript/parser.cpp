@@ -265,6 +265,20 @@ Ast::Expression* ParsingState::ParsePrimary() {
         return nullptr;
     }
 
+    if (Match(1, TokenType::Identifier)) {
+        Token identifier = Previous();
+
+        Ast::Variable* pVariable = (Ast::Variable*)pAllocator->Allocate(sizeof(Ast::Variable));
+        pVariable->m_type = Ast::NodeType::Variable;
+        pVariable->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
+
+        pVariable->m_pLocation = identifier.m_pLocation;
+        pVariable->m_pLineStart = identifier.m_pLineStart;
+        pVariable->m_line = identifier.m_line;
+
+        return pVariable;
+    }
+
     return nullptr;
 }
 
@@ -530,7 +544,7 @@ Ast::Statement* ParsingState::ParseVarDeclaration() {
     Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pAllocator->Allocate(sizeof(Ast::VariableDeclaration));
     pVarDecl->m_type = Ast::NodeType::VarDecl;
 
-    pVarDecl->m_name = CopyCStringRange(name.m_pLocation, name.m_pLocation + name.m_length, pAllocator);
+    pVarDecl->m_identifier = CopyCStringRange(name.m_pLocation, name.m_pLocation + name.m_length, pAllocator);
     pVarDecl->m_pInitializerExpr = pExpr;
 
     pVarDecl->m_pLocation = name.m_pLocation;
@@ -569,7 +583,7 @@ void DebugAst(ResizableArray<Ast::Statement*>& program) {
         switch (pStmt->m_type) {
             case Ast::NodeType::VarDecl: {
                 Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
-                Log::Debug("+ VarDecl (%s)", pVarDecl->m_name.m_pData);
+                Log::Debug("+ VarDecl (%s)", pVarDecl->m_identifier.m_pData);
                 DebugExpression(pVarDecl->m_pInitializerExpr, 2);
                 break;
             }
@@ -600,6 +614,11 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
     }
 
     switch (pExpr->m_type) {
+        case Ast::NodeType::Variable: {
+            Ast::Variable* pVariable = (Ast::Variable*)pExpr;
+                Log::Debug("%*s- Variable (%s:%s)", indentationLevel, "", pVariable->m_identifier.m_pData, ValueType::ToString(pVariable->m_valueType));
+            break;
+        }
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
             if (pLiteral->m_value.m_type == ValueType::F32)

@@ -17,6 +17,7 @@
 #include "type_checker.h"
 
 // TODO: 
+// [ ] Globals assignment
 // [ ] Move error state to it's own file
 // [ ] Instead of storing pLocation and a length in tokens, store a String type, so we can more easily compare it and do useful things with it (replace strncmp with it)
 
@@ -25,8 +26,8 @@ int main() {
 
     String actualCode;
     actualCode = "\
-        myVar:= 5+5*2;\n\
-        print( (5 - (12+5.0)) * 12 / 3 );";
+        lucy:= 5+5*2;\n\
+        print( (5 - (lucy+5.0)) * 12 / 3 );";
 
     //actualCode = "(2<3 && 12.4 >= 14 || 9<15);";
 
@@ -39,30 +40,12 @@ int main() {
     ResizableArray<Token> tokens = Tokenize(&compilerMemory, actualCode);
     defer(tokens.Free());
 
-
-
     // Parse
     ParsingState parser;
     ResizableArray<Ast::Statement*> program = parser.InitAndParse(tokens, &errorState, &compilerMemory);
 
     // Type check
     TypeCheckProgram(program, &errorState);
-
-    // Bind variables?
-    
-    // Typecheck
-    // Figure out what the type of the variable is and store it in it's AST node
-    // We won't support out of order definitions for now, so error if it's not present in the table.
-
-    // Codegen phase
-    // As we encounter a var decl, put the var in a hash table
-    // Decide what it's index will be in the output globals array
-    // As we encounter a var get or set, lookup the var in the table to see if it's defined
-    // If it is, get the address in the globals array and push that as your constant operand to the bytecode
-
-    // Runtime
-    // var decls are removed from the output code
-    // var get and set can just use their operands to lookup in the globals array
 
     // Error report
     bool success = errorState.ReportCompilationResult();

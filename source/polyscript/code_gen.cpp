@@ -6,10 +6,11 @@
 #include "virtual_machine.h"
 
 #include <resizable_array.inl>
+#include <hashmap.inl>
 
 // ***********************************************************************
 
-void CodeGenExpression(Ast::Expression* pExpr, CodeChunk* pChunk) {
+void CodeGenExpression(Ast::Expression* pExpr, CodeChunk* pChunk, ErrorState* pErrors) {
     switch (pExpr->m_type) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
@@ -24,13 +25,13 @@ void CodeGenExpression(Ast::Expression* pExpr, CodeChunk* pChunk) {
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
 
-            CodeGenExpression(pGroup->m_pExpression, pChunk);
+            CodeGenExpression(pGroup->m_pExpression, pChunk, pErrors);
             break;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
-            CodeGenExpression(pBinary->m_pLeft, pChunk);
-            CodeGenExpression(pBinary->m_pRight, pChunk);
+            CodeGenExpression(pBinary->m_pLeft, pChunk, pErrors);
+            CodeGenExpression(pBinary->m_pRight, pChunk, pErrors);
             switch (pBinary->m_operator) {
                 case Operator::Add:
                     pChunk->code.PushBack((uint8_t)OpCode::Add);
@@ -75,7 +76,7 @@ void CodeGenExpression(Ast::Expression* pExpr, CodeChunk* pChunk) {
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
-            CodeGenExpression(pUnary->m_pRight, pChunk);
+            CodeGenExpression(pUnary->m_pRight, pChunk, pErrors);
             switch (pUnary->m_operator) {
                 case Operator::Subtract:
                     pChunk->code.PushBack((uint8_t)OpCode::Negate);
@@ -95,20 +96,42 @@ void CodeGenExpression(Ast::Expression* pExpr, CodeChunk* pChunk) {
 
 // ***********************************************************************
 
-void CodeGen(ResizableArray<Ast::Statement*>& program, CodeChunk* pChunk) {
+void CodeGen(ResizableArray<Ast::Statement*>& program, CodeChunk* pChunk, ErrorState* pErrors) {
+    struct Global {
+        int m_index;
+    };
+    HashMap<String, Global> globalLookup;
+
+    uint8_t globalIndexCounter = 0;
+
     for (size_t i = 0; i < program.m_count; i++) {
         Ast::Statement* pStmt = program[i];
 
         switch (pStmt->m_type) {
+            case Ast::NodeType::VarDecl: {
+                Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
+
+                // Put global in our lookup map
+                Global newGlobal;
+                newGlobal.m_index = globalIndexCounter;
+                globalIndexCounter++;
+                globalLookup.Add(pVarDecl->m_name, newGlobal);
+                
+                // codegen the initializer which will leave it's output on the stack
+                CodeGenExpression(pVarDecl->m_pInitializerExpr, pChunk, pErrors);
+                pChunk->code.PushBack((uint8_t)OpCode::SetGlobal);
+                pChunk->code.PushBack(newGlobal.m_index);
+                break;
+            }
             case Ast::NodeType::PrintStmt: {
                 Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
-                CodeGenExpression(pPrint->m_pExpr, pChunk);
+                CodeGenExpression(pPrint->m_pExpr, pChunk, pErrors);
                 pChunk->code.PushBack((uint8_t)OpCode::Print);
                 break;
             }
             case Ast::NodeType::ExpressionStmt: {
                 Ast::ExpressionStatement* pExprStmt = (Ast::ExpressionStatement*)pStmt;
-                CodeGenExpression(pExprStmt->m_pExpr, pChunk);
+                CodeGenExpression(pExprStmt->m_pExpr, pChunk, pErrors);
                 pChunk->code.PushBack((uint8_t)OpCode::Pop);
                 break;
             }
@@ -116,4 +139,6 @@ void CodeGen(ResizableArray<Ast::Statement*>& program, CodeChunk* pChunk) {
                 break;
         }
     }
+
+    pChunk->m_globalsCount = globalIndexCounter;
 }

@@ -13,6 +13,102 @@
 #include <maths.h>
 
 
+// ErrorState
+
+// ***********************************************************************
+
+void ErrorState::Init(IAllocator* pAlloc) {
+    m_pAlloc = pAlloc;
+    m_errors.m_pAlloc = m_pAlloc;
+}
+
+// ***********************************************************************
+
+void ErrorState::PushError(Ast::Expression* pNode, const char* formatMessage, ...) {
+    StringBuilder builder(m_pAlloc);
+    va_list args;
+    va_start(args, formatMessage);
+    builder.AppendFormatInternal(formatMessage, args);
+    va_end(args);
+
+    Assert(pNode != nullptr);
+
+    Error er;
+    er.m_pLocation = pNode->m_pLocation;
+    er.m_line = pNode->m_line;
+    er.m_pLineStart = pNode->m_pLineStart;
+
+    er.m_message = builder.CreateString();
+    m_errors.PushBack(er);
+}
+
+// ***********************************************************************
+
+void ErrorState::PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, ...) {
+    va_list args;
+    va_start(args, formatMessage);
+    PushError(pLocation, pLineStart, line, formatMessage, args);
+    va_end(args);
+}
+
+// ***********************************************************************
+
+void ErrorState::PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, va_list args) {
+    StringBuilder builder(m_pAlloc);
+    builder.AppendFormatInternal(formatMessage, args);
+
+    Error er;
+    er.m_pLocation = pLocation;
+    er.m_line = line;
+    er.m_pLineStart = pLineStart;
+
+    er.m_message = builder.CreateString();
+
+    m_errors.PushBack(er);
+}
+
+// ***********************************************************************
+
+bool ErrorState::ReportCompilationResult() {
+    bool success = m_errors.m_count == 0;
+    if (!success) {
+        Log::Info("Compilation failed with %i errors", m_errors.m_count);
+
+        StringBuilder builder;
+
+        for (size_t i = 0; i < m_errors.m_count; i++) {
+            Error& err = m_errors[i];
+            builder.AppendFormat("Error At: filename:%i:%i\n", err.m_line, err.m_pLocation - err.m_pLineStart);
+
+            uint32_t lineNumberSpacing = uint32_t(log10f((float)err.m_line) + 1);
+            builder.AppendFormat("%*s|\n", lineNumberSpacing + 2, "");
+
+            String line;
+            char* lineEnd;
+            if (lineEnd = strchr(err.m_pLineStart, '\n')) {
+                line = CopyCStringRange(err.m_pLineStart, lineEnd);
+            } else if (lineEnd = strchr(err.m_pLineStart, '\0')) {
+                line = CopyCStringRange(err.m_pLineStart, lineEnd);
+            }
+            defer(FreeString(line));
+            builder.AppendFormat(" %i | %s\n", err.m_line, line.m_pData);
+
+            int32_t errorAtColumn = int32_t(err.m_pLocation - err.m_pLineStart);
+            builder.AppendFormat("%*s|%*s^\n", lineNumberSpacing + 2, "", errorAtColumn + 1, "");
+            builder.AppendFormat("%s\n", err.m_message.m_pData);
+
+            String output = builder.CreateString();
+            Log::Info("%s", output.m_pData);
+        }
+    } else {
+        Log::Info("Compilation Succeeded");
+    }
+    return success;
+}
+
+
+// ParsingState
+
 // ***********************************************************************
 
 Token ParsingState::Previous() {
@@ -74,6 +170,17 @@ bool ParsingState::Match(int numTokens, ...) {
 
 // ***********************************************************************
 
+void ParsingState::PushError(const char* formatMessage, ...) {
+    m_panicMode = true;
+
+    va_list args;
+    va_start(args, formatMessage);
+    m_pErrorState->PushError(m_pCurrent->m_pLocation, m_pCurrent->m_pLineStart, m_pCurrent->m_line, formatMessage, args);
+    va_end(args);
+}
+
+// ***********************************************************************
+
 void ParsingState::Synchronize() {
     m_panicMode = false;
 
@@ -85,33 +192,6 @@ void ParsingState::Synchronize() {
 
         Advance();
     }
-}
-
-// ***********************************************************************
-
-void ParsingState::PushError(Ast::Expression* pNode, const char* formatMessage, ...) {
-    StringBuilder builder;
-    va_list args;
-    va_start(args, formatMessage);
-    builder.AppendFormatInternal(formatMessage, args);
-    va_end(args);
-
-    Error er;
-    if (pNode == nullptr) {
-        er.m_pLocation = m_pCurrent->m_pLocation;
-        er.m_line = m_pCurrent->m_line;
-        er.m_pLineStart = m_pCurrent->m_pLineStart;
-
-        er.m_message = builder.CreateString();
-    } else {
-        er.m_pLocation = pNode->m_pLocation;
-        er.m_line = pNode->m_line;
-        er.m_pLineStart = pNode->m_pLineStart;
-
-        er.m_message = builder.CreateString();
-    }
-    m_errors.PushBack(er);
-    m_panicMode = true;
 }
 
 // ***********************************************************************
@@ -461,12 +541,12 @@ Ast::Statement* ParsingState::ParseVarDeclaration() {
 
 // ***********************************************************************
 
-ResizableArray<Ast::Statement*> ParsingState::InitAndParse(ResizableArray<Token>& tokens, IAllocator* pAlloc) {
+ResizableArray<Ast::Statement*> ParsingState::InitAndParse(ResizableArray<Token>& tokens, ErrorState* pErrors, IAllocator* pAlloc) {
     m_pTokensStart = tokens.m_pData;
     m_pTokensEnd = tokens.m_pData + tokens.m_count - 1;
     m_pCurrent = tokens.m_pData;
     pAllocator = pAlloc;
-    m_errors.m_pAlloc = pAlloc;
+    m_pErrorState = pErrors;
 
     ResizableArray<Ast::Statement*> statements;
     statements.m_pAlloc = pAlloc;
@@ -489,7 +569,7 @@ void DebugAst(ResizableArray<Ast::Statement*>& program) {
         switch (pStmt->m_type) {
             case Ast::NodeType::VarDecl: {
                 Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
-                Log::Debug("> VarDecl (%s)", pVarDecl->m_name.m_pData);
+                Log::Debug("+ VarDecl (%s)", pVarDecl->m_name.m_pData);
                 DebugExpression(pVarDecl->m_pInitializerExpr, 2);
                 break;
             }
@@ -600,43 +680,4 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
         default:
             break;
     }
-}
-
-// ***********************************************************************
-
-bool ReportCompilationResult(ParsingState& parser) {
-    bool success = parser.m_errors.m_count == 0;
-    if (!success) {
-        Log::Info("Compilation failed with %i errors", parser.m_errors.m_count);
-
-        StringBuilder builder;
-
-        for (size_t i = 0; i < parser.m_errors.m_count; i++) {
-            Error& err = parser.m_errors[i];
-            builder.AppendFormat("Error At: filename:%i:%i\n", err.m_line, err.m_pLocation - err.m_pLineStart);
-
-            uint32_t lineNumberSpacing = uint32_t(log10f((float)err.m_line) + 1);
-            builder.AppendFormat("%*s|\n", lineNumberSpacing + 2, "");
-
-            String line;
-            char* lineEnd;
-            if (lineEnd = strchr(err.m_pLineStart, '\n')) {
-                line = CopyCStringRange(err.m_pLineStart, lineEnd);
-            } else if (lineEnd = strchr(err.m_pLineStart, '\0')) {
-                line = CopyCStringRange(err.m_pLineStart, lineEnd);
-            }
-            defer(FreeString(line));
-            builder.AppendFormat(" %i | %s\n", err.m_line, line.m_pData);
-
-            int32_t errorAtColumn = int32_t(err.m_pLocation - err.m_pLineStart);
-            builder.AppendFormat("%*s|%*s^\n", lineNumberSpacing + 2, "", errorAtColumn + 1, "");
-            builder.AppendFormat("%s\n", err.m_message.m_pData);
-
-            String output = builder.CreateString();
-            Log::Info("%s", output.m_pData);
-        }
-    } else {
-        Log::Info("Compilation Succeeded");
-    }
-    return success;
 }

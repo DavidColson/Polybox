@@ -88,6 +88,19 @@ struct Error {
     size_t m_line { 0 };
 };
 
+struct ErrorState {
+    ResizableArray<Error> m_errors;
+    IAllocator* m_pAlloc { nullptr };
+
+    void Init(IAllocator* pAlloc);
+
+    void PushError(Ast::Expression* pNode, const char* formatMessage, ...);
+    void PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, ...);
+    void PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, va_list args);
+
+    bool ReportCompilationResult();
+};
+
 struct Token;
 namespace TokenType {
 enum Enum : uint32_t;
@@ -98,10 +111,10 @@ struct ParsingState {
     Token* m_pTokensEnd { nullptr };
     Token* m_pCurrent { nullptr };
     IAllocator* pAllocator { nullptr };
+    ErrorState* m_pErrorState { nullptr };
     bool m_panicMode { false };
-    ResizableArray<Error> m_errors;
 
-    ResizableArray<Ast::Statement*> InitAndParse(ResizableArray<Token>& tokens, IAllocator* pAlloc);
+    ResizableArray<Ast::Statement*> InitAndParse(ResizableArray<Token>& tokens, ErrorState* pErrors, IAllocator* pAlloc);
 
     Token Previous();
 
@@ -116,10 +129,10 @@ struct ParsingState {
     Token Consume(TokenType::Enum type, String message);
 
     bool Match(int numTokens, ...);
+    
+    void PushError(const char* formatMessage, ...);
 
     void Synchronize();
-
-    void PushError(Ast::Expression* pNode, const char* formatMessage, ...);
 
     Ast::Expression* ParsePrimary();
 
@@ -154,4 +167,3 @@ void DebugAst(ResizableArray<Ast::Statement*>& program);
 
 void DebugExpression(Ast::Expression* pExpr, int indentationLevel = 0);
 
-bool ReportCompilationResult(ParsingState& parser);

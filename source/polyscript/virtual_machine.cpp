@@ -13,6 +13,7 @@ struct VirtualMachine {
     CodeChunk* pCurrentChunk;
     uint8_t* pInstructionPointer;
     Stack<Value> stack;
+    ResizableArray<Value> globalsMemory;
 };
 
 // ***********************************************************************
@@ -31,6 +32,13 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
                 builder.AppendFormat("%s", v.m_boolValue ? "true" : "false");
             else if (v.m_type == ValueType::I32)
                 builder.AppendFormat("%i", v.m_i32Value);
+            pReturnInstruction += 2;
+            break;
+        }
+        case (uint8_t)OpCode::SetGlobal: {
+            builder.Append("SetGlobal ");
+            uint8_t globalIndex = *(pInstruction + 1);
+            builder.AppendFormat("%i", globalIndex);
             pReturnInstruction += 2;
             break;
         }
@@ -148,6 +156,11 @@ void Run(CodeChunk* pChunkToRun) {
     vm.pCurrentChunk = pChunkToRun;
     vm.pInstructionPointer = vm.pCurrentChunk->code.m_pData;
 
+    vm.globalsMemory.Resize(pChunkToRun->m_globalsCount); // Reserve memory for globals
+    for (size_t i = 0; i < vm.globalsMemory.m_count; i++) {
+        vm.globalsMemory[i] = Value();
+    }
+
     // VM run
     while (vm.pInstructionPointer < vm.pCurrentChunk->code.end()) {
 #ifdef DEBUG_TRACE
@@ -254,6 +267,10 @@ void Run(CodeChunk* pChunkToRun) {
             case (uint8_t)OpCode::Pop:
                 vm.stack.Pop();
                 break;
+            case (uint8_t)OpCode::SetGlobal: {
+                uint8_t opIndex = *vm.pInstructionPointer++;
+                vm.globalsMemory[opIndex] = vm.stack.Pop();
+            }
             case (uint8_t)OpCode::Return:
                 break;
             default:

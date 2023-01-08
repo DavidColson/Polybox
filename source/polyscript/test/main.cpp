@@ -17,6 +17,7 @@
 #include "type_checker.h"
 
 // TODO: 
+// [ ] Move error state to it's own file
 // [ ] Instead of storing pLocation and a length in tokens, store a String type, so we can more easily compare it and do useful things with it (replace strncmp with it)
 
 int main() {
@@ -31,30 +32,51 @@ int main() {
 
     LinearAllocator compilerMemory;
 
+    ErrorState errorState;
+    errorState.Init(&compilerMemory);
+
     // Tokenize
     ResizableArray<Token> tokens = Tokenize(&compilerMemory, actualCode);
     defer(tokens.Free());
 
+
+
     // Parse
     ParsingState parser;
-    ResizableArray<Ast::Statement*> program = parser.InitAndParse(tokens, &compilerMemory);
+    ResizableArray<Ast::Statement*> program = parser.InitAndParse(tokens, &errorState, &compilerMemory);
 
     // Type check
-    TypeCheckProgram(program, &parser);
+    TypeCheckProgram(program, &errorState);
+
+    // Bind variables?
+    
+    // Typecheck
+    // Figure out what the type of the variable is and store it in it's AST node
+    // We won't support out of order definitions for now, so error if it's not present in the table.
+
+    // Codegen phase
+    // As we encounter a var decl, put the var in a hash table
+    // Decide what it's index will be in the output globals array
+    // As we encounter a var get or set, lookup the var in the table to see if it's defined
+    // If it is, get the address in the globals array and push that as your constant operand to the bytecode
+
+    // Runtime
+    // var decls are removed from the output code
+    // var get and set can just use their operands to lookup in the globals array
 
     // Error report
-    bool success = ReportCompilationResult(parser);
+    bool success = errorState.ReportCompilationResult();
 
     Log::Debug("---- AST -----");
     DebugAst(program);
 
-    if (false) {
+    if (success) {
         // Compile to bytecode
         CodeChunk chunk;
         defer(chunk.code.Free());
         defer(chunk.constants.Free());
 
-        CodeGen(program, &chunk);
+        CodeGen(program, &chunk, &errorState);
 
         // For debugging
         Disassemble(chunk);

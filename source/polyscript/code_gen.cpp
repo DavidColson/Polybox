@@ -27,6 +27,14 @@ void CodeGenExpression(CodeGenState* pState, Ast::Expression* pExpr, CodeChunk* 
             pChunk->code.PushBack(global.m_index);
             break;
         }
+        case Ast::NodeType::VariableAssignment: {
+            Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
+            CodeGenExpression(pState, pVarAssignment->m_pAssignment, pChunk, pErrors);
+            CodeGenState::Global& global = *pState->m_globalLookup.Get(pVarAssignment->m_identifier);
+            pChunk->code.PushBack((uint8_t)OpCode::SetGlobal);
+            pChunk->code.PushBack(global.m_index);
+            break;
+        }
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
 
@@ -132,6 +140,7 @@ void CodeGen(ResizableArray<Ast::Statement*>& program, CodeChunk* pChunk, ErrorS
                 CodeGenExpression(&state, pVarDecl->m_pInitializerExpr, pChunk, pErrors);
                 pChunk->code.PushBack((uint8_t)OpCode::SetGlobal);
                 pChunk->code.PushBack(newGlobal.m_index);
+                pChunk->code.PushBack((uint8_t)OpCode::Pop);
                 break;
             }
             case Ast::NodeType::PrintStmt: {

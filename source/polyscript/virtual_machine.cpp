@@ -12,7 +12,7 @@
 struct VirtualMachine {
     CodeChunk* pCurrentChunk;
     uint8_t* pInstructionPointer;
-    Stack<Value> stack;
+    Stack<Value> stack; // This is the temporaries stack (maybe rename)
     ResizableArray<Value> globalsMemory;
 };
 
@@ -276,7 +276,7 @@ void Run(CodeChunk* pChunkToRun) {
                 break;
             case (uint8_t)OpCode::SetGlobal: {
                 uint8_t opIndex = *vm.pInstructionPointer++;
-                vm.globalsMemory[opIndex] = vm.stack.Pop();
+                vm.globalsMemory[opIndex] = vm.stack.Top();
                 break;
             }
             case (uint8_t)OpCode::GetGlobal: {

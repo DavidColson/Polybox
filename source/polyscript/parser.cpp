@@ -149,7 +149,7 @@ Token ParsingState::Consume(TokenType::Enum type, String message) {
     if (Check(type))
         return Advance();
 
-    PushError(nullptr, message.m_pData);
+    PushError(message.m_pData);
     return Token();
 }
 
@@ -261,7 +261,7 @@ Ast::Expression* ParsingState::ParsePrimary() {
             pGroupExpr->m_pExpression = pExpr;
             return pGroupExpr;
         }
-        PushError(nullptr, "Expected valid expression inside parenthesis, but found nothing");
+        PushError("Expected valid expression inside parenthesis, but found nothing");
         return nullptr;
     }
 
@@ -445,8 +445,34 @@ Ast::Expression* ParsingState::ParseLogicOr() {
 
 // ***********************************************************************
 
+Ast::Expression* ParsingState::ParseVarAssignment() {
+    Ast::Expression* pExpr = ParseLogicAnd();
+
+    if (Match(1, TokenType::Equal)) {
+        Token equal = Previous();
+        Ast::Expression* pAssignment = ParseVarAssignment();
+
+        if (pExpr->m_type == Ast::NodeType::Variable) {
+            Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pAllocator->Allocate(sizeof(Ast::VariableAssignment));
+            pVarAssignment->m_type = Ast::NodeType::VariableAssignment;
+
+            pVarAssignment->m_identifier = ((Ast::Variable*)pExpr)->m_identifier;
+            pVarAssignment->m_pAssignment = pAssignment;
+
+            pVarAssignment->m_pLocation = equal.m_pLocation;
+            pVarAssignment->m_pLineStart = equal.m_pLineStart;
+            pVarAssignment->m_line = equal.m_line;
+            return pVarAssignment;
+        }
+        m_pErrorState->PushError(equal.m_pLocation, equal.m_pLineStart, equal.m_line, "Expression preceding assignment operator is not a variable we can assign to");
+    }
+    return pExpr;
+}
+
+// ***********************************************************************
+
 Ast::Expression* ParsingState::ParseExpression() {
-    return ParseLogicOr();
+    return ParseVarAssignment();
 }
 
 // ***********************************************************************
@@ -467,7 +493,7 @@ Ast::Statement* ParsingState::ParseStatement() {
             m_pCurrent--;
             pStmt = ParseExpressionStatement();
         } else {
-            PushError(nullptr, "Unable to parse statement");
+            PushError("Unable to parse statement");
         }
     }
 
@@ -617,6 +643,12 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
         case Ast::NodeType::Variable: {
             Ast::Variable* pVariable = (Ast::Variable*)pExpr;
                 Log::Debug("%*s- Variable (%s:%s)", indentationLevel, "", pVariable->m_identifier.m_pData, ValueType::ToString(pVariable->m_valueType));
+            break;
+        }
+        case Ast::NodeType::VariableAssignment: {
+            Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pExpr;
+            Log::Debug("%*s- Variable Assignment (%s:%s)", indentationLevel, "", pAssignment->m_identifier.m_pData, ValueType::ToString(pAssignment->m_valueType));
+            DebugExpression(pAssignment->m_pAssignment, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Literal: {

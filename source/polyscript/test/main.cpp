@@ -30,6 +30,7 @@ int main() {
     String actualCode;
     actualCode = "\
         lucy:= 5+5*2;\n\
+        lucy = 10;\n\
         print( (5 - (lucy+5.0)) * 12 / 3 );";
 
     //actualCode = "(2<3 && 12.4 >= 14 || 9<15);";

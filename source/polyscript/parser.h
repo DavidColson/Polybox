@@ -23,6 +23,7 @@ enum class NodeType {
     Literal,
     Grouping,
     Variable,
+    VariableAssignment,
 
     // Statements
     ExpressionStmt,
@@ -68,6 +69,12 @@ struct Grouping : public Expression {
 struct Variable : public Expression {
     String m_identifier;
 };
+
+struct VariableAssignment : public Expression {
+    String m_identifier;
+    Expression* m_pAssignment;
+};
+
 
 // Statement type nodes
 struct Statement : public Node {
@@ -156,6 +163,8 @@ struct ParsingState {
     Ast::Expression* ParseLogicAnd();
 
     Ast::Expression* ParseLogicOr();
+
+    Ast::Expression* ParseVarAssignment();
 
     Ast::Expression* ParseExpression();
 

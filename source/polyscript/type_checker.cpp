@@ -29,7 +29,27 @@ void TypeCheckExpression(TypeCheckerState* pState, Ast::Expression* pExpr, Error
             if (pDecl) {
                 pVariable->m_valueType = (*pDecl)->m_pInitializerExpr->m_valueType;
             } else {
-                pErrors->PushError(pVariable, "Undeclared identifier \'%s\', missing a declaration somewhere before?", pVariable->m_identifier.m_pData);
+                pErrors->PushError(pVariable, "Undeclared variable \'%s\', missing a declaration somewhere before?", pVariable->m_identifier.m_pData);
+            }
+
+            break;
+        }
+        case Ast::NodeType::VariableAssignment: {
+            Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
+            TypeCheckExpression(pState, pVarAssignment->m_pAssignment, pErrors);
+
+            Ast::VariableDeclaration** pDecl = pState->m_variableDeclarations.Get(pVarAssignment->m_identifier);
+            if (pDecl) {
+                ValueType::Enum declaredVarType = (*pDecl)->m_pInitializerExpr->m_valueType;
+                ValueType::Enum assignedVarType = pVarAssignment->m_pAssignment->m_valueType;
+                if (declaredVarType == assignedVarType) {
+                    pVarAssignment->m_valueType = declaredVarType;
+                }
+                else {
+                    pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type %s, but is being assigned a value with type %s", pVarAssignment->m_identifier.m_pData, ValueType::ToString(declaredVarType), ValueType::ToString(assignedVarType));
+                }
+            } else {
+                pErrors->PushError(pVarAssignment, "Undeclared variable \'%s\', missing a declaration somewhere before?", pVarAssignment->m_identifier.m_pData);
             }
 
             break;

@@ -114,6 +114,11 @@ void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErr
                 TypeCheckExpression(&state, pExprStmt->m_pExpr, pErrors);
                 break;
             }
+            case Ast::NodeType::Block: {
+                Ast::Block* pBlock = (Ast::Block*)pStmt;
+                TypeCheckProgram(pBlock->m_declarations, pErrors);
+                break;
+            }
             default:
                 break;
         }

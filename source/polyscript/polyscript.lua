@@ -11,7 +11,8 @@ project "polyscript"
 	{
 		"*.cpp",
 		"*.h",
-		"*.inl"
+		"*.inl",
+		"polyscript.lua"
 	}
 	includedirs
 	{
@@ -35,10 +36,11 @@ project "polyscript_tests"
 	cppdialect "C++14"
 	exceptionhandling "Off"
 	rtti "Off"
-	debugdir ""
+	debugdir "test"
 	files 
 	{
-		"test/main.cpp"
+		"test/main.cpp",
+		"test/test.ps",
 	}
 	includedirs
 	{

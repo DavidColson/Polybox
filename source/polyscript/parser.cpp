@@ -487,6 +487,9 @@ Ast::Statement* ParsingState::ParseStatement() {
             m_pCurrent--;
         }
     } 
+    if (Match(1, TokenType::LeftBrace)) {
+        pStmt = ParseBlock();
+    }
     
     if (pStmt == nullptr) {
         if (Match(8, TokenType::Identifier, TokenType::LiteralString, TokenType::LiteralInteger, TokenType::LiteralBool, TokenType::LiteralFloat, TokenType::LeftParen, TokenType::Bang, TokenType::Minus)) {
@@ -534,6 +537,20 @@ Ast::Statement* ParsingState::ParsePrintStatement() {
     pPrintStmt->m_pLineStart = Previous().m_pLineStart;
     pPrintStmt->m_line = Previous().m_line;
     return pPrintStmt;
+}
+
+// ***********************************************************************
+
+Ast::Statement* ParsingState::ParseBlock() {
+    Ast::Block* pBlock = (Ast::Block*)pAllocator->Allocate(sizeof(Ast::Block));
+    pBlock->m_type = Ast::NodeType::Block;
+    pBlock->m_declarations.m_pAlloc = pAllocator;
+
+    while (!Check(TokenType::RightBrace) && !IsAtEnd()) {
+        pBlock->m_declarations.PushBack(ParseDeclaration());
+    }
+    Consume(TokenType::RightBrace, "Expected '}' to end this block");
+    return pBlock;
 }
 
 // ***********************************************************************
@@ -602,27 +619,33 @@ ResizableArray<Ast::Statement*> ParsingState::InitAndParse(ResizableArray<Token>
 
 // ***********************************************************************
 
-void DebugAst(ResizableArray<Ast::Statement*>& program) {
+void DebugAst(ResizableArray<Ast::Statement*>& program, int indentationLevel) {
     for (size_t i = 0; i < program.m_count; i++) {
         Ast::Statement* pStmt = program[i];
 
         switch (pStmt->m_type) {
             case Ast::NodeType::VarDecl: {
                 Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
-                Log::Debug("+ VarDecl (%s)", pVarDecl->m_identifier.m_pData);
-                DebugExpression(pVarDecl->m_pInitializerExpr, 2);
+                Log::Debug("%*s+ VarDecl (%s)", indentationLevel, "", pVarDecl->m_identifier.m_pData);
+                DebugExpression(pVarDecl->m_pInitializerExpr, indentationLevel + 2);
                 break;
             }
             case Ast::NodeType::PrintStmt: {
                 Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
-                Log::Debug("> PrintStmt");
-                DebugExpression(pPrint->m_pExpr, 2);
+                Log::Debug("%*s> PrintStmt", indentationLevel, "");
+                DebugExpression(pPrint->m_pExpr, indentationLevel + 2);
                 break;
             }
             case Ast::NodeType::ExpressionStmt: {
                 Ast::ExpressionStatement* pExprStmt = (Ast::ExpressionStatement*)pStmt;
-                Log::Debug("> ExpressionStmt");
-                DebugExpression(pExprStmt->m_pExpr, 2);
+                Log::Debug("%*s> ExpressionStmt", indentationLevel, "");
+                DebugExpression(pExprStmt->m_pExpr, indentationLevel + 2);
+                break;
+            }
+            case Ast::NodeType::Block: {
+                Ast::Block* pBlock = (Ast::Block*)pStmt;
+                Log::Debug("%*s> Block", indentationLevel, "");
+                DebugAst(pBlock->m_declarations, indentationLevel + 2);
                 break;
             }
             default:

@@ -28,6 +28,7 @@ enum class NodeType {
     // Statements
     ExpressionStmt,
     PrintStmt,
+    Block,
 
     // Declarations
     VarDecl
@@ -86,6 +87,10 @@ struct ExpressionStatement : public Statement {
 
 struct PrintStatement : public Statement {
     Expression* m_pExpr;
+};
+
+struct Block : public Statement {
+    ResizableArray<Statement*> m_declarations;
 };
 
 struct VariableDeclaration : public Statement {
@@ -174,12 +179,14 @@ struct ParsingState {
 
     Ast::Statement* ParsePrintStatement();
 
+    Ast::Statement* ParseBlock();
+
     Ast::Statement* ParseDeclaration();
 
     Ast::Statement* ParseVarDeclaration();
 };
 
-void DebugAst(ResizableArray<Ast::Statement*>& program);
+void DebugAst(ResizableArray<Ast::Statement*>& program, int indentationLevel = 0);
 
 void DebugExpression(Ast::Expression* pExpr, int indentationLevel = 0);
 

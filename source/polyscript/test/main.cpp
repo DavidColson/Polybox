@@ -9,6 +9,7 @@
 #include <scanning.h>
 #include <linear_allocator.h>
 #include <maths.h>
+#include <stdio.h>
 
 #include "parser.h"
 #include "virtual_machine.h"
@@ -17,7 +18,7 @@
 #include "type_checker.h"
 
 // TODO: 
-// [ ] Globals assignment
+// [ ] Tidy up redundancy in names for AST nodes
 // [ ] Typed variable declaration
 // [ ] Variable declaration without initializer
 // [ ] Move error state to it's own file
@@ -26,16 +27,25 @@
 
 int main() {
     InitValueTables();
+    LinearAllocator compilerMemory;
+
+    FILE* pFile;
+    fopen_s(&pFile, "test.ps", "r");
+    if (pFile == NULL) {
+        return 0;
+    }
 
     String actualCode;
-    actualCode = "\
-        lucy:= 5+5*2;\n\
-        lucy = 10;\n\
-        print( (5 - (lucy+5.0)) * 12 / 3 );";
+    {
+        uint32_t size;
+        fseek(pFile, 0, SEEK_END);
+        size = ftell(pFile);
+        fseek(pFile, 0, SEEK_SET);
 
-    //actualCode = "(2<3 && 12.4 >= 14 || 9<15);";
-
-    LinearAllocator compilerMemory;
+        actualCode = AllocString(size, &compilerMemory);
+        fread(actualCode.m_pData, size, 1, pFile);
+        fclose(pFile);
+    }
 
     ErrorState errorState;
     errorState.Init(&compilerMemory);
@@ -48,6 +58,7 @@ int main() {
     ParsingState parser;
     ResizableArray<Ast::Statement*> program = parser.InitAndParse(tokens, &errorState, &compilerMemory);
 
+
     // Type check
     TypeCheckProgram(program, &errorState);
 
@@ -59,11 +70,9 @@ int main() {
 
     if (success) {
         // Compile to bytecode
-        CodeChunk chunk;
+        CodeChunk chunk = CodeGen(program, &errorState);
         defer(chunk.code.Free());
         defer(chunk.constants.Free());
-
-        CodeGen(program, &chunk, &errorState);
 
         // For debugging
         Disassemble(chunk);

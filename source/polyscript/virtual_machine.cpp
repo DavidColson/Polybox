@@ -12,7 +12,7 @@
 struct VirtualMachine {
     CodeChunk* pCurrentChunk;
     uint8_t* pInstructionPointer;
-    Stack<Value> stack; // This is the temporaries stack (maybe rename)
+    Stack<Value> stack;
     ResizableArray<Value> globalsMemory;
 };
 

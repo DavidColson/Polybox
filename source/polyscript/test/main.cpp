@@ -73,9 +73,6 @@ int main() {
         CodeChunk chunk = CodeGen(program, &errorState);
         defer(chunk.code.Free());
         defer(chunk.constants.Free());
-
-        // For debugging
-        Disassemble(chunk);
     
         Log::Info("---- Program Running -----");
         Run(&chunk);

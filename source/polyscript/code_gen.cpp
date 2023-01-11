@@ -9,16 +9,27 @@
 #include <hashmap.inl>
 
 namespace {
-struct Global {
-    int m_index;
+struct Local {
+    String m_name;
+    int m_depth;
 };
 
 struct State {
-    HashMap<String, Global> m_globalLookup;
-    uint8_t m_globalIndexCounter = 0;
+    ResizableArray<Local> m_locals;
+    int m_currentScopeDepth { 0 };
     ErrorState* m_pErrors;
     CodeChunk m_chunk;
 };
+}
+
+int ResolveLocal(State& state, String name) {
+    for (int i = state.m_locals.m_count - 1; i >= 0; i--) {
+        Local& local = state.m_locals[i];
+        if (name == local.m_name) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 // ***********************************************************************
@@ -27,17 +38,21 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
     switch (pExpr->m_type) {
         case Ast::NodeType::Variable: {
             Ast::Variable* pVariable = (Ast::Variable*)pExpr;
-            Global& global = *state.m_globalLookup.Get(pVariable->m_identifier);
-            state.m_chunk.code.PushBack((uint8_t)OpCode::GetGlobal);
-            state.m_chunk.code.PushBack(global.m_index);
+            int localIndex = ResolveLocal(state, pVariable->m_identifier);
+            if (localIndex != -1) {
+                state.m_chunk.code.PushBack((uint8_t)OpCode::GetLocal);
+                state.m_chunk.code.PushBack(localIndex);
+            }
             break;
         }
         case Ast::NodeType::VariableAssignment: {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
             CodeGenExpression(state, pVarAssignment->m_pAssignment);
-            Global& global = *state.m_globalLookup.Get(pVarAssignment->m_identifier);
-            state.m_chunk.code.PushBack((uint8_t)OpCode::SetGlobal);
-            state.m_chunk.code.PushBack(global.m_index);
+            int localIndex = ResolveLocal(state, pVarAssignment->m_identifier);
+            if (localIndex != -1) {
+                state.m_chunk.code.PushBack((uint8_t)OpCode::SetLocal);
+                state.m_chunk.code.PushBack(localIndex);
+            }
             break;
         }
         case Ast::NodeType::Literal: {
@@ -132,17 +147,12 @@ void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& program) {
             case Ast::NodeType::VarDecl: {
                 Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
 
-                // Put global in our lookup map
-                Global newGlobal;
-                newGlobal.m_index = state.m_globalIndexCounter;
-                state.m_globalIndexCounter++;
-                state.m_globalLookup.Add(pVarDecl->m_identifier, newGlobal);
+                Local local;
+                local.m_depth = state.m_currentScopeDepth;
+                local.m_name = pVarDecl->m_identifier;
+                state.m_locals.PushBack(local);
                 
-                // codegen the initializer which will leave it's output on the stack
                 CodeGenExpression(state, pVarDecl->m_pInitializerExpr);
-                state.m_chunk.code.PushBack((uint8_t)OpCode::SetGlobal);
-                state.m_chunk.code.PushBack(newGlobal.m_index);
-                state.m_chunk.code.PushBack((uint8_t)OpCode::Pop);
                 break;
             }
             case Ast::NodeType::PrintStmt: {
@@ -159,15 +169,19 @@ void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& program) {
             }
             case Ast::NodeType::Block: {
                 Ast::Block* pBlock = (Ast::Block*)pStmt;
+                state.m_currentScopeDepth++;
                 CodeGenStatements(state, pBlock->m_declarations);
+                state.m_currentScopeDepth--;
+                while (state.m_locals.m_count > 0 && state.m_locals[state.m_locals.m_count - 1].m_depth > state.m_currentScopeDepth) {
+                    state.m_locals.PopBack();
+                    state.m_chunk.code.PushBack((uint8_t)OpCode::Pop);
+                }
                 break;
             }
             default:
                 break;
         }
     }
-
-    state.m_chunk.m_globalsCount = state.m_globalIndexCounter;
 }
 
 // ***********************************************************************

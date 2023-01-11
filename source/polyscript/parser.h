@@ -114,7 +114,7 @@ struct ErrorState {
 
     void Init(IAllocator* pAlloc);
 
-    void PushError(Ast::Expression* pNode, const char* formatMessage, ...);
+    void PushError(Ast::Node* pNode, const char* formatMessage, ...);
     void PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, ...);
     void PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, va_list args);
 

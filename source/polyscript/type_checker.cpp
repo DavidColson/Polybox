@@ -101,8 +101,12 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
             case Ast::NodeType::VarDecl: {
                 Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
                 pVarDecl->m_scopeLevel = state.m_currentScopeLevel;
-                state.m_variableDeclarations.Add(pVarDecl->m_identifier, pVarDecl);
+
+                if (state.m_variableDeclarations.Get(pVarDecl->m_identifier) != nullptr)
+                    state.m_pErrors->PushError(pVarDecl, "Redefinition of variable '%s'", pVarDecl->m_identifier.m_pData);
+
                 TypeCheckExpression(state, pVarDecl->m_pInitializerExpr);
+                state.m_variableDeclarations.Add(pVarDecl->m_identifier, pVarDecl);
                 break;
             }
             case Ast::NodeType::PrintStmt: {

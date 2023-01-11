@@ -24,7 +24,7 @@ void ErrorState::Init(IAllocator* pAlloc) {
 
 // ***********************************************************************
 
-void ErrorState::PushError(Ast::Expression* pNode, const char* formatMessage, ...) {
+void ErrorState::PushError(Ast::Node* pNode, const char* formatMessage, ...) {
     StringBuilder builder(m_pAlloc);
     va_list args;
     va_start(args, formatMessage);

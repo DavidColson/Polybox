@@ -8,11 +8,13 @@
 
 struct TypeCheckerState {
     HashMap<String, Ast::VariableDeclaration*> m_variableDeclarations;
+    ErrorState* m_pErrors { nullptr };
+    int m_currentScopeLevel { 0 };
 };
 
 // ***********************************************************************
 
-void TypeCheckExpression(TypeCheckerState* pState, Ast::Expression* pExpr, ErrorState* pErrors) {
+void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
     if (pExpr == nullptr)
         return;
 
@@ -25,20 +27,20 @@ void TypeCheckExpression(TypeCheckerState* pState, Ast::Expression* pExpr, Error
         case Ast::NodeType::Variable: {
             Ast::Variable* pVariable = (Ast::Variable*)pExpr;
 
-            Ast::VariableDeclaration** pDecl = pState->m_variableDeclarations.Get(pVariable->m_identifier);
+            Ast::VariableDeclaration** pDecl = state.m_variableDeclarations.Get(pVariable->m_identifier);
             if (pDecl) {
                 pVariable->m_valueType = (*pDecl)->m_pInitializerExpr->m_valueType;
             } else {
-                pErrors->PushError(pVariable, "Undeclared variable \'%s\', missing a declaration somewhere before?", pVariable->m_identifier.m_pData);
+                state.m_pErrors->PushError(pVariable, "Undeclared variable \'%s\', missing a declaration somewhere before?", pVariable->m_identifier.m_pData);
             }
 
             break;
         }
         case Ast::NodeType::VariableAssignment: {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
-            TypeCheckExpression(pState, pVarAssignment->m_pAssignment, pErrors);
+            TypeCheckExpression(state, pVarAssignment->m_pAssignment);
 
-            Ast::VariableDeclaration** pDecl = pState->m_variableDeclarations.Get(pVarAssignment->m_identifier);
+            Ast::VariableDeclaration** pDecl = state.m_variableDeclarations.Get(pVarAssignment->m_identifier);
             if (pDecl) {
                 ValueType::Enum declaredVarType = (*pDecl)->m_pInitializerExpr->m_valueType;
                 ValueType::Enum assignedVarType = pVarAssignment->m_pAssignment->m_valueType;
@@ -46,41 +48,41 @@ void TypeCheckExpression(TypeCheckerState* pState, Ast::Expression* pExpr, Error
                     pVarAssignment->m_valueType = declaredVarType;
                 }
                 else {
-                    pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type %s, but is being assigned a value with type %s", pVarAssignment->m_identifier.m_pData, ValueType::ToString(declaredVarType), ValueType::ToString(assignedVarType));
+                    state.m_pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type %s, but is being assigned a value with type %s", pVarAssignment->m_identifier.m_pData, ValueType::ToString(declaredVarType), ValueType::ToString(assignedVarType));
                 }
             } else {
-                pErrors->PushError(pVarAssignment, "Undeclared variable \'%s\', missing a declaration somewhere before?", pVarAssignment->m_identifier.m_pData);
+                state.m_pErrors->PushError(pVarAssignment, "Assigning to undeclared variable \'%s\', missing a declaration somewhere before?", pVarAssignment->m_identifier.m_pData);
             }
 
             break;
         }
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
-            TypeCheckExpression(pState, pGroup->m_pExpression, pErrors);
+            TypeCheckExpression(state, pGroup->m_pExpression);
             pGroup->m_valueType = pGroup->m_pExpression->m_valueType;
             break;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
-            TypeCheckExpression(pState, pBinary->m_pLeft, pErrors);
-            TypeCheckExpression(pState, pBinary->m_pRight, pErrors);
+            TypeCheckExpression(state, pBinary->m_pLeft);
+            TypeCheckExpression(state, pBinary->m_pRight);
             pBinary->m_valueType = OperatorReturnType(pBinary->m_operator, pBinary->m_pLeft->m_valueType, pBinary->m_pRight->m_valueType);
 
             if (pBinary->m_valueType == ValueType::Invalid && pBinary->m_pLeft->m_valueType != ValueType::Invalid && pBinary->m_pRight->m_valueType != ValueType::Invalid) {
                 String str1 = ValueType::ToString(pBinary->m_pLeft->m_valueType);
                 String str2 = ValueType::ToString(pBinary->m_pRight->m_valueType);
                 String str3 = Operator::ToString(pBinary->m_operator);
-                pErrors->PushError(pBinary, "Invalid types (%s, %s) used with operator \"%s\"", str1.m_pData, str2.m_pData, str3.m_pData);
+                state.m_pErrors->PushError(pBinary, "Invalid types (%s, %s) used with operator \"%s\"", str1.m_pData, str2.m_pData, str3.m_pData);
             }
             break;
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
-            TypeCheckExpression(pState, pUnary->m_pRight, pErrors);
+            TypeCheckExpression(state, pUnary->m_pRight);
             pUnary->m_valueType = OperatorReturnType(pUnary->m_operator, pUnary->m_pRight->m_valueType, ValueType::Invalid);
 
             if (pUnary->m_valueType == ValueType::Invalid && pUnary->m_pRight->m_valueType != ValueType::Invalid) {
-                pErrors->PushError(pUnary, "Invalid type (%s) used with operator \"%s\"", ValueType::ToString(pUnary->m_pRight->m_valueType), Operator::ToString(pUnary->m_operator));
+                state.m_pErrors->PushError(pUnary, "Invalid type (%s) used with operator \"%s\"", ValueType::ToString(pUnary->m_pRight->m_valueType), Operator::ToString(pUnary->m_operator));
             }
             break;
         }
@@ -91,36 +93,58 @@ void TypeCheckExpression(TypeCheckerState* pState, Ast::Expression* pExpr, Error
 
 // ***********************************************************************
 
-void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErrors) {
-    TypeCheckerState state;
-
+void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program) {
     for (size_t i = 0; i < program.m_count; i++) {
         Ast::Statement* pStmt = program[i];
 
         switch (pStmt->m_type) {
             case Ast::NodeType::VarDecl: {
                 Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
+                pVarDecl->m_scopeLevel = state.m_currentScopeLevel;
                 state.m_variableDeclarations.Add(pVarDecl->m_identifier, pVarDecl);
-                TypeCheckExpression(&state, pVarDecl->m_pInitializerExpr, pErrors);
+                TypeCheckExpression(state, pVarDecl->m_pInitializerExpr);
                 break;
             }
             case Ast::NodeType::PrintStmt: {
                 Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
-                TypeCheckExpression(&state, pPrint->m_pExpr, pErrors);
+                TypeCheckExpression(state, pPrint->m_pExpr);
                 break;
             }
             case Ast::NodeType::ExpressionStmt: {
                 Ast::ExpressionStatement* pExprStmt = (Ast::ExpressionStatement*)pStmt;
-                TypeCheckExpression(&state, pExprStmt->m_pExpr, pErrors);
+                TypeCheckExpression(state, pExprStmt->m_pExpr);
                 break;
             }
             case Ast::NodeType::Block: {
                 Ast::Block* pBlock = (Ast::Block*)pStmt;
-                TypeCheckProgram(pBlock->m_declarations, pErrors);
+
+                state.m_currentScopeLevel++;
+                TypeCheckStatements(state, pBlock->m_declarations);
+                state.m_currentScopeLevel--;
+
+                // Remove variable declarations that are now out of scope
+                for (size_t i = 0; i < state.m_variableDeclarations.m_tableSize; i++) {
+                    if (state.m_variableDeclarations.m_pTable[i].hash != UNUSED_HASH) {
+                        Ast::VariableDeclaration* pVarDecl = state.m_variableDeclarations.m_pTable[i].value;
+
+                        if (pVarDecl->m_scopeLevel > state.m_currentScopeLevel)
+                            state.m_variableDeclarations.Erase(state.m_variableDeclarations.m_pTable[i].key);
+                    }
+                }
                 break;
             }
             default:
                 break;
         }
     }
+}
+
+// ***********************************************************************
+
+void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErrors) {
+    TypeCheckerState state;
+
+    state.m_pErrors = pErrors;
+
+    TypeCheckStatements(state, program);
 }

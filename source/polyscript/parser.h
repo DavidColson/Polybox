@@ -96,6 +96,7 @@ struct Block : public Statement {
 struct VariableDeclaration : public Statement {
     String m_identifier;
     Expression* m_pInitializerExpr;
+    int m_scopeLevel { 0 };
 };
 
 }

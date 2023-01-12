@@ -133,6 +133,20 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             pReturnInstruction += 1;
             break;
         }
+        case (uint8_t)OpCode::JmpIfFalse: {
+            builder.Append("JmpIfFalse");
+            uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
+            builder.AppendFormat(" %i", jmp);
+            pReturnInstruction += 3;
+            break;
+        }
+        case (uint8_t)OpCode::Jmp: {
+            builder.Append("Jmp");
+            uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
+            builder.AppendFormat(" %i", jmp);
+            pReturnInstruction += 3;
+            break;
+        }
         default:
             builder.Append("OpUnknown");
             pReturnInstruction += 1;
@@ -303,6 +317,18 @@ void Run(CodeChunk* pChunkToRun) {
             case (uint8_t)OpCode::GetLocal: {
                 uint8_t opIndex = *vm.pInstructionPointer++;
                 vm.stack.Push(vm.stack[opIndex]);
+                break;
+            }
+            case (uint8_t)OpCode::JmpIfFalse: {
+                uint16_t jmp = (uint16_t)((vm.pInstructionPointer[0] << 8) | vm.pInstructionPointer[1]);
+                vm.pInstructionPointer += 2;
+                if (!vm.stack.Top().m_boolValue) vm.pInstructionPointer += jmp;
+                break;
+            }
+            case (uint8_t)OpCode::Jmp: {
+                uint16_t jmp = (uint16_t)((vm.pInstructionPointer[0] << 8) | vm.pInstructionPointer[1]);
+                vm.pInstructionPointer += 2;
+                vm.pInstructionPointer += jmp;
                 break;
             }
             case (uint8_t)OpCode::Return:

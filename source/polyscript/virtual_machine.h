@@ -31,6 +31,8 @@ enum class OpCode : uint8_t {
 
     SetLocal,
     GetLocal,
+    JmpIfFalse,
+    Jmp,
 
     // Misc
     Print,

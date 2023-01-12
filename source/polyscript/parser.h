@@ -27,7 +27,8 @@ enum class NodeType {
 
     // Statements
     ExpressionStmt,
-    PrintStmt,
+    If,
+    Print,
     Block,
 
     // Declarations
@@ -81,11 +82,17 @@ struct VariableAssignment : public Expression {
 struct Statement : public Node {
 };
 
-struct ExpressionStatement : public Statement {
+struct ExpressionStmt : public Statement {
     Expression* m_pExpr;
 };
 
-struct PrintStatement : public Statement {
+struct If : public Statement {
+    Expression* m_pCondition;
+    Statement* m_pThenStmt;
+    Statement* m_pElseStmt;
+};
+
+struct Print : public Statement {
     Expression* m_pExpr;
 };
 
@@ -176,9 +183,11 @@ struct ParsingState {
 
     Ast::Statement* ParseStatement();
 
-    Ast::Statement* ParseExpressionStatement();
+    Ast::Statement* ParseExpressionStmt();
+    
+    Ast::Statement* ParseIf();
 
-    Ast::Statement* ParsePrintStatement();
+    Ast::Statement* ParsePrint();
 
     Ast::Statement* ParseBlock();
 
@@ -187,7 +196,7 @@ struct ParsingState {
     Ast::Statement* ParseVarDeclaration();
 };
 
-void DebugAst(ResizableArray<Ast::Statement*>& program, int indentationLevel = 0);
+void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentationLevel = 0);
 
 void DebugExpression(Ast::Expression* pExpr, int indentationLevel = 0);
 

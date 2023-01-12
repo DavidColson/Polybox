@@ -92,54 +92,72 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
 }
 
 // ***********************************************************************
+void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program);
+
+void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
+    switch (pStmt->m_type) {
+        case Ast::NodeType::VarDecl: {
+            Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
+            pVarDecl->m_scopeLevel = state.m_currentScopeLevel;
+
+            if (state.m_variableDeclarations.Get(pVarDecl->m_identifier) != nullptr)
+                state.m_pErrors->PushError(pVarDecl, "Redefinition of variable '%s'", pVarDecl->m_identifier.m_pData);
+
+            TypeCheckExpression(state, pVarDecl->m_pInitializerExpr);
+            state.m_variableDeclarations.Add(pVarDecl->m_identifier, pVarDecl);
+            break;
+        }
+        case Ast::NodeType::Print: {
+            Ast::Print* pPrint = (Ast::Print*)pStmt;
+            TypeCheckExpression(state, pPrint->m_pExpr);
+            break;
+        }
+        case Ast::NodeType::ExpressionStmt: {
+            Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
+            TypeCheckExpression(state, pExprStmt->m_pExpr);
+            break;
+        }
+        case Ast::NodeType::If: {
+            Ast::If* pIf = (Ast::If*)pStmt;
+            TypeCheckExpression(state, pIf->m_pCondition);
+            if (pIf->m_pCondition->m_valueType != ValueType::Bool)
+                state.m_pErrors->PushError(pIf->m_pCondition, "if conditional expression does not evaluate to a boolean");
+
+            TypeCheckStatement(state, pIf->m_pThenStmt);
+
+            if (pIf->m_pElseStmt)
+                TypeCheckStatement(state, pIf->m_pElseStmt);
+            break;
+        }
+        case Ast::NodeType::Block: {
+            Ast::Block* pBlock = (Ast::Block*)pStmt;
+
+            state.m_currentScopeLevel++;
+            TypeCheckStatements(state, pBlock->m_declarations);
+            state.m_currentScopeLevel--;
+
+            // Remove variable declarations that are now out of scope
+            for (size_t i = 0; i < state.m_variableDeclarations.m_tableSize; i++) {
+                if (state.m_variableDeclarations.m_pTable[i].hash != UNUSED_HASH) {
+                    Ast::VariableDeclaration* pVarDecl = state.m_variableDeclarations.m_pTable[i].value;
+
+                    if (pVarDecl->m_scopeLevel > state.m_currentScopeLevel)
+                        state.m_variableDeclarations.Erase(state.m_variableDeclarations.m_pTable[i].key);
+                }
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+// ***********************************************************************
 
 void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program) {
     for (size_t i = 0; i < program.m_count; i++) {
         Ast::Statement* pStmt = program[i];
-
-        switch (pStmt->m_type) {
-            case Ast::NodeType::VarDecl: {
-                Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
-                pVarDecl->m_scopeLevel = state.m_currentScopeLevel;
-
-                if (state.m_variableDeclarations.Get(pVarDecl->m_identifier) != nullptr)
-                    state.m_pErrors->PushError(pVarDecl, "Redefinition of variable '%s'", pVarDecl->m_identifier.m_pData);
-
-                TypeCheckExpression(state, pVarDecl->m_pInitializerExpr);
-                state.m_variableDeclarations.Add(pVarDecl->m_identifier, pVarDecl);
-                break;
-            }
-            case Ast::NodeType::PrintStmt: {
-                Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
-                TypeCheckExpression(state, pPrint->m_pExpr);
-                break;
-            }
-            case Ast::NodeType::ExpressionStmt: {
-                Ast::ExpressionStatement* pExprStmt = (Ast::ExpressionStatement*)pStmt;
-                TypeCheckExpression(state, pExprStmt->m_pExpr);
-                break;
-            }
-            case Ast::NodeType::Block: {
-                Ast::Block* pBlock = (Ast::Block*)pStmt;
-
-                state.m_currentScopeLevel++;
-                TypeCheckStatements(state, pBlock->m_declarations);
-                state.m_currentScopeLevel--;
-
-                // Remove variable declarations that are now out of scope
-                for (size_t i = 0; i < state.m_variableDeclarations.m_tableSize; i++) {
-                    if (state.m_variableDeclarations.m_pTable[i].hash != UNUSED_HASH) {
-                        Ast::VariableDeclaration* pVarDecl = state.m_variableDeclarations.m_pTable[i].value;
-
-                        if (pVarDecl->m_scopeLevel > state.m_currentScopeLevel)
-                            state.m_variableDeclarations.Erase(state.m_variableDeclarations.m_pTable[i].key);
-                    }
-                }
-                break;
-            }
-            default:
-                break;
-        }
+        TypeCheckStatement(state, pStmt);
     }
 }
 

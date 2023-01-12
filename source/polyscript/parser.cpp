@@ -478,23 +478,27 @@ Ast::Expression* ParsingState::ParseExpression() {
 // ***********************************************************************
 
 Ast::Statement* ParsingState::ParseStatement() {
-    Ast::Statement* pStmt = nullptr;
 
+    if (Match(1, TokenType::If)) {
+        return ParseIf();
+    }
+    if (Match(1, TokenType::LeftBrace)) {
+        return ParseBlock();
+    }
+
+    Ast::Statement* pStmt = nullptr;
     if (Match(1, TokenType::Identifier)) {
         if (strncmp("print", Previous().m_pLocation, 5) == 0) {
-            pStmt = ParsePrintStatement();
+            pStmt = ParsePrint();
         } else {
             m_pCurrent--;
         }
     } 
-    if (Match(1, TokenType::LeftBrace)) {
-        pStmt = ParseBlock();
-    }
     
     if (pStmt == nullptr) {
         if (Match(8, TokenType::Identifier, TokenType::LiteralString, TokenType::LiteralInteger, TokenType::LiteralBool, TokenType::LiteralFloat, TokenType::LeftParen, TokenType::Bang, TokenType::Minus)) {
             m_pCurrent--;
-            pStmt = ParseExpressionStatement();
+            pStmt = ParseExpressionStmt();
         } else {
             PushError("Unable to parse statement");
         }
@@ -505,11 +509,11 @@ Ast::Statement* ParsingState::ParseStatement() {
 
 // ***********************************************************************
 
-Ast::Statement* ParsingState::ParseExpressionStatement() {
+Ast::Statement* ParsingState::ParseExpressionStmt() {
     Ast::Expression* pExpr = ParseExpression();
     Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
 
-    Ast::ExpressionStatement* pStmt = (Ast::ExpressionStatement*)pAllocator->Allocate(sizeof(Ast::ExpressionStatement));
+    Ast::ExpressionStmt* pStmt = (Ast::ExpressionStmt*)pAllocator->Allocate(sizeof(Ast::ExpressionStmt));
     pStmt->m_type = Ast::NodeType::ExpressionStmt;
 
     pStmt->m_pExpr = pExpr;
@@ -522,14 +526,33 @@ Ast::Statement* ParsingState::ParseExpressionStatement() {
 
 // ***********************************************************************
 
-Ast::Statement* ParsingState::ParsePrintStatement() {
+Ast::Statement* ParsingState::ParseIf() {
+    Ast::If* pIf = (Ast::If*)pAllocator->Allocate(sizeof(Ast::If));
+    pIf->m_type = Ast::NodeType::If;
+
+    pIf->m_pLocation = Previous().m_pLocation;
+    pIf->m_pLineStart = Previous().m_pLineStart;
+    pIf->m_line = Previous().m_line;
+
+    pIf->m_pCondition = ParseExpression();
+    pIf->m_pThenStmt = ParseStatement();
+
+    if (Match(1, TokenType::Else)) {
+        pIf->m_pElseStmt = ParseStatement();
+    }
+    return pIf;
+}
+
+// ***********************************************************************
+
+Ast::Statement* ParsingState::ParsePrint() {
     Consume(TokenType::LeftParen, "Expected \"(\" following print, before the expression starts");
     Ast::Expression* pExpr = ParseExpression();
     Consume(TokenType::RightParen, "Expected \")\" to close print expression");
     Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
     
-    Ast::PrintStatement* pPrintStmt = (Ast::PrintStatement*)pAllocator->Allocate(sizeof(Ast::PrintStatement));
-    pPrintStmt->m_type = Ast::NodeType::PrintStmt;
+    Ast::Print* pPrintStmt = (Ast::Print*)pAllocator->Allocate(sizeof(Ast::Print));
+    pPrintStmt->m_type = Ast::NodeType::Print;
 
     pPrintStmt->m_pExpr = pExpr;
 
@@ -619,38 +642,52 @@ ResizableArray<Ast::Statement*> ParsingState::InitAndParse(ResizableArray<Token>
 
 // ***********************************************************************
 
-void DebugAst(ResizableArray<Ast::Statement*>& program, int indentationLevel) {
-    for (size_t i = 0; i < program.m_count; i++) {
-        Ast::Statement* pStmt = program[i];
-
-        switch (pStmt->m_type) {
-            case Ast::NodeType::VarDecl: {
-                Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
-                Log::Debug("%*s+ VarDecl (%s)", indentationLevel, "", pVarDecl->m_identifier.m_pData);
-                DebugExpression(pVarDecl->m_pInitializerExpr, indentationLevel + 2);
-                break;
-            }
-            case Ast::NodeType::PrintStmt: {
-                Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
-                Log::Debug("%*s> PrintStmt", indentationLevel, "");
-                DebugExpression(pPrint->m_pExpr, indentationLevel + 2);
-                break;
-            }
-            case Ast::NodeType::ExpressionStmt: {
-                Ast::ExpressionStatement* pExprStmt = (Ast::ExpressionStatement*)pStmt;
-                Log::Debug("%*s> ExpressionStmt", indentationLevel, "");
-                DebugExpression(pExprStmt->m_pExpr, indentationLevel + 2);
-                break;
-            }
-            case Ast::NodeType::Block: {
-                Ast::Block* pBlock = (Ast::Block*)pStmt;
-                Log::Debug("%*s> Block", indentationLevel, "");
-                DebugAst(pBlock->m_declarations, indentationLevel + 2);
-                break;
-            }
-            default:
-                break;
+void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
+    switch (pStmt->m_type) {
+        case Ast::NodeType::VarDecl: {
+            Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
+            Log::Debug("%*s+ VarDecl (%s)", indentationLevel, "", pVarDecl->m_identifier.m_pData);
+            DebugExpression(pVarDecl->m_pInitializerExpr, indentationLevel + 2);
+            break;
         }
+        case Ast::NodeType::Print: {
+            Ast::Print* pPrint = (Ast::Print*)pStmt;
+            Log::Debug("%*s> PrintStmt", indentationLevel, "");
+            DebugExpression(pPrint->m_pExpr, indentationLevel + 2);
+            break;
+        }
+        case Ast::NodeType::ExpressionStmt: {
+            Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
+            Log::Debug("%*s> ExpressionStmt", indentationLevel, "");
+            DebugExpression(pExprStmt->m_pExpr, indentationLevel + 2);
+            break;
+        }
+        case Ast::NodeType::If: {
+            Ast::If* pIf = (Ast::If*)pStmt;
+            Log::Debug("%*s> If", indentationLevel, "");
+            DebugExpression(pIf->m_pCondition, indentationLevel + 2);
+            DebugStatement(pIf->m_pThenStmt, indentationLevel + 2);
+            if (pIf->m_pElseStmt)
+                DebugStatement(pIf->m_pElseStmt, indentationLevel + 2);
+            break;
+        }
+        case Ast::NodeType::Block: {
+            Ast::Block* pBlock = (Ast::Block*)pStmt;
+            Log::Debug("%*s> Block", indentationLevel, "");
+            DebugStatements(pBlock->m_declarations, indentationLevel + 2);
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+// ***********************************************************************
+
+void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentationLevel) {
+    for (size_t i = 0; i < statements.m_count; i++) {
+        Ast::Statement* pStmt = statements[i];
+        DebugStatement(pStmt, indentationLevel);
     }
 }
 

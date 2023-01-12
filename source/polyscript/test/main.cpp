@@ -18,7 +18,6 @@
 #include "type_checker.h"
 
 // TODO: 
-// [ ] Tidy up redundancy in names for AST nodes
 // [ ] Typed variable declaration
 // [ ] Variable declaration without initializer
 // [ ] Move error state to it's own file
@@ -66,7 +65,7 @@ int main() {
     bool success = errorState.ReportCompilationResult();
 
     Log::Debug("---- AST -----");
-    DebugAst(program);
+    DebugStatements(program);
 
     if (success) {
         // Compile to bytecode
@@ -74,6 +73,8 @@ int main() {
         defer(chunk.code.Free());
         defer(chunk.constants.Free());
     
+        Disassemble(chunk);
+
         Log::Info("---- Program Running -----");
         Run(&chunk);
     }

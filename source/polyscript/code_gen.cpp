@@ -139,48 +139,91 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 
 // ***********************************************************************
 
-void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& program) {
-    for (size_t i = 0; i < program.m_count; i++) {
-        Ast::Statement* pStmt = program[i];
+void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements);
 
-        switch (pStmt->m_type) {
-            case Ast::NodeType::VarDecl: {
-                Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
+void CodeGenStatement(State& state, Ast::Statement* pStmt) {
+    switch (pStmt->m_type) {
+        case Ast::NodeType::VarDecl: {
+            Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
 
-                Local local;
-                local.m_depth = state.m_currentScopeDepth;
-                local.m_name = pVarDecl->m_identifier;
-                state.m_locals.PushBack(local);
-                
-                CodeGenExpression(state, pVarDecl->m_pInitializerExpr);
-                break;
-            }
-            case Ast::NodeType::PrintStmt: {
-                Ast::PrintStatement* pPrint = (Ast::PrintStatement*)pStmt;
-                CodeGenExpression(state, pPrint->m_pExpr);
-                state.m_chunk.code.PushBack((uint8_t)OpCode::Print);
-                break;
-            }
-            case Ast::NodeType::ExpressionStmt: {
-                Ast::ExpressionStatement* pExprStmt = (Ast::ExpressionStatement*)pStmt;
-                CodeGenExpression(state, pExprStmt->m_pExpr);
-                state.m_chunk.code.PushBack((uint8_t)OpCode::Pop);
-                break;
-            }
-            case Ast::NodeType::Block: {
-                Ast::Block* pBlock = (Ast::Block*)pStmt;
-                state.m_currentScopeDepth++;
-                CodeGenStatements(state, pBlock->m_declarations);
-                state.m_currentScopeDepth--;
-                while (state.m_locals.m_count > 0 && state.m_locals[state.m_locals.m_count - 1].m_depth > state.m_currentScopeDepth) {
-                    state.m_locals.PopBack();
-                    state.m_chunk.code.PushBack((uint8_t)OpCode::Pop);
-                }
-                break;
-            }
-            default:
-                break;
+            Local local;
+            local.m_depth = state.m_currentScopeDepth;
+            local.m_name = pVarDecl->m_identifier;
+            state.m_locals.PushBack(local);
+
+            CodeGenExpression(state, pVarDecl->m_pInitializerExpr);
+            break;
         }
+        case Ast::NodeType::Print: {
+            Ast::Print* pPrint = (Ast::Print*)pStmt;
+            CodeGenExpression(state, pPrint->m_pExpr);
+            state.m_chunk.code.PushBack((uint8_t)OpCode::Print);
+            break;
+        }
+        case Ast::NodeType::ExpressionStmt: {
+            Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
+            CodeGenExpression(state, pExprStmt->m_pExpr);
+            state.m_chunk.code.PushBack((uint8_t)OpCode::Pop);
+            break;
+        }
+        case Ast::NodeType::If: {
+            Ast::If* pIf = (Ast::If*)pStmt;
+            CodeGenExpression(state, pIf->m_pCondition);
+
+            // Initial Jump
+            state.m_chunk.code.PushBack((uint8_t)OpCode::JmpIfFalse);
+            state.m_chunk.code.PushBack(0xff);
+            state.m_chunk.code.PushBack(0xff);
+            int ifJump = state.m_chunk.code.m_count - 2;
+            state.m_chunk.code.PushBack((uint8_t)OpCode::Pop);
+
+            CodeGenStatement(state, pIf->m_pThenStmt);
+
+            // Else clause jump
+            state.m_chunk.code.PushBack((uint8_t)OpCode::Jmp);
+            state.m_chunk.code.PushBack(0xff);
+            state.m_chunk.code.PushBack(0xff);
+            int elseJump = state.m_chunk.code.m_count - 2;
+
+            // Patch initial Jump
+            int jump = state.m_chunk.code.m_count - ifJump - 2;
+            state.m_chunk.code[ifJump] = (jump >> 8) & 0xff;
+            state.m_chunk.code[ifJump + 1] = jump & 0xff;
+
+            state.m_chunk.code.PushBack((uint8_t)OpCode::Pop);
+            if (pIf->m_pElseStmt) {
+                CodeGenStatement(state, pIf->m_pElseStmt);
+            }
+
+            // Patch else clause jump
+            jump = state.m_chunk.code.m_count - elseJump - 2;
+            state.m_chunk.code[elseJump] = (jump >> 8) & 0xff;
+            state.m_chunk.code[elseJump + 1] = jump & 0xff;
+
+            break;
+        }
+        case Ast::NodeType::Block: {
+            Ast::Block* pBlock = (Ast::Block*)pStmt;
+            state.m_currentScopeDepth++;
+            CodeGenStatements(state, pBlock->m_declarations);
+            state.m_currentScopeDepth--;
+            while (state.m_locals.m_count > 0 && state.m_locals[state.m_locals.m_count - 1].m_depth > state.m_currentScopeDepth) {
+                state.m_locals.PopBack();
+                state.m_chunk.code.PushBack((uint8_t)OpCode::Pop);
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+// ***********************************************************************
+
+void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements) {
+    for (size_t i = 0; i < statements.m_count; i++) {
+        Ast::Statement* pStmt = statements[i];
+        CodeGenStatement(state, pStmt);
     }
 }
 

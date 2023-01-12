@@ -127,10 +127,10 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
             // Comments and slash
             case '/':
                 if (Scan::Match(scan, '/')) {
-                    while (Scan::Peek(scan) != '\n')
+                    while (Scan::Peek(scan) != '\n' && !Scan::IsAtEnd(scan))
                         Scan::Advance(scan);
                 } else if (Scan::Match(scan, '*')) {
-                    while (!(Scan::Peek(scan) == '*' && Scan::PeekNext(scan) == '/')) {
+                    while (!(Scan::Peek(scan) == '*' && Scan::PeekNext(scan) == '/') && !Scan::IsAtEnd(scan)) {
                         char commentChar = Scan::Advance(scan);
                         if (commentChar == '\n') {
                             scan.m_line++;

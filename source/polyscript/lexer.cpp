@@ -179,8 +179,8 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
                         tokens.PushBack(MakeToken(scan, TokenType::If));
                     else if (identifier == "else")
                         tokens.PushBack(MakeToken(scan, TokenType::Else));
-                    else if (identifier == "for")
-                        tokens.PushBack(MakeToken(scan, TokenType::For));
+                    else if (identifier == "while")
+                        tokens.PushBack(MakeToken(scan, TokenType::While));
                     else if (identifier == "struct")
                         tokens.PushBack(MakeToken(scan, TokenType::Struct));
                     else if (identifier == "return")

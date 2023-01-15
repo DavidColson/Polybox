@@ -7,7 +7,7 @@
 #include <string_builder.h>
 #include <stack.inl>
 
-#define DEBUG_TRACE
+//#define DEBUG_TRACE
 
 struct VirtualMachine {
     CodeChunk* pCurrentChunk;
@@ -141,6 +141,13 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             builder.Append("Jmp");
             uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
             builder.AppendFormat(" %i", jmp);
+            returnIPOffset = 3;
+            break;
+        }
+        case (uint8_t)OpCode::Loop: {
+            builder.Append("Loop");
+            uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
+            builder.AppendFormat(" %i", -jmp);
             returnIPOffset = 3;
             break;
         }
@@ -351,6 +358,12 @@ void Run(CodeChunk* pChunkToRun) {
                 uint16_t jmp = (uint16_t)((vm.pInstructionPointer[0] << 8) | vm.pInstructionPointer[1]);
                 vm.pInstructionPointer += 2;
                 vm.pInstructionPointer += jmp;
+                break;
+            }
+            case (uint8_t)OpCode::Loop: {
+                uint16_t jmp = (uint16_t)((vm.pInstructionPointer[0] << 8) | vm.pInstructionPointer[1]);
+                vm.pInstructionPointer += 2;
+                vm.pInstructionPointer -= jmp;
                 break;
             }
             case (uint8_t)OpCode::Return:

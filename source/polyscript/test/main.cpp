@@ -59,7 +59,7 @@ int main() {
 
 
     // Type check
-    //TypeCheckProgram(program, &errorState);
+    TypeCheckProgram(program, &errorState);
 
     // Error report
     bool success = errorState.ReportCompilationResult();

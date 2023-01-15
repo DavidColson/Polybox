@@ -35,6 +35,7 @@ enum Enum : uint8_t {
     JmpIfFalse,
     JmpIfTrue,
     Jmp,
+    Loop,
 
     // Misc
     Print,

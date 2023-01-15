@@ -8,15 +8,21 @@
 test := true;*/
 
 
-tester:= 3;
+tester:= 7;
 
 lucy:= 0;
-if tester < 5 || lucy == 0 {
+if tester < 5 && lucy == 0 {
     lucy = 10;
 } else if tester == 5 {
     lucy = 27;
 } else {
     lucy = 20;
+}
+
+count:=10;
+while count > 0 {
+    print(count);
+    count = count - 1;
 }
 
 print(lucy);

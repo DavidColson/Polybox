@@ -29,6 +29,7 @@ enum class NodeType {
     // Statements
     ExpressionStmt,
     If,
+    While,
     Print,
     Block,
 
@@ -91,6 +92,11 @@ struct If : public Statement {
     Expression* m_pCondition;
     Statement* m_pThenStmt;
     Statement* m_pElseStmt;
+};
+
+struct While: public Statement {
+    Expression* m_pCondition;
+    Statement* m_pBody;
 };
 
 struct Print : public Statement {
@@ -189,6 +195,8 @@ struct ParsingState {
     Ast::Statement* ParseExpressionStmt();
     
     Ast::Statement* ParseIf();
+
+    Ast::Statement* ParseWhile();
 
     Ast::Statement* ParsePrint();
 

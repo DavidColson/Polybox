@@ -48,7 +48,7 @@ enum Enum : uint32_t {
     // Keywords
     If,
     Else,
-    For,
+    While,
     Struct,
     Return,
     // Other

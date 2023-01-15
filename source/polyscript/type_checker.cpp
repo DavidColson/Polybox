@@ -129,6 +129,15 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 TypeCheckStatement(state, pIf->m_pElseStmt);
             break;
         }
+        case Ast::NodeType::While: {
+            Ast::While* pWhile = (Ast::While*)pStmt;
+            TypeCheckExpression(state, pWhile->m_pCondition);
+            if (pWhile->m_pCondition->m_valueType != ValueType::Bool)
+                state.m_pErrors->PushError(pWhile->m_pCondition, "while conditional expression does not evaluate to a boolean");
+
+            TypeCheckStatement(state, pWhile->m_pBody);
+            break;
+        }
         case Ast::NodeType::Block: {
             Ast::Block* pBlock = (Ast::Block*)pStmt;
 

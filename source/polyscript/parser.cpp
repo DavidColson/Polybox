@@ -482,6 +482,9 @@ Ast::Statement* ParsingState::ParseStatement() {
     if (Match(1, TokenType::If)) {
         return ParseIf();
     }
+    if (Match(1, TokenType::While)) {
+        return ParseWhile();
+    }
     if (Match(1, TokenType::LeftBrace)) {
         return ParseBlock();
     }
@@ -541,6 +544,23 @@ Ast::Statement* ParsingState::ParseIf() {
         pIf->m_pElseStmt = ParseStatement();
     }
     return pIf;
+}
+
+// ***********************************************************************
+
+Ast::Statement* ParsingState::ParseWhile() {
+    Ast::While* pWhile = (Ast::While*)pAllocator->Allocate(sizeof(Ast::While));
+    pWhile->m_type = Ast::NodeType::While;
+
+    pWhile->m_pLocation = Previous().m_pLocation;
+    pWhile->m_pLineStart = Previous().m_pLineStart;
+    pWhile->m_line = Previous().m_line;
+
+    pWhile->m_pCondition = ParseExpression();
+
+    pWhile->m_pBody = ParseStatement();
+
+    return pWhile;
 }
 
 // ***********************************************************************
@@ -675,6 +695,13 @@ void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
             DebugStatement(pIf->m_pThenStmt, indentationLevel + 2);
             if (pIf->m_pElseStmt)
                 DebugStatement(pIf->m_pElseStmt, indentationLevel + 2);
+            break;
+        }
+        case Ast::NodeType::While: {
+            Ast::While* pWhile = (Ast::While*)pStmt;
+            Log::Debug("%*s> While", indentationLevel, "");
+            DebugExpression(pWhile->m_pCondition, indentationLevel + 2);
+            DebugStatement(pWhile->m_pBody, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Block: {

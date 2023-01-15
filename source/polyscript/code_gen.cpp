@@ -54,6 +54,16 @@ int PushJump(State& state, OpCode::Enum jumpCode, uint32_t m_line) {
 
 // ***********************************************************************
 
+void PushLoop(State& state, uint8_t loopTarget, uint32_t m_line) {
+    PushCode(state, OpCode::Loop, m_line);
+
+    int offset = state.m_chunk.code.m_count - loopTarget + 2;
+    PushCode(state, (offset >> 8) & 0xff, m_line);
+    PushCode(state, offset & 0xff, m_line);
+}
+
+// ***********************************************************************
+
 void PatchJump(State& state, int jumpCodeLocation) {
     int jumpOffset = state.m_chunk.code.m_count - jumpCodeLocation - 2;
     state.m_chunk.code[jumpCodeLocation] = (jumpOffset >> 8) & 0xff;
@@ -224,6 +234,21 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             }
             PatchJump(state, elseJump);
 
+            break;
+        }
+        case Ast::NodeType::While: {
+            Ast::While* pWhile = (Ast::While*)pStmt;
+            int loopStart = state.m_chunk.code.m_count;
+            CodeGenExpression(state, pWhile->m_pCondition);
+
+            int ifJump = PushJump(state, OpCode::JmpIfFalse, pWhile->m_line);
+            PushCode(state, OpCode::Pop, pWhile->m_line);
+
+            CodeGenStatement(state, pWhile->m_pBody);
+            PushLoop(state, loopStart, pWhile->m_pBody->m_line);
+
+            PatchJump(state, ifJump);
+            PushCode(state, OpCode::Pop, pWhile->m_pBody->m_line);
             break;
         }
         case Ast::NodeType::Block: {

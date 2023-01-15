@@ -17,9 +17,9 @@ struct VirtualMachine {
 
 // ***********************************************************************
 
-uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
+uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
     StringBuilder builder;
-    uint8_t* pReturnInstruction = pInstruction;
+    uint8_t returnIPOffset = 0;
     switch (*pInstruction) {
         case (uint8_t)OpCode::LoadConstant: {
             builder.Append("LoadConstant ");
@@ -31,142 +31,169 @@ uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
                 builder.AppendFormat("%i (%s)", constIndex, v.m_boolValue ? "true" : "false");
             else if (v.m_type == ValueType::I32)
                 builder.AppendFormat("%i (%i)", constIndex, v.m_i32Value);
-            pReturnInstruction += 2;
+            returnIPOffset = 2;
             break;
         }
         case (uint8_t)OpCode::SetLocal: {
             builder.Append("SetLocal ");
             uint8_t index = *(pInstruction + 1);
             builder.AppendFormat("%i", index);
-            pReturnInstruction += 2;
+            returnIPOffset = 2;
             break;
         }
         case (uint8_t)OpCode::GetLocal: {
             builder.Append("GetLocal ");
             uint8_t index = *(pInstruction + 1);
             builder.AppendFormat("%i", index);
-            pReturnInstruction += 2;
+            returnIPOffset = 2;
             break;
         }
         case (uint8_t)OpCode::Negate: {
             builder.Append("Negate ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Not: {
             builder.Append("Not ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Add: {
             builder.Append("Add ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Subtract: {
             builder.Append("Subtract ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Multiply: {
             builder.Append("Multiply ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Divide: {
             builder.Append("Divide ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Greater: {
             builder.Append("Greater ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Less: {
             builder.Append("Less ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::GreaterEqual: {
             builder.Append("GreaterEqual ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::LessEqual: {
             builder.Append("LessEqual ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Equal: {
             builder.Append("Equal ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::NotEqual: {
             builder.Append("NotEqual ");
-            pReturnInstruction += 1;
-            break;
-        }
-        case (uint8_t)OpCode::And: {
-            builder.Append("And ");
-            pReturnInstruction += 1;
-            break;
-        }
-        case (uint8_t)OpCode::Or: {
-            builder.Append("Or ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Print: {
             builder.Append("Print ");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Return: {
             builder.Append("Return");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::Pop: {
             builder.Append("Pop");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
         }
         case (uint8_t)OpCode::JmpIfFalse: {
             builder.Append("JmpIfFalse");
             uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
             builder.AppendFormat(" %i", jmp);
-            pReturnInstruction += 3;
+            returnIPOffset = 3;
+            break;
+        }
+        case (uint8_t)OpCode::JmpIfTrue: {
+            builder.Append("JmpIfTrue");
+            uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
+            builder.AppendFormat(" %i", jmp);
+            returnIPOffset = 3;
             break;
         }
         case (uint8_t)OpCode::Jmp: {
             builder.Append("Jmp");
             uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
             builder.AppendFormat(" %i", jmp);
-            pReturnInstruction += 3;
+            returnIPOffset = 3;
             break;
         }
         default:
             builder.Append("OpUnknown");
-            pReturnInstruction += 1;
+            returnIPOffset = 1;
             break;
     }
 
     String output = builder.CreateString();
     Log::Debug("%s", output.m_pData);
     FreeString(output);
-    return pReturnInstruction;
+    return returnIPOffset;
 }
 
 // ***********************************************************************
 
-void Disassemble(CodeChunk& chunk) {
+void Disassemble(CodeChunk& chunk, String codeText) {
     Log::Debug("--------- Disassembly ---------");
     uint8_t* pInstructionPointer = chunk.code.m_pData;
-    while (pInstructionPointer < chunk.code.end()) {
-        pInstructionPointer = DisassembleInstruction(chunk, pInstructionPointer);
+
+    ResizableArray<String> m_lines;
+    char* pCurrent = codeText.m_pData;
+    char* pLineStart = codeText.m_pData;
+    while (pCurrent < (codeText.m_pData + codeText.m_length)) {
+        if (*pCurrent == '\n') {
+            String line = CopyCStringRange(pLineStart, pCurrent);
+            m_lines.PushBack(line);
+            pLineStart = pCurrent + 1;
+        }
+        pCurrent++;
     }
+    String line = CopyCStringRange(pLineStart, pCurrent);
+    m_lines.PushBack(line);
+
+    uint32_t lineCounter = 0;
+    uint32_t currentLine = -1;
+
+    while (pInstructionPointer < chunk.code.end()) {
+        if (currentLine != chunk.m_lineInfo[lineCounter]) {
+            currentLine = chunk.m_lineInfo[lineCounter];
+            Log::Debug("");
+            Log::Debug("  %i:%s", currentLine, m_lines[currentLine - 1].m_pData);
+        }
+
+        uint8_t offset = DisassembleInstruction(chunk, pInstructionPointer);
+        pInstructionPointer += offset;
+        lineCounter += offset;
+    }
+
+    m_lines.Free([](String& str) {
+        FreeString(str);
+    });
 }
 
 // ***********************************************************************
@@ -284,18 +311,6 @@ void Run(CodeChunk* pChunkToRun) {
                 vm.stack.Push(EvaluateOperator(Operator::NotEqual, a, b));
                 break;
             }
-            case (uint8_t)OpCode::And: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::And, a, b));
-                break;
-            }
-            case (uint8_t)OpCode::Or: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::Or, a, b));
-                break;
-            }
             case (uint8_t)OpCode::Print: {
                 Value v = vm.stack.Pop();
                 if (v.m_type == ValueType::F32)
@@ -323,6 +338,13 @@ void Run(CodeChunk* pChunkToRun) {
                 uint16_t jmp = (uint16_t)((vm.pInstructionPointer[0] << 8) | vm.pInstructionPointer[1]);
                 vm.pInstructionPointer += 2;
                 if (!vm.stack.Top().m_boolValue) vm.pInstructionPointer += jmp;
+                break;
+            }
+            case (uint8_t)OpCode::JmpIfTrue: {
+                uint16_t jmp = (uint16_t)((vm.pInstructionPointer[0] << 8) | vm.pInstructionPointer[1]);
+                vm.pInstructionPointer += 2;
+                if (vm.stack.Top().m_boolValue)
+                    vm.pInstructionPointer += jmp;
                 break;
             }
             case (uint8_t)OpCode::Jmp: {

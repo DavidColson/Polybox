@@ -3,6 +3,7 @@
 #pragma once
 
 #include "value.h"
+#include "lexer.h"
 
 #include <light_string.h>
 #include <resizable_array.h>
@@ -41,7 +42,7 @@ struct Node {
 
     char* m_pLocation { nullptr };
     char* m_pLineStart { nullptr };
-    size_t m_line { 0 };
+    uint32_t m_line { 0 };
 };
 
 // Expression type nodes
@@ -98,6 +99,8 @@ struct Print : public Statement {
 
 struct Block : public Statement {
     ResizableArray<Statement*> m_declarations;
+    Token m_startToken;
+    Token m_endToken;
 };
 
 struct VariableDeclaration : public Statement {

@@ -6,20 +6,21 @@
 
 #include <resizable_array.h>
 
-enum class OpCode : uint8_t {
+struct String;
+
+namespace OpCode {
+enum Enum : uint8_t {
     LoadConstant,
-    
+
     // Arithmetic
     Negate,
     Add,
     Subtract,
     Multiply,
     Divide,
-    
+
     // Logical
     Not,
-    And,
-    Or,
 
     // Comparison
     Greater,
@@ -32,6 +33,7 @@ enum class OpCode : uint8_t {
     SetLocal,
     GetLocal,
     JmpIfFalse,
+    JmpIfTrue,
     Jmp,
 
     // Misc
@@ -39,16 +41,16 @@ enum class OpCode : uint8_t {
     Return,
     Pop
 };
-
+}
 
 struct CodeChunk {
     ResizableArray<Value> constants;
     ResizableArray<uint8_t> code;
-    uint8_t m_globalsCount;
+    ResizableArray<uint32_t> m_lineInfo;
 };
 
-uint8_t* DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction);
+uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction);
 
-void Disassemble(CodeChunk& chunk);
+void Disassemble(CodeChunk& chunk, String codeText);
 
 void Run(CodeChunk* pChunkToRun);

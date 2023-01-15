@@ -59,7 +59,7 @@ int main() {
 
 
     // Type check
-    TypeCheckProgram(program, &errorState);
+    //TypeCheckProgram(program, &errorState);
 
     // Error report
     bool success = errorState.ReportCompilationResult();
@@ -73,7 +73,7 @@ int main() {
         defer(chunk.code.Free());
         defer(chunk.constants.Free());
     
-        Disassemble(chunk);
+        Disassemble(chunk, actualCode);
 
         Log::Info("---- Program Running -----");
         Run(&chunk);

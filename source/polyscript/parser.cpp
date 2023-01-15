@@ -446,7 +446,7 @@ Ast::Expression* ParsingState::ParseLogicOr() {
 // ***********************************************************************
 
 Ast::Expression* ParsingState::ParseVarAssignment() {
-    Ast::Expression* pExpr = ParseLogicAnd();
+    Ast::Expression* pExpr = ParseLogicOr();
 
     if (Match(1, TokenType::Equal)) {
         Token equal = Previous();
@@ -568,11 +568,17 @@ Ast::Statement* ParsingState::ParseBlock() {
     Ast::Block* pBlock = (Ast::Block*)pAllocator->Allocate(sizeof(Ast::Block));
     pBlock->m_type = Ast::NodeType::Block;
     pBlock->m_declarations.m_pAlloc = pAllocator;
+    pBlock->m_startToken = Previous();
+
+    pBlock->m_line = pBlock->m_startToken.m_line;
+    pBlock->m_pLineStart = pBlock->m_startToken.m_pLineStart;
+    pBlock->m_pLocation = pBlock->m_startToken.m_pLocation;
 
     while (!Check(TokenType::RightBrace) && !IsAtEnd()) {
         pBlock->m_declarations.PushBack(ParseDeclaration());
     }
     Consume(TokenType::RightBrace, "Expected '}' to end this block");
+    pBlock->m_endToken = Previous();
     return pBlock;
 }
 

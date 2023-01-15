@@ -65,7 +65,7 @@ struct Token {
     size_t m_length { 0 };
 
     char* m_pLineStart { nullptr };
-    size_t m_line { 0 };
+    uint32_t m_line { 0 };
 };
 
 ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText);

@@ -44,14 +44,8 @@ enum Enum : uint8_t {
 };
 }
 
-struct CodeChunk {
-    ResizableArray<Value> constants;
-    ResizableArray<uint8_t> code;
-    ResizableArray<uint32_t> m_lineInfo;
-};
-
 uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction);
 
 void Disassemble(CodeChunk& chunk, String codeText);
 
-void Run(CodeChunk* pChunkToRun);
+void Run(Function* pFuncToRun);

@@ -5,10 +5,10 @@
 namespace Ast {
 struct Statement;
 }
-struct CodeChunk;
+struct Function;
 struct ErrorState;
 
 template<typename T>
 struct ResizableArray;
 
-CodeChunk CodeGen(ResizableArray<Ast::Statement*>& program, ErrorState* pErrorState);
+Function* CodeGen(ResizableArray<Ast::Statement*>& program, ErrorState* pErrorState);

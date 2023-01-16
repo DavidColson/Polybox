@@ -69,14 +69,13 @@ int main() {
 
     if (success) {
         // Compile to bytecode
-        CodeChunk chunk = CodeGen(program, &errorState);
-        defer(chunk.code.Free());
-        defer(chunk.constants.Free());
+        Function* pFunc = CodeGen(program, &errorState);
+        defer(FreeFunction(pFunc));
     
-        Disassemble(chunk, actualCode);
+        Disassemble(pFunc->m_chunk, actualCode);
 
         Log::Info("---- Program Running -----");
-        Run(&chunk);
+        Run(pFunc);
     }
 
     //astMemory.Finished();

@@ -18,8 +18,14 @@ struct State {
     ResizableArray<Local> m_locals;
     int m_currentScopeDepth { 0 };
     ErrorState* m_pErrors;
-    CodeChunk m_chunk;
+    Function* m_pFunc;
 };
+}
+
+// ***********************************************************************
+
+CodeChunk* CurrentChunk(State& state) {
+    return &state.m_pFunc->m_chunk;
 }
 
 // ***********************************************************************
@@ -37,8 +43,8 @@ int ResolveLocal(State& state, String name) {
 // ***********************************************************************
 
 void PushCode(State& state, uint8_t code, uint32_t line) {
-    state.m_chunk.code.PushBack(code);
-    state.m_chunk.m_lineInfo.PushBack(line);
+    CurrentChunk(state)->code.PushBack(code);
+    CurrentChunk(state)->m_lineInfo.PushBack(line);
     if (line == 0)
         __debugbreak();
 }
@@ -49,7 +55,7 @@ int PushJump(State& state, OpCode::Enum jumpCode, uint32_t m_line) {
     PushCode(state, jumpCode, m_line);
     PushCode(state, 0xff, m_line);
     PushCode(state, 0xff, m_line);
-    return state.m_chunk.code.m_count - 2;
+    return CurrentChunk(state)->code.m_count - 2;
 }
 
 // ***********************************************************************
@@ -57,7 +63,7 @@ int PushJump(State& state, OpCode::Enum jumpCode, uint32_t m_line) {
 void PushLoop(State& state, uint8_t loopTarget, uint32_t m_line) {
     PushCode(state, OpCode::Loop, m_line);
 
-    int offset = state.m_chunk.code.m_count - loopTarget + 2;
+    int offset = CurrentChunk(state)->code.m_count - loopTarget + 2;
     PushCode(state, (offset >> 8) & 0xff, m_line);
     PushCode(state, offset & 0xff, m_line);
 }
@@ -65,9 +71,9 @@ void PushLoop(State& state, uint8_t loopTarget, uint32_t m_line) {
 // ***********************************************************************
 
 void PatchJump(State& state, int jumpCodeLocation) {
-    int jumpOffset = state.m_chunk.code.m_count - jumpCodeLocation - 2;
-    state.m_chunk.code[jumpCodeLocation] = (jumpOffset >> 8) & 0xff;
-    state.m_chunk.code[jumpCodeLocation + 1] = jumpOffset & 0xff;
+    int jumpOffset = CurrentChunk(state)->code.m_count - jumpCodeLocation - 2;
+    CurrentChunk(state)->code[jumpCodeLocation] = (jumpOffset >> 8) & 0xff;
+    CurrentChunk(state)->code[jumpCodeLocation + 1] = jumpOffset & 0xff;
 }
 
 // ***********************************************************************
@@ -96,8 +102,8 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
 
-            state.m_chunk.constants.PushBack(pLiteral->m_value);
-            uint8_t constIndex = (uint8_t)state.m_chunk.constants.m_count - 1;
+            CurrentChunk(state)->constants.PushBack(pLiteral->m_value);
+            uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.m_count - 1;
 
             PushCode(state, OpCode::LoadConstant, pLiteral->m_line);
             PushCode(state, constIndex, pLiteral->m_line);
@@ -238,7 +244,7 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
         }
         case Ast::NodeType::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
-            int loopStart = state.m_chunk.code.m_count;
+            int loopStart = CurrentChunk(state)->code.m_count;
             CodeGenExpression(state, pWhile->m_pCondition);
 
             int ifJump = PushJump(state, OpCode::JmpIfFalse, pWhile->m_line);
@@ -278,9 +284,12 @@ void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements
 
 // ***********************************************************************
 
-CodeChunk CodeGen(ResizableArray<Ast::Statement*>& program, ErrorState* pErrorState) {
+Function* CodeGen(ResizableArray<Ast::Statement*>& program, ErrorState* pErrorState) {
     State state;
 
+    state.m_pFunc = (Function*)g_Allocator.Allocate(sizeof(Function));
+    SYS_P_NEW(state.m_pFunc) Function();
+
     CodeGenStatements(state, program);
-    return state.m_chunk;
+    return state.m_pFunc;
 }

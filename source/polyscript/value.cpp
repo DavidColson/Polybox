@@ -3,11 +3,20 @@
 #include "value.h"
 #include "lexer.h"
 
+#include <resizable_array.inl>
+
 namespace {
 ValueType::Enum operatorReturnMap[Operator::Count][ValueType::Count][ValueType::Count];
 Value (*operatorMap[Operator::Count][ValueType::Count][ValueType::Count])(Value v1, Value v2);
 Operator::Enum tokenToOperatorMap[TokenType::Count];
 const char* valueNames[ValueType::Count];
+}
+
+void FreeFunction(Function* pFunc) {
+    pFunc->m_chunk.constants.Free();
+    pFunc->m_chunk.code.Free();
+    pFunc->m_chunk.m_lineInfo.Free();
+    FreeString(pFunc->m_name);
 }
 
 void Register(Operator::Enum op, ValueType::Enum t1, ValueType::Enum t2, ValueType::Enum ret, Value (*func) (Value v1, Value v2)) {

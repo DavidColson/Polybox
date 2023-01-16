@@ -232,9 +232,9 @@ void DebugStack(VirtualMachine& vm) {
 
 // ***********************************************************************
 
-void Run(CodeChunk* pChunkToRun) {
+void Run(Function* pFuncToRun) {
     VirtualMachine vm;
-    vm.pCurrentChunk = pChunkToRun;
+    vm.pCurrentChunk = &pFuncToRun->m_chunk;
     vm.pInstructionPointer = vm.pCurrentChunk->code.m_pData;
 
     // VM run
@@ -326,11 +326,14 @@ void Run(CodeChunk* pChunkToRun) {
                     Log::Info("%i", v.m_i32Value);
                 else if (v.m_type == ValueType::Bool)
                     Log::Info("%s", v.m_boolValue ? "true" : "false");
+                else if (v.m_type == ValueType::Function)
+                    Log::Info("<fn %s>", v.m_pFunction->m_name.m_pData); // TODO Should probably show the type sig?
                 break;
             }
             case (uint8_t)OpCode::Pop:
                 vm.stack.Pop();
                 break;
+
             case (uint8_t)OpCode::SetLocal: {
                 uint8_t opIndex = *vm.pInstructionPointer++;
                 vm.stack[opIndex] = vm.stack.Top();

@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#include <light_string.h>
+#include <resizable_array.h>
+
 namespace TokenType {
 enum Enum : uint32_t;
 }
@@ -14,6 +17,7 @@ enum Enum : uint32_t {
     F32,
     I32,
     Bool,
+    Function,
     Count
 };
 
@@ -48,12 +52,15 @@ static const char* ToString(Operator::Enum type) {
 }
 }
 
+
+struct Function;
 struct Value {
     ValueType::Enum m_type { ValueType::Invalid };
     union {
         bool m_boolValue;
         float m_f32Value;
         int32_t m_i32Value;
+        Function* m_pFunction;
     };
 };
 
@@ -77,6 +84,24 @@ inline Value MakeValue(int32_t value) {
     v.m_i32Value = value;
     return v;
 }
+
+
+struct CodeChunk {
+    ResizableArray<Value> constants;
+    ResizableArray<uint8_t> code;
+    ResizableArray<uint32_t> m_lineInfo;
+};
+
+struct Function {
+    ValueType::Enum m_args[32];
+    int m_nArgCount { 0 };
+    String m_name;
+    CodeChunk m_chunk;
+};
+
+void FreeFunction(Function* pFunc);
+
+
 
 void InitValueTables();
 

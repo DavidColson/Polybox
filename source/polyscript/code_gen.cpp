@@ -291,5 +291,7 @@ Function* CodeGen(ResizableArray<Ast::Statement*>& program, ErrorState* pErrorSt
     SYS_P_NEW(state.m_pFunc) Function();
 
     CodeGenStatements(state, program);
+    Ast::Statement* pEnd = program[program.m_count - 1];
+    PushCode(state, OpCode::Return, pEnd->m_line);
     return state.m_pFunc;
 }

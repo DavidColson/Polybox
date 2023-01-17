@@ -606,12 +606,31 @@ Ast::Statement* ParsingState::ParseBlock() {
 
 Ast::Statement* ParsingState::ParseDeclaration() {
     Ast::Statement* pStmt = nullptr;
-    
+
     if (Match(1, TokenType::Identifier)) {
-        if (Advance().m_type == TokenType::Colon) {
-            pStmt = ParseVarDeclaration();
+        Token identifier = Previous();
+
+        if (Match(1, TokenType::Colon)) {
+            // We now know we are dealing with a declaration of some kind
+            Consume(TokenType::Equal, "Expected an equal here before declaration initializer");
+
+            String identifierStr = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
+            if (Match(1, TokenType::LeftParen)) {
+                // Function declarations
+                pStmt = ParseFuncDeclaration(identifierStr);
+            } else {
+                // Variable declaration
+                pStmt = ParseVarDeclaration(identifierStr);
+            }
+
+            if (pStmt) {
+                pStmt->m_pLocation = identifier.m_pLocation;
+                pStmt->m_line = identifier.m_line;
+                pStmt->m_pLineStart = identifier.m_pLineStart;
+            }
         } else {
-            m_pCurrent -= 2;
+            // Wasn't a declaration, backtrack
+            m_pCurrent--;
         }
     }
     
@@ -627,22 +646,36 @@ Ast::Statement* ParsingState::ParseDeclaration() {
 
 // ***********************************************************************
 
-Ast::Statement* ParsingState::ParseVarDeclaration() {
-    Token name = *(m_pCurrent - 2);
-    Consume(TokenType::Equal, "Expected an equal sign before variable initializer");
+Ast::Statement* ParsingState::ParseVarDeclaration(String identifierToBind) {
     Ast::Expression* pExpr = ParseExpression();
     Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
 
     Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pAllocator->Allocate(sizeof(Ast::VariableDeclaration));
     pVarDecl->m_type = Ast::NodeType::VarDecl;
 
-    pVarDecl->m_identifier = CopyCStringRange(name.m_pLocation, name.m_pLocation + name.m_length, pAllocator);
+    pVarDecl->m_identifier = identifierToBind;
     pVarDecl->m_pInitializerExpr = pExpr;
 
-    pVarDecl->m_pLocation = name.m_pLocation;
-    pVarDecl->m_pLineStart = name.m_pLineStart;
-    pVarDecl->m_line = name.m_line;
     return pVarDecl;
+}
+
+// ***********************************************************************
+
+Ast::Statement* ParsingState::ParseFuncDeclaration(String identifierToBind) {
+    // TODO: Parse arguments here
+
+    Consume(TokenType::RightParen, "Expected right parenthesis to close argument list of this function");
+    // TODO: Parse function return values here
+    Consume(TokenType::LeftBrace, "Expected '{' to open function body");
+    Ast::Block* pBlock = (Ast::Block*)ParseBlock();
+
+    Ast::FunctionDeclaration* pFuncDecl = (Ast::FunctionDeclaration*)pAllocator->Allocate(sizeof(Ast::FunctionDeclaration));
+    pFuncDecl->m_type = Ast::NodeType::FuncDecl;
+    
+    pFuncDecl->m_identifier = identifierToBind;
+    pFuncDecl->m_pBody = pBlock;
+
+    return pFuncDecl;
 }
 
 // ***********************************************************************
@@ -674,6 +707,12 @@ void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
             Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
             Log::Debug("%*s+ VarDecl (%s)", indentationLevel, "", pVarDecl->m_identifier.m_pData);
             DebugExpression(pVarDecl->m_pInitializerExpr, indentationLevel + 2);
+            break;
+        }
+        case Ast::NodeType::FuncDecl: {
+            Ast::FunctionDeclaration* pFuncDecl = (Ast::FunctionDeclaration*)pStmt;
+            Log::Debug("%*s+ FuncDecl (%s)", indentationLevel, "", pFuncDecl->m_identifier.m_pData);
+            DebugStatement(pFuncDecl->m_pBody, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Print: {

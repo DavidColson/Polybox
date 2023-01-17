@@ -34,7 +34,8 @@ enum class NodeType {
     Block,
 
     // Declarations
-    VarDecl
+    VarDecl,
+    FuncDecl
 };
 
 // Base AST Node
@@ -113,6 +114,11 @@ struct VariableDeclaration : public Statement {
     String m_identifier;
     Expression* m_pInitializerExpr;
     int m_scopeLevel { 0 };
+};
+
+struct FunctionDeclaration : public Statement {
+    String m_identifier;
+    Block* m_pBody;
 };
 
 }
@@ -204,7 +210,9 @@ struct ParsingState {
 
     Ast::Statement* ParseDeclaration();
 
-    Ast::Statement* ParseVarDeclaration();
+    Ast::Statement* ParseVarDeclaration(String identifierToBind);
+
+    Ast::Statement* ParseFuncDeclaration(String identifierToBind);
 };
 
 void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentationLevel = 0);

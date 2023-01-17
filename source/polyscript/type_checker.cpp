@@ -107,6 +107,13 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             state.m_variableDeclarations.Add(pVarDecl->m_identifier, pVarDecl);
             break;
         }
+        case Ast::NodeType::FuncDecl: {
+            Ast::FunctionDeclaration* pFuncDecl = (Ast::FunctionDeclaration*)pStmt;
+            TypeCheckStatement(state, pFuncDecl->m_pBody);
+
+            // TODO: Lookup this declaration and check for redeclaration
+            break;
+        }
         case Ast::NodeType::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
             TypeCheckExpression(state, pPrint->m_pExpr);

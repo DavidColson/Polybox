@@ -9,10 +9,15 @@
 
 //#define DEBUG_TRACE
 
+struct CallFrame {
+    Function* pFunc { nullptr };
+    uint8_t* pInstructionPointer { nullptr };
+    int32_t stackBaseIndex{ 0 };
+};
+
 struct VirtualMachine {
-    CodeChunk* pCurrentChunk;
-    uint8_t* pInstructionPointer;
     Stack<Value> stack;
+    Stack<CallFrame> callStack;
 };
 
 // ***********************************************************************
@@ -234,17 +239,22 @@ void DebugStack(VirtualMachine& vm) {
 
 void Run(Function* pFuncToRun) {
     VirtualMachine vm;
-    vm.pCurrentChunk = &pFuncToRun->m_chunk;
-    vm.pInstructionPointer = vm.pCurrentChunk->code.m_pData;
+    
+    CallFrame frame;
+    frame.pFunc = pFuncToRun;
+    frame.pInstructionPointer = pFuncToRun->m_chunk.code.m_pData;
+    frame.stackBaseIndex = 0;
+    vm.callStack.Push(frame);
 
     // VM run
-    while (vm.pInstructionPointer < vm.pCurrentChunk->code.end()) {
+    CallFrame* pFrame = &vm.callStack.Top();
+    while (pFrame->pInstructionPointer < pFrame->pFunc->m_chunk.code.end()) {
 #ifdef DEBUG_TRACE
         DisassembleInstruction(*vm.pCurrentChunk, vm.pInstructionPointer);
 #endif
-        switch (*vm.pInstructionPointer++) {
+        switch (*pFrame->pInstructionPointer++) {
             case (uint8_t)OpCode::LoadConstant: {
-                Value constant = vm.pCurrentChunk->constants[*vm.pInstructionPointer++];
+                Value constant = pFrame->pFunc->m_chunk.constants[*pFrame->pInstructionPointer++];
                 vm.stack.Push(constant);
                 break;
             }
@@ -335,38 +345,39 @@ void Run(Function* pFuncToRun) {
                 break;
 
             case (uint8_t)OpCode::SetLocal: {
-                uint8_t opIndex = *vm.pInstructionPointer++;
-                vm.stack[opIndex] = vm.stack.Top();
+                uint8_t opIndex = *pFrame->pInstructionPointer++;
+                vm.stack[pFrame->stackBaseIndex + opIndex] = vm.stack.Top();
                 break;
             }
             case (uint8_t)OpCode::GetLocal: {
-                uint8_t opIndex = *vm.pInstructionPointer++;
-                vm.stack.Push(vm.stack[opIndex]);
+                uint8_t opIndex = *pFrame->pInstructionPointer++;
+                vm.stack.Push(vm.stack[pFrame->stackBaseIndex + opIndex]);
                 break;
             }
             case (uint8_t)OpCode::JmpIfFalse: {
-                uint16_t jmp = (uint16_t)((vm.pInstructionPointer[0] << 8) | vm.pInstructionPointer[1]);
-                vm.pInstructionPointer += 2;
-                if (!vm.stack.Top().m_boolValue) vm.pInstructionPointer += jmp;
+                uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
+                pFrame->pInstructionPointer += 2;
+                if (!vm.stack.Top().m_boolValue)
+                    pFrame->pInstructionPointer += jmp;
                 break;
             }
             case (uint8_t)OpCode::JmpIfTrue: {
-                uint16_t jmp = (uint16_t)((vm.pInstructionPointer[0] << 8) | vm.pInstructionPointer[1]);
-                vm.pInstructionPointer += 2;
+                uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
+                pFrame->pInstructionPointer += 2;
                 if (vm.stack.Top().m_boolValue)
-                    vm.pInstructionPointer += jmp;
+                    pFrame->pInstructionPointer += jmp;
                 break;
             }
             case (uint8_t)OpCode::Jmp: {
-                uint16_t jmp = (uint16_t)((vm.pInstructionPointer[0] << 8) | vm.pInstructionPointer[1]);
-                vm.pInstructionPointer += 2;
-                vm.pInstructionPointer += jmp;
+                uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
+                pFrame->pInstructionPointer += 2;
+                pFrame->pInstructionPointer += jmp;
                 break;
             }
             case (uint8_t)OpCode::Loop: {
-                uint16_t jmp = (uint16_t)((vm.pInstructionPointer[0] << 8) | vm.pInstructionPointer[1]);
-                vm.pInstructionPointer += 2;
-                vm.pInstructionPointer -= jmp;
+                uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
+                pFrame->pInstructionPointer += 2;
+                pFrame->pInstructionPointer -= jmp;
                 break;
             }
             case (uint8_t)OpCode::Return:

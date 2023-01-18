@@ -36,6 +36,8 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
                 builder.AppendFormat("%i (%s)", constIndex, v.m_boolValue ? "true" : "false");
             else if (v.m_type == ValueType::I32)
                 builder.AppendFormat("%i (%i)", constIndex, v.m_i32Value);
+            else if (v.m_type == ValueType::Function)
+                builder.AppendFormat("%i (<fn %s>)", constIndex, v.m_pFunction->m_name.m_pData);
             returnIPOffset = 2;
             break;
         }

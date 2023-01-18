@@ -32,10 +32,7 @@ enum class NodeType {
     While,
     Print,
     Block,
-
-    // Declarations
-    VarDecl,
-    FuncDecl
+    Declaration,
 };
 
 // Base AST Node
@@ -110,15 +107,18 @@ struct Block : public Statement {
     Token m_endToken;
 };
 
-struct VariableDeclaration : public Statement {
+struct Declaration : public Statement {
     String m_identifier;
-    Expression* m_pInitializerExpr;
     int m_scopeLevel { 0 };
-};
 
-struct FunctionDeclaration : public Statement {
-    String m_identifier;
-    Block* m_pBody;
+    // TODO: a bit longer term, a function is basically an expression that produces functions which can be treated like any other value (and called)
+    // So the initializer expression would actually cover functions, variables and structs cause they're all just expressions, some producting functions, some producing types, some producing values
+
+    // For variables
+    Expression* m_pInitializerExpr { nullptr };
+
+    // For functions
+    Block* m_pFuncBody { nullptr };
 };
 
 }

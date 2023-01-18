@@ -200,15 +200,31 @@ void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements
 
 void CodeGenStatement(State& state, Ast::Statement* pStmt) {
     switch (pStmt->m_type) {
-        case Ast::NodeType::VarDecl: {
-            Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
+        case Ast::NodeType::Declaration: {
+            Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
 
             Local local;
             local.m_depth = state.m_currentScopeDepth;
-            local.m_name = pVarDecl->m_identifier;
+            local.m_name = pDecl->m_identifier;
             state.m_locals.PushBack(local);
 
-            CodeGenExpression(state, pVarDecl->m_pInitializerExpr);
+            if (pDecl->m_pInitializerExpr) {
+                CodeGenExpression(state, pDecl->m_pInitializerExpr);
+            } else if (pDecl->m_pFuncBody) {
+                // To be cleaned up, this is basically making a literal type of value function
+                Function* pFunc = CodeGen(pDecl->m_pFuncBody->m_declarations, state.m_pErrors);
+                pFunc->m_name = pDecl->m_identifier;
+
+                Value value;
+                value.m_type = ValueType::Function;
+                value.m_pFunction = pFunc;
+
+                CurrentChunk(state)->constants.PushBack(value);
+                uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.m_count - 1;
+
+                PushCode(state, OpCode::LoadConstant, pDecl->m_line);
+                PushCode(state, constIndex, pDecl->m_line);
+            }
             break;
         }
         case Ast::NodeType::Print: {

@@ -7,7 +7,7 @@
 #include <hashmap.inl>
 
 struct TypeCheckerState {
-    HashMap<String, Ast::VariableDeclaration*> m_variableDeclarations;
+    HashMap<String, Ast::Declaration*> m_declarations;
     ErrorState* m_pErrors { nullptr };
     int m_currentScopeLevel { 0 };
 };
@@ -27,9 +27,12 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
         case Ast::NodeType::Variable: {
             Ast::Variable* pVariable = (Ast::Variable*)pExpr;
 
-            Ast::VariableDeclaration** pDecl = state.m_variableDeclarations.Get(pVariable->m_identifier);
+            Ast::Declaration** pDecl = state.m_declarations.Get(pVariable->m_identifier);
             if (pDecl) {
-                pVariable->m_valueType = (*pDecl)->m_pInitializerExpr->m_valueType;
+                if ((*pDecl)->m_pInitializerExpr) {
+                    pVariable->m_valueType = (*pDecl)->m_pInitializerExpr->m_valueType;
+                } else if ((*pDecl)->m_pFuncBody)
+                    pVariable->m_valueType = ValueType::Function;
             } else {
                 state.m_pErrors->PushError(pVariable, "Undeclared variable \'%s\', missing a declaration somewhere before?", pVariable->m_identifier.m_pData);
             }
@@ -40,7 +43,9 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
             TypeCheckExpression(state, pVarAssignment->m_pAssignment);
 
-            Ast::VariableDeclaration** pDecl = state.m_variableDeclarations.Get(pVarAssignment->m_identifier);
+            // TODO: This should work with assigning functions to variables
+
+            Ast::Declaration** pDecl = state.m_declarations.Get(pVarAssignment->m_identifier);
             if (pDecl) {
                 ValueType::Enum declaredVarType = (*pDecl)->m_pInitializerExpr->m_valueType;
                 ValueType::Enum assignedVarType = pVarAssignment->m_pAssignment->m_valueType;
@@ -96,22 +101,18 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
 
 void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
     switch (pStmt->m_type) {
-        case Ast::NodeType::VarDecl: {
-            Ast::VariableDeclaration* pVarDecl = (Ast::VariableDeclaration*)pStmt;
-            pVarDecl->m_scopeLevel = state.m_currentScopeLevel;
+        case Ast::NodeType::Declaration: {
+            Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
+            pDecl->m_scopeLevel = state.m_currentScopeLevel;
 
-            if (state.m_variableDeclarations.Get(pVarDecl->m_identifier) != nullptr)
-                state.m_pErrors->PushError(pVarDecl, "Redefinition of variable '%s'", pVarDecl->m_identifier.m_pData);
+            if (state.m_declarations.Get(pDecl->m_identifier) != nullptr)
+                state.m_pErrors->PushError(pDecl, "Redefinition of variable '%s'", pDecl->m_identifier.m_pData);
 
-            TypeCheckExpression(state, pVarDecl->m_pInitializerExpr);
-            state.m_variableDeclarations.Add(pVarDecl->m_identifier, pVarDecl);
-            break;
-        }
-        case Ast::NodeType::FuncDecl: {
-            Ast::FunctionDeclaration* pFuncDecl = (Ast::FunctionDeclaration*)pStmt;
-            TypeCheckStatement(state, pFuncDecl->m_pBody);
-
-            // TODO: Lookup this declaration and check for redeclaration
+            if (pDecl->m_pInitializerExpr)
+                TypeCheckExpression(state, pDecl->m_pInitializerExpr);
+            else if (pDecl->m_pFuncBody)
+                TypeCheckStatement(state, pDecl->m_pFuncBody); // TODO: This should be an expression that produces a constant of type "function"
+            state.m_declarations.Add(pDecl->m_identifier, pDecl);
             break;
         }
         case Ast::NodeType::Print: {
@@ -153,12 +154,12 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             state.m_currentScopeLevel--;
 
             // Remove variable declarations that are now out of scope
-            for (size_t i = 0; i < state.m_variableDeclarations.m_tableSize; i++) {
-                if (state.m_variableDeclarations.m_pTable[i].hash != UNUSED_HASH) {
-                    Ast::VariableDeclaration* pVarDecl = state.m_variableDeclarations.m_pTable[i].value;
+            for (size_t i = 0; i < state.m_declarations.m_tableSize; i++) {
+                if (state.m_declarations.m_pTable[i].hash != UNUSED_HASH) {
+                    Ast::Declaration* pVarDecl = state.m_declarations.m_pTable[i].value;
 
                     if (pVarDecl->m_scopeLevel > state.m_currentScopeLevel)
-                        state.m_variableDeclarations.Erase(state.m_variableDeclarations.m_pTable[i].key);
+                        state.m_declarations.Erase(state.m_declarations.m_pTable[i].key);
                 }
             }
             break;

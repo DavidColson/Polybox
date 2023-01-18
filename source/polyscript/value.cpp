@@ -16,7 +16,6 @@ void FreeFunction(Function* pFunc) {
     pFunc->m_chunk.constants.Free();
     pFunc->m_chunk.code.Free();
     pFunc->m_chunk.m_lineInfo.Free();
-    FreeString(pFunc->m_name);
 }
 
 void Register(Operator::Enum op, ValueType::Enum t1, ValueType::Enum t2, ValueType::Enum ret, Value (*func) (Value v1, Value v2)) {

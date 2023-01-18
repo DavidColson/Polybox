@@ -12,6 +12,10 @@ struct TypeCheckerState {
     int m_currentScopeLevel { 0 };
 };
 
+void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt);
+void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program);
+
+
 // ***********************************************************************
 
 void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
@@ -24,15 +28,18 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             pLiteral->m_valueType = pLiteral->m_value.m_type;
             break;
         }
+        case Ast::NodeType::Function: {
+            Ast::Function* pFunction = (Ast::Function*)pExpr;
+            pFunction->m_valueType = ValueType::Function;
+            TypeCheckStatement(state, pFunction->m_pBody);
+            break;
+        }
         case Ast::NodeType::Variable: {
             Ast::Variable* pVariable = (Ast::Variable*)pExpr;
 
             Ast::Declaration** pDecl = state.m_declarations.Get(pVariable->m_identifier);
             if (pDecl) {
-                if ((*pDecl)->m_pInitializerExpr) {
-                    pVariable->m_valueType = (*pDecl)->m_pInitializerExpr->m_valueType;
-                } else if ((*pDecl)->m_pFuncBody)
-                    pVariable->m_valueType = ValueType::Function;
+                pVariable->m_valueType = (*pDecl)->m_pInitializerExpr->m_valueType;
             } else {
                 state.m_pErrors->PushError(pVariable, "Undeclared variable \'%s\', missing a declaration somewhere before?", pVariable->m_identifier.m_pData);
             }
@@ -97,7 +104,6 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
 }
 
 // ***********************************************************************
-void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program);
 
 void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
     switch (pStmt->m_type) {
@@ -108,10 +114,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             if (state.m_declarations.Get(pDecl->m_identifier) != nullptr)
                 state.m_pErrors->PushError(pDecl, "Redefinition of variable '%s'", pDecl->m_identifier.m_pData);
 
-            if (pDecl->m_pInitializerExpr)
-                TypeCheckExpression(state, pDecl->m_pInitializerExpr);
-            else if (pDecl->m_pFuncBody)
-                TypeCheckStatement(state, pDecl->m_pFuncBody); // TODO: This should be an expression that produces a constant of type "function"
+            TypeCheckExpression(state, pDecl->m_pInitializerExpr);
             state.m_declarations.Add(pDecl->m_identifier, pDecl);
             break;
         }

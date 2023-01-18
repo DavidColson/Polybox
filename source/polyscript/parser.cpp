@@ -197,6 +197,39 @@ void ParsingState::Synchronize() {
 // ***********************************************************************
 
 Ast::Expression* ParsingState::ParsePrimary() {
+
+    // We will try and parse this as a function, if we fail, we'll revert to normal expression parsing
+    if (Match(1, TokenType::LeftParen)) {
+        Token* pStart = m_pCurrent - 1;
+
+        // Under what conditions is this valid?
+
+        // Two cases
+        // Left Paren followed by right
+        // Left Paren followed by identifier followed by colon followed by type
+        // Everything else is invalid
+
+        Token start = Previous();
+        
+        if (Match(1, TokenType::RightParen)) { // empty args list
+            Ast::Function* pFunc = (Ast::Function*)pAllocator->Allocate(sizeof(Ast::Function));
+            pFunc->m_type = Ast::NodeType::Function;
+
+            // TODO: Parse function return values here
+            Consume(TokenType::LeftBrace, "Expected '{' to open function body");
+
+            pFunc->m_pBody = (Ast::Block*)ParseBlock();
+
+            pFunc->m_pLocation = start.m_pLocation;
+            pFunc->m_pLineStart = start.m_pLineStart;
+            pFunc->m_line = start.m_line;
+            return pFunc;
+        }
+
+        // This wasn't a function, so backtrack out and continue
+        m_pCurrent = pStart;
+    }
+
     if (Match(1, TokenType::LiteralInteger)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)pAllocator->Allocate(sizeof(Ast::Literal));
         pLiteralExpr->m_type = Ast::NodeType::Literal;
@@ -619,22 +652,10 @@ Ast::Statement* ParsingState::ParseDeclaration() {
 
             String identifierStr = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
             pDecl->m_identifier = identifierStr;
-            
-            if (Match(1, TokenType::LeftParen)) {
-                // Function declarations
-                // TODO: Parse arguments here
-                Consume(TokenType::RightParen, "Expected right parenthesis to close argument list of this function");
-                // TODO: Parse function return values here
-                Consume(TokenType::LeftBrace, "Expected '{' to open function body");
+            pDecl->m_pInitializerExpr = ParseExpression();
 
-                pDecl->m_pFuncBody = (Ast::Block*)ParseBlock();
-            } else {
-                // Variable declaration
-                Ast::Expression* pExpr = ParseExpression();
-                pDecl->m_pInitializerExpr = pExpr;
+            if (pDecl->m_pInitializerExpr->m_type != Ast::NodeType::Function)
                 Consume(TokenType::Semicolon, "Expected \";\" at the end of this declaration");
-            }
-
 
             if (pDecl) {
                 pDecl->m_pLocation = identifier.m_pLocation;
@@ -686,11 +707,7 @@ void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
         case Ast::NodeType::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
             Log::Debug("%*s+ Decl (%s)", indentationLevel, "", pDecl->m_identifier.m_pData);
-            if (pDecl->m_pInitializerExpr)
-                DebugExpression(pDecl->m_pInitializerExpr, indentationLevel + 2);
-            else if (pDecl->m_pFuncBody)
-                DebugStatement(pDecl->m_pFuncBody, indentationLevel + 2);
-
+            DebugExpression(pDecl->m_pInitializerExpr, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Print: {
@@ -769,6 +786,12 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
                 Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->m_value.m_i32Value, ValueType::ToString(pLiteral->m_valueType));
             else if (pLiteral->m_value.m_type == ValueType::Bool)
                 Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false", ValueType::ToString(pLiteral->m_valueType));
+            break;
+        }
+        case Ast::NodeType::Function: {
+            Ast::Function* pFunction = (Ast::Function*)pExpr;
+            Log::Debug("%*s- Function (:%s)", indentationLevel, "", ValueType::ToString(pFunction->m_valueType));
+            DebugStatement(pFunction->m_pBody, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Grouping: {

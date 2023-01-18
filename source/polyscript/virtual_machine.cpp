@@ -37,7 +37,7 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             else if (v.m_type == ValueType::I32)
                 builder.AppendFormat("%i (%i)", constIndex, v.m_i32Value);
             else if (v.m_type == ValueType::Function)
-                builder.AppendFormat("%i (<fn %s>)", constIndex, v.m_pFunction->m_name.m_pData);
+                builder.AppendFormat("%i (<fn>)", constIndex);  // TODO Should probably show the type sig?
             returnIPOffset = 2;
             break;
         }
@@ -339,7 +339,7 @@ void Run(Function* pFuncToRun) {
                 else if (v.m_type == ValueType::Bool)
                     Log::Info("%s", v.m_boolValue ? "true" : "false");
                 else if (v.m_type == ValueType::Function)
-                    Log::Info("<fn %s>", v.m_pFunction->m_name.m_pData); // TODO Should probably show the type sig?
+                    Log::Info("<fn>"); // TODO Should probably show the type sig?
                 break;
             }
             case (uint8_t)OpCode::Pop:

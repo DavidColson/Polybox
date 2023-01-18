@@ -21,7 +21,7 @@ enum Enum : uint32_t {
     Count
 };
 
-static const char* stringNames[] = { "invalid", "f32", "i32", "bool", "count" };
+static const char* stringNames[] = { "invalid", "f32", "i32", "bool","function", "count" };
 static const char* ToString(ValueType::Enum type) {
     return stringNames[type];
 }
@@ -95,7 +95,6 @@ struct CodeChunk {
 struct Function {
     ValueType::Enum m_args[32];
     int m_nArgCount { 0 };
-    String m_name;
     CodeChunk m_chunk;
 };
 

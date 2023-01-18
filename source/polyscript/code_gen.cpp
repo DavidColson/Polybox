@@ -109,6 +109,20 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             PushCode(state, constIndex, pLiteral->m_line);
             break;
         }
+        case Ast::NodeType::Function: {
+            Ast::Function* pFunction = (Ast::Function*)pExpr;
+            Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, state.m_pErrors);
+
+            Value value;
+            value.m_type = ValueType::Function;
+            value.m_pFunction = pFunc;
+            CurrentChunk(state)->constants.PushBack(value);
+            uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.m_count - 1;
+
+            PushCode(state, OpCode::LoadConstant, pFunction->m_line);
+            PushCode(state, constIndex, pFunction->m_line);
+            break;
+        }
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
 
@@ -208,23 +222,7 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             local.m_name = pDecl->m_identifier;
             state.m_locals.PushBack(local);
 
-            if (pDecl->m_pInitializerExpr) {
-                CodeGenExpression(state, pDecl->m_pInitializerExpr);
-            } else if (pDecl->m_pFuncBody) {
-                // To be cleaned up, this is basically making a literal type of value function
-                Function* pFunc = CodeGen(pDecl->m_pFuncBody->m_declarations, state.m_pErrors);
-                pFunc->m_name = pDecl->m_identifier;
-
-                Value value;
-                value.m_type = ValueType::Function;
-                value.m_pFunction = pFunc;
-
-                CurrentChunk(state)->constants.PushBack(value);
-                uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.m_count - 1;
-
-                PushCode(state, OpCode::LoadConstant, pDecl->m_line);
-                PushCode(state, constIndex, pDecl->m_line);
-            }
+            CodeGenExpression(state, pDecl->m_pInitializerExpr);
             break;
         }
         case Ast::NodeType::Print: {

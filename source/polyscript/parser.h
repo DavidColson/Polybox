@@ -22,6 +22,7 @@ enum class NodeType {
     Binary,
     Unary,
     Literal,
+    Function,
     Grouping,
     Variable,
     VariableAssignment,
@@ -72,6 +73,11 @@ struct Variable : public Expression {
     String m_identifier;
 };
 
+struct Block;
+struct Function : public Expression {
+    Block* m_pBody;
+};
+
 struct VariableAssignment : public Expression {
     String m_identifier;
     Expression* m_pAssignment;
@@ -110,15 +116,7 @@ struct Block : public Statement {
 struct Declaration : public Statement {
     String m_identifier;
     int m_scopeLevel { 0 };
-
-    // TODO: a bit longer term, a function is basically an expression that produces functions which can be treated like any other value (and called)
-    // So the initializer expression would actually cover functions, variables and structs cause they're all just expressions, some producting functions, some producing types, some producing values
-
-    // For variables
     Expression* m_pInitializerExpr { nullptr };
-
-    // For functions
-    Block* m_pFuncBody { nullptr };
 };
 
 }

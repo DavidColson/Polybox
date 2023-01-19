@@ -30,14 +30,16 @@ enum Enum : uint8_t {
     GreaterEqual,
     LessEqual,
 
-    SetLocal,
-    GetLocal,
+    // Flow control
     JmpIfFalse,
     JmpIfTrue,
     Jmp,
     Loop,
 
     // Misc
+    SetLocal,
+    GetLocal,
+    Call,
     Print,
     Return,
     Pop

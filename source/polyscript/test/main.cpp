@@ -69,7 +69,7 @@ int main() {
 
     if (success) {
         // Compile to bytecode
-        Function* pFunc = CodeGen(program, &errorState);
+        Function* pFunc = CodeGen(program, "<script>", &errorState);
         defer(FreeFunction(pFunc));
     
         Log::Debug("---- Disassembly -----");

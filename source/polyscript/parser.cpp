@@ -334,7 +334,11 @@ Ast::Expression* ParsingState::ParseCall() {
             } while (Match(1, TokenType::Comma));
         }
 
-        Consume(TokenType::RightParen, "Expected right parenthesis to end function call");
+        Token closeParen = Consume(TokenType::RightParen, "Expected right parenthesis to end function call");
+        
+        pCall->m_pLocation = closeParen.m_pLocation;
+        pCall->m_pLineStart = closeParen.m_pLineStart;
+        pCall->m_line = closeParen.m_line;
 
         pExpr = pCall;
     }
@@ -686,6 +690,11 @@ Ast::Statement* ParsingState::ParseDeclaration() {
 
             if (pDecl->m_pInitializerExpr->m_type != Ast::NodeType::Function)
                 Consume(TokenType::Semicolon, "Expected \";\" at the end of this declaration");
+
+            if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) { // Required for recursion, function will be able to refer to itself
+                Ast::Function* pFunc = (Ast::Function*)pDecl->m_pInitializerExpr;
+                pFunc->m_identifier = identifierStr;
+            }
 
             if (pDecl) {
                 pDecl->m_pLocation = identifier.m_pLocation;

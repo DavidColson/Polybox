@@ -26,7 +26,7 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
     StringBuilder builder;
     uint8_t returnIPOffset = 0;
     switch (*pInstruction) {
-        case (uint8_t)OpCode::LoadConstant: {
+        case OpCode::LoadConstant: {
             builder.Append("LoadConstant ");
             uint8_t constIndex = *(pInstruction + 1);
             Value& v = chunk.constants[constIndex];
@@ -37,125 +37,132 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             else if (v.m_type == ValueType::I32)
                 builder.AppendFormat("%i (%i)", constIndex, v.m_i32Value);
             else if (v.m_type == ValueType::Function)
-                builder.AppendFormat("%i (<fn %s>)", constIndex, v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "~anon~");  // TODO Should probably show the type sig?
+                builder.AppendFormat("%i (<fn %s>)", constIndex, v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "");  // TODO Should probably show the type sig?
             returnIPOffset = 2;
             break;
         }
-        case (uint8_t)OpCode::SetLocal: {
+        case OpCode::SetLocal: {
             builder.Append("SetLocal ");
             uint8_t index = *(pInstruction + 1);
             builder.AppendFormat("%i", index);
             returnIPOffset = 2;
             break;
         }
-        case (uint8_t)OpCode::GetLocal: {
+        case OpCode::GetLocal: {
             builder.Append("GetLocal ");
             uint8_t index = *(pInstruction + 1);
             builder.AppendFormat("%i", index);
             returnIPOffset = 2;
             break;
         }
-        case (uint8_t)OpCode::Negate: {
+        case OpCode::Negate: {
             builder.Append("Negate ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Not: {
+        case OpCode::Not: {
             builder.Append("Not ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Add: {
+        case OpCode::Add: {
             builder.Append("Add ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Subtract: {
+        case OpCode::Subtract: {
             builder.Append("Subtract ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Multiply: {
+        case OpCode::Multiply: {
             builder.Append("Multiply ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Divide: {
+        case OpCode::Divide: {
             builder.Append("Divide ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Greater: {
+        case OpCode::Greater: {
             builder.Append("Greater ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Less: {
+        case OpCode::Less: {
             builder.Append("Less ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::GreaterEqual: {
+        case OpCode::GreaterEqual: {
             builder.Append("GreaterEqual ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::LessEqual: {
+        case OpCode::LessEqual: {
             builder.Append("LessEqual ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Equal: {
+        case OpCode::Equal: {
             builder.Append("Equal ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::NotEqual: {
+        case OpCode::NotEqual: {
             builder.Append("NotEqual ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Print: {
+        case OpCode::Print: {
             builder.Append("Print ");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Return: {
+        case OpCode::Return: {
             builder.Append("Return");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::Pop: {
+        case OpCode::Pop: {
             builder.Append("Pop");
             returnIPOffset = 1;
             break;
         }
-        case (uint8_t)OpCode::JmpIfFalse: {
+        case OpCode::JmpIfFalse: {
             builder.Append("JmpIfFalse");
             uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
             builder.AppendFormat(" %i", jmp);
             returnIPOffset = 3;
             break;
         }
-        case (uint8_t)OpCode::JmpIfTrue: {
+        case OpCode::JmpIfTrue: {
             builder.Append("JmpIfTrue");
             uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
             builder.AppendFormat(" %i", jmp);
             returnIPOffset = 3;
             break;
         }
-        case (uint8_t)OpCode::Jmp: {
+        case OpCode::Jmp: {
             builder.Append("Jmp");
             uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
             builder.AppendFormat(" %i", jmp);
             returnIPOffset = 3;
             break;
         }
-        case (uint8_t)OpCode::Loop: {
+        case OpCode::Loop: {
             builder.Append("Loop");
             uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
             builder.AppendFormat(" %i", -jmp);
             returnIPOffset = 3;
+            break;
+        }
+        case OpCode::Call: {
+            builder.Append("Call ");
+            uint8_t argCount = *(pInstruction + 1);
+            builder.AppendFormat("%i", argCount);
+            returnIPOffset = 2;
             break;
         }
         default:
@@ -184,7 +191,7 @@ void Disassemble(Function* pFunc, String codeText) {
     }
 
     Log::Debug("----------------");
-    Log::Debug("-- Function (%s)", pFunc->m_name.m_pData ? pFunc->m_name.m_pData : "~anon~");
+    Log::Debug("-- Function (%s)", pFunc->m_name.m_pData);
 
     ResizableArray<String> m_lines;
     char* pCurrent = codeText.m_pData;
@@ -239,7 +246,7 @@ void DebugStack(VirtualMachine& vm) {
                 builder.AppendFormat("[%i: %i]", i, v.m_i32Value);
                 break;
             case ValueType::Function:
-                builder.AppendFormat("[%i: <fn %s>]", i, v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "~anon~");
+                builder.AppendFormat("[%i: <fn %s>]", i, v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "");
                 break;
             default:
                 break;
@@ -255,6 +262,11 @@ void DebugStack(VirtualMachine& vm) {
 void Run(Function* pFuncToRun) {
     VirtualMachine vm;
     
+    Value fv;
+    fv.m_pFunction = pFuncToRun;
+    fv.m_type = ValueType::Function;
+    vm.stack.Push(fv);
+
     CallFrame frame;
     frame.pFunc = pFuncToRun;
     frame.pInstructionPointer = pFuncToRun->m_chunk.code.m_pData;
@@ -268,82 +280,82 @@ void Run(Function* pFuncToRun) {
         DisassembleInstruction(pFrame->pFunc->m_chunk, pFrame->pInstructionPointer);
 #endif
         switch (*pFrame->pInstructionPointer++) {
-            case (uint8_t)OpCode::LoadConstant: {
+            case OpCode::LoadConstant: {
                 Value constant = pFrame->pFunc->m_chunk.constants[*pFrame->pInstructionPointer++];
                 vm.stack.Push(constant);
                 break;
             }
-            case (uint8_t)OpCode::Negate: {
+            case OpCode::Negate: {
                 Value v = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::UnaryMinus, v, Value()));
                 break;
             }
-            case (uint8_t)OpCode::Not: {
+            case OpCode::Not: {
                 Value v = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::Not, v, Value()));
                 break;
             }
-            case (uint8_t)OpCode::Add: {
+            case OpCode::Add: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::Add, a, b));
                 break;
             }
-            case (uint8_t)OpCode::Subtract: {
+            case OpCode::Subtract: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::Subtract, a, b));
                 break;
             }
-            case (uint8_t)OpCode::Multiply: {
+            case OpCode::Multiply: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::Multiply, a, b));
                 break;
             }
-            case (uint8_t)OpCode::Divide: {
+            case OpCode::Divide: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::Divide, a, b));
                 break;
             }
-            case (uint8_t)OpCode::Greater: {
+            case OpCode::Greater: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::Greater, a, b));
                 break;
             }
-            case (uint8_t)OpCode::Less: {
+            case OpCode::Less: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::Less, a, b));
                 break;
             }
-            case (uint8_t)OpCode::GreaterEqual: {
+            case OpCode::GreaterEqual: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::GreaterEqual, a, b));
                 break;
             }
-            case (uint8_t)OpCode::LessEqual: {
+            case OpCode::LessEqual: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::LessEqual, a, b));
                 break;
             }
-            case (uint8_t)OpCode::Equal: {
+            case OpCode::Equal: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::Equal, a, b));
                 break;
             }
-            case (uint8_t)OpCode::NotEqual: {
+            case OpCode::NotEqual: {
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
                 vm.stack.Push(EvaluateOperator(Operator::NotEqual, a, b));
                 break;
             }
-            case (uint8_t)OpCode::Print: {
+            case OpCode::Print: {
                 Value v = vm.stack.Pop();
                 if (v.m_type == ValueType::F32)
                     Log::Info("%f", v.m_f32Value);
@@ -352,50 +364,74 @@ void Run(Function* pFuncToRun) {
                 else if (v.m_type == ValueType::Bool)
                     Log::Info("%s", v.m_boolValue ? "true" : "false");
                 else if (v.m_type == ValueType::Function)
-                    Log::Info("<fn %s>", v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "~anon~");  // TODO Should probably show the type sig?
+                    Log::Info("<fn %s>", v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "");  // TODO Should probably show the type sig?
                 break;
             }
-            case (uint8_t)OpCode::Pop:
+            case OpCode::Pop:
                 vm.stack.Pop();
                 break;
 
-            case (uint8_t)OpCode::SetLocal: {
+            case OpCode::SetLocal: {
                 uint8_t opIndex = *pFrame->pInstructionPointer++;
                 vm.stack[pFrame->stackBaseIndex + opIndex] = vm.stack.Top();
                 break;
             }
-            case (uint8_t)OpCode::GetLocal: {
+            case OpCode::GetLocal: {
                 uint8_t opIndex = *pFrame->pInstructionPointer++;
                 vm.stack.Push(vm.stack[pFrame->stackBaseIndex + opIndex]);
                 break;
             }
-            case (uint8_t)OpCode::JmpIfFalse: {
+            case OpCode::JmpIfFalse: {
                 uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
                 pFrame->pInstructionPointer += 2;
                 if (!vm.stack.Top().m_boolValue)
                     pFrame->pInstructionPointer += jmp;
                 break;
             }
-            case (uint8_t)OpCode::JmpIfTrue: {
+            case OpCode::JmpIfTrue: {
                 uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
                 pFrame->pInstructionPointer += 2;
                 if (vm.stack.Top().m_boolValue)
                     pFrame->pInstructionPointer += jmp;
                 break;
             }
-            case (uint8_t)OpCode::Jmp: {
+            case OpCode::Jmp: {
                 uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
                 pFrame->pInstructionPointer += 2;
                 pFrame->pInstructionPointer += jmp;
                 break;
             }
-            case (uint8_t)OpCode::Loop: {
+            case OpCode::Loop: {
                 uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
                 pFrame->pInstructionPointer += 2;
                 pFrame->pInstructionPointer -= jmp;
                 break;
             }
+            case OpCode::Call: {
+                uint8_t argCount = *pFrame->pInstructionPointer++;
+                
+                Value funcValue = vm.stack[-1 - argCount];
+                funcValue.m_pFunction;
+
+                CallFrame frame;
+                frame.pFunc = funcValue.m_pFunction;
+                frame.pInstructionPointer = funcValue.m_pFunction->m_chunk.code.m_pData;
+                frame.stackBaseIndex = vm.stack.m_array.m_count - argCount - 1;
+                vm.callStack.Push(frame);
+
+                pFrame = &vm.callStack.Top();
+                break;
+            }
             case (uint8_t)OpCode::Return:
+                // TODO: Pop return value here and save
+                vm.callStack.Pop();
+                vm.stack.Resize(pFrame->stackBaseIndex);
+                // TODO: Push return value back onto the stack
+                if (vm.callStack.m_array.m_count == 0) {
+                    return;
+                } else {
+                    pFrame = &vm.callStack.Top();
+                }
                 break;
             default:
                 break;

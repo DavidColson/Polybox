@@ -6,8 +6,13 @@
 
 #include <hashmap.inl>
 
+struct Declaration {
+    Ast::Declaration* pNode;
+    bool initialized { false };
+};
+
 struct TypeCheckerState {
-    HashMap<String, Ast::Declaration*> m_declarations;
+    HashMap<String, Declaration> m_declarations;
     ErrorState* m_pErrors { nullptr };
     int m_currentScopeLevel { 0 };
 };
@@ -32,14 +37,20 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             pFunction->m_valueType = ValueType::Function;
             TypeCheckStatement(state, pFunction->m_pBody);
+
+            // TODO: Check maximum number of arguments (255 uint8) and error if above
             break;
         }
         case Ast::NodeType::Variable: {
             Ast::Variable* pVariable = (Ast::Variable*)pExpr;
 
-            Ast::Declaration** pDecl = state.m_declarations.Get(pVariable->m_identifier);
-            if (pDecl) {
-                pVariable->m_valueType = (*pDecl)->m_pInitializerExpr->m_valueType;
+            Declaration* pDeclEntry = state.m_declarations.Get(pVariable->m_identifier);
+            if (pDeclEntry) {
+                if (pDeclEntry->initialized) {
+                    pVariable->m_valueType = pDeclEntry->pNode->m_pInitializerExpr->m_valueType;
+                } else {
+                    state.m_pErrors->PushError(pVariable, "Cannot use \'%s\', it is not declared yet", pVariable->m_identifier.m_pData);     
+                }
             } else {
                 state.m_pErrors->PushError(pVariable, "Undeclared variable \'%s\', missing a declaration somewhere before?", pVariable->m_identifier.m_pData);
             }
@@ -50,17 +61,18 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
             TypeCheckExpression(state, pVarAssignment->m_pAssignment);
 
-            // TODO: This should work with assigning functions to variables
-
-            Ast::Declaration** pDecl = state.m_declarations.Get(pVarAssignment->m_identifier);
-            if (pDecl) {
-                ValueType::Enum declaredVarType = (*pDecl)->m_pInitializerExpr->m_valueType;
-                ValueType::Enum assignedVarType = pVarAssignment->m_pAssignment->m_valueType;
-                if (declaredVarType == assignedVarType) {
-                    pVarAssignment->m_valueType = declaredVarType;
-                }
-                else {
-                    state.m_pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type %s, but is being assigned a value with type %s", pVarAssignment->m_identifier.m_pData, ValueType::ToString(declaredVarType), ValueType::ToString(assignedVarType));
+            Declaration* pDeclEntry = state.m_declarations.Get(pVarAssignment->m_identifier);
+            if (pDeclEntry) {
+                if (pDeclEntry->initialized) {
+                    ValueType::Enum declaredVarType = pDeclEntry->pNode->m_pInitializerExpr->m_valueType;
+                    ValueType::Enum assignedVarType = pVarAssignment->m_pAssignment->m_valueType;
+                    if (declaredVarType == assignedVarType) {
+                        pVarAssignment->m_valueType = declaredVarType;
+                    } else {
+                        state.m_pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type %s, but is being assigned a value with type %s", pVarAssignment->m_identifier.m_pData, ValueType::ToString(declaredVarType), ValueType::ToString(assignedVarType));
+                    }
+                } else {
+                    state.m_pErrors->PushError(pVarAssignment, "Cannot assign to \'%s\', it is not declared yet", pVarAssignment->m_identifier.m_pData);
                 }
             } else {
                 state.m_pErrors->PushError(pVarAssignment, "Assigning to undeclared variable \'%s\', missing a declaration somewhere before?", pVarAssignment->m_identifier.m_pData);
@@ -131,8 +143,15 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             if (state.m_declarations.Get(pDecl->m_identifier) != nullptr)
                 state.m_pErrors->PushError(pDecl, "Redefinition of variable '%s'", pDecl->m_identifier.m_pData);
 
+            Declaration dec;
+            dec.pNode = pDecl;
+            dec.initialized = false;
+            if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) {
+                dec.initialized = true; // Allows recursion
+            }
+            Declaration &added = state.m_declarations.Add(pDecl->m_identifier, dec);
             TypeCheckExpression(state, pDecl->m_pInitializerExpr);
-            state.m_declarations.Add(pDecl->m_identifier, pDecl);
+            added.initialized = true;
             break;
         }
         case Ast::NodeType::Print: {
@@ -176,7 +195,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             // Remove variable declarations that are now out of scope
             for (size_t i = 0; i < state.m_declarations.m_tableSize; i++) {
                 if (state.m_declarations.m_pTable[i].hash != UNUSED_HASH) {
-                    Ast::Declaration* pVarDecl = state.m_declarations.m_pTable[i].value;
+                    Ast::Declaration* pVarDecl = state.m_declarations.m_pTable[i].value.pNode;
 
                     if (pVarDecl->m_scopeLevel > state.m_currentScopeLevel)
                         state.m_declarations.Erase(state.m_declarations.m_pTable[i].key);

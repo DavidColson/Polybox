@@ -111,7 +111,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, state.m_pErrors);
+            Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, pFunction->m_identifier, state.m_pErrors);
 
             Value value;
             value.m_type = ValueType::Function;
@@ -203,6 +203,16 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             }
             break;
         }
+        case Ast::NodeType::Call: {
+            Ast::Call* pCall = (Ast::Call*)pExpr;
+            CodeGenExpression(state, pCall->m_pCallee);
+
+            // TODO: Codegen the arg list to leave values on the stack in the right order
+
+            PushCode(state, OpCode::Call, pCall->m_line);
+            PushCode(state, 0, pCall->m_line);  // arg count
+            break;
+        }
         default:
             break;
     }
@@ -223,12 +233,6 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             state.m_locals.PushBack(local);
 
             CodeGenExpression(state, pDecl->m_pInitializerExpr);
-
-            // The above expression will have pushed a new function constant onto the table, grab it and tell it it's name
-            if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) {
-                const Value& func = CurrentChunk(state)->constants[CurrentChunk(state)->constants.m_count - 1];
-                func.m_pFunction->m_name = local.m_name;
-            }
             break;
         }
         case Ast::NodeType::Print: {
@@ -306,11 +310,17 @@ void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements
 
 // ***********************************************************************
 
-Function* CodeGen(ResizableArray<Ast::Statement*>& program, ErrorState* pErrorState) {
+Function* CodeGen(ResizableArray<Ast::Statement*>& program, String name, ErrorState* pErrorState) {
     State state;
+
+    Local local;
+    local.m_depth = 0;
+    local.m_name = name;
+    state.m_locals.PushBack(local); // This is the local representing this function, allows it to call itself
 
     state.m_pFunc = (Function*)g_Allocator.Allocate(sizeof(Function));
     SYS_P_NEW(state.m_pFunc) Function();
+    state.m_pFunc->m_name = name;
 
     CodeGenStatements(state, program);
     Ast::Statement* pEnd = program[program.m_count - 1];

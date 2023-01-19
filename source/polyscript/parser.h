@@ -78,6 +78,7 @@ struct Block;
 struct Function : public Expression {
     ResizableArray<Expression*> m_params;
     Block* m_pBody;
+    String m_identifier;
 };
 
 struct VariableAssignment : public Expression {
@@ -216,10 +217,6 @@ struct ParsingState {
     Ast::Statement* ParseBlock();
 
     Ast::Statement* ParseDeclaration();
-
-    Ast::Statement* ParseVarDeclaration(String identifierToBind);
-
-    Ast::Statement* ParseFuncDeclaration(String identifierToBind);
 };
 
 void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentationLevel = 0);

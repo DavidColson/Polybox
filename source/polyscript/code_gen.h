@@ -11,4 +11,6 @@ struct ErrorState;
 template<typename T>
 struct ResizableArray;
 
-Function* CodeGen(ResizableArray<Ast::Statement*>& program, ErrorState* pErrorState);
+struct String;
+
+Function* CodeGen(ResizableArray<Ast::Statement*>& program, String name, ErrorState* pErrorState);

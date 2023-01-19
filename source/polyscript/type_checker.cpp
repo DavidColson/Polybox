@@ -98,6 +98,23 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             }
             break;
         }
+        case Ast::NodeType::Call: {
+            Ast::Call* pCall = (Ast::Call*)pExpr;
+
+            TypeCheckExpression(state, pCall->m_pCallee);
+
+            if (pCall->m_pCallee->m_valueType != ValueType::Function) {
+                state.m_pErrors->PushError(pCall, "Attempt to call a value which is not a function");
+            }
+
+            for (Ast::Expression* pArg : pCall->m_args) {
+                TypeCheckExpression(state, pArg);
+            }
+
+            // TODO: Arg list types must type match the callee's parameter list
+
+            break;
+        }
         default:
             break;
     }

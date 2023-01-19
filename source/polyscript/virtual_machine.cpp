@@ -7,7 +7,7 @@
 #include <string_builder.h>
 #include <stack.inl>
 
-//#define DEBUG_TRACE
+#define DEBUG_TRACE
 
 struct CallFrame {
     Function* pFunc { nullptr };
@@ -37,7 +37,7 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             else if (v.m_type == ValueType::I32)
                 builder.AppendFormat("%i (%i)", constIndex, v.m_i32Value);
             else if (v.m_type == ValueType::Function)
-                builder.AppendFormat("%i (<fn>)", constIndex);  // TODO Should probably show the type sig?
+                builder.AppendFormat("%i (<fn %s>)", constIndex, v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "~anon~");  // TODO Should probably show the type sig?
             returnIPOffset = 2;
             break;
         }
@@ -172,9 +172,19 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
 
 // ***********************************************************************
 
-void Disassemble(CodeChunk& chunk, String codeText) {
-    Log::Debug("--------- Disassembly ---------");
+void Disassemble(Function* pFunc, String codeText) {
+    CodeChunk& chunk = pFunc->m_chunk;
+
     uint8_t* pInstructionPointer = chunk.code.m_pData;
+
+    for (Value& v : chunk.constants) {
+        if (v.m_type == ValueType::Function) {
+            Disassemble(v.m_pFunction, codeText);
+        }
+    }
+
+    Log::Debug("----------------");
+    Log::Debug("-- Function (%s)", pFunc->m_name.m_pData ? pFunc->m_name.m_pData : "~anon~");
 
     ResizableArray<String> m_lines;
     char* pCurrent = codeText.m_pData;
@@ -228,6 +238,9 @@ void DebugStack(VirtualMachine& vm) {
             case ValueType::I32:
                 builder.AppendFormat("[%i: %i]", i, v.m_i32Value);
                 break;
+            case ValueType::Function:
+                builder.AppendFormat("[%i: <fn %s>]", i, v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "~anon~");
+                break;
             default:
                 break;
         }
@@ -252,7 +265,7 @@ void Run(Function* pFuncToRun) {
     CallFrame* pFrame = &vm.callStack.Top();
     while (pFrame->pInstructionPointer < pFrame->pFunc->m_chunk.code.end()) {
 #ifdef DEBUG_TRACE
-        DisassembleInstruction(*vm.pCurrentChunk, vm.pInstructionPointer);
+        DisassembleInstruction(pFrame->pFunc->m_chunk, pFrame->pInstructionPointer);
 #endif
         switch (*pFrame->pInstructionPointer++) {
             case (uint8_t)OpCode::LoadConstant: {
@@ -339,7 +352,7 @@ void Run(Function* pFuncToRun) {
                 else if (v.m_type == ValueType::Bool)
                     Log::Info("%s", v.m_boolValue ? "true" : "false");
                 else if (v.m_type == ValueType::Function)
-                    Log::Info("<fn>"); // TODO Should probably show the type sig?
+                    Log::Info("<fn %s>", v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "~anon~");  // TODO Should probably show the type sig?
                 break;
             }
             case (uint8_t)OpCode::Pop:

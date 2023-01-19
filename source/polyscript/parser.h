@@ -21,6 +21,7 @@ enum class NodeType {
     // Expressions
     Binary,
     Unary,
+    Call,
     Literal,
     Function,
     Grouping,
@@ -75,12 +76,18 @@ struct Variable : public Expression {
 
 struct Block;
 struct Function : public Expression {
+    ResizableArray<Expression*> m_params;
     Block* m_pBody;
 };
 
 struct VariableAssignment : public Expression {
     String m_identifier;
     Expression* m_pAssignment;
+};
+
+struct Call : public Expression {
+    Expression* m_pCallee;
+    ResizableArray<Expression*> m_args;
 };
 
 
@@ -175,6 +182,8 @@ struct ParsingState {
     void Synchronize();
 
     Ast::Expression* ParsePrimary();
+
+    Ast::Expression* ParseCall();
 
     Ast::Expression* ParseUnary();
 

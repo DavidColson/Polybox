@@ -216,6 +216,7 @@ Ast::Expression* ParsingState::ParsePrimary() {
             pFunc->m_type = Ast::NodeType::Function;
 
             // TODO: Parse function return values here
+
             Consume(TokenType::LeftBrace, "Expected '{' to open function body");
 
             pFunc->m_pBody = (Ast::Block*)ParseBlock();
@@ -225,6 +226,7 @@ Ast::Expression* ParsingState::ParsePrimary() {
             pFunc->m_line = start.m_line;
             return pFunc;
         }
+
 
         // This wasn't a function, so backtrack out and continue
         m_pCurrent = pStart;
@@ -317,6 +319,30 @@ Ast::Expression* ParsingState::ParsePrimary() {
 
 // ***********************************************************************
 
+Ast::Expression* ParsingState::ParseCall() {
+    Ast::Expression* pExpr = ParsePrimary();
+
+    while (Match(1, TokenType::LeftParen)) {
+        Ast::Call* pCall = (Ast::Call*)pAllocator->Allocate(sizeof(Ast::Call));
+        pCall->m_type = Ast::NodeType::Call;
+        pCall->m_pCallee = pExpr;
+        pCall->m_args.m_pAlloc = pAllocator;
+
+        if (!Check(TokenType::RightParen)) {
+            do {
+                pCall->m_args.PushBack(ParseExpression());
+            } while (Match(1, TokenType::Comma));
+        }
+
+        Consume(TokenType::RightParen, "Expected right parenthesis to end function call");
+
+        pExpr = pCall;
+    }
+    return pExpr;
+}
+
+// ***********************************************************************
+
 Ast::Expression* ParsingState::ParseUnary() {
     while (Match(2, TokenType::Minus, TokenType::Bang)) {
         Ast::Unary* pUnaryExpr = (Ast::Unary*)pAllocator->Allocate(sizeof(Ast::Unary));
@@ -335,7 +361,7 @@ Ast::Expression* ParsingState::ParseUnary() {
 
         return (Ast::Expression*)pUnaryExpr;
     }
-    return ParsePrimary();
+    return ParseCall();
 }
 
 // ***********************************************************************
@@ -535,7 +561,11 @@ Ast::Statement* ParsingState::ParseStatement() {
         if (Match(8, TokenType::Identifier, TokenType::LiteralString, TokenType::LiteralInteger, TokenType::LiteralBool, TokenType::LiteralFloat, TokenType::LeftParen, TokenType::Bang, TokenType::Minus)) {
             m_pCurrent--;
             pStmt = ParseExpressionStmt();
-        } else {
+        }
+        else if (Match(1, TokenType::Semicolon)) {
+            return nullptr;
+        }
+        else {
             PushError("Unable to parse statement");
         }
     }
@@ -859,6 +889,17 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
                     break;
             }
             DebugExpression(pUnary->m_pRight, indentationLevel + 2);
+            break;
+        }
+        case Ast::NodeType::Call: {
+            Ast::Call* pCall = (Ast::Call*)pExpr;
+
+            DebugExpression(pCall->m_pCallee, indentationLevel);
+            Log::Debug("%*s- Call", indentationLevel + 2, "");
+
+            for (Ast::Expression* pArg : pCall->m_args) {
+                DebugExpression(pArg, indentationLevel + 4);
+            }
             break;
         }
         default:

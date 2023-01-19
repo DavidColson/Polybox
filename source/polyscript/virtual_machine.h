@@ -46,6 +46,6 @@ enum Enum : uint8_t {
 
 uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction);
 
-void Disassemble(CodeChunk& chunk, String codeText);
+void Disassemble(Function* pFunc, String codeText);
 
 void Run(Function* pFuncToRun);

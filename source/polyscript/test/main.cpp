@@ -72,7 +72,8 @@ int main() {
         Function* pFunc = CodeGen(program, &errorState);
         defer(FreeFunction(pFunc));
     
-        Disassemble(pFunc->m_chunk, actualCode);
+        Log::Debug("---- Disassembly -----");
+        Disassemble(pFunc, actualCode);
 
         Log::Info("---- Program Running -----");
         Run(pFunc);

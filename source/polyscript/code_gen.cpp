@@ -223,6 +223,12 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             state.m_locals.PushBack(local);
 
             CodeGenExpression(state, pDecl->m_pInitializerExpr);
+
+            // The above expression will have pushed a new function constant onto the table, grab it and tell it it's name
+            if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) {
+                const Value& func = CurrentChunk(state)->constants[CurrentChunk(state)->constants.m_count - 1];
+                func.m_pFunction->m_name = local.m_name;
+            }
             break;
         }
         case Ast::NodeType::Print: {
@@ -234,7 +240,9 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
         case Ast::NodeType::ExpressionStmt: {
             Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
             CodeGenExpression(state, pExprStmt->m_pExpr);
-            PushCode(state, OpCode::Pop, pExprStmt->m_line);
+            // Special case for now, functions with void return type probably should push a nill type or something?
+            if (pExprStmt->m_pExpr->m_type != Ast::NodeType::Call)
+                PushCode(state, OpCode::Pop, pExprStmt->m_line);
             break;
         }
         case Ast::NodeType::If: {

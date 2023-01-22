@@ -5,6 +5,7 @@
 #include "parser.h"
 
 #include <hashmap.inl>
+#include <resizable_array.inl>
 
 struct Declaration {
     Ast::Declaration* pNode;
@@ -36,6 +37,8 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             pFunction->m_valueType = ValueType::Function;
+
+            // TODO: Place into the declarations list the params, so they can resolve inside the body
             TypeCheckStatement(state, pFunction->m_pBody);
 
             // TODO: Check maximum number of arguments (255 uint8) and error if above
@@ -112,6 +115,9 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
 
             TypeCheckExpression(state, pCall->m_pCallee);
 
+            Ast::Variable* pVar = (Ast::Variable*)pCall->m_pCallee;
+            Declaration* pDeclEntry = state.m_declarations.Get(pVar->m_identifier);
+
             if (pCall->m_pCallee->m_valueType != ValueType::Function) {
                 state.m_pErrors->PushError(pCall, "Attempt to call a value which is not a function");
             }
@@ -120,7 +126,26 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
                 TypeCheckExpression(state, pArg);
             }
 
-            // TODO: Arg list types must type match the callee's parameter list
+            // TODO: This is kind of temporary and hacky. The type of the declaration should be a complex function type, that you can use
+            // to typecheck the function call, no need to access the initializer.
+            Ast::Declaration* pDecl = (Ast::Declaration*)pDeclEntry->pNode;
+            Ast::Function* pFunc = (Ast::Function*)pDecl->m_pInitializerExpr;
+
+            int argsCount = pCall->m_args.m_count;
+            int paramsCount = pFunc->m_params.m_count;
+            if (pCall->m_args.m_count != pFunc->m_params.m_count) {
+                state.m_pErrors->PushError(pCall, "Mismatched number of arguments in call to function '%s', expected %i, got %i", pFunc->m_identifier.m_pData, paramsCount, argsCount);
+            }
+
+            int minArgs = argsCount > paramsCount ? paramsCount : argsCount;
+            for (size_t i = 0; i < minArgs; i++) {
+                Ast::Expression* arg = pCall->m_args[i];
+                Ast::Function::Param& param = pFunc->m_params[i];
+                if (param.m_pType) {
+                    if (arg->m_valueType != param.m_pType->m_resolvedType)
+                        state.m_pErrors->PushError(arg, "Type mismatch in function argument '%s', expected %s, got %s", param.identifier.m_pData, ValueType::ToString(param.m_pType->m_resolvedType), ValueType::ToString(arg->m_valueType));
+                }
+            }
 
             break;
         }

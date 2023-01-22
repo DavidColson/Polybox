@@ -235,21 +235,46 @@ Ast::Expression* ParsingState::ParsePrimary() {
     // We will try and parse this as a function, if we fail, we'll revert to normal expression parsing
     if (Match(1, TokenType::LeftParen)) {
         Token* pStart = m_pCurrent - 1;
-
-        // Under what conditions is this valid?
-
-        // Two cases
-        // Left Paren followed by right
-        // Left Paren followed by identifier followed by colon followed by type
-        // Everything else is invalid
-
         Token start = Previous();
         
-        if (Match(1, TokenType::RightParen)) { // empty args list
+        bool isFunction = false;
+        ResizableArray<Ast::Function::Param> paramsList;
+        paramsList.m_pAlloc = pAllocator;
+
+
+        if (Match(1, TokenType::RightParen)) { // empty args list case
+            isFunction = true;
+        } else if (Match(1, TokenType::Identifier)) { // Non empty args list case
+            Token firstArg = Previous();
+
+            if (Match(1, TokenType::Colon)) {
+                Ast::Type* pFirstArgType = (Ast::Type*)ParseType();
+            
+                if (pFirstArgType) {
+                    isFunction = true;
+                    Ast::Function::Param p;
+                    p.identifier = CopyCStringRange(firstArg.m_pLocation, firstArg.m_pLocation + firstArg.m_length, pAllocator);
+                    p.m_pType = pFirstArgType;
+                    paramsList.PushBack(p);
+
+                    while (Match(1, TokenType::Comma)) {
+                        Token arg = Consume(TokenType::Identifier, "Expected argument identifier after comma");
+                        Consume(TokenType::Colon, "Expected colon after argument identifier");
+       
+                        Ast::Function::Param p;
+                        p.identifier = CopyCStringRange(arg.m_pLocation, arg.m_pLocation + arg.m_length, pAllocator);
+                        p.m_pType = (Ast::Type*)ParseType();
+                        paramsList.PushBack(p);
+                    }
+                    Consume(TokenType::RightParen, "Expected right parenthesis to close argument list");
+                }
+            }
+        }
+
+        if (isFunction) {
             Ast::Function* pFunc = (Ast::Function*)pAllocator->Allocate(sizeof(Ast::Function));
             pFunc->m_type = Ast::NodeType::Function;
-
-            // TODO: Parse function return values here
+            pFunc->m_params = paramsList;
 
             Consume(TokenType::LeftBrace, "Expected '{' to open function body");
 
@@ -882,6 +907,9 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             Log::Debug("%*s- Function (:%s)", indentationLevel, "", ValueType::ToString(pFunction->m_valueType));
+            for (Ast::Function::Param& p : pFunction->m_params) {
+                Log::Debug("%*s- Param (%s:%s)", indentationLevel + 2, "", p.identifier.m_pData, ValueType::ToString(p.m_pType->m_resolvedType));
+            }
             DebugStatement(pFunction->m_pBody, indentationLevel + 2);
             break;
         }

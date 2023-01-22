@@ -82,7 +82,11 @@ struct Type : public Expression {
 
 struct Block;
 struct Function : public Expression {
-    ResizableArray<Expression*> m_params;
+    struct Param {
+        String identifier;
+        Type* m_pType;
+    };
+    ResizableArray<Param> m_params;
     Block* m_pBody;
     String m_identifier;
 };

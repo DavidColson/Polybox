@@ -47,9 +47,9 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             Declaration* pDeclEntry = state.m_declarations.Get(pVariable->m_identifier);
             if (pDeclEntry) {
                 if (pDeclEntry->initialized) {
-                    pVariable->m_valueType = pDeclEntry->pNode->m_pInitializerExpr->m_valueType;
+                    pVariable->m_valueType = pDeclEntry->pNode->m_resolvedType;
                 } else {
-                    state.m_pErrors->PushError(pVariable, "Cannot use \'%s\', it is not declared yet", pVariable->m_identifier.m_pData);     
+                    state.m_pErrors->PushError(pVariable, "Cannot use \'%s\', it is not initialized yet", pVariable->m_identifier.m_pData);     
                 }
             } else {
                 state.m_pErrors->PushError(pVariable, "Undeclared variable \'%s\', missing a declaration somewhere before?", pVariable->m_identifier.m_pData);
@@ -63,17 +63,14 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
 
             Declaration* pDeclEntry = state.m_declarations.Get(pVarAssignment->m_identifier);
             if (pDeclEntry) {
-                if (pDeclEntry->initialized) {
-                    ValueType::Enum declaredVarType = pDeclEntry->pNode->m_pInitializerExpr->m_valueType;
-                    ValueType::Enum assignedVarType = pVarAssignment->m_pAssignment->m_valueType;
-                    if (declaredVarType == assignedVarType) {
-                        pVarAssignment->m_valueType = declaredVarType;
-                    } else {
-                        state.m_pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type %s, but is being assigned a value with type %s", pVarAssignment->m_identifier.m_pData, ValueType::ToString(declaredVarType), ValueType::ToString(assignedVarType));
-                    }
+                ValueType::Enum declaredVarType = pDeclEntry->pNode->m_resolvedType;
+                ValueType::Enum assignedVarType = pVarAssignment->m_pAssignment->m_valueType;
+                if (declaredVarType == assignedVarType) {
+                    pVarAssignment->m_valueType = declaredVarType;
                 } else {
-                    state.m_pErrors->PushError(pVarAssignment, "Cannot assign to \'%s\', it is not declared yet", pVarAssignment->m_identifier.m_pData);
+                    state.m_pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type %s, but is being assigned a value with type %s", pVarAssignment->m_identifier.m_pData, ValueType::ToString(declaredVarType), ValueType::ToString(assignedVarType));
                 }
+                pDeclEntry->initialized = true;
             } else {
                 state.m_pErrors->PushError(pVarAssignment, "Assigning to undeclared variable \'%s\', missing a declaration somewhere before?", pVarAssignment->m_identifier.m_pData);
             }
@@ -92,7 +89,7 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             TypeCheckExpression(state, pBinary->m_pRight);
             pBinary->m_valueType = OperatorReturnType(pBinary->m_operator, pBinary->m_pLeft->m_valueType, pBinary->m_pRight->m_valueType);
 
-            if (pBinary->m_valueType == ValueType::Invalid && pBinary->m_pLeft->m_valueType != ValueType::Invalid && pBinary->m_pRight->m_valueType != ValueType::Invalid) {
+            if (pBinary->m_valueType == ValueType::Void && pBinary->m_pLeft->m_valueType != ValueType::Void && pBinary->m_pRight->m_valueType != ValueType::Void) {
                 String str1 = ValueType::ToString(pBinary->m_pLeft->m_valueType);
                 String str2 = ValueType::ToString(pBinary->m_pRight->m_valueType);
                 String str3 = Operator::ToString(pBinary->m_operator);
@@ -103,9 +100,9 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             TypeCheckExpression(state, pUnary->m_pRight);
-            pUnary->m_valueType = OperatorReturnType(pUnary->m_operator, pUnary->m_pRight->m_valueType, ValueType::Invalid);
+            pUnary->m_valueType = OperatorReturnType(pUnary->m_operator, pUnary->m_pRight->m_valueType, ValueType::Void);
 
-            if (pUnary->m_valueType == ValueType::Invalid && pUnary->m_pRight->m_valueType != ValueType::Invalid) {
+            if (pUnary->m_valueType == ValueType::Void && pUnary->m_pRight->m_valueType != ValueType::Void) {
                 state.m_pErrors->PushError(pUnary, "Invalid type (%s) used with operator \"%s\"", ValueType::ToString(pUnary->m_pRight->m_valueType), Operator::ToString(pUnary->m_operator));
             }
             break;
@@ -145,13 +142,28 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
 
             Declaration dec;
             dec.pNode = pDecl;
-            dec.initialized = false;
-            if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) {
-                dec.initialized = true; // Allows recursion
+
+            if (pDecl->m_pInitializerExpr) {
+                if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) {
+                    // Allows recursion
+                    pDecl->m_resolvedType = ValueType::Function;
+                    dec.initialized = true;
+                }
+                Declaration& added = state.m_declarations.Add(pDecl->m_identifier, dec);
+                TypeCheckExpression(state, pDecl->m_pInitializerExpr);
+                added.initialized = true;
+
+                if (pDecl->m_pDeclaredType && pDecl->m_pInitializerExpr->m_valueType != pDecl->m_pDeclaredType->m_resolvedType) {
+                    ValueType::Enum declaredType = pDecl->m_pDeclaredType->m_resolvedType;
+                    ValueType::Enum initType = pDecl->m_pInitializerExpr->m_valueType;
+                    state.m_pErrors->PushError(pDecl->m_pDeclaredType, "Type mismatch in declaration, declared as %s and initialized as %s", ValueType::ToString(declaredType), ValueType::ToString(initType));
+                } else {
+                    pDecl->m_resolvedType = pDecl->m_pInitializerExpr->m_valueType;
+                }
+            } else {
+                state.m_declarations.Add(pDecl->m_identifier, dec);
+                pDecl->m_resolvedType = pDecl->m_pDeclaredType->m_resolvedType;
             }
-            Declaration &added = state.m_declarations.Add(pDecl->m_identifier, dec);
-            TypeCheckExpression(state, pDecl->m_pInitializerExpr);
-            added.initialized = true;
             break;
         }
         case Ast::NodeType::Print: {

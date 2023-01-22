@@ -27,6 +27,7 @@ enum class NodeType {
     Grouping,
     Variable,
     VariableAssignment,
+    Type,
 
     // Statements
     ExpressionStmt,
@@ -72,6 +73,11 @@ struct Grouping : public Expression {
 
 struct Variable : public Expression {
     String m_identifier;
+};
+
+struct Type : public Expression {
+    String m_identifier;
+    ValueType::Enum m_resolvedType;
 };
 
 struct Block;
@@ -123,6 +129,8 @@ struct Block : public Statement {
 
 struct Declaration : public Statement {
     String m_identifier;
+    Type* m_pDeclaredType { nullptr };
+    ValueType::Enum m_resolvedType;
     int m_scopeLevel { 0 };
     Expression* m_pInitializerExpr { nullptr };
 };
@@ -181,6 +189,8 @@ struct ParsingState {
     void PushError(const char* formatMessage, ...);
 
     void Synchronize();
+
+    Ast::Expression* ParseType();
 
     Ast::Expression* ParsePrimary();
 

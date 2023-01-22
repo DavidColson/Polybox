@@ -7,7 +7,7 @@
 #include <string_builder.h>
 #include <stack.inl>
 
-#define DEBUG_TRACE
+//#define DEBUG_TRACE
 
 struct CallFrame {
     Function* pFunc { nullptr };
@@ -30,6 +30,8 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             builder.Append("LoadConstant ");
             uint8_t constIndex = *(pInstruction + 1);
             Value& v = chunk.constants[constIndex];
+            if (v.m_type == ValueType::Void)
+                builder.AppendFormat("%i (void)", constIndex);
             if (v.m_type == ValueType::F32)
                 builder.AppendFormat("%i (%f)", constIndex, v.m_f32Value);
             else if (v.m_type == ValueType::Bool)
@@ -232,7 +234,7 @@ void Disassemble(Function* pFunc, String codeText) {
 void DebugStack(VirtualMachine& vm) {
     StringBuilder builder;
 
-    for (uint32_t i = 0; i < vm.stack.m_array.m_count; i++) {
+    for (uint32_t i = 1; i < vm.stack.m_array.m_count; i++) {
         Value& v = vm.stack[i];
 
         switch (v.m_type) {
@@ -357,6 +359,7 @@ void Run(Function* pFuncToRun) {
             }
             case OpCode::Print: {
                 Value v = vm.stack.Pop();
+                // TODO: Runtime error if you try print a void type value
                 if (v.m_type == ValueType::F32)
                     Log::Info("%f", v.m_f32Value);
                 else if (v.m_type == ValueType::I32)

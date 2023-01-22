@@ -18,8 +18,6 @@
 #include "type_checker.h"
 
 // TODO: 
-// [ ] Typed variable declaration
-// [ ] Variable declaration without initializer
 // [ ] Move error state to it's own file
 // [ ] Instead of storing pLocation and a length in tokens, store a String type, so we can more easily compare it and do useful things with it (replace strncmp with it)
 // [ ] Consider removing the grouping AST node, serves no purpose and the ast can enforce the structure

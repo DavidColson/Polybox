@@ -43,7 +43,7 @@ void InitValueTables() {
     for (size_t i = 0; i < Operator::Count; i++) {
         for (size_t j = 0; j < ValueType::Count; j++) {
             for (size_t k = 0; k < ValueType::Count; k++) {
-                operatorReturnMap[i][j][k] = ValueType::Invalid;
+                operatorReturnMap[i][j][k] = ValueType::Void;
             }
         }
     }
@@ -60,7 +60,7 @@ void InitValueTables() {
     valueNames[ValueType::F32] = "f32";
     valueNames[ValueType::I32] = "i32";
     valueNames[ValueType::Bool] = "bool";
-    valueNames[ValueType::Invalid] = "invalid";
+    valueNames[ValueType::Void] = "void";
 
     // Token -> Operator mapping
     tokenToOperatorMap[TokenType::Plus] = Operator::Add;
@@ -274,17 +274,17 @@ void InitValueTables() {
 
     // Unary Minus
     // F32
-    Register(Operator::UnaryMinus, ValueType::F32, ValueType::Invalid, ValueType::F32, [](Value v1, Value v2) {
+    Register(Operator::UnaryMinus, ValueType::F32, ValueType::Void, ValueType::F32, [](Value v1, Value v2) {
         return MakeValue(-v1.m_f32Value);
     });
     // I32
-    Register(Operator::UnaryMinus, ValueType::I32, ValueType::Invalid, ValueType::I32, [](Value v1, Value v2) {
+    Register(Operator::UnaryMinus, ValueType::I32, ValueType::Void, ValueType::I32, [](Value v1, Value v2) {
         return MakeValue(-v1.m_i32Value);
     });
 
     // Not
     // Bool
-    Register(Operator::Not, ValueType::Bool, ValueType::Invalid, ValueType::Bool, [](Value v1, Value v2) {
+    Register(Operator::Not, ValueType::Bool, ValueType::Void, ValueType::Bool, [](Value v1, Value v2) {
         return MakeValue(!v1.m_boolValue);
     });
 }

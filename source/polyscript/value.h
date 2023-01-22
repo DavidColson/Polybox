@@ -13,15 +13,16 @@ enum Enum : uint32_t;
 namespace ValueType {
 
 enum Enum : uint32_t {
-    Invalid,
+    Void,
     F32,
     I32,
     Bool,
     Function,
+    Type,
     Count
 };
 
-static const char* stringNames[] = { "invalid", "f32", "i32", "bool", "function", "count" };
+static const char* stringNames[] = { "Void", "f32", "i32", "bool", "function", "type", "count" };
 static const char* ToString(ValueType::Enum type) {
     return stringNames[type];
 }
@@ -55,7 +56,7 @@ static const char* ToString(Operator::Enum type) {
 
 struct Function;
 struct Value {
-    ValueType::Enum m_type { ValueType::Invalid };
+    ValueType::Enum m_type { ValueType::Void };
     union {
         bool m_boolValue;
         float m_f32Value;

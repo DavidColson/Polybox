@@ -232,7 +232,15 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             local.m_name = pDecl->m_identifier;
             state.m_locals.PushBack(local);
 
-            CodeGenExpression(state, pDecl->m_pInitializerExpr);
+            if (pDecl->m_pInitializerExpr)
+                CodeGenExpression(state, pDecl->m_pInitializerExpr);
+            else {
+                CurrentChunk(state)->constants.PushBack(Value());
+                uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.m_count - 1;
+
+                PushCode(state, OpCode::LoadConstant, pDecl->m_line);
+                PushCode(state, constIndex, pDecl->m_line);
+            }
             break;
         }
         case Ast::NodeType::Print: {

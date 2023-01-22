@@ -171,6 +171,9 @@ bool ParsingState::Match(int numTokens, ...) {
 // ***********************************************************************
 
 void ParsingState::PushError(const char* formatMessage, ...) {
+    if (m_panicMode)
+        return;
+
     m_panicMode = true;
 
     va_list args;
@@ -192,6 +195,37 @@ void ParsingState::Synchronize() {
 
         Advance();
     }
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParsingState::ParseType() {
+    if (Match(1, TokenType::Identifier)) {
+        Token identifier = Previous();
+
+        Ast::Type* pType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
+        pType->m_type = Ast::NodeType::Type;
+        pType->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
+
+        if (pType->m_identifier == "i32") {
+            pType->m_resolvedType = ValueType::I32;
+        } else if (pType->m_identifier == "f32") {
+            pType->m_resolvedType = ValueType::F32; 
+        } else if (pType->m_identifier == "bool") {
+            pType->m_resolvedType = ValueType::Bool;
+        } else {
+            pType->m_resolvedType = ValueType::Void;
+        }
+
+        pType->m_valueType = ValueType::Type;
+
+        pType->m_pLocation = identifier.m_pLocation;
+        pType->m_pLineStart = identifier.m_pLineStart;
+        pType->m_line = identifier.m_line;
+
+        return pType;
+    }
+    return nullptr;
 }
 
 // ***********************************************************************
@@ -679,22 +713,33 @@ Ast::Statement* ParsingState::ParseDeclaration() {
 
         if (Match(1, TokenType::Colon)) {
             // We now know we are dealing with a declaration of some kind
-            Consume(TokenType::Equal, "Expected an equal here before declaration initializer");
-
             Ast::Declaration* pDecl = (Ast::Declaration*)pAllocator->Allocate(sizeof(Ast::Declaration));
             pDecl->m_type = Ast::NodeType::Declaration;
+            pDecl->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
 
-            String identifierStr = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
-            pDecl->m_identifier = identifierStr;
-            pDecl->m_pInitializerExpr = ParseExpression();
+            // Optionally Parse type 
+            if (Peek().m_type != TokenType::Equal) {
+                pDecl->m_pDeclaredType = (Ast::Type*)ParseType();
 
-            if (pDecl->m_pInitializerExpr->m_type != Ast::NodeType::Function)
-                Consume(TokenType::Semicolon, "Expected \";\" at the end of this declaration");
-
-            if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) { // Required for recursion, function will be able to refer to itself
-                Ast::Function* pFunc = (Ast::Function*)pDecl->m_pInitializerExpr;
-                pFunc->m_identifier = identifierStr;
+                if (pDecl->m_pDeclaredType == nullptr)
+                    PushError("Expected a type here, potentially missing an equal sign before an initializer?");
+            } else {
+                pDecl->m_pDeclaredType = nullptr;
             }
+
+            // Parse initializer
+            bool isFunc = false;
+            if (Match(1, TokenType::Equal)) {
+                pDecl->m_pInitializerExpr = ParseExpression();
+                if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself
+                    Ast::Function* pFunc = (Ast::Function*)pDecl->m_pInitializerExpr;
+                    pFunc->m_identifier = pDecl->m_identifier;
+                    isFunc = true;
+                }
+            }
+
+            if (!isFunc)
+                Consume(TokenType::Semicolon, "Expected \";\" at the end of this declaration");
 
             if (pDecl) {
                 pDecl->m_pLocation = identifier.m_pLocation;
@@ -746,7 +791,14 @@ void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
         case Ast::NodeType::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
             Log::Debug("%*s+ Decl (%s)", indentationLevel, "", pDecl->m_identifier.m_pData);
-            DebugExpression(pDecl->m_pInitializerExpr, indentationLevel + 2);
+            if (pDecl->m_pDeclaredType)
+                Log::Debug("%*s  Type: %s", indentationLevel + 2, "", ValueType::ToString(pDecl->m_pDeclaredType->m_resolvedType));
+            else if (pDecl->m_pInitializerExpr)
+                Log::Debug("%*s  Type: inferred as %s", indentationLevel + 2, "", ValueType::ToString(pDecl->m_pInitializerExpr->m_valueType));
+
+            if (pDecl->m_pInitializerExpr) {
+                DebugExpression(pDecl->m_pInitializerExpr, indentationLevel + 2);
+            }
             break;
         }
         case Ast::NodeType::Print: {

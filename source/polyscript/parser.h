@@ -34,6 +34,7 @@ enum class NodeType {
     If,
     While,
     Print,
+    Return,
     Block,
     Declaration,
 };
@@ -81,13 +82,11 @@ struct Type : public Expression {
 };
 
 struct Block;
+struct Declaration;
 struct Function : public Expression {
-    struct Param {
-        String identifier;
-        Type* m_pType;
-    };
-    ResizableArray<Param> m_params;
+    ResizableArray<Declaration*> m_params;
     Block* m_pBody;
+    Type * m_pReturnType;
     String m_identifier;
 };
 
@@ -122,6 +121,10 @@ struct While: public Statement {
 };
 
 struct Print : public Statement {
+    Expression* m_pExpr;
+};
+
+struct Return : public Statement {
     Expression* m_pExpr;
 };
 
@@ -227,6 +230,8 @@ struct ParsingState {
     Ast::Statement* ParseWhile();
 
     Ast::Statement* ParsePrint();
+
+    Ast::Statement* ParseReturn();
 
     Ast::Statement* ParseBlock();
 

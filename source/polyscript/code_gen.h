@@ -4,6 +4,7 @@
 
 namespace Ast {
 struct Statement;
+struct Declaration;
 }
 struct Function;
 struct ErrorState;
@@ -13,4 +14,4 @@ struct ResizableArray;
 
 struct String;
 
-Function* CodeGen(ResizableArray<Ast::Statement*>& program, String name, ErrorState* pErrorState);
+Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::Declaration*>& params, String name, ErrorState* pErrorState);

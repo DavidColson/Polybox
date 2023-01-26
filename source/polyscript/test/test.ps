@@ -6,33 +6,44 @@
     testBool: bool;
     testBool = true;
     print(testBool);
+
+    tester:= 7;
+    lucy:= 0;
+    if tester < 5 && lucy == 0 {
+        lucy = 10;
+    } else if tester == 5 {
+        lucy = 27;
+    } else {
+        lucy = 20;
+    }
+
+    print(lucy);
+    //print( (5 - (lucy+5.0)) * 12 / 3 );
 }
 
-add := (num: i32, float: f32, boolean: bool) {
+add := (num: i32, float: f32, boolean: bool) -> i32 {
+    print(num);
+    print(float);
+    print(boolean);
+    
     result := 0;
     result = 5+2;
-    print(result);
+    return result;
 }
 
-add(5, 55.2, true);
+print(add(5, 55.2, true));
 
-tester:= 7;
-
-lucy:= 0;
-if tester < 5 && lucy == 0 {
-    lucy = 10;
-} else if tester == 5 {
-    lucy = 27;
-} else {
-    lucy = 20;
+fibonacci := (n: i32) -> i32 {
+    if (n <= 1)
+        return n;
+    else
+        return fibonacci(n-1) + fibonacci(n-2);
 }
 
-count:=2;
-while count > 0 {
-    print(count);
-    count = count - 1;
-}
+nTerms := 10;
+n := 0;
+while n < nTerms {
+    print(fibonacci(n));
+    n = n+1;
+} 
 
-print(lucy);
-
-//print( (5 - (lucy+5.0)) * 12 / 3 );

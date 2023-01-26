@@ -238,6 +238,9 @@ void DebugStack(VirtualMachine& vm) {
         Value& v = vm.stack[i];
 
         switch (v.m_type) {
+            case ValueType::Void:
+                builder.AppendFormat("[%i: void]");
+                break;
             case ValueType::Bool:
                 builder.AppendFormat("[%i: %s]", i, v.m_boolValue ? "true" : "false");
                 break;
@@ -425,17 +428,18 @@ void Run(Function* pFuncToRun) {
                 pFrame = &vm.callStack.Top();
                 break;
             }
-            case (uint8_t)OpCode::Return:
-                // TODO: Pop return value here and save
+            case (uint8_t)OpCode::Return: {
+                Value returnVal = vm.stack.Pop();
                 vm.callStack.Pop();
                 vm.stack.Resize(pFrame->stackBaseIndex);
-                // TODO: Push return value back onto the stack
+                vm.stack.Push(returnVal);
                 if (vm.callStack.m_array.m_count == 0) {
                     return;
                 } else {
                     pFrame = &vm.callStack.Top();
                 }
                 break;
+            }
             default:
                 break;
         }

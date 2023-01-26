@@ -111,7 +111,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, pFunction->m_identifier, state.m_pErrors);
+            Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, pFunction->m_params, pFunction->m_identifier, state.m_pErrors);
 
             Value value;
             value.m_type = ValueType::Function;
@@ -207,10 +207,12 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             CodeGenExpression(state, pCall->m_pCallee);
 
-            // TODO: Codegen the arg list to leave values on the stack in the right order
+            for (Ast::Expression* pExpr : pCall->m_args) {
+                CodeGenExpression(state, pExpr);
+            }
 
             PushCode(state, OpCode::Call, pCall->m_line);
-            PushCode(state, 0, pCall->m_line);  // arg count
+            PushCode(state, pCall->m_args.m_count, pCall->m_line);  // arg count
             break;
         }
         default:
@@ -249,12 +251,17 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             PushCode(state, OpCode::Print, pPrint->m_line);
             break;
         }
+        case Ast::NodeType::Return: {
+            Ast::Return* pReturn = (Ast::Return*)pStmt;
+            if (pReturn->m_pExpr)
+                CodeGenExpression(state, pReturn->m_pExpr);
+            PushCode(state, OpCode::Return, pReturn->m_line);
+            break;
+        }
         case Ast::NodeType::ExpressionStmt: {
             Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
             CodeGenExpression(state, pExprStmt->m_pExpr);
-            // Special case for now, functions with void return type probably should push a nill type or something?
-            if (pExprStmt->m_pExpr->m_type != Ast::NodeType::Call)
-                PushCode(state, OpCode::Pop, pExprStmt->m_line);
+            PushCode(state, OpCode::Pop, pExprStmt->m_line);
             break;
         }
         case Ast::NodeType::If: {
@@ -318,7 +325,7 @@ void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements
 
 // ***********************************************************************
 
-Function* CodeGen(ResizableArray<Ast::Statement*>& program, String name, ErrorState* pErrorState) {
+Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::Declaration*>& params, String name, ErrorState* pErrorState) {
     State state;
 
     Local local;
@@ -329,9 +336,24 @@ Function* CodeGen(ResizableArray<Ast::Statement*>& program, String name, ErrorSt
     state.m_pFunc = (Function*)g_Allocator.Allocate(sizeof(Function));
     SYS_P_NEW(state.m_pFunc) Function();
     state.m_pFunc->m_name = name;
+    
+    // Create locals for the params that have been passed in from the caller
+    for (Ast::Declaration* pDecl : params) {
+        Local local;
+        local.m_depth = state.m_currentScopeDepth;
+        local.m_name = pDecl->m_identifier;
+        state.m_locals.PushBack(local);
+    }
 
     CodeGenStatements(state, program);
+
+    // return void
     Ast::Statement* pEnd = program[program.m_count - 1];
+    CurrentChunk(state)->constants.PushBack(Value());
+    uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.m_count - 1;
+    PushCode(state, OpCode::LoadConstant, pEnd->m_line);
+    PushCode(state, constIndex, pEnd->m_line);
     PushCode(state, OpCode::Return, pEnd->m_line);
+
     return state.m_pFunc;
 }

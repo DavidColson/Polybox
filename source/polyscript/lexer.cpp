@@ -81,11 +81,17 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
             case ';': tokens.PushBack(MakeToken(scan, TokenType::Semicolon)); break;
             case ',': tokens.PushBack(MakeToken(scan, TokenType::Comma)); break;
             case '.': tokens.PushBack(MakeToken(scan, TokenType::Dot)); break;
-            case '-': tokens.PushBack(MakeToken(scan, TokenType::Minus)); break;
             case '+': tokens.PushBack(MakeToken(scan, TokenType::Plus)); break;
             case '*': tokens.PushBack(MakeToken(scan, TokenType::Star)); break;
             case '%': tokens.PushBack(MakeToken(scan, TokenType::Percent)); break;
             case '^': tokens.PushBack(MakeToken(scan, TokenType::Caret)); break;
+            case '-':
+                if (Scan::Match(scan, '>')) {
+                    tokens.PushBack(MakeToken(scan, TokenType::FuncSigReturn));
+                } else {
+                    tokens.PushBack(MakeToken(scan, TokenType::Minus));
+                }
+                break;
             case '&':
                 if (Scan::Match(scan, '&')) {
                     tokens.PushBack(MakeToken(scan, TokenType::And));

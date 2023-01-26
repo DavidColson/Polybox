@@ -40,6 +40,7 @@ enum Enum : uint32_t {
     GreaterEqual,
     And,
     Or,
+    FuncSigReturn,
     // Literals
     LiteralString,
     LiteralInteger,

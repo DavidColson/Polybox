@@ -67,12 +67,13 @@ int main() {
 
     if (success) {
         // Compile to bytecode
-        Function* pFunc = CodeGen(program, "<script>", &errorState);
+        ResizableArray<Ast::Declaration*> emptyParams;
+        Function* pFunc = CodeGen(program, emptyParams, "<script>", &errorState);
         defer(FreeFunction(pFunc));
     
         Log::Debug("---- Disassembly -----");
         Disassemble(pFunc, actualCode);
-
+        
         Log::Info("---- Program Running -----");
         Run(pFunc);
     }

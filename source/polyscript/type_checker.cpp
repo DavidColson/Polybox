@@ -16,6 +16,7 @@ struct TypeCheckerState {
     HashMap<String, Declaration> m_declarations;
     ErrorState* m_pErrors { nullptr };
     int m_currentScopeLevel { 0 };
+    bool m_currentlyDeclaringParams { false };
 };
 
 void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt);
@@ -38,7 +39,15 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             pFunction->m_valueType = ValueType::Function;
 
-            // TODO: Place into the declarations list the params, so they can resolve inside the body
+            // The params will end up in the same scope as the body, and get automatically yeeted from the declarations list at the end of the block
+            state.m_currentlyDeclaringParams = true;
+            state.m_currentScopeLevel++;
+            for (Ast::Declaration* pParamDecl : pFunction->m_params) {
+                TypeCheckStatement(state, pParamDecl);
+            }
+            state.m_currentScopeLevel--;
+            state.m_currentlyDeclaringParams = false;
+
             TypeCheckStatement(state, pFunction->m_pBody);
 
             // TODO: Check maximum number of arguments (255 uint8) and error if above
@@ -92,7 +101,7 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             TypeCheckExpression(state, pBinary->m_pRight);
             pBinary->m_valueType = OperatorReturnType(pBinary->m_operator, pBinary->m_pLeft->m_valueType, pBinary->m_pRight->m_valueType);
 
-            if (pBinary->m_valueType == ValueType::Void && pBinary->m_pLeft->m_valueType != ValueType::Void && pBinary->m_pRight->m_valueType != ValueType::Void) {
+            if (pBinary->m_valueType == ValueType::Void) {
                 String str1 = ValueType::ToString(pBinary->m_pLeft->m_valueType);
                 String str2 = ValueType::ToString(pBinary->m_pRight->m_valueType);
                 String str3 = Operator::ToString(pBinary->m_operator);
@@ -140,12 +149,14 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             int minArgs = argsCount > paramsCount ? paramsCount : argsCount;
             for (size_t i = 0; i < minArgs; i++) {
                 Ast::Expression* arg = pCall->m_args[i];
-                Ast::Function::Param& param = pFunc->m_params[i];
-                if (param.m_pType) {
-                    if (arg->m_valueType != param.m_pType->m_resolvedType)
-                        state.m_pErrors->PushError(arg, "Type mismatch in function argument '%s', expected %s, got %s", param.identifier.m_pData, ValueType::ToString(param.m_pType->m_resolvedType), ValueType::ToString(arg->m_valueType));
+                Ast::Declaration* pDecl = pFunc->m_params[i];
+                if (pDecl->m_resolvedType) {
+                    if (arg->m_valueType != pDecl->m_resolvedType)
+                        state.m_pErrors->PushError(arg, "Type mismatch in function argument '%s', expected %s, got %s", pDecl->m_identifier.m_pData, ValueType::ToString(pDecl->m_resolvedType), ValueType::ToString(arg->m_valueType));
                 }
             }
+
+            pCall->m_valueType = pFunc->m_pReturnType->m_resolvedType;
 
             break;
         }
@@ -167,6 +178,9 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
 
             Declaration dec;
             dec.pNode = pDecl;
+
+            if (state.m_currentlyDeclaringParams)
+                dec.initialized = true;
 
             if (pDecl->m_pInitializerExpr) {
                 if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) {
@@ -194,6 +208,11 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
         case Ast::NodeType::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
             TypeCheckExpression(state, pPrint->m_pExpr);
+            break;
+        }
+        case Ast::NodeType::Return: {
+            Ast::Return* pReturn = (Ast::Return*)pStmt;
+            TypeCheckExpression(state, pReturn->m_pExpr);
             break;
         }
         case Ast::NodeType::ExpressionStmt: {

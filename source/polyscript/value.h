@@ -94,8 +94,6 @@ struct CodeChunk {
 };
 
 struct Function {
-    ValueType::Enum m_args[32];
-    int m_nArgCount { 0 };
     String m_name;
     CodeChunk m_chunk;
 };

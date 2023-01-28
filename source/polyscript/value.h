@@ -102,6 +102,30 @@ void FreeFunction(Function* pFunc);
 
 
 
+
+struct TypeInfo {
+    enum TypeTag : uint32_t {
+        Void,
+        Float,
+        Integer,
+        Bool,
+        Function,
+        Type,
+        Count
+    };
+    TypeTag tag = TypeTag::Void;
+    size_t size = 0;
+};
+
+struct TypeInfoFunction : public TypeInfo {
+    ResizableArray<TypeInfo*> params;
+    TypeInfo* returnType;
+};
+
+void InitTypeTable();
+
+TypeInfo* FindOrAddType(TypeInfo* pNewType);
+
 void InitValueTables();
 
 Value EvaluateOperator(Operator::Enum op, Value v1, Value v2);

@@ -39,6 +39,17 @@ const char* ValueToString(ValueType::Enum type) {
     return valueNames[type];
 }
 
+TypeInfo* FindOrAddType(TypeInfo* pNewType) {
+    // Search the array, filtering by tag type, to find a duplicate type
+    // if one exists, return it, otherwise add the new type to the end of the array
+    return nullptr;
+}
+
+void InitTypeTable() {
+    // Need an array filled with TypeInfos
+    // create the basic types
+}
+
 void InitValueTables() {
     for (size_t i = 0; i < Operator::Count; i++) {
         for (size_t j = 0; j < ValueType::Count; j++) {

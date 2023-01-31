@@ -6,7 +6,7 @@
         {
             "label": "Build Debug",
             "type": "shell",
-            "command": "msbuild Build/vs2019/Polybox.sln -p:Configuration=Debug",
+            "command": "msbuild Build/vs2022/Polybox.sln -p:Configuration=Debug",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -16,28 +16,22 @@
             ]
         },
         {
-            "label": "Build Release",
+            "label": "Open VS",
             "type": "shell",
-            "command": "msbuild Build/vs2019/Polybox.sln -p:Configuration=Release",
-            "problemMatcher": [
-                "$msCompile"
-            ]
+            "command": "devenv Build/vs2022/Polybox.sln",
+            "problemMatcher": []
         },
         {
-            "label": "Rebuild Debug",
+            "label": "RemDB Polybox",
             "type": "shell",
-            "command": "msbuild Build/vs2019/Polybox.sln -p:Configuration=Debug -t:Rebuild",
-            "problemMatcher": [
-                "$msCompile"
-            ]
+            "command": "remedybg -g -q polybox.rdbg",
+            "problemMatcher": []
         },
         {
-            "label": "Rebuild Release",
+            "label": "RemDB Polyscript",
             "type": "shell",
-            "command": "msbuild Build/vs2019/Polybox.sln -p:Configuration=Release -t:Rebuild",
-            "problemMatcher": [
-                "$msCompile"
-            ]
+            "command": "remedybg -g -q polyscript.rdbg",
+            "problemMatcher": []
         }
     ]
 }

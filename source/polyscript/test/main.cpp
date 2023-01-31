@@ -23,6 +23,7 @@
 // [ ] Consider removing the grouping AST node, serves no purpose and the ast can enforce the structure
 
 int main() {
+    InitTypeTable();
     InitValueTables();
     LinearAllocator compilerMemory;
 

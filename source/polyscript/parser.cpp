@@ -204,20 +204,20 @@ Ast::Expression* ParsingState::ParseType() {
         Token identifier = Previous();
 
         Ast::Type* pType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
-        pType->m_type = Ast::NodeType::Type;
+        pType->m_nodeKind = Ast::NodeType::Type;
         pType->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
 
         if (pType->m_identifier == "i32") {
-            pType->m_resolvedType = ValueType::I32;
+            pType->m_pResolvedType = GetI32Type();
         } else if (pType->m_identifier == "f32") {
-            pType->m_resolvedType = ValueType::F32; 
+            pType->m_pResolvedType = GetF32Type(); 
         } else if (pType->m_identifier == "bool") {
-            pType->m_resolvedType = ValueType::Bool;
+            pType->m_pResolvedType = GetBoolType();
         } else {
-            pType->m_resolvedType = ValueType::Void;
+            pType->m_pResolvedType = GetVoidType();
         }
 
-        pType->m_valueType = ValueType::Type;
+        pType->m_pType = GetTypeType();
 
         pType->m_pLocation = identifier.m_pLocation;
         pType->m_pLineStart = identifier.m_pLineStart;
@@ -255,7 +255,7 @@ Ast::Expression* ParsingState::ParsePrimary() {
                     Consume(TokenType::Colon, "Expected colon after argument identifier");
 
                     Ast::Declaration* pParamDecl = (Ast::Declaration*)pAllocator->Allocate(sizeof(Ast::Declaration));
-                    pParamDecl->m_type = Ast::NodeType::Declaration;
+                    pParamDecl->m_nodeKind = Ast::NodeType::Declaration;
                     pParamDecl->m_identifier = CopyCStringRange(arg.m_pLocation, arg.m_pLocation + arg.m_length, pAllocator);
                     pParamDecl->m_pDeclaredType = (Ast::Type*)ParseType();
                     pParamDecl->m_pLocation = arg.m_pLocation;
@@ -270,16 +270,16 @@ Ast::Expression* ParsingState::ParsePrimary() {
 
         if (isFunction) {
             Ast::Function* pFunc = (Ast::Function*)pAllocator->Allocate(sizeof(Ast::Function));
-            pFunc->m_type = Ast::NodeType::Function;
+            pFunc->m_nodeKind = Ast::NodeType::Function;
             pFunc->m_params = paramsList;
 
             if (Match(1, TokenType::FuncSigReturn)) {
                 pFunc->m_pReturnType = (Ast::Type*)ParseType();
             } else {
                 pFunc->m_pReturnType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
-                pFunc->m_pReturnType->m_type = Ast::NodeType::Type;
+                pFunc->m_pReturnType->m_nodeKind = Ast::NodeType::Type;
                 pFunc->m_pReturnType->m_identifier = CopyCString("void", pAllocator);
-                pFunc->m_pReturnType->m_valueType = ValueType::Void;
+                pFunc->m_pReturnType->m_pType = GetVoidType();
                 pFunc->m_pReturnType->m_pLocation = Previous().m_pLocation;
                 pFunc->m_pReturnType->m_pLineStart = Previous().m_pLineStart;
                 pFunc->m_pReturnType->m_line = Previous().m_line;
@@ -302,7 +302,7 @@ Ast::Expression* ParsingState::ParsePrimary() {
 
     if (Match(1, TokenType::LiteralInteger)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)pAllocator->Allocate(sizeof(Ast::Literal));
-        pLiteralExpr->m_type = Ast::NodeType::Literal;
+        pLiteralExpr->m_nodeKind = Ast::NodeType::Literal;
 
         Token token = Previous();
         pLiteralExpr->m_pLocation = token.m_pLocation;
@@ -310,14 +310,13 @@ Ast::Expression* ParsingState::ParsePrimary() {
         pLiteralExpr->m_line = token.m_line;
 
         char* endPtr = token.m_pLocation + token.m_length;
-        pLiteralExpr->m_value.m_type = ValueType::I32;
-        pLiteralExpr->m_value.m_i32Value = strtol(token.m_pLocation, &endPtr, 10);
+        pLiteralExpr->m_value = MakeValue((int32_t)strtol(token.m_pLocation, &endPtr, 10));
         return pLiteralExpr;
     }
 
     if (Match(1, TokenType::LiteralFloat)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)pAllocator->Allocate(sizeof(Ast::Literal));
-        pLiteralExpr->m_type = Ast::NodeType::Literal;
+        pLiteralExpr->m_nodeKind = Ast::NodeType::Literal;
 
         Token token = Previous();
         pLiteralExpr->m_pLocation = token.m_pLocation;
@@ -325,14 +324,13 @@ Ast::Expression* ParsingState::ParsePrimary() {
         pLiteralExpr->m_line = token.m_line;
 
         char* endPtr = token.m_pLocation + token.m_length;
-        pLiteralExpr->m_value.m_type = ValueType::F32;
-        pLiteralExpr->m_value.m_f32Value = (float)strtod(token.m_pLocation, &endPtr);
+        pLiteralExpr->m_value = MakeValue((float)strtod(token.m_pLocation, &endPtr));
         return pLiteralExpr;
     }
 
     if (Match(1, TokenType::LiteralBool)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)pAllocator->Allocate(sizeof(Ast::Literal));
-        pLiteralExpr->m_type = Ast::NodeType::Literal;
+        pLiteralExpr->m_nodeKind = Ast::NodeType::Literal;
 
         Token token = Previous();
         pLiteralExpr->m_pLocation = token.m_pLocation;
@@ -340,11 +338,10 @@ Ast::Expression* ParsingState::ParsePrimary() {
         pLiteralExpr->m_line = token.m_line;
 
         char* endPtr = token.m_pLocation + token.m_length;
-        pLiteralExpr->m_value.m_type = ValueType::Bool;
         if (strncmp("true", token.m_pLocation, 4) == 0)
-            pLiteralExpr->m_value.m_boolValue = true;
+            pLiteralExpr->m_value = MakeValue(true);
         else if (strncmp("false", token.m_pLocation, 4) == 0)
-            pLiteralExpr->m_value.m_boolValue = false;
+            pLiteralExpr->m_value = MakeValue(true);
         return pLiteralExpr;
     }
 
@@ -355,7 +352,7 @@ Ast::Expression* ParsingState::ParsePrimary() {
 
         if (pExpr) {
             Ast::Grouping* pGroupExpr = (Ast::Grouping*)pAllocator->Allocate(sizeof(Ast::Grouping));
-            pGroupExpr->m_type = Ast::NodeType::Grouping;
+            pGroupExpr->m_nodeKind = Ast::NodeType::Grouping;
 
             pGroupExpr->m_pLocation = startToken.m_pLocation;
             pGroupExpr->m_pLineStart = startToken.m_pLineStart;
@@ -372,7 +369,7 @@ Ast::Expression* ParsingState::ParsePrimary() {
         Token identifier = Previous();
 
         Ast::Variable* pVariable = (Ast::Variable*)pAllocator->Allocate(sizeof(Ast::Variable));
-        pVariable->m_type = Ast::NodeType::Variable;
+        pVariable->m_nodeKind = Ast::NodeType::Variable;
         pVariable->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
 
         pVariable->m_pLocation = identifier.m_pLocation;
@@ -392,7 +389,7 @@ Ast::Expression* ParsingState::ParseCall() {
 
     while (Match(1, TokenType::LeftParen)) {
         Ast::Call* pCall = (Ast::Call*)pAllocator->Allocate(sizeof(Ast::Call));
-        pCall->m_type = Ast::NodeType::Call;
+        pCall->m_nodeKind = Ast::NodeType::Call;
         pCall->m_pCallee = pExpr;
         pCall->m_args.m_pAlloc = pAllocator;
 
@@ -418,7 +415,7 @@ Ast::Expression* ParsingState::ParseCall() {
 Ast::Expression* ParsingState::ParseUnary() {
     while (Match(2, TokenType::Minus, TokenType::Bang)) {
         Ast::Unary* pUnaryExpr = (Ast::Unary*)pAllocator->Allocate(sizeof(Ast::Unary));
-        pUnaryExpr->m_type = Ast::NodeType::Unary;
+        pUnaryExpr->m_nodeKind = Ast::NodeType::Unary;
 
         Token operatorToken = Previous();
         pUnaryExpr->m_pLocation = operatorToken.m_pLocation;
@@ -443,7 +440,7 @@ Ast::Expression* ParsingState::ParseMulDiv() {
 
     while (Match(2, TokenType::Star, TokenType::Slash)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_type = Ast::NodeType::Binary;
+        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
 
         Token operatorToken = Previous();
         pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
@@ -466,7 +463,7 @@ Ast::Expression* ParsingState::ParseAddSub() {
 
     while (Match(2, TokenType::Minus, TokenType::Plus)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_type = Ast::NodeType::Binary;
+        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
 
         Token operatorToken = Previous();
         pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
@@ -489,7 +486,7 @@ Ast::Expression* ParsingState::ParseComparison() {
 
     while (Match(4, TokenType::Greater, TokenType::Less, TokenType::GreaterEqual, TokenType::LessEqual)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_type = Ast::NodeType::Binary;
+        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
 
         Token operatorToken = Previous();
         pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
@@ -512,7 +509,7 @@ Ast::Expression* ParsingState::ParseEquality() {
 
     while (Match(2, TokenType::EqualEqual, TokenType::BangEqual)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_type = Ast::NodeType::Binary;
+        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
 
         Token operatorToken = Previous();
         pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
@@ -535,7 +532,7 @@ Ast::Expression* ParsingState::ParseLogicAnd() {
 
     while (Match(1, TokenType::And)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_type = Ast::NodeType::Binary;
+        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
 
         Token operatorToken = Previous();
         pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
@@ -558,7 +555,7 @@ Ast::Expression* ParsingState::ParseLogicOr() {
 
     while (Match(1, TokenType::Or)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_type = Ast::NodeType::Binary;
+        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
 
         Token operatorToken = Previous();
         pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
@@ -583,9 +580,9 @@ Ast::Expression* ParsingState::ParseVarAssignment() {
         Token equal = Previous();
         Ast::Expression* pAssignment = ParseVarAssignment();
 
-        if (pExpr->m_type == Ast::NodeType::Variable) {
+        if (pExpr->m_nodeKind == Ast::NodeType::Variable) {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pAllocator->Allocate(sizeof(Ast::VariableAssignment));
-            pVarAssignment->m_type = Ast::NodeType::VariableAssignment;
+            pVarAssignment->m_nodeKind = Ast::NodeType::VariableAssignment;
 
             pVarAssignment->m_identifier = ((Ast::Variable*)pExpr)->m_identifier;
             pVarAssignment->m_pAssignment = pAssignment;
@@ -655,7 +652,7 @@ Ast::Statement* ParsingState::ParseExpressionStmt() {
     Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
 
     Ast::ExpressionStmt* pStmt = (Ast::ExpressionStmt*)pAllocator->Allocate(sizeof(Ast::ExpressionStmt));
-    pStmt->m_type = Ast::NodeType::ExpressionStmt;
+    pStmt->m_nodeKind = Ast::NodeType::ExpressionStmt;
 
     pStmt->m_pExpr = pExpr;
 
@@ -669,7 +666,7 @@ Ast::Statement* ParsingState::ParseExpressionStmt() {
 
 Ast::Statement* ParsingState::ParseIf() {
     Ast::If* pIf = (Ast::If*)pAllocator->Allocate(sizeof(Ast::If));
-    pIf->m_type = Ast::NodeType::If;
+    pIf->m_nodeKind = Ast::NodeType::If;
 
     pIf->m_pLocation = Previous().m_pLocation;
     pIf->m_pLineStart = Previous().m_pLineStart;
@@ -688,7 +685,7 @@ Ast::Statement* ParsingState::ParseIf() {
 
 Ast::Statement* ParsingState::ParseWhile() {
     Ast::While* pWhile = (Ast::While*)pAllocator->Allocate(sizeof(Ast::While));
-    pWhile->m_type = Ast::NodeType::While;
+    pWhile->m_nodeKind = Ast::NodeType::While;
 
     pWhile->m_pLocation = Previous().m_pLocation;
     pWhile->m_pLineStart = Previous().m_pLineStart;
@@ -710,7 +707,7 @@ Ast::Statement* ParsingState::ParsePrint() {
     Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
     
     Ast::Print* pPrintStmt = (Ast::Print*)pAllocator->Allocate(sizeof(Ast::Print));
-    pPrintStmt->m_type = Ast::NodeType::Print;
+    pPrintStmt->m_nodeKind = Ast::NodeType::Print;
 
     pPrintStmt->m_pExpr = pExpr;
 
@@ -724,7 +721,7 @@ Ast::Statement* ParsingState::ParsePrint() {
 
 Ast::Statement* ParsingState::ParseReturn() {
     Ast::Return* pReturnStmt = (Ast::Return*)pAllocator->Allocate(sizeof(Ast::Return));
-    pReturnStmt->m_type = Ast::NodeType::Return;
+    pReturnStmt->m_nodeKind = Ast::NodeType::Return;
 
     if (!Check(TokenType::Semicolon)) {
         pReturnStmt->m_pExpr = ParseExpression();
@@ -743,7 +740,7 @@ Ast::Statement* ParsingState::ParseReturn() {
 
 Ast::Statement* ParsingState::ParseBlock() {
     Ast::Block* pBlock = (Ast::Block*)pAllocator->Allocate(sizeof(Ast::Block));
-    pBlock->m_type = Ast::NodeType::Block;
+    pBlock->m_nodeKind = Ast::NodeType::Block;
     pBlock->m_declarations.m_pAlloc = pAllocator;
     pBlock->m_startToken = Previous();
 
@@ -770,7 +767,7 @@ Ast::Statement* ParsingState::ParseDeclaration() {
         if (Match(1, TokenType::Colon)) {
             // We now know we are dealing with a declaration of some kind
             Ast::Declaration* pDecl = (Ast::Declaration*)pAllocator->Allocate(sizeof(Ast::Declaration));
-            pDecl->m_type = Ast::NodeType::Declaration;
+            pDecl->m_nodeKind = Ast::NodeType::Declaration;
             pDecl->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
 
             // Optionally Parse type 
@@ -787,7 +784,7 @@ Ast::Statement* ParsingState::ParseDeclaration() {
             bool isFunc = false;
             if (Match(1, TokenType::Equal)) {
                 pDecl->m_pInitializerExpr = ParseExpression();
-                if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself
+                if (pDecl->m_pInitializerExpr->m_nodeKind == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself
                     Ast::Function* pFunc = (Ast::Function*)pDecl->m_pInitializerExpr;
                     pFunc->m_identifier = pDecl->m_identifier;
                     isFunc = true;
@@ -843,14 +840,14 @@ ResizableArray<Ast::Statement*> ParsingState::InitAndParse(ResizableArray<Token>
 // ***********************************************************************
 
 void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
-    switch (pStmt->m_type) {
+    switch (pStmt->m_nodeKind) {
         case Ast::NodeType::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
             Log::Debug("%*s+ Decl (%s)", indentationLevel, "", pDecl->m_identifier.m_pData);
             if (pDecl->m_pDeclaredType)
-                Log::Debug("%*s  Type: %s", indentationLevel + 2, "", ValueType::ToString(pDecl->m_pDeclaredType->m_resolvedType));
+                Log::Debug("%*s  Type: %s", indentationLevel + 2, "", pDecl->m_pDeclaredType->m_pResolvedType->name.m_pData);
             else if (pDecl->m_pInitializerExpr)
-                Log::Debug("%*s  Type: inferred as %s", indentationLevel + 2, "", ValueType::ToString(pDecl->m_pInitializerExpr->m_valueType));
+                Log::Debug("%*s  Type: inferred as %s", indentationLevel + 2, "", pDecl->m_pInitializerExpr->m_pType->name.m_pData);
 
             if (pDecl->m_pInitializerExpr) {
                 DebugExpression(pDecl->m_pInitializerExpr, indentationLevel + 2);
@@ -920,41 +917,41 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
         return;
     }
 
-    switch (pExpr->m_type) {
+    switch (pExpr->m_nodeKind) {
         case Ast::NodeType::Variable: {
             Ast::Variable* pVariable = (Ast::Variable*)pExpr;
-                Log::Debug("%*s- Variable (%s:%s)", indentationLevel, "", pVariable->m_identifier.m_pData, ValueType::ToString(pVariable->m_valueType));
+                Log::Debug("%*s- Variable (%s:%s)", indentationLevel, "", pVariable->m_identifier.m_pData, pVariable->m_pType->name.m_pData);
             break;
         }
         case Ast::NodeType::VariableAssignment: {
             Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pExpr;
-            Log::Debug("%*s- Variable Assignment (%s:%s)", indentationLevel, "", pAssignment->m_identifier.m_pData, ValueType::ToString(pAssignment->m_valueType));
+            Log::Debug("%*s- Variable Assignment (%s:%s)", indentationLevel, "", pAssignment->m_identifier.m_pData, pAssignment->m_pType->name.m_pData);
             DebugExpression(pAssignment->m_pAssignment, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-            if (pLiteral->m_value.m_type == ValueType::F32)
-                Log::Debug("%*s- Literal (%f:%s)", indentationLevel, "", pLiteral->m_value.m_f32Value, ValueType::ToString(pLiteral->m_valueType));
-            else if (pLiteral->m_value.m_type == ValueType::I32)
-                Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->m_value.m_i32Value, ValueType::ToString(pLiteral->m_valueType));
-            else if (pLiteral->m_value.m_type == ValueType::Bool)
-                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false", ValueType::ToString(pLiteral->m_valueType));
+            if (pLiteral->m_value.m_pType == GetF32Type())
+                Log::Debug("%*s- Literal (%f:%s)", indentationLevel, "", pLiteral->m_value.m_f32Value, pLiteral->m_pType->name.m_pData);
+            else if (pLiteral->m_value.m_pType == GetI32Type())
+                Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->m_value.m_i32Value, pLiteral->m_pType->name.m_pData);
+            else if (pLiteral->m_value.m_pType == GetBoolType())
+                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false", pLiteral->m_pType->name.m_pData);
             break;
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            Log::Debug("%*s- Function (:%s)", indentationLevel, "", ValueType::ToString(pFunction->m_valueType));
+            Log::Debug("%*s- Function (:%s)", indentationLevel, "", pFunction->m_pType->name.m_pData);
             for (Ast::Declaration* pParam : pFunction->m_params) {
-                Log::Debug("%*s- Param (%s:%s)", indentationLevel + 2, "", pParam->m_identifier.m_pData, ValueType::ToString(pParam->m_resolvedType));
+                Log::Debug("%*s- Param (%s:%s)", indentationLevel + 2, "", pParam->m_identifier.m_pData, pParam->m_pResolvedType->name.m_pData);
             }
-            Log::Debug("%*s- ReturnType (:%s)", indentationLevel + 2, "", ValueType::ToString(pFunction->m_pReturnType->m_resolvedType));
+            Log::Debug("%*s- ReturnType (:%s)", indentationLevel + 2, "", pFunction->m_pReturnType->m_pResolvedType->name.m_pData);
             DebugStatement(pFunction->m_pBody, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
-            Log::Debug("%*s- Group (:%s)", indentationLevel, "", ValueType::ToString(pGroup->m_valueType));
+            Log::Debug("%*s- Group (:%s)", indentationLevel, "", pGroup->m_pType->name.m_pData);
             DebugExpression(pGroup->m_pExpression, indentationLevel + 2);
             break;
         }
@@ -962,40 +959,40 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             switch (pBinary->m_operator) {
                 case Operator::Add:
-                    Log::Debug("%*s- Binary (+:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (+:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::Subtract:
-                    Log::Debug("%*s- Binary (-:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (-:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::Divide:
-                    Log::Debug("%*s- Binary (/:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (/:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::Multiply:
-                    Log::Debug("%*s- Binary (*:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (*:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::Greater:
-                    Log::Debug("%*s- Binary (>:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (>:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::Less:
-                    Log::Debug("%*s- Binary (<:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (<:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::GreaterEqual:
-                    Log::Debug("%*s- Binary (>=:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (>=:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::LessEqual:
-                    Log::Debug("%*s- Binary (<=:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (<=:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::Equal:
-                    Log::Debug("%*s- Binary (==:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (==:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::NotEqual:
-                    Log::Debug("%*s- Binary (!=:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (!=:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::And:
-                    Log::Debug("%*s- Binary (&&:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (&&:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 case Operator::Or:
-                    Log::Debug("%*s- Binary (||:%s)", indentationLevel, "", ValueType::ToString(pBinary->m_valueType));
+                    Log::Debug("%*s- Binary (||:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
                     break;
                 default:
                     break;
@@ -1008,10 +1005,10 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             switch (pUnary->m_operator) {
                 case Operator::UnaryMinus:
-                    Log::Debug("%*s- Unary (-:%s)", indentationLevel, "", ValueType::ToString(pUnary->m_valueType));
+                    Log::Debug("%*s- Unary (-:%s)", indentationLevel, "", pUnary->m_pType->name.m_pData);
                     break;
                 case Operator::Not:
-                    Log::Debug("%*s- Unary (!:%s)", indentationLevel, "", ValueType::ToString(pUnary->m_valueType));
+                    Log::Debug("%*s- Unary (!:%s)", indentationLevel, "", pUnary->m_pType->name.m_pData);
                     break;
                 default:
                     break;

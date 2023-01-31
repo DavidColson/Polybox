@@ -30,15 +30,15 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             builder.Append("LoadConstant ");
             uint8_t constIndex = *(pInstruction + 1);
             Value& v = chunk.constants[constIndex];
-            if (v.m_type == ValueType::Void)
+            if (v.m_pType->tag == TypeInfo::TypeTag::Void)
                 builder.AppendFormat("%i (void)", constIndex);
-            if (v.m_type == ValueType::F32)
+            if (v.m_pType->tag == TypeInfo::TypeTag::Float)
                 builder.AppendFormat("%i (%f)", constIndex, v.m_f32Value);
-            else if (v.m_type == ValueType::Bool)
+            else if (v.m_pType->tag == TypeInfo::TypeTag::Bool)
                 builder.AppendFormat("%i (%s)", constIndex, v.m_boolValue ? "true" : "false");
-            else if (v.m_type == ValueType::I32)
+            else if (v.m_pType->tag == TypeInfo::TypeTag::Integer)
                 builder.AppendFormat("%i (%i)", constIndex, v.m_i32Value);
-            else if (v.m_type == ValueType::Function)
+            else if (v.m_pType->tag == TypeInfo::TypeTag::Function)
                 builder.AppendFormat("%i (<fn %s>)", constIndex, v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "");  // TODO Should probably show the type sig?
             returnIPOffset = 2;
             break;
@@ -187,7 +187,7 @@ void Disassemble(Function* pFunc, String codeText) {
     uint8_t* pInstructionPointer = chunk.code.m_pData;
 
     for (Value& v : chunk.constants) {
-        if (v.m_type == ValueType::Function) {
+        if (v.m_pType->tag == TypeInfo::TypeTag::Function) {
             Disassemble(v.m_pFunction, codeText);
         }
     }
@@ -237,20 +237,22 @@ void DebugStack(VirtualMachine& vm) {
     for (uint32_t i = 1; i < vm.stack.m_array.m_count; i++) {
         Value& v = vm.stack[i];
 
-        switch (v.m_type) {
-            case ValueType::Void:
+        // TODO: This can now handle more complex types
+        // So upgrade it
+        switch (v.m_pType->tag) {
+            case TypeInfo::TypeTag::Void:
                 builder.AppendFormat("[%i: void]");
                 break;
-            case ValueType::Bool:
+            case TypeInfo::TypeTag::Bool:
                 builder.AppendFormat("[%i: %s]", i, v.m_boolValue ? "true" : "false");
                 break;
-            case ValueType::F32:
+            case TypeInfo::TypeTag::Float:
                 builder.AppendFormat("[%i: %f]", i, v.m_f32Value);
                 break;
-            case ValueType::I32:
+            case TypeInfo::TypeTag::Integer:
                 builder.AppendFormat("[%i: %i]", i, v.m_i32Value);
                 break;
-            case ValueType::Function:
+            case TypeInfo::TypeTag::Function:
                 builder.AppendFormat("[%i: <fn %s>]", i, v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "");
                 break;
             default:
@@ -269,7 +271,7 @@ void Run(Function* pFuncToRun) {
     
     Value fv;
     fv.m_pFunction = pFuncToRun;
-    fv.m_type = ValueType::Function;
+    fv.m_pType->tag = TypeInfo::TypeTag::Function;
     vm.stack.Push(fv);
 
     CallFrame frame;
@@ -363,13 +365,14 @@ void Run(Function* pFuncToRun) {
             case OpCode::Print: {
                 Value v = vm.stack.Pop();
                 // TODO: Runtime error if you try print a void type value
-                if (v.m_type == ValueType::F32)
+                // TODO: As before this can be upgrade to be more robust at printing values of different types now that types are more complex
+                if (v.m_pType->tag == TypeInfo::TypeTag::Float)
                     Log::Info("%f", v.m_f32Value);
-                else if (v.m_type == ValueType::I32)
+                else if (v.m_pType->tag == TypeInfo::TypeTag::Integer)
                     Log::Info("%i", v.m_i32Value);
-                else if (v.m_type == ValueType::Bool)
+                else if (v.m_pType->tag == TypeInfo::TypeTag::Bool)
                     Log::Info("%s", v.m_boolValue ? "true" : "false");
-                else if (v.m_type == ValueType::Function)
+                else if (v.m_pType->tag == TypeInfo::TypeTag::Function)
                     Log::Info("<fn %s>", v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "");  // TODO Should probably show the type sig?
                 break;
             }

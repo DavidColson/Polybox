@@ -79,7 +79,7 @@ void PatchJump(State& state, int jumpCodeLocation) {
 // ***********************************************************************
 
 void CodeGenExpression(State& state, Ast::Expression* pExpr) {
-    switch (pExpr->m_type) {
+    switch (pExpr->m_nodeKind) {
         case Ast::NodeType::Variable: {
             Ast::Variable* pVariable = (Ast::Variable*)pExpr;
             int localIndex = ResolveLocal(state, pVariable->m_identifier);
@@ -114,7 +114,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, pFunction->m_params, pFunction->m_identifier, state.m_pErrors);
 
             Value value;
-            value.m_type = ValueType::Function;
+            value.m_pType->tag = TypeInfo::TypeTag::Function;
             value.m_pFunction = pFunc;
             CurrentChunk(state)->constants.PushBack(value);
             uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.m_count - 1;
@@ -225,7 +225,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements);
 
 void CodeGenStatement(State& state, Ast::Statement* pStmt) {
-    switch (pStmt->m_type) {
+    switch (pStmt->m_nodeKind) {
         case Ast::NodeType::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
 

@@ -8,6 +8,7 @@
 #include <resizable_array.inl>
 
 struct Declaration {
+    // TODO: This needs to become the pTypeInfo of the declaration
     Ast::Declaration* pNode;
     bool initialized { false };
 };
@@ -29,15 +30,17 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
     if (pExpr == nullptr)
         return;
 
-    switch (pExpr->m_type) {
+    switch (pExpr->m_nodeKind) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-            pLiteral->m_valueType = pLiteral->m_value.m_type;
+            pLiteral->m_pType = pLiteral->m_value.m_pType;
             break;
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            pFunction->m_valueType = ValueType::Function;
+
+            // TODO: Construct a function typeinfo, and find or add it to the table
+            pFunction->m_pType = ValueType::Function;
 
             // The params will end up in the same scope as the body, and get automatically yeeted from the declarations list at the end of the block
             state.m_currentlyDeclaringParams = true;
@@ -48,7 +51,13 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             state.m_currentScopeLevel--;
             state.m_currentlyDeclaringParams = false;
 
+            // TODO: The last declared function identifier gets saved at this point and the function put in the declarations list so the statement below will typecheck
+            // correctly
+            // Note this is a hack until we have constant functions, which will be declared before the body gets typechecked due to being constant
+
             TypeCheckStatement(state, pFunction->m_pBody);
+
+            // TODO: remove the function from the declarations list so it can be added correctly by the declaration code
 
             // TODO: Check maximum number of arguments (255 uint8) and error if above
             break;
@@ -59,7 +68,7 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             Declaration* pDeclEntry = state.m_declarations.Get(pVariable->m_identifier);
             if (pDeclEntry) {
                 if (pDeclEntry->initialized) {
-                    pVariable->m_valueType = pDeclEntry->pNode->m_resolvedType;
+                    pVariable->m_pType = pDeclEntry->pNode->m_pResolvedType;
                 } else {
                     state.m_pErrors->PushError(pVariable, "Cannot use \'%s\', it is not initialized yet", pVariable->m_identifier.m_pData);     
                 }
@@ -75,12 +84,12 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
 
             Declaration* pDeclEntry = state.m_declarations.Get(pVarAssignment->m_identifier);
             if (pDeclEntry) {
-                ValueType::Enum declaredVarType = pDeclEntry->pNode->m_resolvedType;
-                ValueType::Enum assignedVarType = pVarAssignment->m_pAssignment->m_valueType;
-                if (declaredVarType == assignedVarType) {
-                    pVarAssignment->m_valueType = declaredVarType;
+                TypeInfo* pDeclaredVarType = pDeclEntry->pNode->m_pResolvedType;
+                TypeInfo* pAssignedVarType = pVarAssignment->m_pAssignment->m_pType;
+                if (pDeclaredVarType == pAssignedVarType) {
+                    pVarAssignment->m_pType = pDeclaredVarType;
                 } else {
-                    state.m_pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type %s, but is being assigned a value with type %s", pVarAssignment->m_identifier.m_pData, ValueType::ToString(declaredVarType), ValueType::ToString(assignedVarType));
+                    state.m_pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type %s, but is being assigned a value with type %s", pVarAssignment->m_identifier.m_pData, pDeclaredVarType->name.m_pData, pAssignedVarType->name.m_pData);
                 }
                 pDeclEntry->initialized = true;
             } else {
@@ -92,18 +101,18 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
             TypeCheckExpression(state, pGroup->m_pExpression);
-            pGroup->m_valueType = pGroup->m_pExpression->m_valueType;
+            pGroup->m_pType = pGroup->m_pExpression->m_pType;
             break;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             TypeCheckExpression(state, pBinary->m_pLeft);
             TypeCheckExpression(state, pBinary->m_pRight);
-            pBinary->m_valueType = OperatorReturnType(pBinary->m_operator, pBinary->m_pLeft->m_valueType, pBinary->m_pRight->m_valueType);
+            pBinary->m_pType = OperatorReturnType(pBinary->m_operator, pBinary->m_pLeft->m_pType->tag, pBinary->m_pRight->m_pType->tag);
 
-            if (pBinary->m_valueType == ValueType::Void) {
-                String str1 = ValueType::ToString(pBinary->m_pLeft->m_valueType);
-                String str2 = ValueType::ToString(pBinary->m_pRight->m_valueType);
+            if (pBinary->m_pType == GetVoidType()) {
+                String str1 = pBinary->m_pLeft->m_pType->name;
+                String str2 = pBinary->m_pRight->m_pType->name;
                 String str3 = Operator::ToString(pBinary->m_operator);
                 state.m_pErrors->PushError(pBinary, "Invalid types (%s, %s) used with operator \"%s\"", str1.m_pData, str2.m_pData, str3.m_pData);
             }
@@ -112,10 +121,10 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             TypeCheckExpression(state, pUnary->m_pRight);
-            pUnary->m_valueType = OperatorReturnType(pUnary->m_operator, pUnary->m_pRight->m_valueType, ValueType::Void);
+            pUnary->m_pType = OperatorReturnType(pUnary->m_operator, pUnary->m_pRight->m_pType->tag, TypeInfo::TypeTag::Void);
 
-            if (pUnary->m_valueType == ValueType::Void && pUnary->m_pRight->m_valueType != ValueType::Void) {
-                state.m_pErrors->PushError(pUnary, "Invalid type (%s) used with operator \"%s\"", ValueType::ToString(pUnary->m_pRight->m_valueType), Operator::ToString(pUnary->m_operator));
+            if (pUnary->m_pType == GetVoidType() && pUnary->m_pRight->m_pType != GetVoidType()) {
+                state.m_pErrors->PushError(pUnary, "Invalid type (%s) used with operator \"%s\"", pUnary->m_pRight->m_pType->name.m_pData, Operator::ToString(pUnary->m_operator));
             }
             break;
         }
@@ -127,7 +136,7 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             Ast::Variable* pVar = (Ast::Variable*)pCall->m_pCallee;
             Declaration* pDeclEntry = state.m_declarations.Get(pVar->m_identifier);
 
-            if (pCall->m_pCallee->m_valueType != ValueType::Function) {
+            if (pCall->m_pCallee->m_pType->tag != TypeInfo::TypeTag::Function) {
                 state.m_pErrors->PushError(pCall, "Attempt to call a value which is not a function");
             }
 
@@ -150,13 +159,13 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             for (size_t i = 0; i < minArgs; i++) {
                 Ast::Expression* arg = pCall->m_args[i];
                 Ast::Declaration* pDecl = pFunc->m_params[i];
-                if (pDecl->m_resolvedType) {
-                    if (arg->m_valueType != pDecl->m_resolvedType)
-                        state.m_pErrors->PushError(arg, "Type mismatch in function argument '%s', expected %s, got %s", pDecl->m_identifier.m_pData, ValueType::ToString(pDecl->m_resolvedType), ValueType::ToString(arg->m_valueType));
+                if (pDecl->m_pResolvedType) {
+                    if (arg->m_pType != pDecl->m_pResolvedType)
+                        state.m_pErrors->PushError(arg, "Type mismatch in function argument '%s', expected %s, got %s", pDecl->m_identifier.m_pData, pDecl->m_pResolvedType->name.m_pData, arg->m_pType->name.m_pData);
                 }
             }
 
-            pCall->m_valueType = pFunc->m_pReturnType->m_resolvedType;
+            pCall->m_pType = pFunc->m_pReturnType->m_pResolvedType;
 
             break;
         }
@@ -168,7 +177,7 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
 // ***********************************************************************
 
 void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
-    switch (pStmt->m_type) {
+    switch (pStmt->m_nodeKind) {
         case Ast::NodeType::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
             pDecl->m_scopeLevel = state.m_currentScopeLevel;
@@ -183,25 +192,27 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 dec.initialized = true;
 
             if (pDecl->m_pInitializerExpr) {
-                if (pDecl->m_pInitializerExpr->m_type == Ast::NodeType::Function) {
+                if (pDecl->m_pInitializerExpr->m_nodeKind == Ast::NodeType::Function) {
                     // Allows recursion
-                    pDecl->m_resolvedType = ValueType::Function;
+                    // For recursion to work properly like this, we need to store the function identifier in the state, so the function typechecker can add itself to the declarations
+                    // List, so that it can resolve it's own name
+                    pDecl->m_pResolvedType = ValueType::Function;
                     dec.initialized = true;
                 }
                 Declaration& added = state.m_declarations.Add(pDecl->m_identifier, dec);
                 TypeCheckExpression(state, pDecl->m_pInitializerExpr);
                 added.initialized = true;
 
-                if (pDecl->m_pDeclaredType && pDecl->m_pInitializerExpr->m_valueType != pDecl->m_pDeclaredType->m_resolvedType) {
-                    ValueType::Enum declaredType = pDecl->m_pDeclaredType->m_resolvedType;
-                    ValueType::Enum initType = pDecl->m_pInitializerExpr->m_valueType;
-                    state.m_pErrors->PushError(pDecl->m_pDeclaredType, "Type mismatch in declaration, declared as %s and initialized as %s", ValueType::ToString(declaredType), ValueType::ToString(initType));
+                if (pDecl->m_pDeclaredType && pDecl->m_pInitializerExpr->m_pType != pDecl->m_pDeclaredType->m_pResolvedType) {
+                    TypeInfo* pDeclaredType = pDecl->m_pDeclaredType->m_pResolvedType;
+                    TypeInfo* pInitType = pDecl->m_pInitializerExpr->m_pType;
+                    state.m_pErrors->PushError(pDecl->m_pDeclaredType, "Type mismatch in declaration, declared as %s and initialized as %s", pDeclaredType->name.m_pData, pInitType->name.m_pData);
                 } else {
-                    pDecl->m_resolvedType = pDecl->m_pInitializerExpr->m_valueType;
+                    pDecl->m_pResolvedType = pDecl->m_pInitializerExpr->m_pType;
                 }
             } else {
                 state.m_declarations.Add(pDecl->m_identifier, dec);
-                pDecl->m_resolvedType = pDecl->m_pDeclaredType->m_resolvedType;
+                pDecl->m_pResolvedType = pDecl->m_pDeclaredType->m_pResolvedType;
             }
             break;
         }
@@ -223,7 +234,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
         case Ast::NodeType::If: {
             Ast::If* pIf = (Ast::If*)pStmt;
             TypeCheckExpression(state, pIf->m_pCondition);
-            if (pIf->m_pCondition->m_valueType != ValueType::Bool)
+            if (pIf->m_pCondition->m_pType != GetBoolType())
                 state.m_pErrors->PushError(pIf->m_pCondition, "if conditional expression does not evaluate to a boolean");
 
             TypeCheckStatement(state, pIf->m_pThenStmt);
@@ -235,7 +246,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
         case Ast::NodeType::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             TypeCheckExpression(state, pWhile->m_pCondition);
-            if (pWhile->m_pCondition->m_valueType != ValueType::Bool)
+            if (pWhile->m_pCondition->m_pType != GetBoolType())
                 state.m_pErrors->PushError(pWhile->m_pCondition, "while conditional expression does not evaluate to a boolean");
 
             TypeCheckStatement(state, pWhile->m_pBody);

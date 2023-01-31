@@ -6,6 +6,7 @@
 #include <light_string.h>
 #include <resizable_array.h>
 
+
 namespace TokenType {
 enum Enum : uint32_t;
 }
@@ -54,9 +55,51 @@ static const char* ToString(Operator::Enum type) {
 }
 
 
+
+
+
+struct TypeInfo {
+    enum TypeTag : uint32_t {
+        Void,
+        Float,
+        Integer,
+        Bool,
+        Function,
+        Type,
+        Count
+    };
+    TypeTag tag = TypeTag::Void;
+    size_t size = 0;
+    String name;
+};
+
+struct TypeInfoFunction : public TypeInfo {
+    ResizableArray<TypeInfo*> params;
+    TypeInfo* returnType;
+};
+
+void InitTypeTable();
+
+TypeInfo* FindOrAddType(TypeInfo* pNewType);
+
+TypeInfo* GetVoidType();
+
+TypeInfo* GetI32Type();
+
+TypeInfo* GetF32Type();
+
+TypeInfo* GetBoolType();
+
+TypeInfo* GetTypeType();
+
+
+
+
+
 struct Function;
 struct Value {
-    ValueType::Enum m_type { ValueType::Void };
+    //ValueType::Enum m_type { ValueType::Void };
+    TypeInfo* m_pType{ nullptr };
     union {
         bool m_boolValue;
         float m_f32Value;
@@ -67,21 +110,21 @@ struct Value {
 
 inline Value MakeValue(bool value) {
     Value v;
-    v.m_type = ValueType::Bool;
+    v.m_pType = GetBoolType();
     v.m_boolValue = value;
     return v;
 }
 
 inline Value MakeValue(float value) {
     Value v;
-    v.m_type = ValueType::F32;
+    v.m_pType = GetF32Type();
     v.m_f32Value = value;
     return v;
 }
 
 inline Value MakeValue(int32_t value) {
     Value v;
-    v.m_type = ValueType::I32;
+    v.m_pType = GetI32Type();
     v.m_i32Value = value;
     return v;
 }
@@ -102,35 +145,11 @@ void FreeFunction(Function* pFunc);
 
 
 
-
-struct TypeInfo {
-    enum TypeTag : uint32_t {
-        Void,
-        Float,
-        Integer,
-        Bool,
-        Function,
-        Type,
-        Count
-    };
-    TypeTag tag = TypeTag::Void;
-    size_t size = 0;
-};
-
-struct TypeInfoFunction : public TypeInfo {
-    ResizableArray<TypeInfo*> params;
-    TypeInfo* returnType;
-};
-
-void InitTypeTable();
-
-TypeInfo* FindOrAddType(TypeInfo* pNewType);
-
 void InitValueTables();
 
 Value EvaluateOperator(Operator::Enum op, Value v1, Value v2);
 
-ValueType::Enum OperatorReturnType(Operator::Enum op, ValueType::Enum t1, ValueType::Enum t2);
+TypeInfo* OperatorReturnType(Operator::Enum op, TypeInfo::TypeTag t1, TypeInfo::TypeTag t2);
 
 Operator::Enum TokenToOperator(TokenType::Enum tokenType);
 

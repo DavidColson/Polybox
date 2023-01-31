@@ -41,7 +41,7 @@ enum class NodeType {
 
 // Base AST Node
 struct Node {
-    NodeType m_type;
+    NodeType m_nodeKind;
 
     char* m_pLocation { nullptr };
     char* m_pLineStart { nullptr };
@@ -50,7 +50,7 @@ struct Node {
 
 // Expression type nodes
 struct Expression : public Node {
-    ValueType::Enum m_valueType;
+    TypeInfo* m_pType;
 };
 
 struct Binary : public Expression {
@@ -78,7 +78,7 @@ struct Variable : public Expression {
 
 struct Type : public Expression {
     String m_identifier;
-    ValueType::Enum m_resolvedType;
+    TypeInfo* m_pResolvedType;
 };
 
 struct Block;
@@ -137,7 +137,7 @@ struct Block : public Statement {
 struct Declaration : public Statement {
     String m_identifier;
     Type* m_pDeclaredType { nullptr };
-    ValueType::Enum m_resolvedType;
+    TypeInfo* m_pResolvedType;
     int m_scopeLevel { 0 };
     Expression* m_pInitializerExpr { nullptr };
 };

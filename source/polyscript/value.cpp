@@ -10,7 +10,7 @@ TypeInfo* operatorReturnMap[Operator::Count][TypeInfo::TypeTag::Count][TypeInfo:
 Value (*operatorMap[Operator::Count][TypeInfo::TypeTag::Count][TypeInfo::TypeTag::Count])(Value v1, Value v2);
 Operator::Enum tokenToOperatorMap[TokenType::Count];
 
-ResizableArray<TypeInfo> typeTable;
+ResizableArray<TypeInfo*> typeTable;
 }
 
 void FreeFunction(Function* pFunc) {
@@ -37,12 +37,12 @@ Operator::Enum TokenToOperator(TokenType::Enum tokenType) {
 }
 
 TypeInfo* FindOrAddType(TypeInfo* pNewType) {
-    for (TypeInfo& info : typeTable) {
-        if (info.tag == TypeInfo::TypeTag::Function && pNewType->tag == info.tag) {
+    for (TypeInfo* pInfo : typeTable) {
+        if (pInfo->tag == TypeInfo::TypeTag::Function && pNewType->tag == pInfo->tag) {
             TypeInfoFunction* pNewFunc = (TypeInfoFunction*)pNewType;
-            TypeInfoFunction* pOldFunc = (TypeInfoFunction*)&info;
+            TypeInfoFunction* pOldFunc = (TypeInfoFunction*)pInfo;
             // Check return type
-            bool returnTypeMatch = pNewFunc->returnType == pOldFunc->returnType;
+            bool returnTypeMatch = pNewFunc->pReturnType == pOldFunc->pReturnType;
 
             bool paramsMatch = pNewFunc->params.m_count == pOldFunc->params.m_count;
             if (paramsMatch && returnTypeMatch) {
@@ -57,67 +57,89 @@ TypeInfo* FindOrAddType(TypeInfo* pNewType) {
             }
 
             if (paramsMatch && returnTypeMatch) {
-                return &info;
+                return pInfo;
             }
-        }
-        if (info.tag == pNewType->tag && info.size == pNewType->size) {
-            return &info;
+        } else if (pInfo->tag == pNewType->tag && pInfo->size == pNewType->size) {
+            return pInfo;
         }
     }
-    typeTable.PushBack(*pNewType);
-    return &typeTable[typeTable.m_count - 1];
+    TypeInfo* pToAddType;
+    switch (pNewType->tag) {
+        case TypeInfo::TypeTag::Function: {
+            pToAddType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfoFunction));
+            memcpy(pToAddType, pNewType, sizeof(TypeInfoFunction));
+            break;
+        }
+        default: {
+            pToAddType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfoFunction));
+            memcpy(pToAddType, pNewType, sizeof(TypeInfo));
+            break;
+        }
+    }
+    typeTable.PushBack(pToAddType);
+    return typeTable[typeTable.m_count - 1];
 }
 
 void InitTypeTable() {
-    TypeInfo voidType;
-    voidType.tag = TypeInfo::TypeTag::Void;
-    voidType.size = 0;
-    voidType.name = "void";
-    typeTable.PushBack(voidType);
+    TypeInfo* pVoidType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
+    pVoidType->tag = TypeInfo::TypeTag::Void;
+    pVoidType->size = 0;
+    pVoidType->name = "void";
+    typeTable.PushBack(pVoidType);
 
-    TypeInfo i32Type;
-    i32Type.tag = TypeInfo::TypeTag::Integer;
-    i32Type.size = 32;
-    voidType.name = "i32";
-    typeTable.PushBack(i32Type);
+    TypeInfo* pI32Type = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
+    pI32Type->tag = TypeInfo::TypeTag::Integer;
+    pI32Type->size = 32;
+    pI32Type->name = "i32";
+    typeTable.PushBack(pI32Type);
 
-    TypeInfo f32Type;
-    f32Type.tag = TypeInfo::TypeTag::Float;
-    f32Type.size = 32;
-    voidType.name = "f32";
-    typeTable.PushBack(f32Type);
+    TypeInfo* pF32Type = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
+    pF32Type->tag = TypeInfo::TypeTag::Float;
+    pF32Type->size = 32;
+    pF32Type->name = "f32";
+    typeTable.PushBack(pF32Type);
 
-    TypeInfo boolType;
-    boolType.tag = TypeInfo::TypeTag::Bool;
-    boolType.size = 1;
-    voidType.name = "bool";
-    typeTable.PushBack(boolType);
+    TypeInfo* pBoolType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
+    pBoolType->tag = TypeInfo::TypeTag::Bool;
+    pBoolType->size = 1;
+    pBoolType->name = "bool";
+    typeTable.PushBack(pBoolType);
 
-    TypeInfo typeType;
-    typeType.tag = TypeInfo::TypeTag::Type;
-    typeType.size = 0;
-    voidType.name = "type";
-    typeTable.PushBack(typeType);
+    TypeInfo* pTypeType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
+    pTypeType->tag = TypeInfo::TypeTag::Type;
+    pTypeType->size = 0;
+    pTypeType->name = "type";
+    typeTable.PushBack(pTypeType);
+
+    TypeInfoFunction* pEmptyFuncType = (TypeInfoFunction*)g_Allocator.Allocate(sizeof(TypeInfoFunction));
+    pEmptyFuncType->tag = TypeInfo::TypeTag::Function;
+    pEmptyFuncType->size = 0;
+    pEmptyFuncType->name = "()";
+    typeTable.PushBack(pEmptyFuncType);
 }
 
 TypeInfo* GetVoidType() {
-    return &typeTable[0];
+    return typeTable[0];
 }
 
 TypeInfo* GetI32Type() {
-    return &typeTable[1];
+    return typeTable[1];
 }
 
 TypeInfo* GetF32Type() {
-    return &typeTable[2];
+    return typeTable[2];
 }
 
 TypeInfo* GetBoolType() {
-    return &typeTable[3];
+    return typeTable[3];
 }
 
 TypeInfo* GetTypeType() {
-    return &typeTable[4];
+    return typeTable[4];
+}
+
+TypeInfo* GetEmptyFuncType() {
+    return typeTable[5];
 }
 
 void InitValueTables() {

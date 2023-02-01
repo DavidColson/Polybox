@@ -271,7 +271,7 @@ void Run(Function* pFuncToRun) {
     
     Value fv;
     fv.m_pFunction = pFuncToRun;
-    fv.m_pType->tag = TypeInfo::TypeTag::Function;
+    fv.m_pType = GetEmptyFuncType();
     vm.stack.Push(fv);
 
     CallFrame frame;

@@ -114,7 +114,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, pFunction->m_params, pFunction->m_identifier, state.m_pErrors);
 
             Value value;
-            value.m_pType->tag = TypeInfo::TypeTag::Function;
+            value.m_pType = pFunction->m_pType;
             value.m_pFunction = pFunc;
             CurrentChunk(state)->constants.PushBack(value);
             uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.m_count - 1;

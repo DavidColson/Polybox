@@ -6,18 +6,15 @@
 
 #include <hashmap.inl>
 #include <resizable_array.inl>
-
-struct Declaration {
-    // TODO: This needs to become the pTypeInfo of the declaration
-    Ast::Declaration* pNode;
-    bool initialized { false };
-};
+#include <string_builder.h>
 
 struct TypeCheckerState {
-    HashMap<String, Declaration> m_declarations;
+    HashMap<String, Ast::Declaration*> m_declarations;
     ErrorState* m_pErrors { nullptr };
     int m_currentScopeLevel { 0 };
     bool m_currentlyDeclaringParams { false };
+
+    Ast::Declaration* m_lastFunctionDeclaration{ nullptr }; // temp until we have constant functions
 };
 
 void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt);
@@ -39,9 +36,6 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
 
-            // TODO: Construct a function typeinfo, and find or add it to the table
-            pFunction->m_pType = ValueType::Function;
-
             // The params will end up in the same scope as the body, and get automatically yeeted from the declarations list at the end of the block
             state.m_currentlyDeclaringParams = true;
             state.m_currentScopeLevel++;
@@ -51,13 +45,31 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             state.m_currentScopeLevel--;
             state.m_currentlyDeclaringParams = false;
 
-            // TODO: The last declared function identifier gets saved at this point and the function put in the declarations list so the statement below will typecheck
-            // correctly
-            // Note this is a hack until we have constant functions, which will be declared before the body gets typechecked due to being constant
+            // Create or find type info for this function
+            StringBuilder builder;
+            builder.Append("(");
+            TypeInfoFunction newTypeInfo;
+            newTypeInfo.tag = TypeInfo::TypeTag::Function;
+            for (size_t i = 0; i < pFunction->m_params.m_count; i++) {
+                Ast::Declaration* pParam = pFunction->m_params[i];
+                newTypeInfo.params.PushBack(pParam->m_pResolvedType);
+                if (i < pFunction->m_params.m_count - 1) {
+                    builder.AppendFormat("%s, ", pParam->m_pResolvedType->name.m_pData);
+                } else {
+                    builder.AppendFormat("%s", pParam->m_pResolvedType->name.m_pData);
+                }
+            }
+            newTypeInfo.pReturnType = pFunction->m_pReturnType->m_pResolvedType;
+            builder.Append(")");
+            if (newTypeInfo.pReturnType)
+                builder.AppendFormat(" -> %s", newTypeInfo.pReturnType->name.m_pData);
+            newTypeInfo.name = builder.CreateString();
+            pFunction->m_pType = FindOrAddType(&newTypeInfo);
 
+            // temp until we have constant declarations which will already be in declarations table
+            // This is required for recursion for now
+            state.m_lastFunctionDeclaration->m_pResolvedType = pFunction->m_pType;
             TypeCheckStatement(state, pFunction->m_pBody);
-
-            // TODO: remove the function from the declarations list so it can be added correctly by the declaration code
 
             // TODO: Check maximum number of arguments (255 uint8) and error if above
             break;
@@ -65,10 +77,11 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
         case Ast::NodeType::Variable: {
             Ast::Variable* pVariable = (Ast::Variable*)pExpr;
 
-            Declaration* pDeclEntry = state.m_declarations.Get(pVariable->m_identifier);
+            Ast::Declaration** pDeclEntry = state.m_declarations.Get(pVariable->m_identifier);
             if (pDeclEntry) {
-                if (pDeclEntry->initialized) {
-                    pVariable->m_pType = pDeclEntry->pNode->m_pResolvedType;
+                Ast::Declaration* pDecl = *pDeclEntry;
+                if (pDecl->m_initialized) {
+                    pVariable->m_pType = pDecl->m_pResolvedType;
                 } else {
                     state.m_pErrors->PushError(pVariable, "Cannot use \'%s\', it is not initialized yet", pVariable->m_identifier.m_pData);     
                 }
@@ -82,16 +95,18 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
             TypeCheckExpression(state, pVarAssignment->m_pAssignment);
 
-            Declaration* pDeclEntry = state.m_declarations.Get(pVarAssignment->m_identifier);
+            Ast::Declaration** pDeclEntry = state.m_declarations.Get(pVarAssignment->m_identifier);
             if (pDeclEntry) {
-                TypeInfo* pDeclaredVarType = pDeclEntry->pNode->m_pResolvedType;
+                Ast::Declaration* pDecl = *pDeclEntry;
+
+                TypeInfo* pDeclaredVarType = pDecl->m_pResolvedType;
                 TypeInfo* pAssignedVarType = pVarAssignment->m_pAssignment->m_pType;
                 if (pDeclaredVarType == pAssignedVarType) {
                     pVarAssignment->m_pType = pDeclaredVarType;
                 } else {
-                    state.m_pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type %s, but is being assigned a value with type %s", pVarAssignment->m_identifier.m_pData, pDeclaredVarType->name.m_pData, pAssignedVarType->name.m_pData);
+                    state.m_pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type '%s', but is being assigned a value with type '%s'", pVarAssignment->m_identifier.m_pData, pDeclaredVarType->name.m_pData, pAssignedVarType->name.m_pData);
                 }
-                pDeclEntry->initialized = true;
+                pDecl->m_initialized = true;
             } else {
                 state.m_pErrors->PushError(pVarAssignment, "Assigning to undeclared variable \'%s\', missing a declaration somewhere before?", pVarAssignment->m_identifier.m_pData);
             }
@@ -134,7 +149,13 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             TypeCheckExpression(state, pCall->m_pCallee);
 
             Ast::Variable* pVar = (Ast::Variable*)pCall->m_pCallee;
-            Declaration* pDeclEntry = state.m_declarations.Get(pVar->m_identifier);
+            Ast::Declaration** pDeclEntry = state.m_declarations.Get(pVar->m_identifier);
+
+            if (pDeclEntry == nullptr) {
+                state.m_pErrors->PushError(pCall, "Attempt to call a value which is not declared yet");
+                break;
+            }
+            Ast::Declaration* pDecl = *pDeclEntry;
 
             if (pCall->m_pCallee->m_pType->tag != TypeInfo::TypeTag::Function) {
                 state.m_pErrors->PushError(pCall, "Attempt to call a value which is not a function");
@@ -143,30 +164,22 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             for (Ast::Expression* pArg : pCall->m_args) {
                 TypeCheckExpression(state, pArg);
             }
-
-            // TODO: This is kind of temporary and hacky. The type of the declaration should be a complex function type, that you can use
-            // to typecheck the function call, no need to access the initializer.
-            Ast::Declaration* pDecl = (Ast::Declaration*)pDeclEntry->pNode;
-            Ast::Function* pFunc = (Ast::Function*)pDecl->m_pInitializerExpr;
-
+            
+            TypeInfoFunction* pFunctionType = (TypeInfoFunction*)pDecl->m_pResolvedType;
             int argsCount = pCall->m_args.m_count;
-            int paramsCount = pFunc->m_params.m_count;
-            if (pCall->m_args.m_count != pFunc->m_params.m_count) {
-                state.m_pErrors->PushError(pCall, "Mismatched number of arguments in call to function '%s', expected %i, got %i", pFunc->m_identifier.m_pData, paramsCount, argsCount);
+            int paramsCount = pFunctionType->params.m_count;
+            if (pCall->m_args.m_count != pFunctionType->params.m_count) {
+                state.m_pErrors->PushError(pCall, "Mismatched number of arguments in call to function '%s', expected %i, got %i", pVar->m_identifier.m_pData, paramsCount, argsCount);
             }
 
             int minArgs = argsCount > paramsCount ? paramsCount : argsCount;
             for (size_t i = 0; i < minArgs; i++) {
                 Ast::Expression* arg = pCall->m_args[i];
-                Ast::Declaration* pDecl = pFunc->m_params[i];
-                if (pDecl->m_pResolvedType) {
-                    if (arg->m_pType != pDecl->m_pResolvedType)
-                        state.m_pErrors->PushError(arg, "Type mismatch in function argument '%s', expected %s, got %s", pDecl->m_identifier.m_pData, pDecl->m_pResolvedType->name.m_pData, arg->m_pType->name.m_pData);
-                }
+                TypeInfo* pArgType = pFunctionType->params[i];
+                if (arg->m_pType != pArgType)
+                    state.m_pErrors->PushError(arg, "Type mismatch in function argument '<argname TODO>', expected %s, got %s", pArgType->name.m_pData, arg->m_pType->name.m_pData);
             }
-
-            pCall->m_pType = pFunc->m_pReturnType->m_pResolvedType;
-
+            pCall->m_pType = pFunctionType->pReturnType;
             break;
         }
         default:
@@ -185,23 +198,19 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             if (state.m_declarations.Get(pDecl->m_identifier) != nullptr)
                 state.m_pErrors->PushError(pDecl, "Redefinition of variable '%s'", pDecl->m_identifier.m_pData);
 
-            Declaration dec;
-            dec.pNode = pDecl;
-
             if (state.m_currentlyDeclaringParams)
-                dec.initialized = true;
+                pDecl->m_initialized = true;
 
             if (pDecl->m_pInitializerExpr) {
                 if (pDecl->m_pInitializerExpr->m_nodeKind == Ast::NodeType::Function) {
-                    // Allows recursion
-                    // For recursion to work properly like this, we need to store the function identifier in the state, so the function typechecker can add itself to the declarations
-                    // List, so that it can resolve it's own name
-                    pDecl->m_pResolvedType = ValueType::Function;
-                    dec.initialized = true;
+                    // Temp, Allows recursion without constant functions
+                    state.m_lastFunctionDeclaration = pDecl;
+                    state.m_lastFunctionDeclaration->m_initialized = true;
                 }
-                Declaration& added = state.m_declarations.Add(pDecl->m_identifier, dec);
+
+                state.m_declarations.Add(pDecl->m_identifier, pDecl);
                 TypeCheckExpression(state, pDecl->m_pInitializerExpr);
-                added.initialized = true;
+                pDecl->m_initialized = true;
 
                 if (pDecl->m_pDeclaredType && pDecl->m_pInitializerExpr->m_pType != pDecl->m_pDeclaredType->m_pResolvedType) {
                     TypeInfo* pDeclaredType = pDecl->m_pDeclaredType->m_pResolvedType;
@@ -211,7 +220,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                     pDecl->m_pResolvedType = pDecl->m_pInitializerExpr->m_pType;
                 }
             } else {
-                state.m_declarations.Add(pDecl->m_identifier, dec);
+                state.m_declarations.Add(pDecl->m_identifier, pDecl);
                 pDecl->m_pResolvedType = pDecl->m_pDeclaredType->m_pResolvedType;
             }
             break;
@@ -262,9 +271,9 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             // Remove variable declarations that are now out of scope
             for (size_t i = 0; i < state.m_declarations.m_tableSize; i++) {
                 if (state.m_declarations.m_pTable[i].hash != UNUSED_HASH) {
-                    Ast::Declaration* pVarDecl = state.m_declarations.m_pTable[i].value.pNode;
+                    int scopeLevel = state.m_declarations.m_pTable[i].value->m_scopeLevel;
 
-                    if (pVarDecl->m_scopeLevel > state.m_currentScopeLevel)
+                    if (scopeLevel > state.m_currentScopeLevel)
                         state.m_declarations.Erase(state.m_declarations.m_pTable[i].key);
                 }
             }

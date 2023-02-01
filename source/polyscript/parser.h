@@ -138,8 +138,11 @@ struct Declaration : public Statement {
     String m_identifier;
     Type* m_pDeclaredType { nullptr };
     TypeInfo* m_pResolvedType;
-    int m_scopeLevel { 0 };
     Expression* m_pInitializerExpr { nullptr };
+    
+    // Used by the typechecker
+    int m_scopeLevel{ 0 };
+    bool m_initialized{ 0 };
 };
 
 }

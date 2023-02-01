@@ -75,7 +75,7 @@ struct TypeInfo {
 
 struct TypeInfoFunction : public TypeInfo {
     ResizableArray<TypeInfo*> params;
-    TypeInfo* returnType;
+    TypeInfo* pReturnType;
 };
 
 void InitTypeTable();
@@ -92,6 +92,8 @@ TypeInfo* GetBoolType();
 
 TypeInfo* GetTypeType();
 
+TypeInfo* GetEmptyFuncType();
+
 
 
 
@@ -99,7 +101,7 @@ TypeInfo* GetTypeType();
 struct Function;
 struct Value {
     //ValueType::Enum m_type { ValueType::Void };
-    TypeInfo* m_pType{ nullptr };
+    TypeInfo* m_pType { GetVoidType() };
     union {
         bool m_boolValue;
         float m_f32Value;

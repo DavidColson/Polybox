@@ -56,16 +56,14 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
             pFnType->m_pType = GetTypeType();
 
             StringBuilder builder;
-            builder.Append("fn(");
+            builder.Append("fn (");
 
             TypeInfoFunction newTypeInfo;
             newTypeInfo.tag = TypeInfo::TypeTag::Function;
 
             for (size_t i = 0; i < pFnType->m_params.m_count; i++) {
-                Ast::Declaration* pParam = pFnType->m_params[i];
-                // TODO: Maybe this should be a typecheck declaration? Without putting it in the declared list?
-                pParam->m_pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pParam->m_pDeclaredType);
-                pParam->m_pResolvedType = pParam->m_pDeclaredType->m_pResolvedType;
+                pFnType->m_params[i] = (Ast::Type*)TypeCheckExpression(state, pFnType->m_params[i]);
+                Ast::Type* pParam = pFnType->m_params[i];
 
                 newTypeInfo.params.PushBack(pParam->m_pResolvedType);
                 if (i < pFnType->m_params.m_count - 1) {
@@ -87,17 +85,37 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            pFunction->m_pSignature = (Ast::FnType*)TypeCheckExpression(state, pFunction->m_pSignature);
-            pFunction->m_pType = pFunction->m_pSignature->m_pResolvedType;
 
             // The params will end up in the same scope as the body, and get automatically yeeted from the declarations list at the end of the block
             state.m_currentlyDeclaringParams = true;
             state.m_currentScopeLevel++;
-            for (Ast::Declaration* pParamDecl : pFunction->m_pSignature->m_params) {
+            for (Ast::Declaration* pParamDecl : pFunction->m_params) {
                 TypeCheckStatement(state, pParamDecl);
             }
             state.m_currentScopeLevel--;
             state.m_currentlyDeclaringParams = false;
+
+            // Create or find type info for this function
+            StringBuilder builder;
+            builder.Append("fn (");
+            TypeInfoFunction newTypeInfo;
+            newTypeInfo.tag = TypeInfo::TypeTag::Function;
+            for (size_t i = 0; i < pFunction->m_params.m_count; i++) {
+                Ast::Declaration* pParam = pFunction->m_params[i];
+                newTypeInfo.params.PushBack(pParam->m_pResolvedType);
+                if (i < pFunction->m_params.m_count - 1) {
+                    builder.AppendFormat("%s, ", pParam->m_pResolvedType->name.m_pData);
+                } else {
+                    builder.AppendFormat("%s", pParam->m_pResolvedType->name.m_pData);
+                }
+            }
+            pFunction->m_pReturnType = (Ast::Type*)TypeCheckExpression(state, pFunction->m_pReturnType);
+            newTypeInfo.pReturnType = pFunction->m_pReturnType->m_pResolvedType;
+            builder.Append(")");
+            if (newTypeInfo.pReturnType)
+                builder.AppendFormat(" -> %s", newTypeInfo.pReturnType->name.m_pData);
+            newTypeInfo.name = builder.CreateString();
+            pFunction->m_pType = FindOrAddType(&newTypeInfo);
 
             // temp until we have constant declarations which will already be in declarations table
             // This is required for recursion for now

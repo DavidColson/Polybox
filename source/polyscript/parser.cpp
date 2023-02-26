@@ -187,13 +187,25 @@ void ParsingState::PushError(const char* formatMessage, ...) {
 void ParsingState::Synchronize() {
     m_panicMode = false;
 
+    bool waitForBlock = false;
     while (m_pCurrent->m_type != TokenType::EndOfFile) {
-        if (m_pCurrent->m_type == TokenType::Semicolon) {
-            Advance(); // Consume semicolon we found
-            return;
+        if (m_pCurrent->m_type == TokenType::LeftBrace) {
+            waitForBlock = true;
         }
 
-        Advance();
+        if (waitForBlock) {
+            if (m_pCurrent->m_type == TokenType::RightBrace) {
+                Advance();
+                return;
+            }
+            Advance();
+        } else {
+            if (m_pCurrent->m_type == TokenType::Semicolon) {
+                Advance(); // Consume semicolon we found
+                return;
+            }
+            Advance();
+        }
     }
 }
 
@@ -224,20 +236,13 @@ Ast::Expression* ParsingState::ParseType() {
         Consume(TokenType::LeftParen, "Expected left parenthesis to start function signature");
 
         if (Peek().m_type != TokenType::RightParen) {
-            // Parse parameter list
             do {
-                Token arg = Consume(TokenType::Identifier, "Expected argument identifier after comma");
-                Consume(TokenType::Colon, "Expected colon after argument identifier");
+                pFnType->m_params.PushBack((Ast::Type*)ParseType());
 
-                Ast::Declaration* pParamDecl = (Ast::Declaration*)pAllocator->Allocate(sizeof(Ast::Declaration));
-                pParamDecl->m_nodeKind = Ast::NodeType::Declaration;
-                pParamDecl->m_identifier = CopyCStringRange(arg.m_pLocation, arg.m_pLocation + arg.m_length, pAllocator);
-                pParamDecl->m_pDeclaredType = (Ast::Type*)ParseType();
-                pParamDecl->m_pLocation = arg.m_pLocation;
-                pParamDecl->m_line = arg.m_line;
-                pParamDecl->m_pLineStart = arg.m_pLineStart;
-
-                pFnType->m_params.PushBack(pParamDecl);
+                if (Peek().m_type == TokenType::Colon) {
+                    PushError("Expected a function signature, but this looks like a function header. Potentially remove 'fn' from start of expression");
+                    return nullptr;
+                }
             } while (Match(1, TokenType::Comma));
         }
         Consume(TokenType::RightParen, "Expected right parenthesis to close argument list");
@@ -267,6 +272,73 @@ Ast::Expression* ParsingState::ParseType() {
 // ***********************************************************************
 
 Ast::Expression* ParsingState::ParsePrimary() {
+
+    // We will try and parse this as a function, if we fail, we'll revert to normal expression parsing
+    if (Match(1, TokenType::LeftParen)) {
+        Token* pStart = m_pCurrent - 1;
+        Token start = Previous();
+        
+        bool isFunction = false;
+        ResizableArray<Ast::Declaration*> paramsList;
+        paramsList.m_pAlloc = pAllocator;
+
+
+        if (Match(1, TokenType::RightParen)) { // empty args list case
+            isFunction = true;
+        } else if (Match(1, TokenType::Identifier)) { // Non empty args list case
+            Token firstArg = Previous();
+
+            if (Match(1, TokenType::Colon)) {
+                isFunction = true;
+                m_pCurrent -= 2; // Go back over the identifier and colon so the loop works
+                do {
+                    Token arg = Consume(TokenType::Identifier, "Expected argument identifier after comma");
+                    Consume(TokenType::Colon, "Expected colon after argument identifier");
+
+                    Ast::Declaration* pParamDecl = (Ast::Declaration*)pAllocator->Allocate(sizeof(Ast::Declaration));
+                    pParamDecl->m_nodeKind = Ast::NodeType::Declaration;
+                    pParamDecl->m_identifier = CopyCStringRange(arg.m_pLocation, arg.m_pLocation + arg.m_length, pAllocator);
+                    pParamDecl->m_pDeclaredType = (Ast::Type*)ParseType();
+                    pParamDecl->m_pLocation = arg.m_pLocation;
+                    pParamDecl->m_line = arg.m_line;
+                    pParamDecl->m_pLineStart = arg.m_pLineStart;
+
+                    paramsList.PushBack(pParamDecl);
+                } while (Match(1, TokenType::Comma));
+                Consume(TokenType::RightParen, "Expected right parenthesis to close argument list");
+            }
+        }
+
+        if (isFunction) {
+            Ast::Function* pFunc = (Ast::Function*)pAllocator->Allocate(sizeof(Ast::Function));
+            pFunc->m_nodeKind = Ast::NodeType::Function;
+            pFunc->m_params = paramsList;
+
+            if (Match(1, TokenType::FuncSigReturn)) {
+                pFunc->m_pReturnType = (Ast::Type*)ParseType();
+            } else {
+                pFunc->m_pReturnType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
+                pFunc->m_pReturnType->m_nodeKind = Ast::NodeType::Type;
+                pFunc->m_pReturnType->m_identifier = CopyCString("void", pAllocator);
+                pFunc->m_pReturnType->m_pType = GetVoidType();
+                pFunc->m_pReturnType->m_pLocation = Previous().m_pLocation;
+                pFunc->m_pReturnType->m_pLineStart = Previous().m_pLineStart;
+                pFunc->m_pReturnType->m_line = Previous().m_line;
+            }
+
+            Consume(TokenType::LeftBrace, "Expected '{' to open function body");
+
+            pFunc->m_pBody = (Ast::Block*)ParseBlock();
+
+            pFunc->m_pLocation = start.m_pLocation;
+            pFunc->m_pLineStart = start.m_pLineStart;
+            pFunc->m_line = start.m_line;
+            return pFunc;
+        }
+
+        // This wasn't a function, so backtrack out and continue
+        m_pCurrent = pStart;
+    }
 
     if (Match(1, TokenType::LiteralInteger)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)pAllocator->Allocate(sizeof(Ast::Literal));
@@ -349,23 +421,6 @@ Ast::Expression* ParsingState::ParsePrimary() {
     }
 
     if (Ast::Type* pType = (Ast::Type*)ParseType()) {
-        
-        // Function type followed by block is just a function literal
-        if (pType->m_nodeKind == Ast::NodeType::FnType) {
-            if (Match(1, TokenType::LeftBrace)) {
-                Token funcBlockStart = Previous();
-                Ast::Function* pFunc = (Ast::Function*)pAllocator->Allocate(sizeof(Ast::Function));
-                pFunc->m_nodeKind = Ast::NodeType::Function;
-                pFunc->m_pSignature = (Ast::FnType*)pType;
-                pFunc->m_pBody = (Ast::Block*)ParseBlock();
-                pFunc->m_pLocation = funcBlockStart.m_pLocation;
-                pFunc->m_pLineStart = funcBlockStart.m_pLineStart;
-                pFunc->m_line = funcBlockStart.m_line;
-
-                return pFunc;
-            }
-        }
-
         return pType;
     }
 
@@ -774,7 +829,7 @@ Ast::Statement* ParsingState::ParseDeclaration() {
             bool isFunc = false;
             if (Match(1, TokenType::Equal)) {
                 pDecl->m_pInitializerExpr = ParseExpression();
-                if (pDecl->m_pInitializerExpr->m_nodeKind == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself
+                if (pDecl->m_pInitializerExpr && pDecl->m_pInitializerExpr->m_nodeKind == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself
                     Ast::Function* pFunc = (Ast::Function*)pDecl->m_pInitializerExpr;
                     pFunc->m_identifier = pDecl->m_identifier;
                     isFunc = true;
@@ -834,8 +889,13 @@ void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
         case Ast::NodeType::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
             Log::Debug("%*s+ Decl (%s)", indentationLevel, "", pDecl->m_identifier.m_pData);
-            if (pDecl->m_pDeclaredType)
-                Log::Debug("%*s  Type: %s", indentationLevel + 2, "", pDecl->m_pDeclaredType->m_pResolvedType->name.m_pData);
+            if (pDecl->m_pDeclaredType) {
+                String typeStr = "none";
+                if (pDecl->m_pDeclaredType->m_pResolvedType) {
+                    typeStr = pDecl->m_pDeclaredType->m_pResolvedType->name;
+                }
+                Log::Debug("%*s  Type: %s", indentationLevel + 2, "", typeStr.m_pData);
+            }
             else if (pDecl->m_pInitializerExpr)
                 Log::Debug("%*s  Type: inferred as %s", indentationLevel + 2, "", pDecl->m_pInitializerExpr->m_pType ? pDecl->m_pInitializerExpr->m_pType->name.m_pData : "none");
 
@@ -910,90 +970,112 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
     switch (pExpr->m_nodeKind) {
         case Ast::NodeType::Identifier: {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
-                Log::Debug("%*s- Identifier (%s:%s)", indentationLevel, "", pIdentifier->m_identifier.m_pData, pIdentifier->m_pType->name.m_pData);
+            String nodeTypeStr = "none";
+            if (pIdentifier->m_pType) {
+                nodeTypeStr = pIdentifier->m_pType->name;
+            }
+            
+            Log::Debug("%*s- Identifier (%s:%s)", indentationLevel, "", pIdentifier->m_identifier.m_pData, nodeTypeStr.m_pData);
             break;
         }
+        case Ast::NodeType::FnType: 
         case Ast::NodeType::Type: {
             Ast::Type* pType = (Ast::Type*)pExpr;
-                Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pType->m_identifier.m_pData, pType->m_pType->name.m_pData);
+            Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pType->m_pResolvedType->name.m_pData, pType->m_pType->name.m_pData);
             break;
         }
         case Ast::NodeType::VariableAssignment: {
             Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pExpr;
-            Log::Debug("%*s- Variable Assignment (%s:%s)", indentationLevel, "", pAssignment->m_identifier.m_pData, pAssignment->m_pType->name.m_pData);
+            String nodeTypeStr = "none";
+            if (pAssignment->m_pType) {
+                nodeTypeStr = pAssignment->m_pType->name;
+            }
+
+            Log::Debug("%*s- Variable Assignment (%s:%s)", indentationLevel, "", pAssignment->m_identifier.m_pData, nodeTypeStr.m_pData);
             DebugExpression(pAssignment->m_pAssignment, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-            if (pLiteral->m_value.m_pType == GetF32Type())
-                Log::Debug("%*s- Literal (%f:%s)", indentationLevel, "", pLiteral->m_value.m_f32Value, pLiteral->m_pType->name.m_pData);
-            else if (pLiteral->m_value.m_pType == GetI32Type())
-                Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->m_value.m_i32Value, pLiteral->m_pType->name.m_pData);
-            else if (pLiteral->m_value.m_pType == GetBoolType())
-                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false", pLiteral->m_pType->name.m_pData);
-            break;
-        }
-        case Ast::NodeType::FnType: {
-            Ast::FnType* pFnType = (Ast::FnType*)pExpr;
-            Log::Debug("%*s- Fn Type (:%s)", indentationLevel, "", pFnType->m_pType->name.m_pData);
-            for (Ast::Declaration* pParam : pFnType->m_params) {
-                Log::Debug("%*s- Param (%s:%s)", indentationLevel + 2, "", pParam->m_identifier.m_pData, pParam->m_pResolvedType->name.m_pData);
+            String nodeTypeStr = "none";
+            if (pLiteral->m_pType) {
+                nodeTypeStr = pLiteral->m_pType->name;
             }
-            Log::Debug("%*s- ReturnType (:%s)", indentationLevel + 2, "", pFnType->m_pReturnType->m_pResolvedType->name.m_pData);
+
+            if (pLiteral->m_value.m_pType == GetF32Type())
+                Log::Debug("%*s- Literal (%f:%s)", indentationLevel, "", pLiteral->m_value.m_f32Value, nodeTypeStr.m_pData);
+            else if (pLiteral->m_value.m_pType == GetI32Type())
+                Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->m_value.m_i32Value, nodeTypeStr.m_pData);
+            else if (pLiteral->m_value.m_pType == GetBoolType())
+                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false", nodeTypeStr.m_pData);
             break;
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             Log::Debug("%*s- Function", indentationLevel, "");
-            DebugExpression(pFunction->m_pSignature, indentationLevel + 2);
+            for (Ast::Declaration* pParam : pFunction->m_params) {
+                String typeStr = "none";
+                if (pParam->m_pResolvedType) {
+                    typeStr = pParam->m_pResolvedType->name;
+                }
+
+                Log::Debug("%*s- Param (%s:%s)", indentationLevel + 2, "", pParam->m_identifier.m_pData, typeStr.m_pData);
+            }
             DebugStatement(pFunction->m_pBody, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
-            Log::Debug("%*s- Group (:%s)", indentationLevel, "", pGroup->m_pType->name.m_pData);
+            String typeStr = "none";
+            if (pGroup->m_pType) {
+                typeStr = pGroup->m_pType->name;
+            }
+            Log::Debug("%*s- Group (:%s)", indentationLevel, "", typeStr.m_pData);
             DebugExpression(pGroup->m_pExpression, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
+            String nodeTypeStr = "none";
+            if (pBinary->m_pType) {
+                nodeTypeStr = pBinary->m_pType->name;
+            }
             switch (pBinary->m_operator) {
                 case Operator::Add:
-                    Log::Debug("%*s- Binary (+:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (+:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::Subtract:
-                    Log::Debug("%*s- Binary (-:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (-:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::Divide:
-                    Log::Debug("%*s- Binary (/:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (/:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::Multiply:
-                    Log::Debug("%*s- Binary (*:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (*:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::Greater:
-                    Log::Debug("%*s- Binary (>:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (>:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::Less:
-                    Log::Debug("%*s- Binary (<:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (<:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::GreaterEqual:
-                    Log::Debug("%*s- Binary (>=:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (>=:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::LessEqual:
-                    Log::Debug("%*s- Binary (<=:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (<=:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::Equal:
-                    Log::Debug("%*s- Binary (==:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (==:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::NotEqual:
-                    Log::Debug("%*s- Binary (!=:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (!=:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::And:
-                    Log::Debug("%*s- Binary (&&:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (&&:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 case Operator::Or:
-                    Log::Debug("%*s- Binary (||:%s)", indentationLevel, "", pBinary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Binary (||:%s)", indentationLevel, "", nodeTypeStr.m_pData);
                     break;
                 default:
                     break;

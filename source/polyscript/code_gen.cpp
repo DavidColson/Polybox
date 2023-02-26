@@ -122,7 +122,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, pFunction->m_pSignature->m_params, pFunction->m_identifier, state.m_pErrors);
+            Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, pFunction->m_params, pFunction->m_identifier, state.m_pErrors);
 
             Value value;
             value.m_pType = pFunction->m_pType;

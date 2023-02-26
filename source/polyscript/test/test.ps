@@ -1,4 +1,3 @@
-
 {
     dave := 3*12.3/8+1;
     dave = 2.0;
@@ -17,20 +16,17 @@
         lucy = 20;
     }
 
-    // Codegen doesn't understand this yet
-    // Not even sure how to implement in codegen
-    // Probably the type's ID in the type database should be how it's implemented under the hood
     myType := i32;
     print(myType);
 
-    //funcType := fn (i32, f32) -> i32;
-    //print(funcType);
+    funcType := fn (i32, f32) -> i32;
+    print(funcType);
 
     print(lucy);
     //print( (5 - (lucy+5.0)) * 12 / 3 );
 }
 
-add := fn (num: i32, float: f32, boolean: bool) -> i32 {
+add := (num: i32, float: f32, boolean: bool) -> i32 {
     print(num);
     print(float);
     print(boolean);
@@ -42,7 +38,7 @@ add := fn (num: i32, float: f32, boolean: bool) -> i32 {
 
 print(add(5, 55.2, true));
 
-fibonacci := fn (n: i32) -> i32 {
+fibonacci := (n: i32) -> i32 {
     if (n <= 1)
         return n;
     else

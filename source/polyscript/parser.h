@@ -86,14 +86,15 @@ struct Type : public Expression {
 
 struct Declaration;
 struct FnType : public Type {
-    ResizableArray<Declaration*> m_params;
-    Type * m_pReturnType;
+    ResizableArray<Type*> m_params;
+    Type* m_pReturnType;
 };
 
 struct Block;
 struct Function : public Expression {
-    FnType* m_pSignature;
+    ResizableArray<Declaration*> m_params;
     Block* m_pBody;
+    Type * m_pReturnType;
     String m_identifier;
 };
 
@@ -206,6 +207,8 @@ struct ParsingState {
     void PushError(const char* formatMessage, ...);
 
     void Synchronize();
+
+    void SynchronizeBlock();
 
     Ast::Expression* ParseType();
 

@@ -52,6 +52,7 @@ enum Enum : uint32_t {
     While,
     Struct,
     Return,
+    Fn,
     // Other
     Identifier,
     EndOfFile,

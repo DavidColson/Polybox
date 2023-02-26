@@ -56,9 +56,10 @@ int main() {
     ParsingState parser;
     ResizableArray<Ast::Statement*> program = parser.InitAndParse(tokens, &errorState, &compilerMemory);
 
-
     // Type check
-    TypeCheckProgram(program, &errorState);
+    if (errorState.m_errors.m_count == 0) {
+        TypeCheckProgram(program, &errorState);
+    }
 
     // Error report
     bool success = errorState.ReportCompilationResult();

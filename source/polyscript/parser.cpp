@@ -200,6 +200,7 @@ void ParsingState::Synchronize() {
 // ***********************************************************************
 
 Ast::Expression* ParsingState::ParseType() {
+
     if (Match(1, TokenType::Identifier)) {
         Token identifier = Previous();
 
@@ -218,87 +219,66 @@ Ast::Expression* ParsingState::ParseType() {
         }
 
         pType->m_pType = GetTypeType();
-
         pType->m_pLocation = identifier.m_pLocation;
         pType->m_pLineStart = identifier.m_pLineStart;
         pType->m_line = identifier.m_line;
 
         return pType;
     }
+
+    if (Match(1, TokenType::Fn)) {
+        Token fn = Previous();
+
+        Ast::FnType* pFnType = (Ast::FnType*)pAllocator->Allocate(sizeof(Ast::FnType));
+        pFnType->m_nodeKind = Ast::NodeType::FnType;
+        pFnType->m_params.m_pAlloc = pAllocator;
+
+        Consume(TokenType::LeftParen, "Expected left parenthesis to start function signature");
+
+        if (Peek().m_type != TokenType::RightParen) {
+            // Parse parameter list
+            do {
+                Token arg = Consume(TokenType::Identifier, "Expected argument identifier after comma");
+                Consume(TokenType::Colon, "Expected colon after argument identifier");
+
+                Ast::Declaration* pParamDecl = (Ast::Declaration*)pAllocator->Allocate(sizeof(Ast::Declaration));
+                pParamDecl->m_nodeKind = Ast::NodeType::Declaration;
+                pParamDecl->m_identifier = CopyCStringRange(arg.m_pLocation, arg.m_pLocation + arg.m_length, pAllocator);
+                pParamDecl->m_pDeclaredType = (Ast::Type*)ParseType();
+                pParamDecl->m_pLocation = arg.m_pLocation;
+                pParamDecl->m_line = arg.m_line;
+                pParamDecl->m_pLineStart = arg.m_pLineStart;
+
+                pFnType->m_params.PushBack(pParamDecl);
+            } while (Match(1, TokenType::Comma));
+        }
+        Consume(TokenType::RightParen, "Expected right parenthesis to close argument list");
+
+        // Parse return type
+        if (Match(1, TokenType::FuncSigReturn)) {
+            pFnType->m_pReturnType = (Ast::Type*)ParseType();
+        } else {
+            pFnType->m_pReturnType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
+            pFnType->m_pReturnType->m_nodeKind = Ast::NodeType::Identifier;
+            pFnType->m_pReturnType->m_identifier = CopyCString("void", pAllocator);
+            pFnType->m_pReturnType->m_pType = GetVoidType();
+            pFnType->m_pReturnType->m_pLocation = Previous().m_pLocation;
+            pFnType->m_pReturnType->m_pLineStart = Previous().m_pLineStart;
+            pFnType->m_pReturnType->m_line = Previous().m_line;
+        }
+
+        pFnType->m_pLocation = fn.m_pLocation;
+        pFnType->m_pLineStart = fn.m_pLineStart;
+        pFnType->m_line = fn.m_line;
+        return pFnType;
+    }
+
     return nullptr;
 }
 
 // ***********************************************************************
 
 Ast::Expression* ParsingState::ParsePrimary() {
-
-    // We will try and parse this as a function, if we fail, we'll revert to normal expression parsing
-    if (Match(1, TokenType::LeftParen)) {
-        Token* pStart = m_pCurrent - 1;
-        Token start = Previous();
-        
-        bool isFunction = false;
-        ResizableArray<Ast::Declaration*> paramsList;
-        paramsList.m_pAlloc = pAllocator;
-
-
-        if (Match(1, TokenType::RightParen)) { // empty args list case
-            isFunction = true;
-        } else if (Match(1, TokenType::Identifier)) { // Non empty args list case
-            Token firstArg = Previous();
-
-            if (Match(1, TokenType::Colon)) {
-                isFunction = true;
-                m_pCurrent -= 2; // Go back over the identifier and colon so the loop works
-                do {
-                    Token arg = Consume(TokenType::Identifier, "Expected argument identifier after comma");
-                    Consume(TokenType::Colon, "Expected colon after argument identifier");
-
-                    Ast::Declaration* pParamDecl = (Ast::Declaration*)pAllocator->Allocate(sizeof(Ast::Declaration));
-                    pParamDecl->m_nodeKind = Ast::NodeType::Declaration;
-                    pParamDecl->m_identifier = CopyCStringRange(arg.m_pLocation, arg.m_pLocation + arg.m_length, pAllocator);
-                    pParamDecl->m_pDeclaredType = (Ast::Type*)ParseType();
-                    pParamDecl->m_pLocation = arg.m_pLocation;
-                    pParamDecl->m_line = arg.m_line;
-                    pParamDecl->m_pLineStart = arg.m_pLineStart;
-
-                    paramsList.PushBack(pParamDecl);
-                } while (Match(1, TokenType::Comma));
-                Consume(TokenType::RightParen, "Expected right parenthesis to close argument list");
-            }
-        }
-
-        if (isFunction) {
-            Ast::Function* pFunc = (Ast::Function*)pAllocator->Allocate(sizeof(Ast::Function));
-            pFunc->m_nodeKind = Ast::NodeType::Function;
-            pFunc->m_params = paramsList;
-
-            if (Match(1, TokenType::FuncSigReturn)) {
-                pFunc->m_pReturnType = (Ast::Type*)ParseType();
-            } else {
-                pFunc->m_pReturnType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
-                pFunc->m_pReturnType->m_nodeKind = Ast::NodeType::Type;
-                pFunc->m_pReturnType->m_identifier = CopyCString("void", pAllocator);
-                pFunc->m_pReturnType->m_pType = GetVoidType();
-                pFunc->m_pReturnType->m_pLocation = Previous().m_pLocation;
-                pFunc->m_pReturnType->m_pLineStart = Previous().m_pLineStart;
-                pFunc->m_pReturnType->m_line = Previous().m_line;
-            }
-
-            Consume(TokenType::LeftBrace, "Expected '{' to open function body");
-
-            pFunc->m_pBody = (Ast::Block*)ParseBlock();
-
-            pFunc->m_pLocation = start.m_pLocation;
-            pFunc->m_pLineStart = start.m_pLineStart;
-            pFunc->m_line = start.m_line;
-            return pFunc;
-        }
-
-
-        // This wasn't a function, so backtrack out and continue
-        m_pCurrent = pStart;
-    }
 
     if (Match(1, TokenType::LiteralInteger)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)pAllocator->Allocate(sizeof(Ast::Literal));
@@ -365,18 +345,40 @@ Ast::Expression* ParsingState::ParsePrimary() {
         return nullptr;
     }
 
-    if (Match(1, TokenType::Identifier)) {
+    if (Match(1, TokenType::Identifier)) { // Note this could now be a primitive type, need to account for this in the parser structure and typechecker
         Token identifier = Previous();
 
-        Ast::Variable* pVariable = (Ast::Variable*)pAllocator->Allocate(sizeof(Ast::Variable));
-        pVariable->m_nodeKind = Ast::NodeType::Variable;
-        pVariable->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
+        // Should become identifier with a type, variable or type or something like that
+        Ast::Identifier* pIdentifier = (Ast::Identifier*)pAllocator->Allocate(sizeof(Ast::Identifier));
+        pIdentifier->m_nodeKind = Ast::NodeType::Identifier;
+        pIdentifier->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
 
-        pVariable->m_pLocation = identifier.m_pLocation;
-        pVariable->m_pLineStart = identifier.m_pLineStart;
-        pVariable->m_line = identifier.m_line;
+        pIdentifier->m_pLocation = identifier.m_pLocation;
+        pIdentifier->m_pLineStart = identifier.m_pLineStart;
+        pIdentifier->m_line = identifier.m_line;
 
-        return pVariable;
+        return pIdentifier;
+    }
+
+    if (Ast::Type* pType = (Ast::Type*)ParseType()) {
+        
+        // Function type followed by block is just a function literal
+        if (pType->m_nodeKind == Ast::NodeType::FnType) {
+            if (Match(1, TokenType::LeftBrace)) {
+                Token funcBlockStart = Previous();
+                Ast::Function* pFunc = (Ast::Function*)pAllocator->Allocate(sizeof(Ast::Function));
+                pFunc->m_nodeKind = Ast::NodeType::Function;
+                pFunc->m_pSignature = (Ast::FnType*)pType;
+                pFunc->m_pBody = (Ast::Block*)ParseBlock();
+                pFunc->m_pLocation = funcBlockStart.m_pLocation;
+                pFunc->m_pLineStart = funcBlockStart.m_pLineStart;
+                pFunc->m_line = funcBlockStart.m_line;
+
+                return pFunc;
+            }
+        }
+
+        return pType;
     }
 
     return nullptr;
@@ -580,11 +582,11 @@ Ast::Expression* ParsingState::ParseVarAssignment() {
         Token equal = Previous();
         Ast::Expression* pAssignment = ParseVarAssignment();
 
-        if (pExpr->m_nodeKind == Ast::NodeType::Variable) {
+        if (pExpr->m_nodeKind == Ast::NodeType::Identifier) {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pAllocator->Allocate(sizeof(Ast::VariableAssignment));
             pVarAssignment->m_nodeKind = Ast::NodeType::VariableAssignment;
 
-            pVarAssignment->m_identifier = ((Ast::Variable*)pExpr)->m_identifier;
+            pVarAssignment->m_identifier = ((Ast::Identifier*)pExpr)->m_identifier;
             pVarAssignment->m_pAssignment = pAssignment;
 
             pVarAssignment->m_pLocation = equal.m_pLocation;
@@ -918,9 +920,14 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
     }
 
     switch (pExpr->m_nodeKind) {
-        case Ast::NodeType::Variable: {
-            Ast::Variable* pVariable = (Ast::Variable*)pExpr;
-                Log::Debug("%*s- Variable (%s:%s)", indentationLevel, "", pVariable->m_identifier.m_pData, pVariable->m_pType->name.m_pData);
+        case Ast::NodeType::Identifier: {
+            Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
+                Log::Debug("%*s- Identifier (%s:%s)", indentationLevel, "", pIdentifier->m_identifier.m_pData, pIdentifier->m_pType->name.m_pData);
+            break;
+        }
+        case Ast::NodeType::Type: {
+            Ast::Type* pType = (Ast::Type*)pExpr;
+                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pType->m_identifier.m_pData, pType->m_pType->name.m_pData);
             break;
         }
         case Ast::NodeType::VariableAssignment: {
@@ -939,13 +946,19 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
                 Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false", pLiteral->m_pType->name.m_pData);
             break;
         }
-        case Ast::NodeType::Function: {
-            Ast::Function* pFunction = (Ast::Function*)pExpr;
-            Log::Debug("%*s- Function (:%s)", indentationLevel, "", pFunction->m_pType->name.m_pData);
-            for (Ast::Declaration* pParam : pFunction->m_params) {
+        case Ast::NodeType::FnType: {
+            Ast::FnType* pFnType = (Ast::FnType*)pExpr;
+            Log::Debug("%*s- Fn Type (:%s)", indentationLevel, "", pFnType->m_pType->name.m_pData);
+            for (Ast::Declaration* pParam : pFnType->m_params) {
                 Log::Debug("%*s- Param (%s:%s)", indentationLevel + 2, "", pParam->m_identifier.m_pData, pParam->m_pResolvedType->name.m_pData);
             }
-            Log::Debug("%*s- ReturnType (:%s)", indentationLevel + 2, "", pFunction->m_pReturnType->m_pResolvedType->name.m_pData);
+            Log::Debug("%*s- ReturnType (:%s)", indentationLevel + 2, "", pFnType->m_pReturnType->m_pResolvedType->name.m_pData);
+            break;
+        }
+        case Ast::NodeType::Function: {
+            Ast::Function* pFunction = (Ast::Function*)pExpr;
+            Log::Debug("%*s- Function", indentationLevel, "");
+            DebugExpression(pFunction->m_pSignature, indentationLevel + 2);
             DebugStatement(pFunction->m_pBody, indentationLevel + 2);
             break;
         }

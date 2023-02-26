@@ -17,11 +17,13 @@
         lucy = 20;
     }
 
+    //myType := i32;
+
     print(lucy);
     //print( (5 - (lucy+5.0)) * 12 / 3 );
 }
 
-add := (num: i32, float: f32, boolean: bool) -> i32 {
+add := fn (num: i32, float: f32, boolean: bool) -> i32 {
     print(num);
     print(float);
     print(boolean);
@@ -33,7 +35,7 @@ add := (num: i32, float: f32, boolean: bool) -> i32 {
 
 print(add(5, 55.2, true));
 
-fibonacci := (n: i32) -> i32 {
+fibonacci := fn (n: i32) -> i32 {
     if (n <= 1)
         return n;
     else

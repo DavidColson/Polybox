@@ -80,8 +80,8 @@ void PatchJump(State& state, int jumpCodeLocation) {
 
 void CodeGenExpression(State& state, Ast::Expression* pExpr) {
     switch (pExpr->m_nodeKind) {
-        case Ast::NodeType::Variable: {
-            Ast::Variable* pVariable = (Ast::Variable*)pExpr;
+        case Ast::NodeType::Identifier: {
+            Ast::Identifier* pVariable = (Ast::Identifier*)pExpr;
             int localIndex = ResolveLocal(state, pVariable->m_identifier);
             if (localIndex != -1) {
                 PushCode(state, OpCode::GetLocal, pVariable->m_line);
@@ -111,7 +111,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, pFunction->m_params, pFunction->m_identifier, state.m_pErrors);
+            Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, pFunction->m_pSignature->m_params, pFunction->m_identifier, state.m_pErrors);
 
             Value value;
             value.m_pType = pFunction->m_pType;

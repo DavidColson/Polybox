@@ -25,9 +25,12 @@ enum class NodeType {
     Literal,
     Function,
     Grouping,
-    Variable,
+    Identifier,
     VariableAssignment,
+
+    // Types
     Type,
+    FnType,
 
     // Statements
     ExpressionStmt,
@@ -72,7 +75,7 @@ struct Grouping : public Expression {
     Expression* m_pExpression;
 };
 
-struct Variable : public Expression {
+struct Identifier : public Expression {
     String m_identifier;
 };
 
@@ -81,12 +84,16 @@ struct Type : public Expression {
     TypeInfo* m_pResolvedType;
 };
 
-struct Block;
 struct Declaration;
-struct Function : public Expression {
+struct FnType : public Type {
     ResizableArray<Declaration*> m_params;
-    Block* m_pBody;
     Type * m_pReturnType;
+};
+
+struct Block;
+struct Function : public Expression {
+    FnType* m_pSignature;
+    Block* m_pBody;
     String m_identifier;
 };
 

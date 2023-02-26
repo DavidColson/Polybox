@@ -21,6 +21,50 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt);
 void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program);
 
 
+void ResolveType(TypeCheckerState& state, Ast::Type* pTypeNode) {
+     if (pTypeNode == nullptr)
+        return;
+
+    switch (pTypeNode->m_nodeKind) {
+        case Ast::NodeType::Type: {
+            break;
+        }
+        case Ast::NodeType::FnType: {
+            Ast::FnType* pFnType = (Ast::FnType*)pTypeNode;
+            pFnType->m_pType = GetTypeType();
+
+            StringBuilder builder;
+            builder.Append("fn(");
+
+            TypeInfoFunction newTypeInfo;
+            newTypeInfo.tag = TypeInfo::TypeTag::Function;
+
+            for (size_t i = 0; i < pFnType->m_params.m_count; i++) {
+                Ast::Declaration* pParam = pFnType->m_params[i];
+                ResolveType(state, pParam->m_pDeclaredType);
+                pParam->m_pResolvedType = pParam->m_pDeclaredType->m_pResolvedType;
+
+                newTypeInfo.params.PushBack(pParam->m_pResolvedType);
+                if (i < pFnType->m_params.m_count - 1) {
+                    builder.AppendFormat("%s, ", pParam->m_pResolvedType->name.m_pData);
+                } else {
+                    builder.AppendFormat("%s", pParam->m_pResolvedType->name.m_pData);
+                }
+            }
+
+            newTypeInfo.pReturnType = pFnType->m_pReturnType->m_pResolvedType;
+            builder.Append(")");
+            if (newTypeInfo.pReturnType)
+                builder.AppendFormat(" -> %s", newTypeInfo.pReturnType->name.m_pData);
+            newTypeInfo.name = builder.CreateString();
+
+            pFnType->m_pResolvedType = FindOrAddType(&newTypeInfo);
+            break;
+        }
+        default: break;
+    }
+}
+
 // ***********************************************************************
 
 void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
@@ -33,38 +77,24 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             pLiteral->m_pType = pLiteral->m_value.m_pType;
             break;
         }
+        case Ast::NodeType::Type:
+        case Ast::NodeType::FnType: {
+            ResolveType(state, (Ast::Type*)pExpr);
+            break;
+        }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
+            TypeCheckExpression(state, pFunction->m_pSignature);
+            pFunction->m_pType = pFunction->m_pSignature->m_pResolvedType;
 
             // The params will end up in the same scope as the body, and get automatically yeeted from the declarations list at the end of the block
             state.m_currentlyDeclaringParams = true;
             state.m_currentScopeLevel++;
-            for (Ast::Declaration* pParamDecl : pFunction->m_params) {
+            for (Ast::Declaration* pParamDecl : pFunction->m_pSignature->m_params) {
                 TypeCheckStatement(state, pParamDecl);
             }
             state.m_currentScopeLevel--;
             state.m_currentlyDeclaringParams = false;
-
-            // Create or find type info for this function
-            StringBuilder builder;
-            builder.Append("(");
-            TypeInfoFunction newTypeInfo;
-            newTypeInfo.tag = TypeInfo::TypeTag::Function;
-            for (size_t i = 0; i < pFunction->m_params.m_count; i++) {
-                Ast::Declaration* pParam = pFunction->m_params[i];
-                newTypeInfo.params.PushBack(pParam->m_pResolvedType);
-                if (i < pFunction->m_params.m_count - 1) {
-                    builder.AppendFormat("%s, ", pParam->m_pResolvedType->name.m_pData);
-                } else {
-                    builder.AppendFormat("%s", pParam->m_pResolvedType->name.m_pData);
-                }
-            }
-            newTypeInfo.pReturnType = pFunction->m_pReturnType->m_pResolvedType;
-            builder.Append(")");
-            if (newTypeInfo.pReturnType)
-                builder.AppendFormat(" -> %s", newTypeInfo.pReturnType->name.m_pData);
-            newTypeInfo.name = builder.CreateString();
-            pFunction->m_pType = FindOrAddType(&newTypeInfo);
 
             // temp until we have constant declarations which will already be in declarations table
             // This is required for recursion for now
@@ -74,19 +104,21 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             // TODO: Check maximum number of arguments (255 uint8) and error if above
             break;
         }
-        case Ast::NodeType::Variable: {
-            Ast::Variable* pVariable = (Ast::Variable*)pExpr;
+        case Ast::NodeType::Identifier: {
+            Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
+    
+            // TODO: If this ends up being a type, need to swap the node with a type node
 
-            Ast::Declaration** pDeclEntry = state.m_declarations.Get(pVariable->m_identifier);
+            Ast::Declaration** pDeclEntry = state.m_declarations.Get(pIdentifier->m_identifier);
             if (pDeclEntry) {
                 Ast::Declaration* pDecl = *pDeclEntry;
                 if (pDecl->m_initialized) {
-                    pVariable->m_pType = pDecl->m_pResolvedType;
+                    pIdentifier->m_pType = pDecl->m_pResolvedType;
                 } else {
-                    state.m_pErrors->PushError(pVariable, "Cannot use \'%s\', it is not initialized yet", pVariable->m_identifier.m_pData);     
+                    state.m_pErrors->PushError(pIdentifier, "Cannot use \'%s\', it is not initialized yet", pIdentifier->m_identifier.m_pData);     
                 }
             } else {
-                state.m_pErrors->PushError(pVariable, "Undeclared variable \'%s\', missing a declaration somewhere before?", pVariable->m_identifier.m_pData);
+                state.m_pErrors->PushError(pIdentifier, "Undeclared variable \'%s\', missing a declaration somewhere before?", pIdentifier->m_identifier.m_pData);
             }
 
             break;
@@ -148,7 +180,7 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
 
             TypeCheckExpression(state, pCall->m_pCallee);
 
-            Ast::Variable* pVar = (Ast::Variable*)pCall->m_pCallee;
+            Ast::Identifier* pVar = (Ast::Identifier*)pCall->m_pCallee;
             Ast::Declaration** pDeclEntry = state.m_declarations.Get(pVar->m_identifier);
 
             if (pDeclEntry == nullptr) {

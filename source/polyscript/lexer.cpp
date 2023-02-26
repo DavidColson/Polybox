@@ -181,7 +181,9 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
                     identifier.m_length = scan.m_pCurrent - scan.m_pTokenStart;
 
                     // Check for keywords
-                    if (identifier == "if")
+                    if (identifier == "fn")
+                        tokens.PushBack(MakeToken(scan, TokenType::Fn));
+                    else if (identifier == "if")
                         tokens.PushBack(MakeToken(scan, TokenType::If));
                     else if (identifier == "else")
                         tokens.PushBack(MakeToken(scan, TokenType::Else));

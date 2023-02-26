@@ -108,7 +108,7 @@ void InitTypeTable() {
     TypeInfo* pTypeType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
     pTypeType->tag = TypeInfo::TypeTag::Type;
     pTypeType->size = 0;
-    pTypeType->name = "type";
+    pTypeType->name = "Type";
     typeTable.PushBack(pTypeType);
 
     TypeInfoFunction* pEmptyFuncType = (TypeInfoFunction*)g_Allocator.Allocate(sizeof(TypeInfoFunction));

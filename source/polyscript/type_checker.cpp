@@ -45,6 +45,8 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
                 pType->m_pResolvedType = GetF32Type(); 
             } else if (pType->m_identifier == "bool") {
                 pType->m_pResolvedType = GetBoolType();
+            } else if (pType->m_identifier == "Type") {
+                pType->m_pResolvedType = GetTypeType();
             } else {
                 pType->m_pResolvedType = GetVoidType();
             }
@@ -131,7 +133,8 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
             // Is this a type? If so need to replace this identifier node with a type node
             if (pIdentifier->m_identifier == "i32"
                 | pIdentifier->m_identifier == "f32"
-                | pIdentifier->m_identifier == "bool") {
+                | pIdentifier->m_identifier == "bool"
+                | pIdentifier->m_identifier == "Type") {
                 Ast::Type* pType = (Ast::Type*)state.m_pAllocator->Allocate(sizeof(Ast::Type));
                 pType->m_nodeKind = Ast::NodeType::Type;
                 pType->m_identifier = pIdentifier->m_identifier;
@@ -277,6 +280,9 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 state.m_declarations.Add(pDecl->m_identifier, pDecl);
                 pDecl->m_pInitializerExpr = TypeCheckExpression(state, pDecl->m_pInitializerExpr);
                 pDecl->m_initialized = true;
+
+                if (pDecl->m_pDeclaredType)
+                    pDecl->m_pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pDecl->m_pDeclaredType);
 
                 if (pDecl->m_pDeclaredType && pDecl->m_pInitializerExpr->m_pType != pDecl->m_pDeclaredType->m_pResolvedType) {
                     TypeInfo* pDeclaredType = pDecl->m_pDeclaredType->m_pResolvedType;

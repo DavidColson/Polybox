@@ -394,7 +394,9 @@ void Run(Function* pFuncToRun) {
             }
             case OpCode::GetLocal: {
                 uint8_t opIndex = *pFrame->pInstructionPointer++;
-                vm.stack.Push(vm.stack[pFrame->stackBaseIndex + opIndex]);
+                // Must make a copy in case stack reallocates during push
+                Value copy = vm.stack[pFrame->stackBaseIndex + opIndex];
+                vm.stack.Push(copy);
                 break;
             }
             case OpCode::JmpIfFalse: {

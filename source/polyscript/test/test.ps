@@ -17,7 +17,14 @@
         lucy = 20;
     }
 
-    //myType := i32;
+    // Codegen doesn't understand this yet
+    // Not even sure how to implement in codegen
+    // Probably the type's ID in the type database should be how it's implemented under the hood
+    myType := i32;
+    print(myType);
+
+    //funcType := fn (i32, f32) -> i32;
+    //print(funcType);
 
     print(lucy);
     //print( (5 - (lucy+5.0)) * 12 / 3 );

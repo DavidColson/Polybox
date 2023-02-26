@@ -7,12 +7,14 @@
 #include <hashmap.inl>
 #include <resizable_array.inl>
 #include <string_builder.h>
+#include <memory.h>
 
 struct TypeCheckerState {
     HashMap<String, Ast::Declaration*> m_declarations;
     ErrorState* m_pErrors { nullptr };
     int m_currentScopeLevel { 0 };
     bool m_currentlyDeclaringParams { false };
+    IAllocator* m_pAllocator{ nullptr };
 
     Ast::Declaration* m_lastFunctionDeclaration{ nullptr }; // temp until we have constant functions
 };
@@ -20,17 +22,37 @@ struct TypeCheckerState {
 void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt);
 void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program);
 
+// ***********************************************************************
 
-void ResolveType(TypeCheckerState& state, Ast::Type* pTypeNode) {
-     if (pTypeNode == nullptr)
-        return;
+[[nodiscard]] Ast::Expression* TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
+    if (pExpr == nullptr)
+        return pExpr;
 
-    switch (pTypeNode->m_nodeKind) {
+    switch (pExpr->m_nodeKind) {
+        case Ast::NodeType::Literal: {
+            Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
+            pLiteral->m_pType = pLiteral->m_value.m_pType;
+            return pLiteral;
+        }
         case Ast::NodeType::Type: {
-            break;
+            Ast::Type* pType = (Ast::FnType*)pExpr;
+            pType->m_pType = GetTypeType();
+
+            // Resolve Type
+            if (pType->m_identifier == "i32") {
+                pType->m_pResolvedType = GetI32Type();
+            } else if (pType->m_identifier == "f32") {
+                pType->m_pResolvedType = GetF32Type(); 
+            } else if (pType->m_identifier == "bool") {
+                pType->m_pResolvedType = GetBoolType();
+            } else {
+                pType->m_pResolvedType = GetVoidType();
+            }
+
+            return pType;
         }
         case Ast::NodeType::FnType: {
-            Ast::FnType* pFnType = (Ast::FnType*)pTypeNode;
+            Ast::FnType* pFnType = (Ast::FnType*)pExpr;
             pFnType->m_pType = GetTypeType();
 
             StringBuilder builder;
@@ -41,7 +63,8 @@ void ResolveType(TypeCheckerState& state, Ast::Type* pTypeNode) {
 
             for (size_t i = 0; i < pFnType->m_params.m_count; i++) {
                 Ast::Declaration* pParam = pFnType->m_params[i];
-                ResolveType(state, pParam->m_pDeclaredType);
+                // TODO: Maybe this should be a typecheck declaration? Without putting it in the declared list?
+                pParam->m_pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pParam->m_pDeclaredType);
                 pParam->m_pResolvedType = pParam->m_pDeclaredType->m_pResolvedType;
 
                 newTypeInfo.params.PushBack(pParam->m_pResolvedType);
@@ -52,6 +75,7 @@ void ResolveType(TypeCheckerState& state, Ast::Type* pTypeNode) {
                 }
             }
 
+            pFnType->m_pReturnType = (Ast::Type*)TypeCheckExpression(state, pFnType->m_pReturnType);
             newTypeInfo.pReturnType = pFnType->m_pReturnType->m_pResolvedType;
             builder.Append(")");
             if (newTypeInfo.pReturnType)
@@ -59,32 +83,11 @@ void ResolveType(TypeCheckerState& state, Ast::Type* pTypeNode) {
             newTypeInfo.name = builder.CreateString();
 
             pFnType->m_pResolvedType = FindOrAddType(&newTypeInfo);
-            break;
-        }
-        default: break;
-    }
-}
-
-// ***********************************************************************
-
-void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
-    if (pExpr == nullptr)
-        return;
-
-    switch (pExpr->m_nodeKind) {
-        case Ast::NodeType::Literal: {
-            Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-            pLiteral->m_pType = pLiteral->m_value.m_pType;
-            break;
-        }
-        case Ast::NodeType::Type:
-        case Ast::NodeType::FnType: {
-            ResolveType(state, (Ast::Type*)pExpr);
-            break;
+            return pFnType;
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            TypeCheckExpression(state, pFunction->m_pSignature);
+            pFunction->m_pSignature = (Ast::FnType*)TypeCheckExpression(state, pFunction->m_pSignature);
             pFunction->m_pType = pFunction->m_pSignature->m_pResolvedType;
 
             // The params will end up in the same scope as the body, and get automatically yeeted from the declarations list at the end of the block
@@ -102,12 +105,25 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
             TypeCheckStatement(state, pFunction->m_pBody);
 
             // TODO: Check maximum number of arguments (255 uint8) and error if above
-            break;
+            return pFunction;
         }
         case Ast::NodeType::Identifier: {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
     
-            // TODO: If this ends up being a type, need to swap the node with a type node
+            // Is this a type? If so need to replace this identifier node with a type node
+            if (pIdentifier->m_identifier == "i32"
+                | pIdentifier->m_identifier == "f32"
+                | pIdentifier->m_identifier == "bool") {
+                Ast::Type* pType = (Ast::Type*)state.m_pAllocator->Allocate(sizeof(Ast::Type));
+                pType->m_nodeKind = Ast::NodeType::Type;
+                pType->m_identifier = pIdentifier->m_identifier;
+                pType->m_pLocation = pIdentifier->m_pLocation;
+                pType->m_pLineStart = pIdentifier->m_pLineStart;
+                pType->m_line = pIdentifier->m_line;
+
+                pType = (Ast::Type*)TypeCheckExpression(state, pType);
+                return pType;
+            }
 
             Ast::Declaration** pDeclEntry = state.m_declarations.Get(pIdentifier->m_identifier);
             if (pDeclEntry) {
@@ -121,11 +137,11 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
                 state.m_pErrors->PushError(pIdentifier, "Undeclared variable \'%s\', missing a declaration somewhere before?", pIdentifier->m_identifier.m_pData);
             }
 
-            break;
+            return pIdentifier;
         }
         case Ast::NodeType::VariableAssignment: {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
-            TypeCheckExpression(state, pVarAssignment->m_pAssignment);
+            pVarAssignment->m_pAssignment = TypeCheckExpression(state, pVarAssignment->m_pAssignment);
 
             Ast::Declaration** pDeclEntry = state.m_declarations.Get(pVarAssignment->m_identifier);
             if (pDeclEntry) {
@@ -143,18 +159,18 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
                 state.m_pErrors->PushError(pVarAssignment, "Assigning to undeclared variable \'%s\', missing a declaration somewhere before?", pVarAssignment->m_identifier.m_pData);
             }
 
-            break;
+            return pVarAssignment;
         }
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
-            TypeCheckExpression(state, pGroup->m_pExpression);
+            pGroup->m_pExpression = TypeCheckExpression(state, pGroup->m_pExpression);
             pGroup->m_pType = pGroup->m_pExpression->m_pType;
-            break;
+            return pGroup;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
-            TypeCheckExpression(state, pBinary->m_pLeft);
-            TypeCheckExpression(state, pBinary->m_pRight);
+            pBinary->m_pLeft = TypeCheckExpression(state, pBinary->m_pLeft);
+            pBinary->m_pRight = TypeCheckExpression(state, pBinary->m_pRight);
             pBinary->m_pType = OperatorReturnType(pBinary->m_operator, pBinary->m_pLeft->m_pType->tag, pBinary->m_pRight->m_pType->tag);
 
             if (pBinary->m_pType == GetVoidType()) {
@@ -163,29 +179,29 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
                 String str3 = Operator::ToString(pBinary->m_operator);
                 state.m_pErrors->PushError(pBinary, "Invalid types (%s, %s) used with operator \"%s\"", str1.m_pData, str2.m_pData, str3.m_pData);
             }
-            break;
+            return pBinary;
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
-            TypeCheckExpression(state, pUnary->m_pRight);
+            pUnary->m_pRight = TypeCheckExpression(state, pUnary->m_pRight);
             pUnary->m_pType = OperatorReturnType(pUnary->m_operator, pUnary->m_pRight->m_pType->tag, TypeInfo::TypeTag::Void);
 
             if (pUnary->m_pType == GetVoidType() && pUnary->m_pRight->m_pType != GetVoidType()) {
                 state.m_pErrors->PushError(pUnary, "Invalid type (%s) used with operator \"%s\"", pUnary->m_pRight->m_pType->name.m_pData, Operator::ToString(pUnary->m_operator));
             }
-            break;
+            return pUnary;
         }
         case Ast::NodeType::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
 
-            TypeCheckExpression(state, pCall->m_pCallee);
+            pCall->m_pCallee = TypeCheckExpression(state, pCall->m_pCallee);
 
             Ast::Identifier* pVar = (Ast::Identifier*)pCall->m_pCallee;
             Ast::Declaration** pDeclEntry = state.m_declarations.Get(pVar->m_identifier);
 
             if (pDeclEntry == nullptr) {
                 state.m_pErrors->PushError(pCall, "Attempt to call a value which is not declared yet");
-                break;
+                return pCall;
             }
             Ast::Declaration* pDecl = *pDeclEntry;
 
@@ -193,8 +209,8 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
                 state.m_pErrors->PushError(pCall, "Attempt to call a value which is not a function");
             }
 
-            for (Ast::Expression* pArg : pCall->m_args) {
-                TypeCheckExpression(state, pArg);
+            for (int i = 0; i < (int)pCall->m_args.m_count; i++) {
+                pCall->m_args[i] = TypeCheckExpression(state, pCall->m_args[i]);
             }
             
             TypeInfoFunction* pFunctionType = (TypeInfoFunction*)pDecl->m_pResolvedType;
@@ -212,10 +228,10 @@ void TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
                     state.m_pErrors->PushError(arg, "Type mismatch in function argument '<argname TODO>', expected %s, got %s", pArgType->name.m_pData, arg->m_pType->name.m_pData);
             }
             pCall->m_pType = pFunctionType->pReturnType;
-            break;
+            return pCall;
         }
         default:
-            break;
+            return pExpr;
     }
 }
 
@@ -241,7 +257,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 }
 
                 state.m_declarations.Add(pDecl->m_identifier, pDecl);
-                TypeCheckExpression(state, pDecl->m_pInitializerExpr);
+                pDecl->m_pInitializerExpr = TypeCheckExpression(state, pDecl->m_pInitializerExpr);
                 pDecl->m_initialized = true;
 
                 if (pDecl->m_pDeclaredType && pDecl->m_pInitializerExpr->m_pType != pDecl->m_pDeclaredType->m_pResolvedType) {
@@ -253,28 +269,29 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 }
             } else {
                 state.m_declarations.Add(pDecl->m_identifier, pDecl);
+                pDecl->m_pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pDecl->m_pDeclaredType);
                 pDecl->m_pResolvedType = pDecl->m_pDeclaredType->m_pResolvedType;
             }
             break;
         }
         case Ast::NodeType::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
-            TypeCheckExpression(state, pPrint->m_pExpr);
+            pPrint->m_pExpr = TypeCheckExpression(state, pPrint->m_pExpr);
             break;
         }
         case Ast::NodeType::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
-            TypeCheckExpression(state, pReturn->m_pExpr);
+            pReturn->m_pExpr = TypeCheckExpression(state, pReturn->m_pExpr);
             break;
         }
         case Ast::NodeType::ExpressionStmt: {
             Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
-            TypeCheckExpression(state, pExprStmt->m_pExpr);
+            pExprStmt->m_pExpr = TypeCheckExpression(state, pExprStmt->m_pExpr);
             break;
         }
         case Ast::NodeType::If: {
             Ast::If* pIf = (Ast::If*)pStmt;
-            TypeCheckExpression(state, pIf->m_pCondition);
+            pIf->m_pCondition = TypeCheckExpression(state, pIf->m_pCondition);
             if (pIf->m_pCondition->m_pType != GetBoolType())
                 state.m_pErrors->PushError(pIf->m_pCondition, "if conditional expression does not evaluate to a boolean");
 
@@ -286,7 +303,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
         }
         case Ast::NodeType::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
-            TypeCheckExpression(state, pWhile->m_pCondition);
+            pWhile->m_pCondition = TypeCheckExpression(state, pWhile->m_pCondition);
             if (pWhile->m_pCondition->m_pType != GetBoolType())
                 state.m_pErrors->PushError(pWhile->m_pCondition, "while conditional expression does not evaluate to a boolean");
 
@@ -327,10 +344,11 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
 
 // ***********************************************************************
 
-void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErrors) {
+void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErrors, IAllocator* pAlloc) {
     TypeCheckerState state;
 
     state.m_pErrors = pErrors;
+    state.m_pAllocator = pAlloc;
 
     TypeCheckStatements(state, program);
 }

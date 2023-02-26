@@ -109,6 +109,17 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             PushCode(state, constIndex, pLiteral->m_line);
             break;
         }
+        case Ast::NodeType::Type:
+        case Ast::NodeType::FnType: {
+            Ast::Type* pType = (Ast::Type*)pExpr;
+
+            CurrentChunk(state)->constants.PushBack(MakeValue(pType->m_pResolvedType));
+            uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.m_count - 1;
+
+            PushCode(state, OpCode::LoadConstant, pType->m_line);
+            PushCode(state, constIndex, pType->m_line);
+            break;
+        }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             Function* pFunc = CodeGen(pFunction->m_pBody->m_declarations, pFunction->m_pSignature->m_params, pFunction->m_identifier, state.m_pErrors);

@@ -9,5 +9,6 @@ struct ErrorState;
 
 template<typename T>
 struct ResizableArray;
+struct IAllocator;
 
-void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErrors);
+void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErrors, IAllocator* pAlloc);

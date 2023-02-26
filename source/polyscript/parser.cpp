@@ -207,18 +207,6 @@ Ast::Expression* ParsingState::ParseType() {
         Ast::Type* pType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
         pType->m_nodeKind = Ast::NodeType::Type;
         pType->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
-
-        if (pType->m_identifier == "i32") {
-            pType->m_pResolvedType = GetI32Type();
-        } else if (pType->m_identifier == "f32") {
-            pType->m_pResolvedType = GetF32Type(); 
-        } else if (pType->m_identifier == "bool") {
-            pType->m_pResolvedType = GetBoolType();
-        } else {
-            pType->m_pResolvedType = GetVoidType();
-        }
-
-        pType->m_pType = GetTypeType();
         pType->m_pLocation = identifier.m_pLocation;
         pType->m_pLineStart = identifier.m_pLineStart;
         pType->m_line = identifier.m_line;
@@ -849,7 +837,7 @@ void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
             if (pDecl->m_pDeclaredType)
                 Log::Debug("%*s  Type: %s", indentationLevel + 2, "", pDecl->m_pDeclaredType->m_pResolvedType->name.m_pData);
             else if (pDecl->m_pInitializerExpr)
-                Log::Debug("%*s  Type: inferred as %s", indentationLevel + 2, "", pDecl->m_pInitializerExpr->m_pType->name.m_pData);
+                Log::Debug("%*s  Type: inferred as %s", indentationLevel + 2, "", pDecl->m_pInitializerExpr->m_pType ? pDecl->m_pInitializerExpr->m_pType->name.m_pData : "none");
 
             if (pDecl->m_pInitializerExpr) {
                 DebugExpression(pDecl->m_pInitializerExpr, indentationLevel + 2);
@@ -927,7 +915,7 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
         }
         case Ast::NodeType::Type: {
             Ast::Type* pType = (Ast::Type*)pExpr;
-                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pType->m_identifier.m_pData, pType->m_pType->name.m_pData);
+                Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pType->m_identifier.m_pData, pType->m_pType->name.m_pData);
             break;
         }
         case Ast::NodeType::VariableAssignment: {

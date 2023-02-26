@@ -32,6 +32,8 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             Value& v = chunk.constants[constIndex];
             if (v.m_pType->tag == TypeInfo::TypeTag::Void)
                 builder.AppendFormat("%i (void)", constIndex);
+            if (v.m_pType->tag == TypeInfo::TypeTag::Type)
+                builder.AppendFormat("%i (%s)", constIndex, v.m_pTypeInfo->name.m_pData);
             if (v.m_pType->tag == TypeInfo::TypeTag::Float)
                 builder.AppendFormat("%i (%f)", constIndex, v.m_f32Value);
             else if (v.m_pType->tag == TypeInfo::TypeTag::Bool)
@@ -241,7 +243,10 @@ void DebugStack(VirtualMachine& vm) {
         // So upgrade it
         switch (v.m_pType->tag) {
             case TypeInfo::TypeTag::Void:
-                builder.AppendFormat("[%i: void]");
+                builder.AppendFormat("[%i: void]", i);
+                break;
+            case TypeInfo::TypeTag::Type:
+                builder.AppendFormat("[%i: %s]", i, v.m_pTypeInfo->name.m_pData);
                 break;
             case TypeInfo::TypeTag::Bool:
                 builder.AppendFormat("[%i: %s]", i, v.m_boolValue ? "true" : "false");
@@ -366,6 +371,8 @@ void Run(Function* pFuncToRun) {
                 Value v = vm.stack.Pop();
                 // TODO: Runtime error if you try print a void type value
                 // TODO: As before this can be upgrade to be more robust at printing values of different types now that types are more complex
+                if (v.m_pType->tag == TypeInfo::TypeTag::Type)
+                    Log::Info("%s", v.m_pTypeInfo->name.m_pData);
                 if (v.m_pType->tag == TypeInfo::TypeTag::Float)
                     Log::Info("%f", v.m_f32Value);
                 else if (v.m_pType->tag == TypeInfo::TypeTag::Integer)

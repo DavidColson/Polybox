@@ -58,7 +58,7 @@ int main() {
 
     // Type check
     if (errorState.m_errors.m_count == 0) {
-        TypeCheckProgram(program, &errorState);
+        TypeCheckProgram(program, &errorState, &compilerMemory);
     }
 
     // Error report

@@ -183,6 +183,8 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
                     // Check for keywords
                     if (identifier == "fn")
                         tokens.PushBack(MakeToken(scan, TokenType::Fn));
+					else if (identifier == "as")
+						tokens.PushBack(MakeToken(scan, TokenType::As));
 					else if (identifier == "func")
 						tokens.PushBack(MakeToken(scan, TokenType::Func));
                     else if (identifier == "if")

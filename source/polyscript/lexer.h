@@ -54,6 +54,7 @@ enum Enum : uint32_t {
     Return,
 	Func,
     Fn,
+	As,
     // Other
     Identifier,
     EndOfFile,

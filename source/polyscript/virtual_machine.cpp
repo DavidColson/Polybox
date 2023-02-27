@@ -162,6 +162,14 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             returnIPOffset = 3;
             break;
         }
+		case OpCode::Cast: {
+			builder.Append("Cast ");
+			CoreTypeIds::Enum fromTypeId = (CoreTypeIds::Enum)*(pInstruction + 1);
+			CoreTypeIds::Enum toTypeId = (CoreTypeIds::Enum)*(pInstruction + 2);
+			builder.AppendFormat("%s %s", CoreTypeIds::ToString(fromTypeId), CoreTypeIds::ToString(toTypeId));
+			returnIPOffset = 3;
+			break;
+		}
         case OpCode::Call: {
             builder.Append("Call ");
             uint8_t argCount = *(pInstruction + 1);
@@ -440,6 +448,26 @@ void Run(Function* pFuncToRun) {
                 pFrame = &vm.callStack.Top();
                 break;
             }
+			case OpCode::Cast: {
+				CoreTypeIds::Enum fromTypeId = (CoreTypeIds::Enum)*pFrame->pInstructionPointer++;
+				CoreTypeIds::Enum toTypeId = (CoreTypeIds::Enum)*pFrame->pInstructionPointer++;
+	
+				Value copy = vm.stack.Pop();
+				if (toTypeId == CoreTypeIds::I32 && fromTypeId == CoreTypeIds::F32) {
+					vm.stack.Push(MakeValue((int32_t)copy.m_f32Value));
+				} else if (toTypeId == CoreTypeIds::I32 && fromTypeId == CoreTypeIds::Bool) {
+					vm.stack.Push(MakeValue((int32_t)copy.m_boolValue));
+				} else if (toTypeId == CoreTypeIds::F32 && fromTypeId == CoreTypeIds::I32) {
+					vm.stack.Push(MakeValue((float)copy.m_i32Value));
+				} else if (toTypeId == CoreTypeIds::F32 && fromTypeId == CoreTypeIds::Bool) {
+					vm.stack.Push(MakeValue((float)copy.m_boolValue));
+				} else if (toTypeId == CoreTypeIds::Bool && fromTypeId == CoreTypeIds::I32) {
+					vm.stack.Push(MakeValue((bool)copy.m_i32Value));
+				} else if (toTypeId == CoreTypeIds::Bool && fromTypeId == CoreTypeIds::F32) {
+					vm.stack.Push(MakeValue((bool)copy.m_f32Value));
+				}
+				break;
+			}
             case (uint8_t)OpCode::Return: {
                 Value returnVal = vm.stack.Pop();
                 vm.callStack.Pop();

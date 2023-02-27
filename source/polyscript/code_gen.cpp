@@ -45,8 +45,7 @@ int ResolveLocal(State& state, String name) {
 void PushCode(State& state, uint8_t code, uint32_t line) {
     CurrentChunk(state)->code.PushBack(code);
     CurrentChunk(state)->m_lineInfo.PushBack(line);
-    if (line == 0)
-        __debugbreak();
+	Assert(line != 0);
 }
 
 // ***********************************************************************
@@ -214,6 +213,33 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             }
             break;
         }
+		case Ast::NodeType::Cast: {
+			Ast::Cast* pCast = (Ast::Cast*)pExpr;
+			CodeGenExpression(state, pCast->m_pExprToCast);
+
+			PushCode(state, OpCode::Cast, pCast->m_line);
+
+			if (pCast->m_pExprToCast->m_pType == GetI32Type()) {
+				PushCode(state, (uint8_t)CoreTypeIds::I32, pCast->m_line);
+			} else if (pCast->m_pExprToCast->m_pType == GetF32Type()) {
+				PushCode(state, (uint8_t)CoreTypeIds::F32, pCast->m_line);
+			} else if (pCast->m_pExprToCast->m_pType == GetBoolType()) {
+				PushCode(state, (uint8_t)CoreTypeIds::Bool, pCast->m_line);
+			} else {
+				AssertMsg(false, "Don't know how to cast non base types yet");
+			}
+
+			if (pCast->m_pTargetType->m_pResolvedType == GetI32Type()) {
+				PushCode(state, (uint8_t)CoreTypeIds::I32, pCast->m_line);
+			} else if (pCast->m_pTargetType->m_pResolvedType == GetF32Type()) {
+				PushCode(state, (uint8_t)CoreTypeIds::F32, pCast->m_line);
+			} else if (pCast->m_pTargetType->m_pResolvedType == GetBoolType()) {
+				PushCode(state, (uint8_t)CoreTypeIds::Bool, pCast->m_line);
+			} else {
+				AssertMsg(false, "Don't know how to cast non base types yet");
+			}
+			break;
+		}
         case Ast::NodeType::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             CodeGenExpression(state, pCall->m_pCallee);

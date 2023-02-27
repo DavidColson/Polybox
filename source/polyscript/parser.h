@@ -26,7 +26,8 @@ enum class NodeType {
     Function,
     Grouping,
     Identifier,
-    VariableAssignment,
+	VariableAssignment,
+	Cast,
 
     // Types
     Type,
@@ -101,6 +102,11 @@ struct Function : public Expression {
 struct VariableAssignment : public Expression {
     String m_identifier;
     Expression* m_pAssignment;
+};
+
+struct Cast : public Expression {
+	Type* m_pTargetType;
+	Expression* m_pExprToCast;
 };
 
 struct Call : public Expression {

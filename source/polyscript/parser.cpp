@@ -444,22 +444,43 @@ Ast::Expression* ParsingState::ParseCall() {
 // ***********************************************************************
 
 Ast::Expression* ParsingState::ParseUnary() {
-    while (Match(2, TokenType::Minus, TokenType::Bang)) {
-        Ast::Unary* pUnaryExpr = (Ast::Unary*)pAllocator->Allocate(sizeof(Ast::Unary));
-        pUnaryExpr->m_nodeKind = Ast::NodeType::Unary;
+    while (Match(3, TokenType::Minus, TokenType::Bang, TokenType::As)) {
+		Token prev = Previous();
 
-        Token operatorToken = Previous();
-        pUnaryExpr->m_pLocation = operatorToken.m_pLocation;
-        pUnaryExpr->m_pLineStart = operatorToken.m_pLineStart;
-        pUnaryExpr->m_line = operatorToken.m_line;
+		// Cast Operator
+		if (prev.m_type == TokenType::As) {
+			Consume(TokenType::LeftParen, "Expected '(' before cast target type");
 
-        if (operatorToken.m_type == TokenType::Minus)
-            pUnaryExpr->m_operator = Operator::UnaryMinus;
-        else if (operatorToken.m_type == TokenType::Bang)
-            pUnaryExpr->m_operator = Operator::Not;
-        pUnaryExpr->m_pRight = ParseUnary();
+			Ast::Cast* pCastExpr = (Ast::Cast*)pAllocator->Allocate(sizeof(Ast::Cast));
+			pCastExpr->m_nodeKind = Ast::NodeType::Cast;
+			pCastExpr->m_pTargetType = (Ast::Type*)ParseType();
+			pCastExpr->m_pLocation = prev.m_pLocation;
+			pCastExpr->m_pLineStart = prev.m_pLineStart;
+			pCastExpr->m_line = prev.m_line;
 
-        return (Ast::Expression*)pUnaryExpr;
+			Consume(TokenType::RightParen, "Expected ')' after cast target type");
+
+			pCastExpr->m_pExprToCast = ParseUnary();
+			return pCastExpr;
+		}
+		// Unary maths operator
+		else {
+
+			Ast::Unary* pUnaryExpr = (Ast::Unary*)pAllocator->Allocate(sizeof(Ast::Unary));
+			pUnaryExpr->m_nodeKind = Ast::NodeType::Unary;
+
+			pUnaryExpr->m_pLocation = prev.m_pLocation;
+			pUnaryExpr->m_pLineStart = prev.m_pLineStart;
+			pUnaryExpr->m_line = prev.m_line;
+
+			if (prev.m_type == TokenType::Minus)
+				pUnaryExpr->m_operator = Operator::UnaryMinus;
+			else if (prev.m_type == TokenType::Bang)
+				pUnaryExpr->m_operator = Operator::Not;
+			pUnaryExpr->m_pRight = ParseUnary();
+
+			return (Ast::Expression*)pUnaryExpr;
+		}
     }
     return ParseCall();
 }
@@ -967,7 +988,8 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
         case Ast::NodeType::FnType: 
         case Ast::NodeType::Type: {
             Ast::Type* pType = (Ast::Type*)pExpr;
-            Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pType->m_pResolvedType->name.m_pData, pType->m_pType->name.m_pData);
+            if (pType->m_pType && pType->m_pResolvedType)
+                Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pType->m_pResolvedType->name.m_pData, pType->m_pType->name.m_pData);
             break;
         }
         case Ast::NodeType::VariableAssignment: {
@@ -1085,6 +1107,14 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
             DebugExpression(pUnary->m_pRight, indentationLevel + 2);
             break;
         }
+		case Ast::NodeType::Cast: {
+			Ast::Cast* pCast = (Ast::Cast*)pExpr;
+
+			Log::Debug("%*s- Cast (:%s)", indentationLevel, "", pCast->m_pType->name.m_pData);
+			DebugExpression(pCast->m_pTargetType, indentationLevel + 2);
+			DebugExpression(pCast->m_pExprToCast, indentationLevel + 2);
+			break;
+		}
         case Ast::NodeType::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
 

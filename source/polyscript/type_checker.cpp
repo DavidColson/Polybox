@@ -212,6 +212,16 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
             }
             return pUnary;
         }
+		case Ast::NodeType::Cast: {
+			Ast::Cast* pCast = (Ast::Cast*)pExpr;
+			pCast->m_pTargetType = (Ast::Type*)TypeCheckExpression(state, pCast->m_pTargetType);
+			pCast->m_pExprToCast = TypeCheckExpression(state, pCast->m_pExprToCast);
+
+			// TODO: If expr to cast and target type cannot be casted, then give an error here
+
+			pCast->m_pType = pCast->m_pTargetType->m_pResolvedType;
+			return pCast;
+		}
         case Ast::NodeType::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
 

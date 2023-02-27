@@ -32,7 +32,7 @@
 }
 
 // Functions
-add := (num: i32, float: f32, boolean: bool) -> i32 {
+add := func (num: i32, float: f32, boolean: bool) -> i32 {
     print(num);
     print(float);
     print(boolean);
@@ -45,7 +45,7 @@ add := (num: i32, float: f32, boolean: bool) -> i32 {
 print(add(5, 55.2, true));
 
 // Recursion
-fibonacci := (n: i32) -> i32 {
+fibonacci := func (n: i32) -> i32 {
     if (n <= 1)
         return n;
     else

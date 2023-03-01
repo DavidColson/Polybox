@@ -24,6 +24,16 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
 
 // ***********************************************************************
 
+bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
+	// TODO: When adding new core types, ensure no loss of signedness and no truncation or loss of precision
+	if (pFrom == GetI32Type() && pTo == GetF32Type()) {
+		return true;
+	}
+	return false;
+}
+
+// ***********************************************************************
+
 [[nodiscard]] Ast::Expression* TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
     if (pExpr == nullptr)
         return pExpr;
@@ -192,24 +202,81 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             pBinary->m_pLeft = TypeCheckExpression(state, pBinary->m_pLeft);
             pBinary->m_pRight = TypeCheckExpression(state, pBinary->m_pRight);
-            pBinary->m_pType = OperatorReturnType(pBinary->m_operator, pBinary->m_pLeft->m_pType->tag, pBinary->m_pRight->m_pType->tag);
+            
+			// If mismatch, check if we can do an implicit cast, otherwise fail
+			if (pBinary->m_pLeft->m_pType != pBinary->m_pRight->m_pType) {
+				if (IsImplicitlyCastable(pBinary->m_pLeft->m_pType, pBinary->m_pRight->m_pType)) {
+					Ast::Cast* pCastExpr = (Ast::Cast*)state.m_pAllocator->Allocate(sizeof(Ast::Cast));
+					pCastExpr->m_nodeKind = Ast::NodeType::Cast;
+					pCastExpr->m_pExprToCast = pBinary->m_pLeft;
 
-            if (pBinary->m_pType == GetVoidType()) {
-                String str1 = pBinary->m_pLeft->m_pType->name;
-                String str2 = pBinary->m_pRight->m_pType->name;
-                String str3 = Operator::ToString(pBinary->m_operator);
-                state.m_pErrors->PushError(pBinary, "Invalid types (%s, %s) used with operator \"%s\"", str1.m_pData, str2.m_pData, str3.m_pData);
-            }
+					Ast::Type* pType = (Ast::Type*)state.m_pAllocator->Allocate(sizeof(Ast::Type));
+					pType->m_nodeKind = Ast::NodeType::Type;
+					pType->m_identifier = pBinary->m_pRight->m_pType->name;
+					pType->m_pLocation = pBinary->m_pRight->m_pLocation;
+					pType->m_pLineStart = pBinary->m_pRight->m_pLineStart;
+					pType->m_line = pBinary->m_pRight->m_line;
+					pCastExpr->m_pTargetType = (Ast::Type*)TypeCheckExpression(state, pType);
+
+					pCastExpr->m_pLocation = pBinary->m_pLeft->m_pLocation;
+					pCastExpr->m_pLineStart = pBinary->m_pLeft->m_pLineStart;
+					pCastExpr->m_line = pBinary->m_pLeft->m_line;
+
+					pBinary->m_pLeft = TypeCheckExpression(state, pCastExpr);
+
+				} else if (IsImplicitlyCastable(pBinary->m_pRight->m_pType, pBinary->m_pLeft->m_pType)) {
+					Ast::Cast* pCastExpr = (Ast::Cast*)state.m_pAllocator->Allocate(sizeof(Ast::Cast));
+					pCastExpr->m_nodeKind = Ast::NodeType::Cast;
+					pCastExpr->m_pExprToCast = pBinary->m_pRight;
+
+					Ast::Type* pType = (Ast::Type*)state.m_pAllocator->Allocate(sizeof(Ast::Type));
+					pType->m_nodeKind = Ast::NodeType::Type;
+					pType->m_identifier = pBinary->m_pLeft->m_pType->name;
+					pType->m_pLocation = pBinary->m_pLeft->m_pLocation;
+					pType->m_pLineStart = pBinary->m_pLeft->m_pLineStart;
+					pType->m_line = pBinary->m_pLeft->m_line;
+					pCastExpr->m_pTargetType = (Ast::Type*)TypeCheckExpression(state, pType);
+
+					pCastExpr->m_pLocation = pBinary->m_pRight->m_pLocation;
+					pCastExpr->m_pLineStart = pBinary->m_pRight->m_pLineStart;
+					pCastExpr->m_line = pBinary->m_pRight->m_line;
+
+					pBinary->m_pRight = TypeCheckExpression(state, pCastExpr);
+				} else {
+					String str1 = pBinary->m_pLeft->m_pType->name;
+					String str2 = pBinary->m_pRight->m_pType->name;
+					String str3 = Operator::ToString(pBinary->m_operator);
+					state.m_pErrors->PushError(pBinary, "Invalid types (%s, %s) used with operator \"%s\"", str1.m_pData, str2.m_pData, str3.m_pData);
+				}
+			}
+
+			if (pBinary->m_operator == Operator::Subtract
+				|| pBinary->m_operator == Operator::Multiply
+				|| pBinary->m_operator == Operator::Divide
+				|| pBinary->m_operator == Operator::Add
+				|| pBinary->m_operator == Operator::Subtract) {
+				pBinary->m_pType = pBinary->m_pLeft->m_pType;
+			} else {
+				pBinary->m_pType = GetBoolType();
+			}
             return pBinary;
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             pUnary->m_pRight = TypeCheckExpression(state, pUnary->m_pRight);
-            pUnary->m_pType = OperatorReturnType(pUnary->m_operator, pUnary->m_pRight->m_pType->tag, TypeInfo::TypeTag::Void);
 
-            if (pUnary->m_pType == GetVoidType() && pUnary->m_pRight->m_pType != GetVoidType()) {
-                state.m_pErrors->PushError(pUnary, "Invalid type (%s) used with operator \"%s\"", pUnary->m_pRight->m_pType->name.m_pData, Operator::ToString(pUnary->m_operator));
-            }
+			if (pUnary->m_operator == Operator::Not) {
+				pUnary->m_pType = GetBoolType();
+				if (pUnary->m_pRight->m_pType != GetBoolType()) {
+					state.m_pErrors->PushError(pUnary, "Invalid type (%s) used with operator \"%s\"", pUnary->m_pRight->m_pType->name.m_pData, Operator::ToString(pUnary->m_operator));
+				}
+			} else if (pUnary->m_operator == Operator::UnaryMinus) {
+				pUnary->m_pType = pUnary->m_pRight->m_pType;
+				if (pUnary->m_pRight->m_pType != GetBoolType()) {
+					state.m_pErrors->PushError(pUnary, "Invalid type (%s) used with operator \"%s\"", pUnary->m_pRight->m_pType->name.m_pData, Operator::ToString(pUnary->m_operator));
+				}
+			}
+
             return pUnary;
         }
 		case Ast::NodeType::Cast: {

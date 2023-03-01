@@ -41,7 +41,7 @@ int main() {
         fseek(pFile, 0, SEEK_SET);
 
         actualCode = AllocString(size, &compilerMemory);
-        fread(actualCode.m_pData, size, 1, pFile);
+        fread(actualCode.pData, size, 1, pFile);
         fclose(pFile);
     }
 
@@ -57,7 +57,7 @@ int main() {
     ResizableArray<Ast::Statement*> program = parser.InitAndParse(tokens, &errorState, &compilerMemory);
 
     // Type check
-    if (errorState.m_errors.m_count == 0) {
+    if (errorState.errors.count == 0) {
         TypeCheckProgram(program, &errorState, &compilerMemory);
     }
 

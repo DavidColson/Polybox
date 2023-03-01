@@ -9,9 +9,9 @@
 #include <resizable_array.h>
 
 struct Primitive : public LuaObject {
-    ResizableArray<VertexData> m_vertices;
+    ResizableArray<VertexData> vertices;
 
-    uint32_t m_baseColorTexture { UINT32_MAX };
+    uint32_t baseColorTexture { UINT32_MAX };
 
     int GetNumVertices();
     Vec3f GetVertexPosition(int index);
@@ -27,8 +27,8 @@ struct Primitive : public LuaObject {
 struct Mesh : public LuaObject {
     virtual ~Mesh();
 
-    String m_name;
-    ResizableArray<Primitive> m_primitives;
+    String name;
+    ResizableArray<Primitive> primitives;
 
     int GetNumPrimitives();
     Primitive* GetPrimitive(int index);

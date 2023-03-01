@@ -100,41 +100,41 @@ TypeInfo* GetEmptyFuncType();
 
 struct Function;
 struct Value {
-    TypeInfo* m_pType { GetVoidType() };
+    TypeInfo* pType { GetVoidType() };
     union {
-        bool m_boolValue;
-        float m_f32Value;
-        int32_t m_i32Value;
-        Function* m_pFunction;
-        TypeInfo* m_pTypeInfo;
+        bool boolValue;
+        float f32Value;
+        int32_t i32Value;
+        Function* pFunction;
+        TypeInfo* pTypeInfo;
     };
 };
 
 inline Value MakeValue(bool value) {
     Value v;
-    v.m_pType = GetBoolType();
-    v.m_boolValue = value;
+    v.pType = GetBoolType();
+    v.boolValue = value;
     return v;
 }
 
 inline Value MakeValue(float value) {
     Value v;
-    v.m_pType = GetF32Type();
-    v.m_f32Value = value;
+    v.pType = GetF32Type();
+    v.f32Value = value;
     return v;
 }
 
 inline Value MakeValue(int32_t value) {
     Value v;
-    v.m_pType = GetI32Type();
-    v.m_i32Value = value;
+    v.pType = GetI32Type();
+    v.i32Value = value;
     return v;
 }
 
 inline Value MakeValue(TypeInfo* value) {
     Value v;
-    v.m_pType = GetTypeType();
-    v.m_pTypeInfo = value;
+    v.pType = GetTypeType();
+    v.pTypeInfo = value;
     return v;
 }
 
@@ -142,12 +142,12 @@ inline Value MakeValue(TypeInfo* value) {
 struct CodeChunk {
     ResizableArray<Value> constants;
     ResizableArray<uint8_t> code;
-    ResizableArray<uint32_t> m_lineInfo;
+    ResizableArray<uint32_t> lineInfo;
 };
 
 struct Function {
-    String m_name;
-    CodeChunk m_chunk;
+    String name;
+    CodeChunk chunk;
 };
 
 void FreeFunction(Function* pFunc);

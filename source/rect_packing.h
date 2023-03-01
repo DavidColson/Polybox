@@ -12,9 +12,9 @@ struct Rect {
     int w { 0 };
     int h { 0 };
 
-    bool m_wasPacked { false };
+    bool wasPacked { false };
 
-    int m_ordering { -1 };
+    int ordering { -1 };
 };
 
 void RowPackRects(ResizableArray<Rect>& rects, int width, int height);

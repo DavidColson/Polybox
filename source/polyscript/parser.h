@@ -45,73 +45,73 @@ enum class NodeType {
 
 // Base AST Node
 struct Node {
-    NodeType m_nodeKind;
+    NodeType nodeKind;
 
-    char* m_pLocation { nullptr };
-    char* m_pLineStart { nullptr };
-    uint32_t m_line { 0 };
+    char* pLocation { nullptr };
+    char* pLineStart { nullptr };
+    uint32_t line { 0 };
 };
 
 // Expression type nodes
 struct Expression : public Node {
-    TypeInfo* m_pType;
+    TypeInfo* pType;
 };
 
 struct Binary : public Expression {
-    Expression* m_pLeft;
-    Operator::Enum m_operator;
-    Expression* m_pRight;
+    Expression* pLeft;
+    Operator::Enum op;
+    Expression* pRight;
 };
 
 struct Unary : public Expression {
-    Operator::Enum m_operator;
-    Expression* m_pRight;
+    Operator::Enum op;
+    Expression* pRight;
 };
 
 struct Literal : public Expression {
-    Value m_value;
+    Value value;
 };
 
 struct Grouping : public Expression {
-    Expression* m_pExpression;
+    Expression* pExpression;
 };
 
 struct Identifier : public Expression {
-    String m_identifier;
+    String identifier;
 };
 
 struct Type : public Expression {
-    String m_identifier;
-    TypeInfo* m_pResolvedType;
+    String identifier;
+    TypeInfo* pResolvedType;
 };
 
 struct Declaration;
 struct FnType : public Type {
-    ResizableArray<Type*> m_params;
-    Type* m_pReturnType;
+    ResizableArray<Type*> params;
+    Type* pReturnType;
 };
 
 struct Block;
 struct Function : public Expression {
-    ResizableArray<Declaration*> m_params;
-    Block* m_pBody;
-    Type * m_pReturnType;
-    String m_identifier;
+    ResizableArray<Declaration*> params;
+    Block* pBody;
+    Type * pReturnType;
+    String identifier;
 };
 
 struct VariableAssignment : public Expression {
-    String m_identifier;
-    Expression* m_pAssignment;
+    String identifier;
+    Expression* pAssignment;
 };
 
 struct Cast : public Expression {
-	Type* m_pTargetType;
-	Expression* m_pExprToCast;
+	Type* pTargetType;
+	Expression* pExprToCast;
 };
 
 struct Call : public Expression {
-    Expression* m_pCallee;
-    ResizableArray<Expression*> m_args;
+    Expression* pCallee;
+    ResizableArray<Expression*> args;
 };
 
 
@@ -120,57 +120,57 @@ struct Statement : public Node {
 };
 
 struct ExpressionStmt : public Statement {
-    Expression* m_pExpr;
+    Expression* pExpr;
 };
 
 struct If : public Statement {
-    Expression* m_pCondition;
-    Statement* m_pThenStmt;
-    Statement* m_pElseStmt;
+    Expression* pCondition;
+    Statement* pThenStmt;
+    Statement* pElseStmt;
 };
 
 struct While: public Statement {
-    Expression* m_pCondition;
-    Statement* m_pBody;
+    Expression* pCondition;
+    Statement* pBody;
 };
 
 struct Print : public Statement {
-    Expression* m_pExpr;
+    Expression* pExpr;
 };
 
 struct Return : public Statement {
-    Expression* m_pExpr;
+    Expression* pExpr;
 };
 
 struct Block : public Statement {
-    ResizableArray<Statement*> m_declarations;
-    Token m_startToken;
-    Token m_endToken;
+    ResizableArray<Statement*> declarations;
+    Token startToken;
+    Token endToken;
 };
 
 struct Declaration : public Statement {
-    String m_identifier;
-    Type* m_pDeclaredType { nullptr };
-    TypeInfo* m_pResolvedType;
-    Expression* m_pInitializerExpr { nullptr };
+    String identifier;
+    Type* pDeclaredType { nullptr };
+    TypeInfo* pResolvedType;
+    Expression* pInitializerExpr { nullptr };
     
     // Used by the typechecker
-    int m_scopeLevel{ 0 };
-    bool m_initialized{ 0 };
+    int scopeLevel{ 0 };
+    bool initialized{ 0 };
 };
 
 }
 
 struct Error {
-    String m_message;
-    char* m_pLocation { nullptr };
-    char* m_pLineStart { nullptr };
-    size_t m_line { 0 };
+    String message;
+    char* pLocation { nullptr };
+    char* pLineStart { nullptr };
+    size_t line { 0 };
 };
 
 struct ErrorState {
-    ResizableArray<Error> m_errors;
-    IAllocator* m_pAlloc { nullptr };
+    ResizableArray<Error> errors;
+    IAllocator* pAlloc { nullptr };
 
     void Init(IAllocator* pAlloc);
 
@@ -187,12 +187,12 @@ enum Enum : uint32_t;
 }
 
 struct ParsingState {
-    Token* m_pTokensStart { nullptr };
-    Token* m_pTokensEnd { nullptr };
-    Token* m_pCurrent { nullptr };
+    Token* pTokensStart { nullptr };
+    Token* pTokensEnd { nullptr };
+    Token* pCurrent { nullptr };
     IAllocator* pAllocator { nullptr };
-    ErrorState* m_pErrorState { nullptr };
-    bool m_panicMode { false };
+    ErrorState* pErrorState { nullptr };
+    bool panicMode { false };
 
     ResizableArray<Ast::Statement*> InitAndParse(ResizableArray<Token>& tokens, ErrorState* pErrors, IAllocator* pAlloc);
 

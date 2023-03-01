@@ -62,7 +62,7 @@ int ShowAssertDialog(String errorMsg) {
         SDL_MESSAGEBOX_ERROR,
         NULL,
         "Error",
-        message.m_pData,
+        message.pData,
         SDL_arraysize(buttons),
         buttons,
         nullptr

@@ -13,58 +13,58 @@
 // ***********************************************************************
 
 int Primitive::GetNumVertices() {
-    return (int)m_vertices.m_count;
+    return (int)vertices.count;
 }
 
 // ***********************************************************************
 
 Vec3f Primitive::GetVertexPosition(int index) {
-    return m_vertices[index].m_pos;
+    return vertices[index].pos;
 }
 
 // ***********************************************************************
 
 Vec4f Primitive::GetVertexColor(int index) {
-    return m_vertices[index].m_col;
+    return vertices[index].col;
 }
 
 // ***********************************************************************
 
 Vec2f Primitive::GetVertexTexCoord(int index) {
-    return m_vertices[index].m_tex;
+    return vertices[index].tex;
 }
 
 // ***********************************************************************
 
 Vec3f Primitive::GetVertexNormal(int index) {
-    return m_vertices[index].m_norm;
+    return vertices[index].norm;
 }
 
 // ***********************************************************************
 
 int Primitive::GetMaterialTextureId() {
-    return m_baseColorTexture;
+    return baseColorTexture;
 }
 
 // ***********************************************************************
 
 Mesh::~Mesh() {
-    m_primitives.Free([](Primitive& prim) {
-        prim.m_vertices.Free();
+    primitives.Free([](Primitive& prim) {
+        prim.vertices.Free();
     });
-    FreeString(m_name);
+    FreeString(name);
 }
 
 // ***********************************************************************
 
 int Mesh::GetNumPrimitives() {
-    return (int)m_primitives.m_count;
+    return (int)primitives.count;
 }
 
 // ***********************************************************************
 
 Primitive* Mesh::GetPrimitive(int index) {
-    return &m_primitives[index];
+    return &primitives[index];
 }
 
 // ***********************************************************************
@@ -122,8 +122,8 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
 
     String file;
     defer(FreeString(file));
-    file.m_pData = pData;
-    file.m_length = size;
+    file.pData = pData;
+    file.length = size;
     ;
     JsonValue parsed = ParseJsonFile(file);
     defer(parsed.Free());
@@ -140,7 +140,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
 
         String encodedBuffer = jsonBuffers[i]["uri"].ToString();
         String decoded = DecodeBase64(encodedBuffer.SubStr(37));
-        buf.pBytes = decoded.m_pData;
+        buf.pBytes = decoded.pData;
 
         rawDataBuffers.PushBack(buf);
     }
@@ -209,7 +209,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
 
         Mesh* pMesh = new Mesh();
         String meshName = jsonMesh.HasKey("name") ? jsonMesh["name"].ToString() : String("");
-        pMesh->m_name = CopyString(meshName);
+        pMesh->name = CopyString(meshName);
 
         for (int j = 0; j < jsonMesh["primitives"].Count(); j++) {
             JsonValue& jsonPrimitive = jsonMesh["primitives"][j];
@@ -230,7 +230,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
                 if (pbr.HasKey("baseColorTexture")) {
                     int textureId = pbr["baseColorTexture"]["index"].ToInt();
                     int imageId = parsed["textures"][textureId]["source"].ToInt();
-                    prim.m_baseColorTexture = imageId;
+                    prim.baseColorTexture = imageId;
                 }
             }
 
@@ -260,13 +260,13 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
             int nIndices = accessors[jsonPrimitive["indices"].ToInt()].count;
             uint16_t* indexBuffer = (uint16_t*)accessors[jsonPrimitive["indices"].ToInt()].pBuffer;
 
-            prim.m_vertices.Reserve(nIndices);
+            prim.vertices.Reserve(nIndices);
             for (int i = 0; i < nIndices; i++) {
                 uint16_t index = indexBuffer[i];
-                prim.m_vertices.PushBack(indexedVertexData[index]);
+                prim.vertices.PushBack(indexedVertexData[index]);
             }
 
-            pMesh->m_primitives.PushBack(prim);
+            pMesh->primitives.PushBack(prim);
         }
         outMeshes.PushBack(pMesh);
     }
@@ -291,8 +291,8 @@ ResizableArray<Image*> Mesh::LoadTextures(const char* filePath) {
 
     String file;
     defer(FreeString(file));
-    file.m_pData = pData;
-    file.m_length = size;
+    file.pData = pData;
+    file.length = size;
     ;
 
     JsonValue parsed = ParseJsonFile(file);

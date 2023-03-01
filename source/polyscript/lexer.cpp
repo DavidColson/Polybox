@@ -10,33 +10,33 @@
 
 Token MakeToken(Scan::ScanningState& scanner, TokenType::Enum type) {
     Token token;
-    token.m_type = type;
-    token.m_pLocation = scanner.m_pTokenStart;
-    token.m_length = size_t(scanner.m_pCurrent - scanner.m_pTokenStart);
-    token.m_pLineStart = scanner.m_pCurrentLineStart;
-    token.m_line = scanner.m_line;
+    token.type = type;
+    token.pLocation = scanner.pTokenStart;
+    token.length = size_t(scanner.pCurrent - scanner.pTokenStart);
+    token.pLineStart = scanner.pCurrentLineStart;
+    token.line = scanner.line;
     return token;
 }
 
 // ***********************************************************************
 
 Token ParseString(IAllocator* pAllocator, Scan::ScanningState& scan) {
-    char* start = scan.m_pCurrent;
-    while (*(scan.m_pCurrent) != '"' && !Scan::IsAtEnd(scan)) {
-        if (*(scan.m_pCurrent++) == '\n') {
-            scan.m_line++;
-            scan.m_pCurrentLineStart = scan.m_pCurrent;
+    char* start = scan.pCurrent;
+    while (*(scan.pCurrent) != '"' && !Scan::IsAtEnd(scan)) {
+        if (*(scan.pCurrent++) == '\n') {
+            scan.line++;
+            scan.pCurrentLineStart = scan.pCurrent;
         }
     }
-    scan.m_pCurrent++;  // advance over closing quote
+    scan.pCurrent++;  // advance over closing quote
     return MakeToken(scan, TokenType::LiteralString);
 }
 
 // ***********************************************************************
 
 Token ParseNumber(Scan::ScanningState& scan) {
-    scan.m_pCurrent -= 1;  // Go back to get the first digit or symbol
-    char* start = scan.m_pCurrent;
+    scan.pCurrent -= 1;  // Go back to get the first digit or symbol
+    char* start = scan.pCurrent;
 
     // Normal number
     while (Scan::IsDigit(Scan::Peek(scan))) {
@@ -58,16 +58,16 @@ Token ParseNumber(Scan::ScanningState& scan) {
 
 ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
     Scan::ScanningState scan;
-    scan.m_pTextStart = sourceText.m_pData;
-    scan.m_pTextEnd = sourceText.m_pData + sourceText.m_length;
-    scan.m_pCurrent = (char*)scan.m_pTextStart;
-    scan.m_pCurrentLineStart = (char*)scan.m_pTextStart;
-    scan.m_line = 1;
+    scan.pTextStart = sourceText.pData;
+    scan.pTextEnd = sourceText.pData + sourceText.length;
+    scan.pCurrent = (char*)scan.pTextStart;
+    scan.pCurrentLineStart = (char*)scan.pTextStart;
+    scan.line = 1;
 
     ResizableArray<Token> tokens(pAllocator);
 
     while (!Scan::IsAtEnd(scan)) {
-        scan.m_pTokenStart = scan.m_pCurrent;
+        scan.pTokenStart = scan.pCurrent;
         char c = Scan::Advance(scan);
         switch (c) {
             // Single character tokens
@@ -139,8 +139,8 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
                     while (!(Scan::Peek(scan) == '*' && Scan::PeekNext(scan) == '/') && !Scan::IsAtEnd(scan)) {
                         char commentChar = Scan::Advance(scan);
                         if (commentChar == '\n') {
-                            scan.m_line++;
-                            scan.m_pCurrentLineStart = scan.m_pCurrent;
+                            scan.line++;
+                            scan.pCurrentLineStart = scan.pCurrent;
                         }
                     }
                     Scan::Advance(scan);  // *
@@ -155,8 +155,8 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
             case '\r':
             case '\t': break;
             case '\n':
-                scan.m_line++;
-                scan.m_pCurrentLineStart = scan.m_pCurrent;
+                scan.line++;
+                scan.pCurrentLineStart = scan.pCurrent;
                 break;
 
             // String literals
@@ -177,8 +177,8 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
                         Scan::Advance(scan);
 
                     String identifier;
-                    identifier.m_pData = scan.m_pTokenStart;
-                    identifier.m_length = scan.m_pCurrent - scan.m_pTokenStart;
+                    identifier.pData = scan.pTokenStart;
+                    identifier.length = scan.pCurrent - scan.pTokenStart;
 
                     // Check for keywords
                     if (identifier == "fn")
@@ -209,7 +209,7 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
         }
     }
 
-    scan.m_pTokenStart = scan.m_pCurrent;
+    scan.pTokenStart = scan.pCurrent;
     tokens.PushBack(MakeToken(scan, TokenType::EndOfFile));
     return tokens;
 }

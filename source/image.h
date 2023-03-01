@@ -12,7 +12,7 @@ struct Image : public LuaObject {
     Image(String path);
     virtual ~Image();
 
-    bgfx::TextureHandle m_handle { BGFX_INVALID_HANDLE };
-    int m_width;
-    int m_height;
+    bgfx::TextureHandle handle { BGFX_INVALID_HANDLE };
+    int width;
+    int height;
 };

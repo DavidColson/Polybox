@@ -473,7 +473,7 @@ int NewImage(lua_State* pLua) {
 
 int Image_GetWidth(lua_State* pLua) {
     Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
-    lua_pushinteger(pLua, pImage->m_width);
+    lua_pushinteger(pLua, pImage->width);
     return 1;
 }
 
@@ -481,7 +481,7 @@ int Image_GetWidth(lua_State* pLua) {
 
 int Image_GetHeight(lua_State* pLua) {
     Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
-    lua_pushinteger(pLua, pImage->m_height);
+    lua_pushinteger(pLua, pImage->height);
     return 1;
 }
 

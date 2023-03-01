@@ -18,26 +18,26 @@ extern "C" {
 // ***********************************************************************
 
 LuaObject::LuaObject() {
-    m_refCount = 1;
+    refCount = 1;
 }
 
 // ***********************************************************************
 
 LuaObject::LuaObject(const LuaObject& other) {
-    m_refCount = 1;
+    refCount = 1;
 }
 
 // ***********************************************************************
 
 void LuaObject::Retain() {
-    m_refCount++;
+    refCount++;
 }
 
 // ***********************************************************************
 
 void LuaObject::Release() {
-    m_refCount--;
-    if (m_refCount == 0) {
+    refCount--;
+    if (refCount == 0) {
         delete this;
     }
 }

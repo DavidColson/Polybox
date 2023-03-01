@@ -15,7 +15,7 @@ namespace Bind {
 
 void CheckAndInitPropertyTable(lua_State* pLua, Node* pNode) {
     lua_getfield(pLua, LUA_REGISTRYINDEX, "_nodePropTables");
-    lua_pushinteger(pLua, pNode->m_id);
+    lua_pushinteger(pLua, pNode->id);
     lua_gettable(pLua, -2);
 
     if (lua_type(pLua, -1) != LUA_TTABLE) {
@@ -23,15 +23,15 @@ void CheckAndInitPropertyTable(lua_State* pLua, Node* pNode) {
         lua_newtable(pLua);
 
         // Two properties provided by c++
-        if (pNode->m_meshId != UINT32_MAX) {
-            lua_pushinteger(pLua, pNode->m_meshId + 1);
+        if (pNode->meshId != UINT32_MAX) {
+            lua_pushinteger(pLua, pNode->meshId + 1);
             lua_setfield(pLua, -2, "meshId");
         }
 
-        lua_pushlstring(pLua, pNode->m_name.m_pData, pNode->m_name.m_length);
+        lua_pushlstring(pLua, pNode->name.pData, pNode->name.length);
         lua_setfield(pLua, -2, "name");
 
-        lua_pushinteger(pLua, pNode->m_id);
+        lua_pushinteger(pLua, pNode->id);
         lua_pushvalue(pLua, -2);
         lua_settable(pLua, -4);  // Sets _nodePropTables[nodeId] = newTable (and leaves new table on the stack)
     }
@@ -177,14 +177,14 @@ int Node_GetPropertyTable(lua_State* pLua) {
     lua_getfield(pLua, LUA_REGISTRYINDEX, "_nodePropTables");
 
     // node key is an integer (either it's ptr, or eventually a bit merge of scene and node key)
-    lua_pushinteger(pLua, pNode->m_id);
+    lua_pushinteger(pLua, pNode->id);
     lua_gettable(pLua, -2);
 
     // We check if that element exists, if not create a new table like _nodePropTables[nodeKey] = t
     if (lua_type(pLua, -1) != LUA_TTABLE) {
         lua_pop(pLua, 1);
         lua_newtable(pLua);
-        lua_pushinteger(pLua, pNode->m_id);
+        lua_pushinteger(pLua, pNode->id);
         lua_pushvalue(pLua, -2);
         lua_settable(pLua, -4);  // Sets _nodePropTables[nodeId] = newTable (and leaves new table on the stack)
     }

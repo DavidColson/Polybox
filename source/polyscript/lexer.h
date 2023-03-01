@@ -63,13 +63,13 @@ enum Enum : uint32_t {
 }
 
 struct Token {
-    TokenType::Enum m_type { TokenType::Invalid };
+    TokenType::Enum type { TokenType::Invalid };
 
-    char* m_pLocation { nullptr };
-    size_t m_length { 0 };
+    char* pLocation { nullptr };
+    size_t length { 0 };
 
-    char* m_pLineStart { nullptr };
-    uint32_t m_line { 0 };
+    char* pLineStart { nullptr };
+    uint32_t line { 0 };
 };
 
 ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText);

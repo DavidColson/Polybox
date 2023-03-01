@@ -30,18 +30,18 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             builder.Append("LoadConstant ");
             uint8_t constIndex = *(pInstruction + 1);
             Value& v = chunk.constants[constIndex];
-            if (v.m_pType->tag == TypeInfo::TypeTag::Void)
+            if (v.pType->tag == TypeInfo::TypeTag::Void)
                 builder.AppendFormat("%i (void)", constIndex);
-            if (v.m_pType->tag == TypeInfo::TypeTag::Type)
-                builder.AppendFormat("%i (%s)", constIndex, v.m_pTypeInfo->name.m_pData);
-            if (v.m_pType->tag == TypeInfo::TypeTag::Float)
-                builder.AppendFormat("%i (%f)", constIndex, v.m_f32Value);
-            else if (v.m_pType->tag == TypeInfo::TypeTag::Bool)
-                builder.AppendFormat("%i (%s)", constIndex, v.m_boolValue ? "true" : "false");
-            else if (v.m_pType->tag == TypeInfo::TypeTag::Integer)
-                builder.AppendFormat("%i (%i)", constIndex, v.m_i32Value);
-            else if (v.m_pType->tag == TypeInfo::TypeTag::Function)
-                builder.AppendFormat("%i (<fn %s>)", constIndex, v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "");  // TODO Should probably show the type sig?
+            if (v.pType->tag == TypeInfo::TypeTag::Type)
+                builder.AppendFormat("%i (%s)", constIndex, v.pTypeInfo->name.pData);
+            if (v.pType->tag == TypeInfo::TypeTag::Float)
+                builder.AppendFormat("%i (%f)", constIndex, v.f32Value);
+            else if (v.pType->tag == TypeInfo::TypeTag::Bool)
+                builder.AppendFormat("%i (%s)", constIndex, v.boolValue ? "true" : "false");
+            else if (v.pType->tag == TypeInfo::TypeTag::Integer)
+                builder.AppendFormat("%i (%i)", constIndex, v.i32Value);
+            else if (v.pType->tag == TypeInfo::TypeTag::Function)
+                builder.AppendFormat("%i (<fn %s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");  // TODO Should probably show the type sig?
             returnIPOffset = 2;
             break;
         }
@@ -184,7 +184,7 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
     }
 
     String output = builder.CreateString();
-    Log::Debug("%s", output.m_pData);
+    Log::Debug("%s", output.pData);
     FreeString(output);
     return returnIPOffset;
 }
@@ -192,41 +192,41 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
 // ***********************************************************************
 
 void Disassemble(Function* pFunc, String codeText) {
-    CodeChunk& chunk = pFunc->m_chunk;
+    CodeChunk& chunk = pFunc->chunk;
 
-    uint8_t* pInstructionPointer = chunk.code.m_pData;
+    uint8_t* pInstructionPointer = chunk.code.pData;
 
     for (Value& v : chunk.constants) {
-        if (v.m_pType->tag == TypeInfo::TypeTag::Function) {
-            Disassemble(v.m_pFunction, codeText);
+        if (v.pType->tag == TypeInfo::TypeTag::Function) {
+            Disassemble(v.pFunction, codeText);
         }
     }
 
     Log::Debug("----------------");
-    Log::Debug("-- Function (%s)", pFunc->m_name.m_pData);
+    Log::Debug("-- Function (%s)", pFunc->name.pData);
 
-    ResizableArray<String> m_lines;
-    char* pCurrent = codeText.m_pData;
-    char* pLineStart = codeText.m_pData;
-    while (pCurrent < (codeText.m_pData + codeText.m_length)) {
+    ResizableArray<String> lines;
+    char* pCurrent = codeText.pData;
+    char* pLineStart = codeText.pData;
+    while (pCurrent < (codeText.pData + codeText.length)) {
         if (*pCurrent == '\n') {
             String line = CopyCStringRange(pLineStart, pCurrent);
-            m_lines.PushBack(line);
+            lines.PushBack(line);
             pLineStart = pCurrent + 1;
         }
         pCurrent++;
     }
     String line = CopyCStringRange(pLineStart, pCurrent);
-    m_lines.PushBack(line);
+    lines.PushBack(line);
 
     uint32_t lineCounter = 0;
     uint32_t currentLine = -1;
 
     while (pInstructionPointer < chunk.code.end()) {
-        if (currentLine != chunk.m_lineInfo[lineCounter]) {
-            currentLine = chunk.m_lineInfo[lineCounter];
+        if (currentLine != chunk.lineInfo[lineCounter]) {
+            currentLine = chunk.lineInfo[lineCounter];
             Log::Debug("");
-            Log::Debug("  %i:%s", currentLine, m_lines[currentLine - 1].m_pData);
+            Log::Debug("  %i:%s", currentLine, lines[currentLine - 1].pData);
         }
 
         uint8_t offset = DisassembleInstruction(chunk, pInstructionPointer);
@@ -234,7 +234,7 @@ void Disassemble(Function* pFunc, String codeText) {
         lineCounter += offset;
     }
 
-    m_lines.Free([](String& str) {
+    lines.Free([](String& str) {
         FreeString(str);
     });
 }
@@ -244,36 +244,36 @@ void Disassemble(Function* pFunc, String codeText) {
 void DebugStack(VirtualMachine& vm) {
     StringBuilder builder;
 
-    for (uint32_t i = 1; i < vm.stack.m_array.m_count; i++) {
+    for (uint32_t i = 1; i < vm.stack.array.count; i++) {
         Value& v = vm.stack[i];
 
         // TODO: This can now handle more complex types
         // So upgrade it
-        switch (v.m_pType->tag) {
+        switch (v.pType->tag) {
             case TypeInfo::TypeTag::Void:
                 builder.AppendFormat("[%i: void]", i);
                 break;
             case TypeInfo::TypeTag::Type:
-                builder.AppendFormat("[%i: %s]", i, v.m_pTypeInfo->name.m_pData);
+                builder.AppendFormat("[%i: %s]", i, v.pTypeInfo->name.pData);
                 break;
             case TypeInfo::TypeTag::Bool:
-                builder.AppendFormat("[%i: %s]", i, v.m_boolValue ? "true" : "false");
+                builder.AppendFormat("[%i: %s]", i, v.boolValue ? "true" : "false");
                 break;
             case TypeInfo::TypeTag::Float:
-                builder.AppendFormat("[%i: %f]", i, v.m_f32Value);
+                builder.AppendFormat("[%i: %f]", i, v.f32Value);
                 break;
             case TypeInfo::TypeTag::Integer:
-                builder.AppendFormat("[%i: %i]", i, v.m_i32Value);
+                builder.AppendFormat("[%i: %i]", i, v.i32Value);
                 break;
             case TypeInfo::TypeTag::Function:
-                builder.AppendFormat("[%i: <fn %s>]", i, v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "");
+                builder.AppendFormat("[%i: <fn %s>]", i, v.pFunction->name.pData ? v.pFunction->name.pData : "");
                 break;
             default:
                 break;
         }
     }
     String s = builder.CreateString();
-    Log::Debug("->%s", s.m_pData);
+    Log::Debug("->%s", s.pData);
     FreeString(s);
 }
 
@@ -283,25 +283,25 @@ void Run(Function* pFuncToRun) {
     VirtualMachine vm;
     
     Value fv;
-    fv.m_pFunction = pFuncToRun;
-    fv.m_pType = GetEmptyFuncType();
+    fv.pFunction = pFuncToRun;
+    fv.pType = GetEmptyFuncType();
     vm.stack.Push(fv);
 
     CallFrame frame;
     frame.pFunc = pFuncToRun;
-    frame.pInstructionPointer = pFuncToRun->m_chunk.code.m_pData;
+    frame.pInstructionPointer = pFuncToRun->chunk.code.pData;
     frame.stackBaseIndex = 0;
     vm.callStack.Push(frame);
 
     // VM run
     CallFrame* pFrame = &vm.callStack.Top();
-    while (pFrame->pInstructionPointer < pFrame->pFunc->m_chunk.code.end()) {
+    while (pFrame->pInstructionPointer < pFrame->pFunc->chunk.code.end()) {
 #ifdef DEBUG_TRACE
-        DisassembleInstruction(pFrame->pFunc->m_chunk, pFrame->pInstructionPointer);
+        DisassembleInstruction(pFrame->pFunc->chunk, pFrame->pInstructionPointer);
 #endif
         switch (*pFrame->pInstructionPointer++) {
             case OpCode::LoadConstant: {
-                Value constant = pFrame->pFunc->m_chunk.constants[*pFrame->pInstructionPointer++];
+                Value constant = pFrame->pFunc->chunk.constants[*pFrame->pInstructionPointer++];
                 vm.stack.Push(constant);
                 break;
             }
@@ -379,16 +379,16 @@ void Run(Function* pFuncToRun) {
                 Value v = vm.stack.Pop();
                 // TODO: Runtime error if you try print a void type value
                 // TODO: As before this can be upgrade to be more robust at printing values of different types now that types are more complex
-                if (v.m_pType->tag == TypeInfo::TypeTag::Type)
-                    Log::Info("%s", v.m_pTypeInfo->name.m_pData);
-                if (v.m_pType->tag == TypeInfo::TypeTag::Float)
-                    Log::Info("%f", v.m_f32Value);
-                else if (v.m_pType->tag == TypeInfo::TypeTag::Integer)
-                    Log::Info("%i", v.m_i32Value);
-                else if (v.m_pType->tag == TypeInfo::TypeTag::Bool)
-                    Log::Info("%s", v.m_boolValue ? "true" : "false");
-                else if (v.m_pType->tag == TypeInfo::TypeTag::Function)
-                    Log::Info("<fn %s>", v.m_pFunction->m_name.m_pData ? v.m_pFunction->m_name.m_pData : "");  // TODO Should probably show the type sig?
+                if (v.pType->tag == TypeInfo::TypeTag::Type)
+                    Log::Info("%s", v.pTypeInfo->name.pData);
+                if (v.pType->tag == TypeInfo::TypeTag::Float)
+                    Log::Info("%f", v.f32Value);
+                else if (v.pType->tag == TypeInfo::TypeTag::Integer)
+                    Log::Info("%i", v.i32Value);
+                else if (v.pType->tag == TypeInfo::TypeTag::Bool)
+                    Log::Info("%s", v.boolValue ? "true" : "false");
+                else if (v.pType->tag == TypeInfo::TypeTag::Function)
+                    Log::Info("<fn %s>", v.pFunction->name.pData ? v.pFunction->name.pData : "");  // TODO Should probably show the type sig?
                 break;
             }
             case OpCode::Pop:
@@ -410,14 +410,14 @@ void Run(Function* pFuncToRun) {
             case OpCode::JmpIfFalse: {
                 uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
                 pFrame->pInstructionPointer += 2;
-                if (!vm.stack.Top().m_boolValue)
+                if (!vm.stack.Top().boolValue)
                     pFrame->pInstructionPointer += jmp;
                 break;
             }
             case OpCode::JmpIfTrue: {
                 uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
                 pFrame->pInstructionPointer += 2;
-                if (vm.stack.Top().m_boolValue)
+                if (vm.stack.Top().boolValue)
                     pFrame->pInstructionPointer += jmp;
                 break;
             }
@@ -437,12 +437,12 @@ void Run(Function* pFuncToRun) {
                 uint8_t argCount = *pFrame->pInstructionPointer++;
                 
                 Value funcValue = vm.stack[-1 - argCount];
-                funcValue.m_pFunction;
+                funcValue.pFunction;
 
                 CallFrame frame;
-                frame.pFunc = funcValue.m_pFunction;
-                frame.pInstructionPointer = funcValue.m_pFunction->m_chunk.code.m_pData;
-                frame.stackBaseIndex = vm.stack.m_array.m_count - argCount - 1;
+                frame.pFunc = funcValue.pFunction;
+                frame.pInstructionPointer = funcValue.pFunction->chunk.code.pData;
+                frame.stackBaseIndex = vm.stack.array.count - argCount - 1;
                 vm.callStack.Push(frame);
 
                 pFrame = &vm.callStack.Top();
@@ -454,17 +454,17 @@ void Run(Function* pFuncToRun) {
 	
 				Value copy = vm.stack.Pop();
 				if (toTypeId == CoreTypeIds::I32 && fromTypeId == CoreTypeIds::F32) {
-					vm.stack.Push(MakeValue((int32_t)copy.m_f32Value));
+					vm.stack.Push(MakeValue((int32_t)copy.f32Value));
 				} else if (toTypeId == CoreTypeIds::I32 && fromTypeId == CoreTypeIds::Bool) {
-					vm.stack.Push(MakeValue((int32_t)copy.m_boolValue));
+					vm.stack.Push(MakeValue((int32_t)copy.boolValue));
 				} else if (toTypeId == CoreTypeIds::F32 && fromTypeId == CoreTypeIds::I32) {
-					vm.stack.Push(MakeValue((float)copy.m_i32Value));
+					vm.stack.Push(MakeValue((float)copy.i32Value));
 				} else if (toTypeId == CoreTypeIds::F32 && fromTypeId == CoreTypeIds::Bool) {
-					vm.stack.Push(MakeValue((float)copy.m_boolValue));
+					vm.stack.Push(MakeValue((float)copy.boolValue));
 				} else if (toTypeId == CoreTypeIds::Bool && fromTypeId == CoreTypeIds::I32) {
-					vm.stack.Push(MakeValue((bool)copy.m_i32Value));
+					vm.stack.Push(MakeValue((bool)copy.i32Value));
 				} else if (toTypeId == CoreTypeIds::Bool && fromTypeId == CoreTypeIds::F32) {
-					vm.stack.Push(MakeValue((bool)copy.m_f32Value));
+					vm.stack.Push(MakeValue((bool)copy.f32Value));
 				}
 				break;
 			}
@@ -473,7 +473,7 @@ void Run(Function* pFuncToRun) {
                 vm.callStack.Pop();
                 vm.stack.Resize(pFrame->stackBaseIndex);
                 vm.stack.Push(returnVal);
-                if (vm.callStack.m_array.m_count == 0) {
+                if (vm.callStack.array.count == 0) {
                     return;
                 } else {
                     pFrame = &vm.callStack.Top();

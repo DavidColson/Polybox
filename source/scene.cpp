@@ -18,98 +18,98 @@ uint64_t Node::s_nodeIdCounter = 0;
 // ***********************************************************************
 
 Vec3f Node::GetLocalPosition() {
-    return m_localTransform.GetTranslation();
+    return localTransform.GetTranslation();
 }
 
 // ***********************************************************************
 
 Vec3f Node::GetWorldPosition() {
-    return m_worldTransform.GetTranslation();
+    return worldTransform.GetTranslation();
 }
 
 // ***********************************************************************
 
 void Node::SetLocalPosition(Vec3f translation) {
-    m_localTransform.SetTranslation(translation);
+    localTransform.SetTranslation(translation);
     UpdateWorldTransforms();
 }
 
 // ***********************************************************************
 
 Vec3f Node::GetLocalRotation() {
-    return m_localTransform.GetEulerRotation();
+    return localTransform.GetEulerRotation();
 }
 
 // ***********************************************************************
 
 Vec3f Node::GetWorldRotation() {
-    return m_worldTransform.GetEulerRotation();
+    return worldTransform.GetEulerRotation();
 }
 
 // ***********************************************************************
 
 void Node::SetLocalRotation(Vec3f rotation) {
-    m_localTransform.SetEulerRotation(rotation);
+    localTransform.SetEulerRotation(rotation);
     UpdateWorldTransforms();
 }
 
 // ***********************************************************************
 
 void Node::SetLocalRotation(Quatf rotation) {
-    m_localTransform.SetQuatRotation(rotation);
+    localTransform.SetQuatRotation(rotation);
     UpdateWorldTransforms();
 }
 
 // ***********************************************************************
 
 Vec3f Node::GetLocalScale() {
-    return m_localTransform.GetScaling();
+    return localTransform.GetScaling();
 }
 
 // ***********************************************************************
 
 Vec3f Node::GetWorldScale() {
-    return m_worldTransform.GetScaling();
+    return worldTransform.GetScaling();
 }
 
 // ***********************************************************************
 
 void Node::SetLocalScale(Vec3f scale) {
-    m_localTransform.SetScaling(scale);
+    localTransform.SetScaling(scale);
     UpdateWorldTransforms();
 }
 
 // ***********************************************************************
 
 Node* Node::GetParent() {
-    return m_pParent;
+    return pParent;
 }
 
 // ***********************************************************************
 
 int Node::GetNumChildren() {
-    return (int)m_children.m_count;
+    return (int)children.count;
 }
 
 // ***********************************************************************
 
 Node* Node::GetChild(int index) {
-    return m_children[index];
+    return children[index];
 }
 
 // ***********************************************************************
 
 void Node::UpdateWorldTransforms() {
     // Recalculate local world matrix
-    if (m_pParent) {
-        m_worldTransform = m_pParent->m_worldTransform * m_localTransform;
+    if (pParent) {
+        worldTransform = pParent->worldTransform * localTransform;
     } else {
-        m_worldTransform = m_localTransform;
+        worldTransform = localTransform;
     }
 
-    if (!m_children.m_count) {
-        for (Node* pChild : m_children) {
-            pChild->m_worldTransform = m_worldTransform * pChild->m_localTransform;
+    if (!children.count) {
+        for (Node* pChild : children) {
+            pChild->worldTransform = worldTransform * pChild->localTransform;
         }
     }
 }
@@ -117,22 +117,22 @@ void Node::UpdateWorldTransforms() {
 // ***********************************************************************
 
 Scene::~Scene() {
-    m_nodes.Free([](Node& node) {
-        FreeString(node.m_name);
-        node.m_children.Free();
+    nodes.Free([](Node& node) {
+        FreeString(node.name);
+        node.children.Free();
     });
 }
 
 // ***********************************************************************
 
 int Scene::GetNumNodes() {
-    return (int)m_nodes.m_count;
+    return (int)nodes.count;
 }
 
 // ***********************************************************************
 
 Node* Scene::GetNode(int index) {
-    return &m_nodes[index];
+    return &nodes[index];
 }
 
 // ***********************************************************************
@@ -144,20 +144,20 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& o
 
         // extract the nodes
         outNodes.PushBack(Node());
-        Node& node = outNodes[outNodes.m_count - 1];
+        Node& node = outNodes[outNodes.count - 1];
 
         String nodeName = jsonNode.HasKey("name") ? jsonNode["name"].ToString() : String("");
-        node.m_name = CopyString(nodeName);
+        node.name = CopyString(nodeName);
 
-        node.m_meshId = UINT32_MAX;
+        node.meshId = UINT32_MAX;
 
         if (pParent) {
-            pParent->m_children.PushBack(&node);
-            node.m_pParent = pParent;
+            pParent->children.PushBack(&node);
+            node.pParent = pParent;
         }
 
         if (jsonNode.HasKey("mesh")) {
-            node.m_meshId = jsonNode["mesh"].ToInt();
+            node.meshId = jsonNode["mesh"].ToInt();
         }
 
         if (jsonNode.HasKey("rotation")) {
@@ -211,8 +211,8 @@ Scene* Scene::LoadScene(const char* filePath) {
 
     String file;
     defer(FreeString(file));
-    file.m_pData = pData;
-    file.m_length = size;
+    file.pData = pData;
+    file.length = size;
 
     JsonValue parsed = ParseJsonFile(file);
     defer(parsed.Free());
@@ -221,8 +221,8 @@ Scene* Scene::LoadScene(const char* filePath) {
     if (!validGltf)
         return nullptr;
 
-    pScene->m_nodes.Reserve(parsed["nodes"].Count());
-    ParseNodesRecursively(pScene, nullptr, pScene->m_nodes, parsed["scenes"][0]["nodes"], parsed["nodes"]);
+    pScene->nodes.Reserve(parsed["nodes"].Count());
+    ParseNodesRecursively(pScene, nullptr, pScene->nodes, parsed["scenes"][0]["nodes"], parsed["nodes"]);
 
     return pScene;
 }

@@ -18,14 +18,14 @@
 // ***********************************************************************
 
 void ErrorState::Init(IAllocator* pAlloc) {
-    m_pAlloc = pAlloc;
-    m_errors.m_pAlloc = m_pAlloc;
+    pAlloc = pAlloc;
+    errors.pAlloc = pAlloc;
 }
 
 // ***********************************************************************
 
 void ErrorState::PushError(Ast::Node* pNode, const char* formatMessage, ...) {
-    StringBuilder builder(m_pAlloc);
+    StringBuilder builder(pAlloc);
     va_list args;
     va_start(args, formatMessage);
     builder.AppendFormatInternal(formatMessage, args);
@@ -34,12 +34,12 @@ void ErrorState::PushError(Ast::Node* pNode, const char* formatMessage, ...) {
     Assert(pNode != nullptr);
 
     Error er;
-    er.m_pLocation = pNode->m_pLocation;
-    er.m_line = pNode->m_line;
-    er.m_pLineStart = pNode->m_pLineStart;
+    er.pLocation = pNode->pLocation;
+    er.line = pNode->line;
+    er.pLineStart = pNode->pLineStart;
 
-    er.m_message = builder.CreateString();
-    m_errors.PushBack(er);
+    er.message = builder.CreateString();
+    errors.PushBack(er);
 }
 
 // ***********************************************************************
@@ -54,51 +54,51 @@ void ErrorState::PushError(char* pLocation, char* pLineStart, size_t line, const
 // ***********************************************************************
 
 void ErrorState::PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, va_list args) {
-    StringBuilder builder(m_pAlloc);
+    StringBuilder builder(pAlloc);
     builder.AppendFormatInternal(formatMessage, args);
 
 	Error er;
-	er.m_pLocation = pLocation;
-	er.m_line = line;
-	er.m_pLineStart = pLineStart;
+	er.pLocation = pLocation;
+	er.line = line;
+	er.pLineStart = pLineStart;
 
-    er.m_message = builder.CreateString();
+    er.message = builder.CreateString();
 
-    m_errors.PushBack(er);
+    errors.PushBack(er);
 }
 
 // ***********************************************************************
 
 bool ErrorState::ReportCompilationResult() {
-    bool success = m_errors.m_count == 0;
+    bool success = errors.count == 0;
     if (!success) {
-        Log::Info("Compilation failed with %i errors", m_errors.m_count);
+        Log::Info("Compilation failed with %i errors", errors.count);
 
         StringBuilder builder;
 
-        for (size_t i = 0; i < m_errors.m_count; i++) {
-            Error& err = m_errors[i];
-            builder.AppendFormat("Error At: filename:%i:%i\n", err.m_line, err.m_pLocation - err.m_pLineStart);
+        for (size_t i = 0; i < errors.count; i++) {
+            Error& err = errors[i];
+            builder.AppendFormat("Error At: filename:%i:%i\n", err.line, err.pLocation - err.pLineStart);
 
-            uint32_t lineNumberSpacing = uint32_t(log10f((float)err.m_line) + 1);
+            uint32_t lineNumberSpacing = uint32_t(log10f((float)err.line) + 1);
             builder.AppendFormat("%*s|\n", lineNumberSpacing + 2, "");
 
             String line;
             char* lineEnd;
-            if (lineEnd = strchr(err.m_pLineStart, '\n')) {
-                line = CopyCStringRange(err.m_pLineStart, lineEnd);
-            } else if (lineEnd = strchr(err.m_pLineStart, '\0')) {
-                line = CopyCStringRange(err.m_pLineStart, lineEnd);
+            if (lineEnd = strchr(err.pLineStart, '\n')) {
+                line = CopyCStringRange(err.pLineStart, lineEnd);
+            } else if (lineEnd = strchr(err.pLineStart, '\0')) {
+                line = CopyCStringRange(err.pLineStart, lineEnd);
             }
             defer(FreeString(line));
-            builder.AppendFormat(" %i | %s\n", err.m_line, line.m_pData);
+            builder.AppendFormat(" %i | %s\n", err.line, line.pData);
 
-            int32_t errorAtColumn = int32_t(err.m_pLocation - err.m_pLineStart);
+            int32_t errorAtColumn = int32_t(err.pLocation - err.pLineStart);
             builder.AppendFormat("%*s|%*s^\n", lineNumberSpacing + 2, "", errorAtColumn + 1, "");
-            builder.AppendFormat("%s\n", err.m_message.m_pData);
+            builder.AppendFormat("%s\n", err.message.pData);
 
             String output = builder.CreateString();
-            Log::Info("%s", output.m_pData);
+            Log::Info("%s", output.pData);
         }
     } else {
         Log::Info("Compilation Succeeded");
@@ -112,26 +112,26 @@ bool ErrorState::ReportCompilationResult() {
 // ***********************************************************************
 
 Token ParsingState::Previous() {
-    return *(m_pCurrent - 1);
+    return *(pCurrent - 1);
 }
 
 // ***********************************************************************
 
 Token ParsingState::Advance() {
-    m_pCurrent++;
+    pCurrent++;
     return Previous();
 }
 
 // ***********************************************************************
 
 bool ParsingState::IsAtEnd() {
-    return m_pCurrent >= m_pTokensEnd;
+    return pCurrent >= pTokensEnd;
 }
 
 // ***********************************************************************
 
 Token ParsingState::Peek() {
-    return *m_pCurrent;
+    return *pCurrent;
 }
 
 // ***********************************************************************
@@ -140,7 +140,7 @@ bool ParsingState::Check(TokenType::Enum type) {
     if (IsAtEnd())
         return false;
 
-    return Peek().m_type == type;
+    return Peek().type == type;
 }
     
 // ***********************************************************************
@@ -149,7 +149,7 @@ Token ParsingState::Consume(TokenType::Enum type, String message) {
     if (Check(type))
         return Advance();
 
-    PushError(message.m_pData);
+    PushError(message.pData);
     return Token();
 }
 
@@ -171,36 +171,36 @@ bool ParsingState::Match(int numTokens, ...) {
 // ***********************************************************************
 
 void ParsingState::PushError(const char* formatMessage, ...) {
-    if (m_panicMode)
+    if (panicMode)
         return;
 
-    m_panicMode = true;
+    panicMode = true;
 
     va_list args;
     va_start(args, formatMessage);
-    m_pErrorState->PushError(m_pCurrent->m_pLocation, m_pCurrent->m_pLineStart, m_pCurrent->m_line, formatMessage, args);
+    pErrorState->PushError(pCurrent->pLocation, pCurrent->pLineStart, pCurrent->line, formatMessage, args);
     va_end(args);
 }
 
 // ***********************************************************************
 
 void ParsingState::Synchronize() {
-    m_panicMode = false;
+    panicMode = false;
 
     bool waitForBlock = false;
-    while (m_pCurrent->m_type != TokenType::EndOfFile) {
-        if (m_pCurrent->m_type == TokenType::LeftBrace) {
+    while (pCurrent->type != TokenType::EndOfFile) {
+        if (pCurrent->type == TokenType::LeftBrace) {
             waitForBlock = true;
         }
 
         if (waitForBlock) {
-            if (m_pCurrent->m_type == TokenType::RightBrace) {
+            if (pCurrent->type == TokenType::RightBrace) {
                 Advance();
                 return;
             }
             Advance();
         } else {
-            if (m_pCurrent->m_type == TokenType::Semicolon) {
+            if (pCurrent->type == TokenType::Semicolon) {
                 Advance(); // Consume semicolon we found
                 return;
             }
@@ -217,11 +217,11 @@ Ast::Expression* ParsingState::ParseType() {
         Token identifier = Previous();
 
         Ast::Type* pType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
-        pType->m_nodeKind = Ast::NodeType::Type;
-        pType->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
-        pType->m_pLocation = identifier.m_pLocation;
-        pType->m_pLineStart = identifier.m_pLineStart;
-        pType->m_line = identifier.m_line;
+        pType->nodeKind = Ast::NodeType::Type;
+        pType->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, pAllocator);
+        pType->pLocation = identifier.pLocation;
+        pType->pLineStart = identifier.pLineStart;
+        pType->line = identifier.line;
 
         return pType;
     }
@@ -230,16 +230,16 @@ Ast::Expression* ParsingState::ParseType() {
         Token fn = Previous();
 
         Ast::FnType* pFnType = (Ast::FnType*)pAllocator->Allocate(sizeof(Ast::FnType));
-        pFnType->m_nodeKind = Ast::NodeType::FnType;
-        pFnType->m_params.m_pAlloc = pAllocator;
+        pFnType->nodeKind = Ast::NodeType::FnType;
+        pFnType->params.pAlloc = pAllocator;
 
         Consume(TokenType::LeftParen, "Expected left parenthesis to start function signature");
 
-        if (Peek().m_type != TokenType::RightParen) {
+        if (Peek().type != TokenType::RightParen) {
             do {
-                pFnType->m_params.PushBack((Ast::Type*)ParseType());
+                pFnType->params.PushBack((Ast::Type*)ParseType());
 
-                if (Peek().m_type == TokenType::Colon) {
+                if (Peek().type == TokenType::Colon) {
 					PushError("Expected a function signature, but this looks like a function header. Potentially replace 'fn' with 'func' from start of expression");
                     return nullptr;
                 }
@@ -249,20 +249,20 @@ Ast::Expression* ParsingState::ParseType() {
 
         // Parse return type
         if (Match(1, TokenType::FuncSigReturn)) {
-            pFnType->m_pReturnType = (Ast::Type*)ParseType();
+            pFnType->pReturnType = (Ast::Type*)ParseType();
         } else {
-            pFnType->m_pReturnType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
-            pFnType->m_pReturnType->m_nodeKind = Ast::NodeType::Identifier;
-            pFnType->m_pReturnType->m_identifier = CopyCString("void", pAllocator);
-            pFnType->m_pReturnType->m_pType = GetVoidType();
-            pFnType->m_pReturnType->m_pLocation = Previous().m_pLocation;
-            pFnType->m_pReturnType->m_pLineStart = Previous().m_pLineStart;
-            pFnType->m_pReturnType->m_line = Previous().m_line;
+            pFnType->pReturnType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
+            pFnType->pReturnType->nodeKind = Ast::NodeType::Identifier;
+            pFnType->pReturnType->identifier = CopyCString("void", pAllocator);
+            pFnType->pReturnType->pType = GetVoidType();
+            pFnType->pReturnType->pLocation = Previous().pLocation;
+            pFnType->pReturnType->pLineStart = Previous().pLineStart;
+            pFnType->pReturnType->line = Previous().line;
         }
 
-        pFnType->m_pLocation = fn.m_pLocation;
-        pFnType->m_pLineStart = fn.m_pLineStart;
-        pFnType->m_line = fn.m_line;
+        pFnType->pLocation = fn.pLocation;
+        pFnType->pLineStart = fn.pLineStart;
+        pFnType->line = fn.line;
         return pFnType;
     }
 
@@ -277,97 +277,97 @@ Ast::Expression* ParsingState::ParsePrimary() {
 		Token fn = Previous();
 
 		Ast::Function* pFunc = (Ast::Function*)pAllocator->Allocate(sizeof(Ast::Function));
-		pFunc->m_nodeKind = Ast::NodeType::Function;
-		pFunc->m_params.m_pAlloc = pAllocator;
+		pFunc->nodeKind = Ast::NodeType::Function;
+		pFunc->params.pAlloc = pAllocator;
 
 		Consume(TokenType::LeftParen, "Expected left parenthesis to start function param list");
 
-		if (Peek().m_type != TokenType::RightParen) {
+		if (Peek().type != TokenType::RightParen) {
 			// Parse parameter list
 			do {
 				Token arg = Consume(TokenType::Identifier, "Expected argument identifier after comma");
 				Consume(TokenType::Colon, "Expected colon after argument identifier");
 
 				Ast::Declaration* pParamDecl = (Ast::Declaration*)pAllocator->Allocate(sizeof(Ast::Declaration));
-				pParamDecl->m_nodeKind = Ast::NodeType::Declaration;
-				pParamDecl->m_identifier = CopyCStringRange(arg.m_pLocation, arg.m_pLocation + arg.m_length, pAllocator);
-				pParamDecl->m_pDeclaredType = (Ast::Type*)ParseType();
-				pParamDecl->m_pLocation = arg.m_pLocation;
-				pParamDecl->m_line = arg.m_line;
-				pParamDecl->m_pLineStart = arg.m_pLineStart;
+				pParamDecl->nodeKind = Ast::NodeType::Declaration;
+				pParamDecl->identifier = CopyCStringRange(arg.pLocation, arg.pLocation + arg.length, pAllocator);
+				pParamDecl->pDeclaredType = (Ast::Type*)ParseType();
+				pParamDecl->pLocation = arg.pLocation;
+				pParamDecl->line = arg.line;
+				pParamDecl->pLineStart = arg.pLineStart;
 
-				pFunc->m_params.PushBack(pParamDecl);
+				pFunc->params.PushBack(pParamDecl);
 			} while (Match(1, TokenType::Comma));
 		}
 		Consume(TokenType::RightParen, "Expected right parenthesis to close argument list");
 
 		// Parse return type
 		if (Match(1, TokenType::FuncSigReturn)) {
-			pFunc->m_pReturnType = (Ast::Type*)ParseType();
+			pFunc->pReturnType = (Ast::Type*)ParseType();
 		} else {
-			pFunc->m_pReturnType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
-			pFunc->m_pReturnType->m_nodeKind = Ast::NodeType::Identifier;
-			pFunc->m_pReturnType->m_identifier = CopyCString("void", pAllocator);
-			pFunc->m_pReturnType->m_pType = GetVoidType();
-			pFunc->m_pReturnType->m_pLocation = Previous().m_pLocation;
-			pFunc->m_pReturnType->m_pLineStart = Previous().m_pLineStart;
-			pFunc->m_pReturnType->m_line = Previous().m_line;
+			pFunc->pReturnType = (Ast::Type*)pAllocator->Allocate(sizeof(Ast::Type));
+			pFunc->pReturnType->nodeKind = Ast::NodeType::Identifier;
+			pFunc->pReturnType->identifier = CopyCString("void", pAllocator);
+			pFunc->pReturnType->pType = GetVoidType();
+			pFunc->pReturnType->pLocation = Previous().pLocation;
+			pFunc->pReturnType->pLineStart = Previous().pLineStart;
+			pFunc->pReturnType->line = Previous().line;
 		}
 
 		if (Match(1, TokenType::LeftBrace)) {
-			pFunc->m_pBody = (Ast::Block*)ParseBlock();
+			pFunc->pBody = (Ast::Block*)ParseBlock();
 		} else {
 			PushError("Expected '{' to open function body");
 		}
 			
-		pFunc->m_pLocation = fn.m_pLocation;
-		pFunc->m_pLineStart = fn.m_pLineStart;
-		pFunc->m_line = fn.m_line;
+		pFunc->pLocation = fn.pLocation;
+		pFunc->pLineStart = fn.pLineStart;
+		pFunc->line = fn.line;
 		return pFunc;
 	}
 
     if (Match(1, TokenType::LiteralInteger)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)pAllocator->Allocate(sizeof(Ast::Literal));
-        pLiteralExpr->m_nodeKind = Ast::NodeType::Literal;
+        pLiteralExpr->nodeKind = Ast::NodeType::Literal;
 
         Token token = Previous();
-        pLiteralExpr->m_pLocation = token.m_pLocation;
-        pLiteralExpr->m_pLineStart = token.m_pLineStart;
-        pLiteralExpr->m_line = token.m_line;
+        pLiteralExpr->pLocation = token.pLocation;
+        pLiteralExpr->pLineStart = token.pLineStart;
+        pLiteralExpr->line = token.line;
 
-        char* endPtr = token.m_pLocation + token.m_length;
-        pLiteralExpr->m_value = MakeValue((int32_t)strtol(token.m_pLocation, &endPtr, 10));
+        char* endPtr = token.pLocation + token.length;
+        pLiteralExpr->value = MakeValue((int32_t)strtol(token.pLocation, &endPtr, 10));
         return pLiteralExpr;
     }
 
     if (Match(1, TokenType::LiteralFloat)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)pAllocator->Allocate(sizeof(Ast::Literal));
-        pLiteralExpr->m_nodeKind = Ast::NodeType::Literal;
+        pLiteralExpr->nodeKind = Ast::NodeType::Literal;
 
         Token token = Previous();
-        pLiteralExpr->m_pLocation = token.m_pLocation;
-        pLiteralExpr->m_pLineStart = token.m_pLineStart;
-        pLiteralExpr->m_line = token.m_line;
+        pLiteralExpr->pLocation = token.pLocation;
+        pLiteralExpr->pLineStart = token.pLineStart;
+        pLiteralExpr->line = token.line;
 
-        char* endPtr = token.m_pLocation + token.m_length;
-        pLiteralExpr->m_value = MakeValue((float)strtod(token.m_pLocation, &endPtr));
+        char* endPtr = token.pLocation + token.length;
+        pLiteralExpr->value = MakeValue((float)strtod(token.pLocation, &endPtr));
         return pLiteralExpr;
     }
 
     if (Match(1, TokenType::LiteralBool)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)pAllocator->Allocate(sizeof(Ast::Literal));
-        pLiteralExpr->m_nodeKind = Ast::NodeType::Literal;
+        pLiteralExpr->nodeKind = Ast::NodeType::Literal;
 
         Token token = Previous();
-        pLiteralExpr->m_pLocation = token.m_pLocation;
-        pLiteralExpr->m_pLineStart = token.m_pLineStart;
-        pLiteralExpr->m_line = token.m_line;
+        pLiteralExpr->pLocation = token.pLocation;
+        pLiteralExpr->pLineStart = token.pLineStart;
+        pLiteralExpr->line = token.line;
 
-        char* endPtr = token.m_pLocation + token.m_length;
-        if (strncmp("true", token.m_pLocation, 4) == 0)
-            pLiteralExpr->m_value = MakeValue(true);
-        else if (strncmp("false", token.m_pLocation, 4) == 0)
-            pLiteralExpr->m_value = MakeValue(true);
+        char* endPtr = token.pLocation + token.length;
+        if (strncmp("true", token.pLocation, 4) == 0)
+            pLiteralExpr->value = MakeValue(true);
+        else if (strncmp("false", token.pLocation, 4) == 0)
+            pLiteralExpr->value = MakeValue(true);
         return pLiteralExpr;
     }
 
@@ -378,13 +378,13 @@ Ast::Expression* ParsingState::ParsePrimary() {
 
         if (pExpr) {
             Ast::Grouping* pGroupExpr = (Ast::Grouping*)pAllocator->Allocate(sizeof(Ast::Grouping));
-            pGroupExpr->m_nodeKind = Ast::NodeType::Grouping;
+            pGroupExpr->nodeKind = Ast::NodeType::Grouping;
 
-            pGroupExpr->m_pLocation = startToken.m_pLocation;
-            pGroupExpr->m_pLineStart = startToken.m_pLineStart;
-            pGroupExpr->m_line = startToken.m_line;
+            pGroupExpr->pLocation = startToken.pLocation;
+            pGroupExpr->pLineStart = startToken.pLineStart;
+            pGroupExpr->line = startToken.line;
 
-            pGroupExpr->m_pExpression = pExpr;
+            pGroupExpr->pExpression = pExpr;
             return pGroupExpr;
         }
         PushError("Expected valid expression inside parenthesis, but found nothing");
@@ -396,12 +396,12 @@ Ast::Expression* ParsingState::ParsePrimary() {
 
         // Should become identifier with a type, variable or type or something like that
         Ast::Identifier* pIdentifier = (Ast::Identifier*)pAllocator->Allocate(sizeof(Ast::Identifier));
-        pIdentifier->m_nodeKind = Ast::NodeType::Identifier;
-        pIdentifier->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
+        pIdentifier->nodeKind = Ast::NodeType::Identifier;
+        pIdentifier->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, pAllocator);
 
-        pIdentifier->m_pLocation = identifier.m_pLocation;
-        pIdentifier->m_pLineStart = identifier.m_pLineStart;
-        pIdentifier->m_line = identifier.m_line;
+        pIdentifier->pLocation = identifier.pLocation;
+        pIdentifier->pLineStart = identifier.pLineStart;
+        pIdentifier->line = identifier.line;
 
         return pIdentifier;
     }
@@ -420,21 +420,21 @@ Ast::Expression* ParsingState::ParseCall() {
 
     while (Match(1, TokenType::LeftParen)) {
         Ast::Call* pCall = (Ast::Call*)pAllocator->Allocate(sizeof(Ast::Call));
-        pCall->m_nodeKind = Ast::NodeType::Call;
-        pCall->m_pCallee = pExpr;
-        pCall->m_args.m_pAlloc = pAllocator;
+        pCall->nodeKind = Ast::NodeType::Call;
+        pCall->pCallee = pExpr;
+        pCall->args.pAlloc = pAllocator;
 
         if (!Check(TokenType::RightParen)) {
             do {
-                pCall->m_args.PushBack(ParseExpression());
+                pCall->args.PushBack(ParseExpression());
             } while (Match(1, TokenType::Comma));
         }
 
         Token closeParen = Consume(TokenType::RightParen, "Expected right parenthesis to end function call");
         
-        pCall->m_pLocation = closeParen.m_pLocation;
-        pCall->m_pLineStart = closeParen.m_pLineStart;
-        pCall->m_line = closeParen.m_line;
+        pCall->pLocation = closeParen.pLocation;
+        pCall->pLineStart = closeParen.pLineStart;
+        pCall->line = closeParen.line;
 
         pExpr = pCall;
     }
@@ -448,36 +448,36 @@ Ast::Expression* ParsingState::ParseUnary() {
 		Token prev = Previous();
 
 		// Cast Operator
-		if (prev.m_type == TokenType::As) {
+		if (prev.type == TokenType::As) {
 			Consume(TokenType::LeftParen, "Expected '(' before cast target type");
 
 			Ast::Cast* pCastExpr = (Ast::Cast*)pAllocator->Allocate(sizeof(Ast::Cast));
-			pCastExpr->m_nodeKind = Ast::NodeType::Cast;
-			pCastExpr->m_pTargetType = (Ast::Type*)ParseType();
-			pCastExpr->m_pLocation = prev.m_pLocation;
-			pCastExpr->m_pLineStart = prev.m_pLineStart;
-			pCastExpr->m_line = prev.m_line;
+			pCastExpr->nodeKind = Ast::NodeType::Cast;
+			pCastExpr->pTargetType = (Ast::Type*)ParseType();
+			pCastExpr->pLocation = prev.pLocation;
+			pCastExpr->pLineStart = prev.pLineStart;
+			pCastExpr->line = prev.line;
 
 			Consume(TokenType::RightParen, "Expected ')' after cast target type");
 
-			pCastExpr->m_pExprToCast = ParseUnary();
+			pCastExpr->pExprToCast = ParseUnary();
 			return pCastExpr;
 		}
-		// Unary maths operator
+		// Unary maths op
 		else {
 
 			Ast::Unary* pUnaryExpr = (Ast::Unary*)pAllocator->Allocate(sizeof(Ast::Unary));
-			pUnaryExpr->m_nodeKind = Ast::NodeType::Unary;
+			pUnaryExpr->nodeKind = Ast::NodeType::Unary;
 
-			pUnaryExpr->m_pLocation = prev.m_pLocation;
-			pUnaryExpr->m_pLineStart = prev.m_pLineStart;
-			pUnaryExpr->m_line = prev.m_line;
+			pUnaryExpr->pLocation = prev.pLocation;
+			pUnaryExpr->pLineStart = prev.pLineStart;
+			pUnaryExpr->line = prev.line;
 
-			if (prev.m_type == TokenType::Minus)
-				pUnaryExpr->m_operator = Operator::UnaryMinus;
-			else if (prev.m_type == TokenType::Bang)
-				pUnaryExpr->m_operator = Operator::Not;
-			pUnaryExpr->m_pRight = ParseUnary();
+			if (prev.type == TokenType::Minus)
+				pUnaryExpr->op = Operator::UnaryMinus;
+			else if (prev.type == TokenType::Bang)
+				pUnaryExpr->op = Operator::Not;
+			pUnaryExpr->pRight = ParseUnary();
 
 			return (Ast::Expression*)pUnaryExpr;
 		}
@@ -492,16 +492,16 @@ Ast::Expression* ParsingState::ParseMulDiv() {
 
     while (Match(2, TokenType::Star, TokenType::Slash)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
 
-        Token operatorToken = Previous();
-        pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
-        pBinaryExpr->m_pLineStart = operatorToken.m_pLineStart;
-        pBinaryExpr->m_line = operatorToken.m_line;
+        Token opToken = Previous();
+        pBinaryExpr->pLocation = opToken.pLocation;
+        pBinaryExpr->pLineStart = opToken.pLineStart;
+        pBinaryExpr->line = opToken.line;
 
-        pBinaryExpr->m_pLeft = pExpr;
-        pBinaryExpr->m_operator = TokenToOperator(operatorToken.m_type);
-        pBinaryExpr->m_pRight = ParseUnary();
+        pBinaryExpr->pLeft = pExpr;
+        pBinaryExpr->op = TokenToOperator(opToken.type);
+        pBinaryExpr->pRight = ParseUnary();
 
         pExpr = (Ast::Expression*)pBinaryExpr;
     }
@@ -515,16 +515,16 @@ Ast::Expression* ParsingState::ParseAddSub() {
 
     while (Match(2, TokenType::Minus, TokenType::Plus)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
 
-        Token operatorToken = Previous();
-        pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
-        pBinaryExpr->m_pLineStart = operatorToken.m_pLineStart;
-        pBinaryExpr->m_line = operatorToken.m_line;
+        Token opToken = Previous();
+        pBinaryExpr->pLocation = opToken.pLocation;
+        pBinaryExpr->pLineStart = opToken.pLineStart;
+        pBinaryExpr->line = opToken.line;
 
-        pBinaryExpr->m_pLeft = pExpr;
-        pBinaryExpr->m_operator = TokenToOperator(operatorToken.m_type);
-        pBinaryExpr->m_pRight = ParseMulDiv();
+        pBinaryExpr->pLeft = pExpr;
+        pBinaryExpr->op = TokenToOperator(opToken.type);
+        pBinaryExpr->pRight = ParseMulDiv();
 
         pExpr = (Ast::Expression*)pBinaryExpr;
     }
@@ -538,16 +538,16 @@ Ast::Expression* ParsingState::ParseComparison() {
 
     while (Match(4, TokenType::Greater, TokenType::Less, TokenType::GreaterEqual, TokenType::LessEqual)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
 
-        Token operatorToken = Previous();
-        pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
-        pBinaryExpr->m_pLineStart = operatorToken.m_pLineStart;
-        pBinaryExpr->m_line = operatorToken.m_line;
+        Token opToken = Previous();
+        pBinaryExpr->pLocation = opToken.pLocation;
+        pBinaryExpr->pLineStart = opToken.pLineStart;
+        pBinaryExpr->line = opToken.line;
 
-        pBinaryExpr->m_pLeft = pExpr;
-        pBinaryExpr->m_operator = TokenToOperator(operatorToken.m_type);
-        pBinaryExpr->m_pRight = ParseAddSub();
+        pBinaryExpr->pLeft = pExpr;
+        pBinaryExpr->op = TokenToOperator(opToken.type);
+        pBinaryExpr->pRight = ParseAddSub();
 
         pExpr = (Ast::Expression*)pBinaryExpr;
     }
@@ -561,16 +561,16 @@ Ast::Expression* ParsingState::ParseEquality() {
 
     while (Match(2, TokenType::EqualEqual, TokenType::BangEqual)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
 
-        Token operatorToken = Previous();
-        pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
-        pBinaryExpr->m_pLineStart = operatorToken.m_pLineStart;
-        pBinaryExpr->m_line = operatorToken.m_line;
+        Token opToken = Previous();
+        pBinaryExpr->pLocation = opToken.pLocation;
+        pBinaryExpr->pLineStart = opToken.pLineStart;
+        pBinaryExpr->line = opToken.line;
 
-        pBinaryExpr->m_pLeft = pExpr;
-        pBinaryExpr->m_operator = TokenToOperator(operatorToken.m_type);
-        pBinaryExpr->m_pRight = ParseComparison();
+        pBinaryExpr->pLeft = pExpr;
+        pBinaryExpr->op = TokenToOperator(opToken.type);
+        pBinaryExpr->pRight = ParseComparison();
 
         pExpr = (Ast::Expression*)pBinaryExpr;
     }
@@ -584,16 +584,16 @@ Ast::Expression* ParsingState::ParseLogicAnd() {
 
     while (Match(1, TokenType::And)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
 
-        Token operatorToken = Previous();
-        pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
-        pBinaryExpr->m_pLineStart = operatorToken.m_pLineStart;
-        pBinaryExpr->m_line = operatorToken.m_line;
+        Token opToken = Previous();
+        pBinaryExpr->pLocation = opToken.pLocation;
+        pBinaryExpr->pLineStart = opToken.pLineStart;
+        pBinaryExpr->line = opToken.line;
 
-        pBinaryExpr->m_pLeft = pExpr;
-        pBinaryExpr->m_operator = TokenToOperator(operatorToken.m_type);
-        pBinaryExpr->m_pRight = ParseEquality();
+        pBinaryExpr->pLeft = pExpr;
+        pBinaryExpr->op = TokenToOperator(opToken.type);
+        pBinaryExpr->pRight = ParseEquality();
 
         pExpr = (Ast::Expression*)pBinaryExpr;
     }
@@ -607,16 +607,16 @@ Ast::Expression* ParsingState::ParseLogicOr() {
 
     while (Match(1, TokenType::Or)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->m_nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
 
-        Token operatorToken = Previous();
-        pBinaryExpr->m_pLocation = operatorToken.m_pLocation;
-        pBinaryExpr->m_pLineStart = operatorToken.m_pLineStart;
-        pBinaryExpr->m_line = operatorToken.m_line;
+        Token opToken = Previous();
+        pBinaryExpr->pLocation = opToken.pLocation;
+        pBinaryExpr->pLineStart = opToken.pLineStart;
+        pBinaryExpr->line = opToken.line;
 
-        pBinaryExpr->m_pLeft = pExpr;
-        pBinaryExpr->m_operator = TokenToOperator(operatorToken.m_type);
-        pBinaryExpr->m_pRight = ParseLogicAnd();
+        pBinaryExpr->pLeft = pExpr;
+        pBinaryExpr->op = TokenToOperator(opToken.type);
+        pBinaryExpr->pRight = ParseLogicAnd();
 
         pExpr = (Ast::Expression*)pBinaryExpr;
     }
@@ -632,19 +632,19 @@ Ast::Expression* ParsingState::ParseVarAssignment() {
         Token equal = Previous();
         Ast::Expression* pAssignment = ParseVarAssignment();
 
-        if (pExpr->m_nodeKind == Ast::NodeType::Identifier) {
+        if (pExpr->nodeKind == Ast::NodeType::Identifier) {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pAllocator->Allocate(sizeof(Ast::VariableAssignment));
-            pVarAssignment->m_nodeKind = Ast::NodeType::VariableAssignment;
+            pVarAssignment->nodeKind = Ast::NodeType::VariableAssignment;
 
-            pVarAssignment->m_identifier = ((Ast::Identifier*)pExpr)->m_identifier;
-            pVarAssignment->m_pAssignment = pAssignment;
+            pVarAssignment->identifier = ((Ast::Identifier*)pExpr)->identifier;
+            pVarAssignment->pAssignment = pAssignment;
 
-            pVarAssignment->m_pLocation = equal.m_pLocation;
-            pVarAssignment->m_pLineStart = equal.m_pLineStart;
-            pVarAssignment->m_line = equal.m_line;
+            pVarAssignment->pLocation = equal.pLocation;
+            pVarAssignment->pLineStart = equal.pLineStart;
+            pVarAssignment->line = equal.line;
             return pVarAssignment;
         }
-        m_pErrorState->PushError(equal.m_pLocation, equal.m_pLineStart, equal.m_line, "Expression preceding assignment operator is not a variable we can assign to");
+        pErrorState->PushError(equal.pLocation, equal.pLineStart, equal.line, "Expression preceding assignment op is not a variable we can assign to");
     }
     return pExpr;
 }
@@ -674,16 +674,16 @@ Ast::Statement* ParsingState::ParseStatement() {
 
     Ast::Statement* pStmt = nullptr;
     if (Match(1, TokenType::Identifier)) {
-        if (strncmp("print", Previous().m_pLocation, 5) == 0) {
+        if (strncmp("print", Previous().pLocation, 5) == 0) {
             pStmt = ParsePrint();
         } else {
-            m_pCurrent--;
+            pCurrent--;
         }
     } 
     
     if (pStmt == nullptr) {
         if (Match(8, TokenType::Identifier, TokenType::LiteralString, TokenType::LiteralInteger, TokenType::LiteralBool, TokenType::LiteralFloat, TokenType::LeftParen, TokenType::Bang, TokenType::Minus)) {
-            m_pCurrent--;
+            pCurrent--;
             pStmt = ParseExpressionStmt();
         }
         else if (Match(1, TokenType::Semicolon)) {
@@ -704,13 +704,13 @@ Ast::Statement* ParsingState::ParseExpressionStmt() {
     Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
 
     Ast::ExpressionStmt* pStmt = (Ast::ExpressionStmt*)pAllocator->Allocate(sizeof(Ast::ExpressionStmt));
-    pStmt->m_nodeKind = Ast::NodeType::ExpressionStmt;
+    pStmt->nodeKind = Ast::NodeType::ExpressionStmt;
 
-    pStmt->m_pExpr = pExpr;
+    pStmt->pExpr = pExpr;
 
-    pStmt->m_pLocation = Previous().m_pLocation;
-    pStmt->m_pLineStart = Previous().m_pLineStart;
-    pStmt->m_line = Previous().m_line;
+    pStmt->pLocation = Previous().pLocation;
+    pStmt->pLineStart = Previous().pLineStart;
+    pStmt->line = Previous().line;
     return pStmt;
 }
 
@@ -718,17 +718,17 @@ Ast::Statement* ParsingState::ParseExpressionStmt() {
 
 Ast::Statement* ParsingState::ParseIf() {
     Ast::If* pIf = (Ast::If*)pAllocator->Allocate(sizeof(Ast::If));
-    pIf->m_nodeKind = Ast::NodeType::If;
+    pIf->nodeKind = Ast::NodeType::If;
 
-    pIf->m_pLocation = Previous().m_pLocation;
-    pIf->m_pLineStart = Previous().m_pLineStart;
-    pIf->m_line = Previous().m_line;
+    pIf->pLocation = Previous().pLocation;
+    pIf->pLineStart = Previous().pLineStart;
+    pIf->line = Previous().line;
 
-    pIf->m_pCondition = ParseExpression();
-    pIf->m_pThenStmt = ParseStatement();
+    pIf->pCondition = ParseExpression();
+    pIf->pThenStmt = ParseStatement();
 
     if (Match(1, TokenType::Else)) {
-        pIf->m_pElseStmt = ParseStatement();
+        pIf->pElseStmt = ParseStatement();
     }
     return pIf;
 }
@@ -737,15 +737,15 @@ Ast::Statement* ParsingState::ParseIf() {
 
 Ast::Statement* ParsingState::ParseWhile() {
     Ast::While* pWhile = (Ast::While*)pAllocator->Allocate(sizeof(Ast::While));
-    pWhile->m_nodeKind = Ast::NodeType::While;
+    pWhile->nodeKind = Ast::NodeType::While;
 
-    pWhile->m_pLocation = Previous().m_pLocation;
-    pWhile->m_pLineStart = Previous().m_pLineStart;
-    pWhile->m_line = Previous().m_line;
+    pWhile->pLocation = Previous().pLocation;
+    pWhile->pLineStart = Previous().pLineStart;
+    pWhile->line = Previous().line;
 
-    pWhile->m_pCondition = ParseExpression();
+    pWhile->pCondition = ParseExpression();
 
-    pWhile->m_pBody = ParseStatement();
+    pWhile->pBody = ParseStatement();
 
     return pWhile;
 }
@@ -759,13 +759,13 @@ Ast::Statement* ParsingState::ParsePrint() {
     Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
     
     Ast::Print* pPrintStmt = (Ast::Print*)pAllocator->Allocate(sizeof(Ast::Print));
-    pPrintStmt->m_nodeKind = Ast::NodeType::Print;
+    pPrintStmt->nodeKind = Ast::NodeType::Print;
 
-    pPrintStmt->m_pExpr = pExpr;
+    pPrintStmt->pExpr = pExpr;
 
-    pPrintStmt->m_pLocation = Previous().m_pLocation;
-    pPrintStmt->m_pLineStart = Previous().m_pLineStart;
-    pPrintStmt->m_line = Previous().m_line;
+    pPrintStmt->pLocation = Previous().pLocation;
+    pPrintStmt->pLineStart = Previous().pLineStart;
+    pPrintStmt->line = Previous().line;
     return pPrintStmt;
 }
 
@@ -773,18 +773,18 @@ Ast::Statement* ParsingState::ParsePrint() {
 
 Ast::Statement* ParsingState::ParseReturn() {
     Ast::Return* pReturnStmt = (Ast::Return*)pAllocator->Allocate(sizeof(Ast::Return));
-    pReturnStmt->m_nodeKind = Ast::NodeType::Return;
+    pReturnStmt->nodeKind = Ast::NodeType::Return;
 
     if (!Check(TokenType::Semicolon)) {
-        pReturnStmt->m_pExpr = ParseExpression();
+        pReturnStmt->pExpr = ParseExpression();
     } else {
-        pReturnStmt->m_pExpr = nullptr;     
+        pReturnStmt->pExpr = nullptr;     
     }
     Consume(TokenType::Semicolon, "Expected \";\" at the end of this statement");
 
-    pReturnStmt->m_pLocation = Previous().m_pLocation;
-    pReturnStmt->m_pLineStart = Previous().m_pLineStart;
-    pReturnStmt->m_line = Previous().m_line;
+    pReturnStmt->pLocation = Previous().pLocation;
+    pReturnStmt->pLineStart = Previous().pLineStart;
+    pReturnStmt->line = Previous().line;
     return pReturnStmt;
 }
 
@@ -792,19 +792,19 @@ Ast::Statement* ParsingState::ParseReturn() {
 
 Ast::Statement* ParsingState::ParseBlock() {
     Ast::Block* pBlock = (Ast::Block*)pAllocator->Allocate(sizeof(Ast::Block));
-    pBlock->m_nodeKind = Ast::NodeType::Block;
-    pBlock->m_declarations.m_pAlloc = pAllocator;
-    pBlock->m_startToken = Previous();
+    pBlock->nodeKind = Ast::NodeType::Block;
+    pBlock->declarations.pAlloc = pAllocator;
+    pBlock->startToken = Previous();
 
-    pBlock->m_line = pBlock->m_startToken.m_line;
-    pBlock->m_pLineStart = pBlock->m_startToken.m_pLineStart;
-    pBlock->m_pLocation = pBlock->m_startToken.m_pLocation;
+    pBlock->line = pBlock->startToken.line;
+    pBlock->pLineStart = pBlock->startToken.pLineStart;
+    pBlock->pLocation = pBlock->startToken.pLocation;
 
     while (!Check(TokenType::RightBrace) && !IsAtEnd()) {
-        pBlock->m_declarations.PushBack(ParseDeclaration());
+        pBlock->declarations.PushBack(ParseDeclaration());
     }
     Consume(TokenType::RightBrace, "Expected '}' to end this block");
-    pBlock->m_endToken = Previous();
+    pBlock->endToken = Previous();
     return pBlock;
 }
 
@@ -819,26 +819,26 @@ Ast::Statement* ParsingState::ParseDeclaration() {
         if (Match(1, TokenType::Colon)) {
             // We now know we are dealing with a declaration of some kind
             Ast::Declaration* pDecl = (Ast::Declaration*)pAllocator->Allocate(sizeof(Ast::Declaration));
-            pDecl->m_nodeKind = Ast::NodeType::Declaration;
-            pDecl->m_identifier = CopyCStringRange(identifier.m_pLocation, identifier.m_pLocation + identifier.m_length, pAllocator);
+            pDecl->nodeKind = Ast::NodeType::Declaration;
+            pDecl->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, pAllocator);
 
             // Optionally Parse type 
-            if (Peek().m_type != TokenType::Equal) {
-                pDecl->m_pDeclaredType = (Ast::Type*)ParseType();
+            if (Peek().type != TokenType::Equal) {
+                pDecl->pDeclaredType = (Ast::Type*)ParseType();
 
-                if (pDecl->m_pDeclaredType == nullptr)
+                if (pDecl->pDeclaredType == nullptr)
                     PushError("Expected a type here, potentially missing an equal sign before an initializer?");
             } else {
-                pDecl->m_pDeclaredType = nullptr;
+                pDecl->pDeclaredType = nullptr;
             }
 
             // Parse initializer
             bool isFunc = false;
             if (Match(1, TokenType::Equal)) {
-                pDecl->m_pInitializerExpr = ParseExpression();
-                if (pDecl->m_pInitializerExpr && pDecl->m_pInitializerExpr->m_nodeKind == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself
-                    Ast::Function* pFunc = (Ast::Function*)pDecl->m_pInitializerExpr;
-                    pFunc->m_identifier = pDecl->m_identifier;
+                pDecl->pInitializerExpr = ParseExpression();
+                if (pDecl->pInitializerExpr && pDecl->pInitializerExpr->nodeKind == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself
+                    Ast::Function* pFunc = (Ast::Function*)pDecl->pInitializerExpr;
+                    pFunc->identifier = pDecl->identifier;
                     isFunc = true;
                 }
             }
@@ -847,14 +847,14 @@ Ast::Statement* ParsingState::ParseDeclaration() {
                 Consume(TokenType::Semicolon, "Expected \";\" at the end of this declaration");
 
             if (pDecl) {
-                pDecl->m_pLocation = identifier.m_pLocation;
-                pDecl->m_line = identifier.m_line;
-                pDecl->m_pLineStart = identifier.m_pLineStart;
+                pDecl->pLocation = identifier.pLocation;
+                pDecl->line = identifier.line;
+                pDecl->pLineStart = identifier.pLineStart;
             }
             pStmt = pDecl;
         } else {
             // Wasn't a declaration, backtrack
-            m_pCurrent--;
+            pCurrent--;
         }
     }
     
@@ -862,7 +862,7 @@ Ast::Statement* ParsingState::ParseDeclaration() {
         pStmt = ParseStatement();
     }
 
-    if (m_panicMode)
+    if (panicMode)
         Synchronize();
 
     return pStmt;
@@ -871,14 +871,14 @@ Ast::Statement* ParsingState::ParseDeclaration() {
 // ***********************************************************************
 
 ResizableArray<Ast::Statement*> ParsingState::InitAndParse(ResizableArray<Token>& tokens, ErrorState* pErrors, IAllocator* pAlloc) {
-    m_pTokensStart = tokens.m_pData;
-    m_pTokensEnd = tokens.m_pData + tokens.m_count - 1;
-    m_pCurrent = tokens.m_pData;
+    pTokensStart = tokens.pData;
+    pTokensEnd = tokens.pData + tokens.count - 1;
+    pCurrent = tokens.pData;
     pAllocator = pAlloc;
-    m_pErrorState = pErrors;
+    pErrorState = pErrors;
 
     ResizableArray<Ast::Statement*> statements;
-    statements.m_pAlloc = pAlloc;
+    statements.pAlloc = pAlloc;
 
     while (!IsAtEnd()) {
         Ast::Statement* pStmt = ParseDeclaration();
@@ -892,64 +892,64 @@ ResizableArray<Ast::Statement*> ParsingState::InitAndParse(ResizableArray<Token>
 // ***********************************************************************
 
 void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
-    switch (pStmt->m_nodeKind) {
+    switch (pStmt->nodeKind) {
         case Ast::NodeType::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
-            Log::Debug("%*s+ Decl (%s)", indentationLevel, "", pDecl->m_identifier.m_pData);
-            if (pDecl->m_pDeclaredType) {
+            Log::Debug("%*s+ Decl (%s)", indentationLevel, "", pDecl->identifier.pData);
+            if (pDecl->pDeclaredType) {
                 String typeStr = "none";
-                if (pDecl->m_pDeclaredType->m_pResolvedType) {
-                    typeStr = pDecl->m_pDeclaredType->m_pResolvedType->name;
+                if (pDecl->pDeclaredType->pResolvedType) {
+                    typeStr = pDecl->pDeclaredType->pResolvedType->name;
                 }
-                Log::Debug("%*s  Type: %s", indentationLevel + 2, "", typeStr.m_pData);
+                Log::Debug("%*s  Type: %s", indentationLevel + 2, "", typeStr.pData);
             }
-            else if (pDecl->m_pInitializerExpr)
-                Log::Debug("%*s  Type: inferred as %s", indentationLevel + 2, "", pDecl->m_pInitializerExpr->m_pType ? pDecl->m_pInitializerExpr->m_pType->name.m_pData : "none");
+            else if (pDecl->pInitializerExpr)
+                Log::Debug("%*s  Type: inferred as %s", indentationLevel + 2, "", pDecl->pInitializerExpr->pType ? pDecl->pInitializerExpr->pType->name.pData : "none");
 
-            if (pDecl->m_pInitializerExpr) {
-                DebugExpression(pDecl->m_pInitializerExpr, indentationLevel + 2);
+            if (pDecl->pInitializerExpr) {
+                DebugExpression(pDecl->pInitializerExpr, indentationLevel + 2);
             }
             break;
         }
         case Ast::NodeType::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
             Log::Debug("%*s> PrintStmt", indentationLevel, "");
-            DebugExpression(pPrint->m_pExpr, indentationLevel + 2);
+            DebugExpression(pPrint->pExpr, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
             Log::Debug("%*s> ReturnStmt", indentationLevel, "");
-            if (pReturn->m_pExpr)
-                DebugExpression(pReturn->m_pExpr, indentationLevel + 2);
+            if (pReturn->pExpr)
+                DebugExpression(pReturn->pExpr, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::ExpressionStmt: {
             Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
             Log::Debug("%*s> ExpressionStmt", indentationLevel, "");
-            DebugExpression(pExprStmt->m_pExpr, indentationLevel + 2);
+            DebugExpression(pExprStmt->pExpr, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::If: {
             Ast::If* pIf = (Ast::If*)pStmt;
             Log::Debug("%*s> If", indentationLevel, "");
-            DebugExpression(pIf->m_pCondition, indentationLevel + 2);
-            DebugStatement(pIf->m_pThenStmt, indentationLevel + 2);
-            if (pIf->m_pElseStmt)
-                DebugStatement(pIf->m_pElseStmt, indentationLevel + 2);
+            DebugExpression(pIf->pCondition, indentationLevel + 2);
+            DebugStatement(pIf->pThenStmt, indentationLevel + 2);
+            if (pIf->pElseStmt)
+                DebugStatement(pIf->pElseStmt, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             Log::Debug("%*s> While", indentationLevel, "");
-            DebugExpression(pWhile->m_pCondition, indentationLevel + 2);
-            DebugStatement(pWhile->m_pBody, indentationLevel + 2);
+            DebugExpression(pWhile->pCondition, indentationLevel + 2);
+            DebugStatement(pWhile->pBody, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Block: {
             Ast::Block* pBlock = (Ast::Block*)pStmt;
             Log::Debug("%*s> Block", indentationLevel, "");
-            DebugStatements(pBlock->m_declarations, indentationLevel + 2);
+            DebugStatements(pBlock->declarations, indentationLevel + 2);
             break;
         }
         default:
@@ -960,7 +960,7 @@ void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
 // ***********************************************************************
 
 void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentationLevel) {
-    for (size_t i = 0; i < statements.m_count; i++) {
+    for (size_t i = 0; i < statements.count; i++) {
         Ast::Statement* pStmt = statements[i];
         DebugStatement(pStmt, indentationLevel);
     }
@@ -974,154 +974,154 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
         return;
     }
 
-    switch (pExpr->m_nodeKind) {
+    switch (pExpr->nodeKind) {
         case Ast::NodeType::Identifier: {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
             String nodeTypeStr = "none";
-            if (pIdentifier->m_pType) {
-                nodeTypeStr = pIdentifier->m_pType->name;
+            if (pIdentifier->pType) {
+                nodeTypeStr = pIdentifier->pType->name;
             }
             
-            Log::Debug("%*s- Identifier (%s:%s)", indentationLevel, "", pIdentifier->m_identifier.m_pData, nodeTypeStr.m_pData);
+            Log::Debug("%*s- Identifier (%s:%s)", indentationLevel, "", pIdentifier->identifier.pData, nodeTypeStr.pData);
             break;
         }
         case Ast::NodeType::FnType: 
         case Ast::NodeType::Type: {
             Ast::Type* pType = (Ast::Type*)pExpr;
-            if (pType->m_pType && pType->m_pResolvedType)
-                Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pType->m_pResolvedType->name.m_pData, pType->m_pType->name.m_pData);
+            if (pType->pType && pType->pResolvedType)
+                Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pType->pResolvedType->name.pData, pType->pType->name.pData);
             break;
         }
         case Ast::NodeType::VariableAssignment: {
             Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pExpr;
             String nodeTypeStr = "none";
-            if (pAssignment->m_pType) {
-                nodeTypeStr = pAssignment->m_pType->name;
+            if (pAssignment->pType) {
+                nodeTypeStr = pAssignment->pType->name;
             }
 
-            Log::Debug("%*s- Variable Assignment (%s:%s)", indentationLevel, "", pAssignment->m_identifier.m_pData, nodeTypeStr.m_pData);
-            DebugExpression(pAssignment->m_pAssignment, indentationLevel + 2);
+            Log::Debug("%*s- Variable Assignment (%s:%s)", indentationLevel, "", pAssignment->identifier.pData, nodeTypeStr.pData);
+            DebugExpression(pAssignment->pAssignment, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
             String nodeTypeStr = "none";
-            if (pLiteral->m_pType) {
-                nodeTypeStr = pLiteral->m_pType->name;
+            if (pLiteral->pType) {
+                nodeTypeStr = pLiteral->pType->name;
             }
 
-            if (pLiteral->m_value.m_pType == GetF32Type())
-                Log::Debug("%*s- Literal (%f:%s)", indentationLevel, "", pLiteral->m_value.m_f32Value, nodeTypeStr.m_pData);
-            else if (pLiteral->m_value.m_pType == GetI32Type())
-                Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->m_value.m_i32Value, nodeTypeStr.m_pData);
-            else if (pLiteral->m_value.m_pType == GetBoolType())
-                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->m_value.m_boolValue ? "true" : "false", nodeTypeStr.m_pData);
+            if (pLiteral->value.pType == GetF32Type())
+                Log::Debug("%*s- Literal (%f:%s)", indentationLevel, "", pLiteral->value.f32Value, nodeTypeStr.pData);
+            else if (pLiteral->value.pType == GetI32Type())
+                Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->value.i32Value, nodeTypeStr.pData);
+            else if (pLiteral->value.pType == GetBoolType())
+                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->value.boolValue ? "true" : "false", nodeTypeStr.pData);
             break;
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             Log::Debug("%*s- Function", indentationLevel, "");
-            for (Ast::Declaration* pParam : pFunction->m_params) {
+            for (Ast::Declaration* pParam : pFunction->params) {
                 String typeStr = "none";
-                if (pParam->m_pResolvedType) {
-                    typeStr = pParam->m_pResolvedType->name;
+                if (pParam->pResolvedType) {
+                    typeStr = pParam->pResolvedType->name;
                 }
 
-                Log::Debug("%*s- Param (%s:%s)", indentationLevel + 2, "", pParam->m_identifier.m_pData, typeStr.m_pData);
+                Log::Debug("%*s- Param (%s:%s)", indentationLevel + 2, "", pParam->identifier.pData, typeStr.pData);
             }
-            DebugStatement(pFunction->m_pBody, indentationLevel + 2);
+            DebugStatement(pFunction->pBody, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
             String typeStr = "none";
-            if (pGroup->m_pType) {
-                typeStr = pGroup->m_pType->name;
+            if (pGroup->pType) {
+                typeStr = pGroup->pType->name;
             }
-            Log::Debug("%*s- Group (:%s)", indentationLevel, "", typeStr.m_pData);
-            DebugExpression(pGroup->m_pExpression, indentationLevel + 2);
+            Log::Debug("%*s- Group (:%s)", indentationLevel, "", typeStr.pData);
+            DebugExpression(pGroup->pExpression, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             String nodeTypeStr = "none";
-            if (pBinary->m_pType) {
-                nodeTypeStr = pBinary->m_pType->name;
+            if (pBinary->pType) {
+                nodeTypeStr = pBinary->pType->name;
             }
-            switch (pBinary->m_operator) {
+            switch (pBinary->op) {
                 case Operator::Add:
-                    Log::Debug("%*s- Binary (+:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (+:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::Subtract:
-                    Log::Debug("%*s- Binary (-:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (-:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::Divide:
-                    Log::Debug("%*s- Binary (/:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (/:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::Multiply:
-                    Log::Debug("%*s- Binary (*:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (*:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::Greater:
-                    Log::Debug("%*s- Binary (>:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (>:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::Less:
-                    Log::Debug("%*s- Binary (<:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (<:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::GreaterEqual:
-                    Log::Debug("%*s- Binary (>=:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (>=:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::LessEqual:
-                    Log::Debug("%*s- Binary (<=:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (<=:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::Equal:
-                    Log::Debug("%*s- Binary (==:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (==:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::NotEqual:
-                    Log::Debug("%*s- Binary (!=:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (!=:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::And:
-                    Log::Debug("%*s- Binary (&&:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (&&:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 case Operator::Or:
-                    Log::Debug("%*s- Binary (||:%s)", indentationLevel, "", nodeTypeStr.m_pData);
+                    Log::Debug("%*s- Binary (||:%s)", indentationLevel, "", nodeTypeStr.pData);
                     break;
                 default:
                     break;
             }
-            DebugExpression(pBinary->m_pLeft, indentationLevel + 2);
-            DebugExpression(pBinary->m_pRight, indentationLevel + 2);
+            DebugExpression(pBinary->pLeft, indentationLevel + 2);
+            DebugExpression(pBinary->pRight, indentationLevel + 2);
             break;
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
-            switch (pUnary->m_operator) {
+            switch (pUnary->op) {
                 case Operator::UnaryMinus:
-                    Log::Debug("%*s- Unary (-:%s)", indentationLevel, "", pUnary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Unary (-:%s)", indentationLevel, "", pUnary->pType->name.pData);
                     break;
                 case Operator::Not:
-                    Log::Debug("%*s- Unary (!:%s)", indentationLevel, "", pUnary->m_pType->name.m_pData);
+                    Log::Debug("%*s- Unary (!:%s)", indentationLevel, "", pUnary->pType->name.pData);
                     break;
                 default:
                     break;
             }
-            DebugExpression(pUnary->m_pRight, indentationLevel + 2);
+            DebugExpression(pUnary->pRight, indentationLevel + 2);
             break;
         }
 		case Ast::NodeType::Cast: {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
 
-			Log::Debug("%*s- Cast (:%s)", indentationLevel, "", pCast->m_pType->name.m_pData);
-			DebugExpression(pCast->m_pTargetType, indentationLevel + 2);
-			DebugExpression(pCast->m_pExprToCast, indentationLevel + 2);
+			Log::Debug("%*s- Cast (:%s)", indentationLevel, "", pCast->pType->name.pData);
+			DebugExpression(pCast->pTargetType, indentationLevel + 2);
+			DebugExpression(pCast->pExprToCast, indentationLevel + 2);
 			break;
 		}
         case Ast::NodeType::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
 
-            DebugExpression(pCall->m_pCallee, indentationLevel);
+            DebugExpression(pCall->pCallee, indentationLevel);
             Log::Debug("%*s- Call", indentationLevel + 2, "");
 
-            for (Ast::Expression* pArg : pCall->m_args) {
+            for (Ast::Expression* pArg : pCall->args) {
                 DebugExpression(pArg, indentationLevel + 4);
             }
             break;

@@ -15,7 +15,7 @@ struct LuaObject {
     void Retain();
     void Release();
 
-    int m_refCount { 0 };
+    int refCount { 0 };
 };
 
 void luax_printstack(lua_State* pLua);

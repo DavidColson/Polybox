@@ -196,46 +196,46 @@ class GameChip {
     String InputString();
 
    private:
-    HashMap<SDL_GameControllerButton, ControllerButton> m_primaryBindings;
-    HashMap<SDL_GameControllerAxis, ControllerAxis> m_primaryAxisBindings;
+    HashMap<SDL_GameControllerButton, ControllerButton> primaryBindings;
+    HashMap<SDL_GameControllerAxis, ControllerAxis> primaryAxisBindings;
 
-    HashMap<SDL_Keycode, ControllerButton> m_keyboardAltBindings;
-    HashMap<int, ControllerButton> m_mouseAltBindings;
+    HashMap<SDL_Keycode, ControllerButton> keyboardAltBindings;
+    HashMap<int, ControllerButton> mouseAltBindings;
 
-    HashMap<SDL_Keycode, ControllerAxis> m_keyboardAxisBindings;
-    HashMap<int, ControllerAxis> m_mouseAxisBindings;
+    HashMap<SDL_Keycode, ControllerAxis> keyboardAxisBindings;
+    HashMap<int, ControllerAxis> mouseAxisBindings;
 
     struct Axis {
-        float m_axisValue { 0.0f };
+        float axisValue { 0.0f };
 
-        bool m_ignoreVirtual { false };
-        bool m_isMouseDriver { false };
+        bool ignoreVirtual { false };
+        bool isMouseDriver { false };
 
         // Virtual axis input state
-        bool m_positiveInput { false };
-        bool m_negativeInput { false };
+        bool positiveInput { false };
+        bool negativeInput { false };
 
         // Virtual axis mapping
-        SDL_Keycode m_positiveScanCode { SDLK_UNKNOWN };
-        SDL_Keycode m_negativeScanCode { SDLK_UNKNOWN };
-        int m_positiveMouseButton { 0 };
-        int m_negativeMouseButton { 0 };
+        SDL_Keycode positiveScanCode { SDLK_UNKNOWN };
+        SDL_Keycode negativeScanCode { SDLK_UNKNOWN };
+        int positiveMouseButton { 0 };
+        int negativeMouseButton { 0 };
     };
 
-    bool m_keyDowns[(size_t)Key::Count];
-    bool m_keyUps[(size_t)Key::Count];
-    bool m_keyStates[(size_t)Key::Count];
+    bool keyDowns[(size_t)Key::Count];
+    bool keyUps[(size_t)Key::Count];
+    bool keyStates[(size_t)Key::Count];
 
-    bool m_buttonDowns[(size_t)ControllerButton::Count];
-    bool m_buttonUps[(size_t)ControllerButton::Count];
-    bool m_buttonStates[(size_t)ControllerButton::Count];
+    bool buttonDowns[(size_t)ControllerButton::Count];
+    bool buttonUps[(size_t)ControllerButton::Count];
+    bool buttonStates[(size_t)ControllerButton::Count];
 
-    Axis m_axes[(size_t)ControllerAxis::Count];
+    Axis axes[(size_t)ControllerAxis::Count];
 
-    SDL_GameController* m_pOpenController { nullptr };
+    SDL_GameController* pOpenController { nullptr };
 
-    StringBuilder m_textInputString;
+    StringBuilder textInputString;
 
-    Vec2f m_targetResolution;
-    Vec2f m_windowResolution;
+    Vec2f targetResolution;
+    Vec2f windowResolution;
 };

@@ -13,7 +13,7 @@ typedef Quat<float> Quatf;
 
 struct Node : public LuaObject {
     Node() {
-        m_id = s_nodeIdCounter++;
+        id = s_nodeIdCounter++;
     }
 
     Vec3f GetLocalPosition();
@@ -37,18 +37,18 @@ struct Node : public LuaObject {
     Node* GetChild(int index);
 
     // User table info
-    String m_name;
-    uint32_t m_meshId;
+    String name;
+    uint32_t meshId;
 
     // Tree data
     // TODO: Make private when we have proper tree editing API
-    Node* m_pParent { nullptr };
-    ResizableArray<Node*> m_children;
+    Node* pParent { nullptr };
+    ResizableArray<Node*> children;
 
-    uint64_t m_id;
+    uint64_t id;
     static uint64_t s_nodeIdCounter;
-    Matrixf m_localTransform;
-    Matrixf m_worldTransform;
+    Matrixf localTransform;
+    Matrixf worldTransform;
 
    private:
     void UpdateWorldTransforms();
@@ -62,7 +62,7 @@ struct Scene : public LuaObject {
 
     // TODO: Note that we currently cannot add or modify this tree without invalidating the pointers inside the nodes
     // what the fuck do we do
-    ResizableArray<Node> m_nodes;
+    ResizableArray<Node> nodes;
 
     static Scene* LoadScene(const char* filePath);
 };

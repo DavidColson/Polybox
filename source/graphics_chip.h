@@ -41,17 +41,17 @@ enum class ENormalsMode {
 };
 
 struct VertexData {
-    Vec3f m_pos;
-    Vec4f m_col;
-    Vec2f m_tex;
-    Vec3f m_norm;
+    Vec3f pos;
+    Vec4f col;
+    Vec2f tex;
+    Vec3f norm;
 
     VertexData() {}
     VertexData(Vec3f pos, Vec4f col, Vec2f tex, Vec3f norm)
-        : m_pos(pos), m_col(col), m_tex(tex), m_norm(norm) {}
+        : pos(pos), col(col), tex(tex), norm(norm) {}
 
     bool operator==(const VertexData& other) {
-        return m_pos == other.m_pos;
+        return pos == other.pos;
     }
 };
 
@@ -118,62 +118,62 @@ class GraphicsChip {
     void FullScreenQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _depth, float _width = 1.0f, float _height = 1.0f);
 
 
-    Vec2f m_targetResolution { Vec2f(320.0f, 240.0f) };
+    Vec2f targetResolution { Vec2f(320.0f, 240.0f) };
 
     // Drawing state
-    ERenderMode m_mode { ERenderMode::None };
-    EPrimitiveType m_typeState;
-    ResizableArray<VertexData> m_vertexState;
-    Vec4f m_vertexColorState { Vec4f(1.0f, 1.0f, 1.0f, 1.0f) };
-    Vec2f m_vertexTexCoordState { Vec2f(0.0f, 0.0f) };
-    Vec3f m_vertexNormalState { Vec3f(0.0f, 0.0f, 0.0f) };
+    ERenderMode mode { ERenderMode::None };
+    EPrimitiveType typeState;
+    ResizableArray<VertexData> vertexState;
+    Vec4f vertexColorState { Vec4f(1.0f, 1.0f, 1.0f, 1.0f) };
+    Vec2f vertexTexCoordState { Vec2f(0.0f, 0.0f) };
+    Vec3f vertexNormalState { Vec3f(0.0f, 0.0f, 0.0f) };
 
-    EMatrixMode m_matrixModeState;
-    Matrixf m_matrixStates[(size_t)EMatrixMode::Count];
+    EMatrixMode matrixModeState;
+    Matrixf matrixStates[(size_t)EMatrixMode::Count];
 
-    Vec4f m_clearColor { Vec4f(0.25f, 0.25f, 0.25f, 1.0f) };
+    Vec4f clearColor { Vec4f(0.25f, 0.25f, 0.25f, 1.0f) };
 
-    ENormalsMode m_normalsModeState;
-    bool m_lightingState { false };
-    Vec3f m_lightDirectionsStates[MAX_LIGHTS];
-    Vec3f m_lightColorStates[MAX_LIGHTS];
-    Vec3f m_lightAmbientState { Vec3f(0.0f, 0.0f, 0.0f) };
+    ENormalsMode normalsModeState;
+    bool lightingState { false };
+    Vec3f lightDirectionsStates[MAX_LIGHTS];
+    Vec3f lightColorStates[MAX_LIGHTS];
+    Vec3f lightAmbientState { Vec3f(0.0f, 0.0f, 0.0f) };
 
-    bool m_fogState { false };
-    Vec2f m_fogDepths { Vec2f(1.0f, 10.0f) };
-    Vec3f m_fogColor { Vec3f(0.25f, 0.25f, 0.25f) };
+    bool fogState { false };
+    Vec2f fogDepths { Vec2f(1.0f, 10.0f) };
+    Vec3f fogColor { Vec3f(0.25f, 0.25f, 0.25f) };
 
-    Image* m_pTextureState;
+    Image* pTextureState;
 
     // Drawing views
-    bgfx::ViewId m_realWindowView { 0 };
-    bgfx::ViewId m_scene3DView { 1 };
-    bgfx::ViewId m_scene2DView { 2 };
-    bgfx::ViewId m_compositeView { 3 };
+    bgfx::ViewId realWindowView { 0 };
+    bgfx::ViewId scene3DView { 1 };
+    bgfx::ViewId scene2DView { 2 };
+    bgfx::ViewId compositeView { 3 };
 
     // Core rendering resources
-    bgfx::VertexLayout m_layout;
-    bgfx::ProgramHandle m_programBase3D { BGFX_INVALID_HANDLE };
-    bgfx::ProgramHandle m_programTexturing3D { BGFX_INVALID_HANDLE };
-    bgfx::ProgramHandle m_programBase2D { BGFX_INVALID_HANDLE };
-    bgfx::ProgramHandle m_programTexturing2D { BGFX_INVALID_HANDLE };
+    bgfx::VertexLayout layout;
+    bgfx::ProgramHandle programBase3D { BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle programTexturing3D { BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle programBase2D { BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle programTexturing2D { BGFX_INVALID_HANDLE };
 
-    bgfx::UniformHandle m_colorTextureSampler { BGFX_INVALID_HANDLE };
-    bgfx::UniformHandle m_targetResolutionUniform { BGFX_INVALID_HANDLE };
-    bgfx::UniformHandle m_lightingStateUniform { BGFX_INVALID_HANDLE };
-    bgfx::UniformHandle m_lightDirectionUniform { BGFX_INVALID_HANDLE };
-    bgfx::UniformHandle m_lightColorUniform { BGFX_INVALID_HANDLE };
-    bgfx::UniformHandle m_lightAmbientUniform { BGFX_INVALID_HANDLE };
-    bgfx::UniformHandle m_fogDepthsUniform { BGFX_INVALID_HANDLE };
-    bgfx::UniformHandle m_fogColorUniform { BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle colorTextureSampler { BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle targetResolutionUniform { BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle lightingStateUniform { BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle lightDirectionUniform { BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle lightColorUniform { BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle lightAmbientUniform { BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle fogDepthsUniform { BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle fogColorUniform { BGFX_INVALID_HANDLE };
 
-    bgfx::ProgramHandle m_fullscreenTexProgram { BGFX_INVALID_HANDLE };
-    bgfx::ProgramHandle m_crtProgram { BGFX_INVALID_HANDLE };
-    bgfx::FrameBufferHandle m_frameBuffer3D { BGFX_INVALID_HANDLE };
-    bgfx::FrameBufferHandle m_frameBuffer2D { BGFX_INVALID_HANDLE };
-    bgfx::FrameBufferHandle m_frameBufferComposite { BGFX_INVALID_HANDLE };
-    bgfx::UniformHandle m_frameBufferSampler { BGFX_INVALID_HANDLE };
-    bgfx::UniformHandle m_crtDataUniform { BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle fullscreenTexProgram { BGFX_INVALID_HANDLE };
+    bgfx::ProgramHandle crtProgram { BGFX_INVALID_HANDLE };
+    bgfx::FrameBufferHandle frameBuffer3D { BGFX_INVALID_HANDLE };
+    bgfx::FrameBufferHandle frameBuffer2D { BGFX_INVALID_HANDLE };
+    bgfx::FrameBufferHandle frameBufferComposite { BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle frameBufferSampler { BGFX_INVALID_HANDLE };
+    bgfx::UniformHandle crtDataUniform { BGFX_INVALID_HANDLE };
 
-    Font m_defaultFont;
+    Font defaultFont;
 };

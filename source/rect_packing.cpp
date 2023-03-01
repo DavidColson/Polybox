@@ -20,18 +20,18 @@ struct SortByHeight {
 
 struct SortToOriginalOrder {
     bool operator()(const Rect& a, const Rect& b) {
-        return a.m_ordering > b.m_ordering;
+        return a.ordering > b.ordering;
     }
 };
 
 // ***********************************************************************
 
 void Packing::RowPackRects(ResizableArray<Rect>& rects, int width, int height) {
-    for (size_t i = 0; i < rects.m_count; i++) {
-        rects[i].m_ordering = (int)i;
+    for (size_t i = 0; i < rects.count; i++) {
+        rects[i].ordering = (int)i;
     }
 
-    Sort(rects.m_pData, rects.m_count, SortByHeight());
+    Sort(rects.pData, rects.count, SortByHeight());
 
     int xPos = 0;
     int yPos = 0;
@@ -61,10 +61,10 @@ void Packing::RowPackRects(ResizableArray<Rect>& rects, int width, int height) {
         if (rect.h > largestHThisRow)
             largestHThisRow = rect.h;
 
-        rect.m_wasPacked = true;
+        rect.wasPacked = true;
     }
 
-    Sort(rects.m_pData, rects.m_count, SortToOriginalOrder());
+    Sort(rects.pData, rects.count, SortToOriginalOrder());
 }
 
 // ***********************************************************************
@@ -87,7 +87,7 @@ int CanRectFit(ResizableArray<SkylineNode>& nodes, int atNode, int rectWidth, in
     int remainingSpace = rectWidth;
     int i = atNode;
     while (remainingSpace > 0) {
-        if (i == nodes.m_count)
+        if (i == nodes.count)
             return -1;
 
         SkylineNode& node = nodes[i];
@@ -106,12 +106,12 @@ int CanRectFit(ResizableArray<SkylineNode>& nodes, int atNode, int rectWidth, in
 // ***********************************************************************
 
 void Packing::SkylinePackRects(ResizableArray<Rect>& rects, int width, int height) {
-    for (size_t i = 0; i < rects.m_count; i++) {
-        rects[i].m_ordering = (int)i;
+    for (size_t i = 0; i < rects.count; i++) {
+        rects[i].ordering = (int)i;
     }
 
     // Sort by a heuristic
-    Sort(rects.m_pData, rects.m_count, SortByHeight());
+    Sort(rects.pData, rects.count, SortByHeight());
 
     int maxX = 0;
     int maxY = 0;
@@ -128,7 +128,7 @@ void Packing::SkylinePackRects(ResizableArray<Rect>& rects, int width, int heigh
         int bestNode = -1;
         int bestX, bestY;
         // We're going to search for the best location for this rect along the skyline
-        for (size_t i = 0; i < nodes.m_count; i++) {
+        for (size_t i = 0; i < nodes.count; i++) {
             SkylineNode& node = nodes[i];
             int highestY = CanRectFit(nodes, (int)i, rect.w, rect.h, width, height);
             if (highestY != -1) {
@@ -156,7 +156,7 @@ void Packing::SkylinePackRects(ResizableArray<Rect>& rects, int width, int heigh
         nodes.Insert(bestNode, newNode);
 
         // Now we have to find all the nodes underneath that new skyline level and remove them
-        for (int i = bestNode + 1; i < (int)nodes.m_count; i++) {
+        for (int i = bestNode + 1; i < (int)nodes.count; i++) {
             SkylineNode& node = nodes[i];
             SkylineNode& prevNode = nodes[i - 1];
             // Check to see if the current node is underneath the previous node
@@ -180,7 +180,7 @@ void Packing::SkylinePackRects(ResizableArray<Rect>& rects, int width, int heigh
         }
 
         // Find any skyline nodes that are the same height and remove them
-        for (int i = 0; i < (int)nodes.m_count - 1; i++) {
+        for (int i = 0; i < (int)nodes.count - 1; i++) {
             if (nodes[i].y == nodes[i + 1].y) {
                 nodes[i].width += nodes[i + 1].width;
                 nodes.Erase(i + 1);
@@ -191,8 +191,8 @@ void Packing::SkylinePackRects(ResizableArray<Rect>& rects, int width, int heigh
         rect.x = bestX;
         rect.y = bestY;
 
-        rect.m_wasPacked = true;
+        rect.wasPacked = true;
     }
-    Sort(rects.m_pData, rects.m_count, SortToOriginalOrder());
+    Sort(rects.pData, rects.count, SortToOriginalOrder());
 }
 }

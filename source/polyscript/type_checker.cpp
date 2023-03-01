@@ -217,8 +217,25 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
 			pCast->m_pTargetType = (Ast::Type*)TypeCheckExpression(state, pCast->m_pTargetType);
 			pCast->m_pExprToCast = TypeCheckExpression(state, pCast->m_pExprToCast);
 
-			// TODO: If expr to cast and target type cannot be casted, then give an error here
+			TypeInfo* pFrom = pCast->m_pExprToCast->m_pType;
+			TypeInfo* pTo = pCast->m_pTargetType->m_pResolvedType;
 
+			bool castAllowed = false;
+			if ((pFrom == GetF32Type() && pTo == GetI32Type())
+				| (pFrom == GetF32Type() && pTo == GetBoolType())
+				| (pFrom == GetI32Type() && pTo == GetF32Type())
+				| (pFrom == GetI32Type() && pTo == GetBoolType())
+				| (pFrom == GetBoolType() && pTo == GetI32Type())
+				| (pFrom == GetBoolType() && pTo == GetF32Type())) {
+				castAllowed = true;
+			}
+
+			if (pFrom == pTo) {
+				state.m_pErrors->PushError(pCast, "Cast from \"%s\" to \"%s\" is pointless", pFrom->name.m_pData, pTo->name.m_pData);
+			} else if (castAllowed == false) {
+				state.m_pErrors->PushError(pCast, "Not possible to cast from type \"%s\" to \"%s\"", pFrom->name.m_pData, pTo->name.m_pData);
+			}
+			
 			pCast->m_pType = pCast->m_pTargetType->m_pResolvedType;
 			return pCast;
 		}

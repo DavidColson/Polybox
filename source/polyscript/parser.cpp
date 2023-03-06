@@ -358,6 +358,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 
         char* endPtr = token.pLocation + token.length;
         pLiteralExpr->value = MakeValue((int32_t)strtol(token.pLocation, &endPtr, 10));
+		pLiteralExpr->pType = GetI32Type();
         return pLiteralExpr;
     }
 
@@ -372,7 +373,8 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 
         char* endPtr = token.pLocation + token.length;
         pLiteralExpr->value = MakeValue((float)strtod(token.pLocation, &endPtr));
-        return pLiteralExpr;
+		pLiteralExpr->pType = GetF32Type();
+		return pLiteralExpr;
     }
 
     if (Match(state, 1, TokenType::LiteralBool)) {
@@ -389,7 +391,8 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
             pLiteralExpr->value = MakeValue(true);
         else if (strncmp("false", token.pLocation, 4) == 0)
             pLiteralExpr->value = MakeValue(true);
-        return pLiteralExpr;
+		pLiteralExpr->pType = GetBoolType();
+		return pLiteralExpr;
     }
 
     if (Match(state, 1, TokenType::LeftParen)) {
@@ -1032,11 +1035,11 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
                 nodeTypeStr = pLiteral->pType->name;
             }
 
-            if (pLiteral->value.pType == GetF32Type())
+            if (pLiteral->pType == GetF32Type())
                 Log::Debug("%*s- Literal (%f:%s)", indentationLevel, "", pLiteral->value.f32Value, nodeTypeStr.pData);
-            else if (pLiteral->value.pType == GetI32Type())
+            else if (pLiteral->pType == GetI32Type())
                 Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->value.i32Value, nodeTypeStr.pData);
-            else if (pLiteral->value.pType == GetBoolType())
+            else if (pLiteral->pType == GetBoolType())
                 Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->value.boolValue ? "true" : "false", nodeTypeStr.pData);
             break;
         }

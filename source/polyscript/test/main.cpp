@@ -24,7 +24,7 @@
 
 int main() {
     InitTypeTable();
-    InitValueTables();
+	InitTokenToOperatorMap();
     LinearAllocator compilerMemory;
 
     FILE* pFile;
@@ -63,8 +63,8 @@ int main() {
     // Error report
     bool success = errorState.ReportCompilationResult();
 
-    Log::Debug("---- AST -----");
-    DebugStatements(program);
+    //Log::Debug("---- AST -----");
+    //DebugStatements(program);
 
     if (success) {
         // Compile to bytecode
@@ -72,15 +72,14 @@ int main() {
         Function* pFunc = CodeGen(program, emptyParams, "<script>", &errorState);
         defer(FreeFunction(pFunc));
     
-        Log::Debug("---- Disassembly -----");
-        Disassemble(pFunc, actualCode);
+        //Log::Debug("---- Disassembly -----");
+        //Disassemble(pFunc, actualCode);
         
         Log::Info("---- Program Running -----");
         Run(pFunc);
     }
 
     //astMemory.Finished();
-
     __debugbreak();
     return 0;
 }

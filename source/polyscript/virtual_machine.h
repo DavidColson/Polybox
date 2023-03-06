@@ -43,7 +43,8 @@ enum Enum : uint8_t {
 	Cast,
     Print,
     Return,
-    Pop
+    Pop,
+
 };
 }
 

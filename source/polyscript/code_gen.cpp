@@ -44,7 +44,7 @@ int ResolveLocal(State& state, String name) {
 
 void PushCode(State& state, uint8_t code, uint32_t line) {
     CurrentChunk(state)->code.PushBack(code);
-    CurrentChunk(state)->lineInfo.PushBack(line);
+    CurrentChunk(state)->dbgLineInfo.PushBack(line);
 	Assert(line != 0);
 }
 
@@ -102,6 +102,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
 
             CurrentChunk(state)->constants.PushBack(pLiteral->value);
+			CurrentChunk(state)->dbgConstantsTypes.PushBack(pLiteral->pType);
             uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
 
             PushCode(state, OpCode::LoadConstant, pLiteral->line);
@@ -112,7 +113,8 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         case Ast::NodeType::FnType: {
             Ast::Type* pType = (Ast::Type*)pExpr;
 
-            CurrentChunk(state)->constants.PushBack(MakeValue(pType->pResolvedType));
+			CurrentChunk(state)->constants.PushBack(MakeValue(pType->pResolvedType));
+			CurrentChunk(state)->dbgConstantsTypes.PushBack(GetTypeType());
             uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
 
             PushCode(state, OpCode::LoadConstant, pType->line);
@@ -124,9 +126,9 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             Function* pFunc = CodeGen(pFunction->pBody->declarations, pFunction->params, pFunction->identifier, state.pErrors);
 
             Value value;
-            value.pType = pFunction->pType;
             value.pFunction = pFunc;
-            CurrentChunk(state)->constants.PushBack(value);
+			CurrentChunk(state)->constants.PushBack(value);
+			CurrentChunk(state)->dbgConstantsTypes.PushBack(pFunction->pType);
             uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
 
             PushCode(state, OpCode::LoadConstant, pFunction->line);
@@ -276,7 +278,8 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             if (pDecl->pInitializerExpr)
                 CodeGenExpression(state, pDecl->pInitializerExpr);
             else {
-                CurrentChunk(state)->constants.PushBack(Value());
+				CurrentChunk(state)->constants.PushBack(Value());
+				CurrentChunk(state)->dbgConstantsTypes.PushBack(GetVoidType());
                 uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
 
                 PushCode(state, OpCode::LoadConstant, pDecl->line);
@@ -388,7 +391,8 @@ Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::
 
     // return void
     Ast::Statement* pEnd = program[program.count - 1];
-    CurrentChunk(state)->constants.PushBack(Value());
+	CurrentChunk(state)->constants.PushBack(Value());
+	CurrentChunk(state)->dbgConstantsTypes.PushBack(GetVoidType());
     uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
     PushCode(state, OpCode::LoadConstant, pEnd->line);
     PushCode(state, constIndex, pEnd->line);

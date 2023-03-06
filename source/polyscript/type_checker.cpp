@@ -41,7 +41,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
     switch (pExpr->nodeKind) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-            pLiteral->pType = pLiteral->value.pType;
+			// Nothing to do
             return pLiteral;
         }
         case Ast::NodeType::Type: {

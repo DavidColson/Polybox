@@ -105,7 +105,6 @@ TypeInfo* GetEmptyFuncType();
 
 struct Function;
 struct Value {
-    TypeInfo* pType { GetVoidType() };
     union {
         bool boolValue;
         float f32Value;
@@ -117,54 +116,46 @@ struct Value {
 
 inline Value MakeValue(bool value) {
     Value v;
-    v.pType = GetBoolType();
     v.boolValue = value;
     return v;
 }
 
 inline Value MakeValue(float value) {
     Value v;
-    v.pType = GetF32Type();
     v.f32Value = value;
     return v;
 }
 
 inline Value MakeValue(int32_t value) {
     Value v;
-    v.pType = GetI32Type();
     v.i32Value = value;
     return v;
 }
 
 inline Value MakeValue(TypeInfo* value) {
     Value v;
-    v.pType = GetTypeType();
     v.pTypeInfo = value;
     return v;
 }
 
 
 struct CodeChunk {
-    ResizableArray<Value> constants;
+	ResizableArray<Value> constants;
     ResizableArray<uint8_t> code;
-    ResizableArray<uint32_t> lineInfo; // TODO: Debug info, move somewhere where it can be optional
+
+	ResizableArray<TypeInfo*> dbgConstantsTypes;
+    ResizableArray<uint32_t> dbgLineInfo;
 };
 
 // TODO: Just put the contents of CodeChunk in here and skip the second level
 struct Function {
-	String name; // TODO: Debug info, move somewhere where it can be optional
+	String name;
     CodeChunk chunk;
 };
 
 void FreeFunction(Function* pFunc);
 
-
-
-void InitValueTables();
-
-Value EvaluateOperator(Operator::Enum op, Value v1, Value v2);
-
-TypeInfo* OperatorReturnType(Operator::Enum op, TypeInfo::TypeTag t1, TypeInfo::TypeTag t2);
+void InitTokenToOperatorMap();
 
 Operator::Enum TokenToOperator(TokenType::Enum tokenType);
 

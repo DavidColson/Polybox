@@ -53,12 +53,11 @@ int main() {
     defer(tokens.Free());
 
     // Parse
-    ParsingState parser;
-    ResizableArray<Ast::Statement*> program = parser.InitAndParse(tokens, &errorState, &compilerMemory);
+    ResizableArray<Ast::Statement*> program = InitAndParse(tokens, &errorState, &compilerMemory);
 
     // Type check
     if (errorState.errors.count == 0) {
-        TypeCheckProgram(program, &errorState, &compilerMemory);
+        //TypeCheckProgram(program, &errorState, &compilerMemory);
     }
 
     // Error report

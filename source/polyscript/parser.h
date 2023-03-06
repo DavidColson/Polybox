@@ -182,80 +182,8 @@ struct ErrorState {
 };
 
 struct Token;
-namespace TokenType {
-enum Enum : uint32_t;
-}
 
-struct ParsingState {
-    Token* pTokensStart { nullptr };
-    Token* pTokensEnd { nullptr };
-    Token* pCurrent { nullptr };
-    IAllocator* pAllocator { nullptr };
-    ErrorState* pErrorState { nullptr };
-    bool panicMode { false };
-
-    ResizableArray<Ast::Statement*> InitAndParse(ResizableArray<Token>& tokens, ErrorState* pErrors, IAllocator* pAlloc);
-
-    Token Previous();
-
-    Token Advance();
-
-    bool IsAtEnd();
-
-    Token Peek();
-
-    bool Check(TokenType::Enum type);
-
-    Token Consume(TokenType::Enum type, String message);
-
-    bool Match(int numTokens, ...);
-    
-    void PushError(const char* formatMessage, ...);
-
-    void Synchronize();
-
-    void SynchronizeBlock();
-
-    Ast::Expression* ParseType();
-
-    Ast::Expression* ParsePrimary();
-
-    Ast::Expression* ParseCall();
-
-    Ast::Expression* ParseUnary();
-
-    Ast::Expression* ParseMulDiv();
-
-    Ast::Expression* ParseAddSub();
-
-    Ast::Expression* ParseComparison();
-
-    Ast::Expression* ParseEquality();
-
-    Ast::Expression* ParseLogicAnd();
-
-    Ast::Expression* ParseLogicOr();
-
-    Ast::Expression* ParseVarAssignment();
-
-    Ast::Expression* ParseExpression();
-
-    Ast::Statement* ParseStatement();
-
-    Ast::Statement* ParseExpressionStmt();
-    
-    Ast::Statement* ParseIf();
-
-    Ast::Statement* ParseWhile();
-
-    Ast::Statement* ParsePrint();
-
-    Ast::Statement* ParseReturn();
-
-    Ast::Statement* ParseBlock();
-
-    Ast::Statement* ParseDeclaration();
-};
+ResizableArray<Ast::Statement*> InitAndParse(ResizableArray<Token>& tokens, ErrorState* pErrors, IAllocator* pAlloc);
 
 void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentationLevel = 0);
 

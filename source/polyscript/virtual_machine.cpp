@@ -7,7 +7,7 @@
 #include <string_builder.h>
 #include <stack.inl>
 
-//#define DEBUG_TRACE
+#define DEBUG_TRACE
 
 struct CallFrame {
     Function* pFunc { nullptr };
@@ -15,10 +15,16 @@ struct CallFrame {
     int32_t stackBaseIndex{ 0 };
 };
 
-struct VirtualMachine {
-    Stack<Value> stack;
-    Stack<CallFrame> callStack;
+struct DebugInfo {
+	Stack<TypeInfo*> stackTypes;
 };
+
+struct VirtualMachine {
+	Stack<Value> stack;
+	Stack<CallFrame> callStack;
+	DebugInfo* pDebugInfo { nullptr };
+};
+
 
 // ***********************************************************************
 
@@ -29,16 +35,17 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
         case OpCode::LoadConstant: {
             builder.Append("LoadConstant ");
             uint8_t constIndex = *(pInstruction + 1);
+			// TODO: Debug information needs to store constant table types
             Value& v = chunk.constants[constIndex];
             if (v.pType->tag == TypeInfo::TypeTag::Void)
                 builder.AppendFormat("%i (void)", constIndex);
             if (v.pType->tag == TypeInfo::TypeTag::Type)
                 builder.AppendFormat("%i (%s)", constIndex, v.pTypeInfo->name.pData);
-            if (v.pType->tag == TypeInfo::TypeTag::Float)
+            if (v.pType->tag == TypeInfo::TypeTag::F32)
                 builder.AppendFormat("%i (%f)", constIndex, v.f32Value);
             else if (v.pType->tag == TypeInfo::TypeTag::Bool)
                 builder.AppendFormat("%i (%s)", constIndex, v.boolValue ? "true" : "false");
-            else if (v.pType->tag == TypeInfo::TypeTag::Integer)
+            else if (v.pType->tag == TypeInfo::TypeTag::I32)
                 builder.AppendFormat("%i (%i)", constIndex, v.i32Value);
             else if (v.pType->tag == TypeInfo::TypeTag::Function)
                 builder.AppendFormat("%i (<fn %s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");  // TODO Should probably show the type sig?
@@ -60,63 +67,75 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             break;
         }
         case OpCode::Negate: {
-            builder.Append("Negate ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("Negate %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::Not: {
-            builder.Append("Not ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("Not %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::Add: {
-            builder.Append("Add ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("Add %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::Subtract: {
-            builder.Append("Subtract ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("Subtract %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::Multiply: {
-            builder.Append("Multiply ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("Multiply %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::Divide: {
-            builder.Append("Divide ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("Divide %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::Greater: {
-            builder.Append("Greater ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("Greater %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::Less: {
-            builder.Append("Less ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("Less %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::GreaterEqual: {
-            builder.Append("GreaterEqual ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("GreaterEqual %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::LessEqual: {
-            builder.Append("LessEqual ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("LessEqual %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::Equal: {
-            builder.Append("Equal ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("Equal %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::NotEqual: {
-            builder.Append("NotEqual ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("NotEqual %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::Print: {
@@ -164,9 +183,9 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
         }
 		case OpCode::Cast: {
 			builder.Append("Cast ");
-			CoreTypeIds::Enum fromTypeId = (CoreTypeIds::Enum)*(pInstruction + 1);
-			CoreTypeIds::Enum toTypeId = (CoreTypeIds::Enum)*(pInstruction + 2);
-			builder.AppendFormat("%s %s", CoreTypeIds::ToString(fromTypeId), CoreTypeIds::ToString(toTypeId));
+			TypeInfo::TypeTag fromTypeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag toTypeId = (TypeInfo::TypeTag)*(pInstruction + 2);
+			builder.AppendFormat("%s %s", TypeInfo::TagToString(fromTypeId), TypeInfo::TagToString(toTypeId));
 			returnIPOffset = 3;
 			break;
 		}
@@ -249,6 +268,9 @@ void DebugStack(VirtualMachine& vm) {
 
         // TODO: This can now handle more complex types
         // So upgrade it
+
+		// TODO: No idea what the types of these values are?
+		// Might need to maintain a debug version of the stack with extra information such as types
         switch (v.pType->tag) {
             case TypeInfo::TypeTag::Void:
                 builder.AppendFormat("[%i: void]", i);
@@ -259,10 +281,10 @@ void DebugStack(VirtualMachine& vm) {
             case TypeInfo::TypeTag::Bool:
                 builder.AppendFormat("[%i: %s]", i, v.boolValue ? "true" : "false");
                 break;
-            case TypeInfo::TypeTag::Float:
+            case TypeInfo::TypeTag::F32:
                 builder.AppendFormat("[%i: %f]", i, v.f32Value);
                 break;
-            case TypeInfo::TypeTag::Integer:
+            case TypeInfo::TypeTag::I32:
                 builder.AppendFormat("[%i: %i]", i, v.i32Value);
                 break;
             case TypeInfo::TypeTag::Function:
@@ -284,7 +306,7 @@ void Run(Function* pFuncToRun) {
     
     Value fv;
     fv.pFunction = pFuncToRun;
-    fv.pType = GetEmptyFuncType();
+    fv.pType = GetEmptyFuncType(); //TODO: Don't need this
     vm.stack.Push(fv);
 
     CallFrame frame;
@@ -302,88 +324,163 @@ void Run(Function* pFuncToRun) {
         switch (*pFrame->pInstructionPointer++) {
             case OpCode::LoadConstant: {
                 Value constant = pFrame->pFunc->chunk.constants[*pFrame->pInstructionPointer++];
-                vm.stack.Push(constant);
+                vm.stack.Push(constant); // knows from constant type table
                 break;
             }
             case OpCode::Negate: {
-                Value v = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::UnaryMinus, v, Value()));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value v = vm.stack.Pop();
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(-v.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(-v.i32Value));
+				}
                 break;
             }
             case OpCode::Not: {
-                Value v = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::Not, v, Value()));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value v = vm.stack.Pop();
+
+				if (typeId == TypeInfo::Bool) {
+					vm.stack.Push(MakeValue(!v.boolValue));
+				}
                 break;
             }
             case OpCode::Add: {
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::Add, a, b));
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(a.f32Value + b.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(a.i32Value + b.i32Value));
+				}
                 break;
             }
             case OpCode::Subtract: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::Subtract, a, b));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(a.f32Value - b.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(a.i32Value - b.i32Value));
+				}
                 break;
             }
             case OpCode::Multiply: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::Multiply, a, b));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(a.f32Value * b.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(a.i32Value * b.i32Value));
+				}
                 break;
             }
             case OpCode::Divide: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::Divide, a, b));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(a.f32Value / b.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(a.i32Value / b.i32Value));
+				}
                 break;
             }
             case OpCode::Greater: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::Greater, a, b));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(a.f32Value > b.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(a.i32Value > b.i32Value));
+				}
                 break;
             }
             case OpCode::Less: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::Less, a, b));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(a.f32Value < b.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(a.i32Value < b.i32Value));
+				}
                 break;
             }
             case OpCode::GreaterEqual: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::GreaterEqual, a, b));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(a.f32Value >= b.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(a.i32Value >= b.i32Value));
+				}
                 break;
             }
             case OpCode::LessEqual: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::LessEqual, a, b));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(a.f32Value <= b.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(a.i32Value <= b.i32Value));
+				}
                 break;
             }
             case OpCode::Equal: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::Equal, a, b));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(a.f32Value == b.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(a.i32Value == b.i32Value));
+				} else if (typeId == TypeInfo::Bool) {
+					vm.stack.Push(MakeValue(a.boolValue == b.boolValue));
+				}
                 break;
             }
             case OpCode::NotEqual: {
-                Value b = vm.stack.Pop();
-                Value a = vm.stack.Pop();
-                vm.stack.Push(EvaluateOperator(Operator::NotEqual, a, b));
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
+
+				if (typeId == TypeInfo::F32) {
+					vm.stack.Push(MakeValue(a.f32Value != b.f32Value));
+				} else if (typeId == TypeInfo::I32) {
+					vm.stack.Push(MakeValue(a.i32Value != b.i32Value));
+				} else if (typeId == TypeInfo::Bool) {
+					vm.stack.Push(MakeValue(a.boolValue != b.boolValue));
+				}
                 break;
             }
             case OpCode::Print: {
                 Value v = vm.stack.Pop();
+				// TODO: print for the time being needs to encode the type in it's instruction like binops
                 // TODO: Runtime error if you try print a void type value
                 // TODO: As before this can be upgrade to be more robust at printing values of different types now that types are more complex
                 if (v.pType->tag == TypeInfo::TypeTag::Type)
                     Log::Info("%s", v.pTypeInfo->name.pData);
-                if (v.pType->tag == TypeInfo::TypeTag::Float)
+                if (v.pType->tag == TypeInfo::TypeTag::F32)
                     Log::Info("%f", v.f32Value);
-                else if (v.pType->tag == TypeInfo::TypeTag::Integer)
+                else if (v.pType->tag == TypeInfo::TypeTag::I32)
                     Log::Info("%i", v.i32Value);
                 else if (v.pType->tag == TypeInfo::TypeTag::Bool)
                     Log::Info("%s", v.boolValue ? "true" : "false");
@@ -449,21 +546,21 @@ void Run(Function* pFuncToRun) {
                 break;
             }
 			case OpCode::Cast: {
-				CoreTypeIds::Enum fromTypeId = (CoreTypeIds::Enum)*pFrame->pInstructionPointer++;
-				CoreTypeIds::Enum toTypeId = (CoreTypeIds::Enum)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag fromTypeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag toTypeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
 	
 				Value copy = vm.stack.Pop();
-				if (toTypeId == CoreTypeIds::I32 && fromTypeId == CoreTypeIds::F32) {
+				if (toTypeId == TypeInfo::I32 && fromTypeId == TypeInfo::F32) {
 					vm.stack.Push(MakeValue((int32_t)copy.f32Value));
-				} else if (toTypeId == CoreTypeIds::I32 && fromTypeId == CoreTypeIds::Bool) {
+				} else if (toTypeId == TypeInfo::I32 && fromTypeId == TypeInfo::Bool) {
 					vm.stack.Push(MakeValue((int32_t)copy.boolValue));
-				} else if (toTypeId == CoreTypeIds::F32 && fromTypeId == CoreTypeIds::I32) {
+				} else if (toTypeId == TypeInfo::F32 && fromTypeId == TypeInfo::I32) {
 					vm.stack.Push(MakeValue((float)copy.i32Value));
-				} else if (toTypeId == CoreTypeIds::F32 && fromTypeId == CoreTypeIds::Bool) {
+				} else if (toTypeId == TypeInfo::F32 && fromTypeId == TypeInfo::Bool) {
 					vm.stack.Push(MakeValue((float)copy.boolValue));
-				} else if (toTypeId == CoreTypeIds::Bool && fromTypeId == CoreTypeIds::I32) {
+				} else if (toTypeId == TypeInfo::Bool && fromTypeId == TypeInfo::I32) {
 					vm.stack.Push(MakeValue((bool)copy.i32Value));
-				} else if (toTypeId == CoreTypeIds::Bool && fromTypeId == CoreTypeIds::F32) {
+				} else if (toTypeId == TypeInfo::Bool && fromTypeId == TypeInfo::F32) {
 					vm.stack.Push(MakeValue((bool)copy.f32Value));
 				}
 				break;

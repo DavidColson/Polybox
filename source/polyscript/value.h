@@ -59,15 +59,20 @@ static const char* ToString(Operator::Enum type) {
 
 
 struct TypeInfo {
-    enum TypeTag : uint32_t {
+    enum TypeTag : uint8_t {
         Void,
-        Float,
-        Integer,
+        F32,
+        I32,
         Bool,
         Function,
         Type,
         Count
     };
+	static const char* TagToString(TypeTag tag) {
+		static const char* stringNames[] = { "Void", "f32", "i32", "bool", "function", "Type" };
+		return stringNames[tag];
+	}
+
     TypeTag tag = TypeTag::Void;
     size_t size = 0;
     String name;
@@ -142,11 +147,12 @@ inline Value MakeValue(TypeInfo* value) {
 struct CodeChunk {
     ResizableArray<Value> constants;
     ResizableArray<uint8_t> code;
-    ResizableArray<uint32_t> lineInfo;
+    ResizableArray<uint32_t> lineInfo; // TODO: Debug info, move somewhere where it can be optional
 };
 
+// TODO: Just put the contents of CodeChunk in here and skip the second level
 struct Function {
-    String name;
+	String name; // TODO: Debug info, move somewhere where it can be optional
     CodeChunk chunk;
 };
 

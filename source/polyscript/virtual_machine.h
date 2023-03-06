@@ -8,19 +8,6 @@
 
 struct String;
 
-namespace CoreTypeIds {
-enum Enum : uint8_t {
-	I32,
-	F32,
-	Bool,
-	Invalid
-};
-static const char* stringNames[] = { "i32", "f32", "bool" };
-static const char* ToString(CoreTypeIds::Enum type) {
-	return stringNames[type];
-}
-}
-
 namespace OpCode {
 enum Enum : uint8_t {
     LoadConstant,

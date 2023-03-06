@@ -164,7 +164,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             CodeGenExpression(state, pBinary->pRight);
             switch (pBinary->op) {
                 case Operator::Add:
-                    PushCode(state, OpCode::Add, pBinary->line);
+					PushCode(state, OpCode::Add, pBinary->line);
                     break;
                 case Operator::Subtract:
                     PushCode(state, OpCode::Subtract, pBinary->line);
@@ -196,7 +196,8 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
                 default:
                     break;
             }
-            break;
+			PushCode(state, pBinary->pLeft->pType->tag, pBinary->line);
+			break;
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
@@ -211,7 +212,8 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
                 default:
                     break;
             }
-            break;
+			PushCode(state, pUnary->pRight->pType->tag, pUnary->line);
+			break;
         }
 		case Ast::NodeType::Cast: {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
@@ -220,21 +222,21 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 			PushCode(state, OpCode::Cast, pCast->line);
 
 			if (pCast->pExprToCast->pType == GetI32Type()) {
-				PushCode(state, (uint8_t)CoreTypeIds::I32, pCast->line);
+				PushCode(state, (uint8_t)TypeInfo::I32, pCast->line);
 			} else if (pCast->pExprToCast->pType == GetF32Type()) {
-				PushCode(state, (uint8_t)CoreTypeIds::F32, pCast->line);
+				PushCode(state, (uint8_t)TypeInfo::F32, pCast->line);
 			} else if (pCast->pExprToCast->pType == GetBoolType()) {
-				PushCode(state, (uint8_t)CoreTypeIds::Bool, pCast->line);
+				PushCode(state, (uint8_t)TypeInfo::Bool, pCast->line);
 			} else {
 				AssertMsg(false, "Don't know how to cast non base types yet");
 			}
 
 			if (pCast->pTargetType->pResolvedType == GetI32Type()) {
-				PushCode(state, (uint8_t)CoreTypeIds::I32, pCast->line);
+				PushCode(state, (uint8_t)TypeInfo::I32, pCast->line);
 			} else if (pCast->pTargetType->pResolvedType == GetF32Type()) {
-				PushCode(state, (uint8_t)CoreTypeIds::F32, pCast->line);
+				PushCode(state, (uint8_t)TypeInfo::F32, pCast->line);
 			} else if (pCast->pTargetType->pResolvedType == GetBoolType()) {
-				PushCode(state, (uint8_t)CoreTypeIds::Bool, pCast->line);
+				PushCode(state, (uint8_t)TypeInfo::Bool, pCast->line);
 			} else {
 				AssertMsg(false, "Don't know how to cast non base types yet");
 			}

@@ -287,6 +287,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 			TypeInfo* pFrom = pCast->pExprToCast->pType;
 			TypeInfo* pTo = pCast->pTargetType->pResolvedType;
 
+			// TODO: Replace this with a function which actually checks their compatibility, in terms of size, etc etc, see umka code
 			bool castAllowed = false;
 			if ((pFrom == GetF32Type() && pTo == GetI32Type())
 				| (pFrom == GetF32Type() && pTo == GetBoolType())

@@ -88,13 +88,13 @@ void InitTypeTable() {
     typeTable.PushBack(pVoidType);
 
     TypeInfo* pI32Type = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
-    pI32Type->tag = TypeInfo::TypeTag::Integer;
+    pI32Type->tag = TypeInfo::TypeTag::I32;
     pI32Type->size = 32;
     pI32Type->name = "i32";
     typeTable.PushBack(pI32Type);
 
     TypeInfo* pF32Type = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
-    pF32Type->tag = TypeInfo::TypeTag::Float;
+    pF32Type->tag = TypeInfo::TypeTag::F32;
     pF32Type->size = 32;
     pF32Type->name = "f32";
     typeTable.PushBack(pF32Type);
@@ -179,154 +179,154 @@ void InitValueTables() {
 
     // Add
     // F32
-    Register(Operator::Add, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Float, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Add, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::F32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value + v2.f32Value);
     });
-    Register(Operator::Add, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Integer, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Add, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::I32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value + (float)v2.i32Value);
     });
 
     // I32
-    Register(Operator::Add, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Integer, GetI32Type(), [](Value v1, Value v2) {
+    Register(Operator::Add, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::I32, GetI32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.i32Value + v2.i32Value);
     });
-    Register(Operator::Add, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Float, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Add, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::F32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue((float)v1.i32Value + v2.f32Value);
     });
 
     // Sub
     // F32
-    Register(Operator::Subtract, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Float, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Subtract, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::F32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value - v2.f32Value);
     });
-    Register(Operator::Subtract, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Integer, GetI32Type(), [](Value v1, Value v2) {
+    Register(Operator::Subtract, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::I32, GetI32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value - (float)v2.i32Value);
     });
 
     // I32
-    Register(Operator::Subtract, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Integer, GetI32Type(), [](Value v1, Value v2) {
+    Register(Operator::Subtract, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::I32, GetI32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.i32Value - v2.i32Value);
     });
-    Register(Operator::Subtract, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Float, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Subtract, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::F32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue((float)v1.i32Value - v2.f32Value);
     });
 
     // Mul
     // F32
-    Register(Operator::Multiply, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Float, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Multiply, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::F32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value * v2.f32Value);
     });
-    Register(Operator::Multiply, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Integer, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Multiply, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::I32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value * (float)v2.i32Value);
     });
 
     // I32
-    Register(Operator::Multiply, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Integer, GetI32Type(), [](Value v1, Value v2) {
+    Register(Operator::Multiply, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::I32, GetI32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.i32Value * v2.i32Value);
     });
-    Register(Operator::Multiply, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Float, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Multiply, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::F32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue((float)v1.i32Value * v2.f32Value);
     });
 
     // Divide
     // F32
-    Register(Operator::Divide, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Float, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Divide, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::F32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value / v2.f32Value);
     });
-    Register(Operator::Divide, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Integer, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Divide, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::I32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value / (float)v2.i32Value);
     });
 
     // I32
-    Register(Operator::Divide, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Integer, GetI32Type(), [](Value v1, Value v2) {
+    Register(Operator::Divide, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::I32, GetI32Type(), [](Value v1, Value v2) {
         return MakeValue(v1.i32Value / v2.i32Value);
     });
-    Register(Operator::Divide, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Float, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::Divide, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::F32, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue((float)v1.i32Value / v2.f32Value);
     });
 
     // Less
     // F32
-    Register(Operator::Less, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Less, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value < v2.f32Value);
     });
-    Register(Operator::Less, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Less, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value < (float)v2.i32Value);
     });
 
     // I32
-    Register(Operator::Less, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Less, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.i32Value < v2.i32Value);
     });
-    Register(Operator::Less, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Less, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue((float)v1.i32Value < v2.f32Value);
     });
 
     // Greater
     // F32
-    Register(Operator::Greater, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Greater, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value > v2.f32Value);
     });
-    Register(Operator::Greater, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Greater, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value > (float)v2.i32Value);
     });
 
     // I32
-    Register(Operator::Greater, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Greater, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.i32Value > v2.i32Value);
     });
-    Register(Operator::Greater, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Greater, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue((float)v1.i32Value > v2.f32Value);
     });
 
     // LessEqual
     // F32
-    Register(Operator::LessEqual, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::LessEqual, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value <= v2.f32Value);
     });
-    Register(Operator::LessEqual, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::LessEqual, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value <= (float)v2.i32Value);
     });
 
     // I32
-    Register(Operator::LessEqual, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::LessEqual, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.i32Value <= v2.i32Value);
     });
-    Register(Operator::LessEqual, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::LessEqual, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue((float)v1.i32Value <= v2.f32Value);
     });
 
     // GreaterEqual
     // F32
-    Register(Operator::GreaterEqual, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::GreaterEqual, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value >= v2.f32Value);
     });
-    Register(Operator::GreaterEqual, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::GreaterEqual, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value >= (float)v2.i32Value);
     });
 
     // I32
-    Register(Operator::GreaterEqual, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::GreaterEqual, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.i32Value >= v2.i32Value);
     });
-    Register(Operator::GreaterEqual, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::GreaterEqual, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue((float)v1.i32Value >= v2.f32Value);
     });
 
     // Equal
     // F32
-    Register(Operator::Equal, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Equal, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value == v2.f32Value);
     });
-    Register(Operator::Equal, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Equal, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value == (float)v2.i32Value);
     });
 
     // I32
-    Register(Operator::Equal, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Equal, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.i32Value == v2.i32Value);
     });
-    Register(Operator::Equal, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::Equal, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue((float)v1.i32Value == v2.f32Value);
     });
 
@@ -337,18 +337,18 @@ void InitValueTables() {
 
     // NotEqual
     // F32
-    Register(Operator::NotEqual, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::NotEqual, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value != v2.f32Value);
     });
-    Register(Operator::NotEqual, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::NotEqual, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.f32Value != (float)v2.i32Value);
     });
 
     // I32
-    Register(Operator::NotEqual, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Integer, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::NotEqual, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::I32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue(v1.i32Value != v2.i32Value);
     });
-    Register(Operator::NotEqual, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Float, GetBoolType(), [](Value v1, Value v2) {
+    Register(Operator::NotEqual, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::F32, GetBoolType(), [](Value v1, Value v2) {
         return MakeValue((float)v1.i32Value != v2.f32Value);
     });
 
@@ -371,11 +371,11 @@ void InitValueTables() {
 
     // Unary Minus
     // F32
-    Register(Operator::UnaryMinus, TypeInfo::TypeTag::Float, TypeInfo::TypeTag::Void, GetF32Type(), [](Value v1, Value v2) {
+    Register(Operator::UnaryMinus, TypeInfo::TypeTag::F32, TypeInfo::TypeTag::Void, GetF32Type(), [](Value v1, Value v2) {
         return MakeValue(-v1.f32Value);
     });
     // I32
-    Register(Operator::UnaryMinus, TypeInfo::TypeTag::Integer, TypeInfo::TypeTag::Void, GetI32Type(), [](Value v1, Value v2) {
+    Register(Operator::UnaryMinus, TypeInfo::TypeTag::I32, TypeInfo::TypeTag::Void, GetI32Type(), [](Value v1, Value v2) {
         return MakeValue(-v1.i32Value);
     });
 

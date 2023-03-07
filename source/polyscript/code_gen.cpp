@@ -291,7 +291,8 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
             CodeGenExpression(state, pPrint->pExpr);
             PushCode(state, OpCode::Print, pPrint->line);
-            break;
+			PushCode(state, pPrint->pExpr->pType->tag, pPrint->line);
+			break;
         }
         case Ast::NodeType::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;

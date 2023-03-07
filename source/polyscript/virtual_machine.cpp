@@ -7,7 +7,7 @@
 #include <string_builder.h>
 #include <stack.inl>
 
-//#define DEBUG_TRACE
+#define DEBUG_TRACE
 
 struct CallFrame {
     Function* pFunc { nullptr };
@@ -16,34 +16,13 @@ struct CallFrame {
 };
 
 struct VirtualMachine {
-	Stack<TypeInfo*> stackDbgInfo;
 	Stack<Value> stack;
 	Stack<CallFrame> callStack;
-	bool debugMode { true };
 };
 
 // ***********************************************************************
 
-void StackPush(VirtualMachine& vm, Value v, TypeInfo* pType) {
-	vm.stack.Push(v);
-	if (vm.debugMode) {
-		vm.stackDbgInfo.Push(pType);
-	}
-}
-
-// ***********************************************************************
-
-Value StackPop(VirtualMachine& vm, TypeInfo** pOutType = nullptr) {
-    if (vm.debugMode && pOutType) {
-        *pOutType = vm.stackDbgInfo.Pop();
-    } else {
-        vm.stackDbgInfo.Pop();
-    }
-	return vm.stack.Pop();
-}
-
-// ***********************************************************************
-
+#ifdef DEBUG_TRACE
 uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
     StringBuilder builder;
     uint8_t returnIPOffset = 0;
@@ -156,8 +135,9 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             break;
         }
         case OpCode::Print: {
-            builder.Append("Print ");
-            returnIPOffset = 1;
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			builder.AppendFormat("Print %s", TypeInfo::TagToString(typeId));
+            returnIPOffset = 2;
             break;
         }
         case OpCode::Return: {
@@ -279,41 +259,21 @@ void Disassemble(Function* pFunc, String codeText) {
 // ***********************************************************************
 
 void DebugStack(VirtualMachine& vm) {
-    StringBuilder builder;
+	StringBuilder builder;
 
-    for (uint32_t i = 1; i < vm.stack.array.count; i++) {
-        Value& v = vm.stack[i];
-		TypeInfo* pType = vm.stackDbgInfo[i];
+	builder.Append("\n");
 
-        // TODO: This can now handle more complex types
-        // So upgrade it
-        switch (pType->tag) {
-            case TypeInfo::TypeTag::Void:
-                builder.AppendFormat("[%i: void]", i);
-                break;
-            case TypeInfo::TypeTag::Type:
-                builder.AppendFormat("[%i: %s]", i, v.pTypeInfo->name.pData);
-                break;
-            case TypeInfo::TypeTag::Bool:
-                builder.AppendFormat("[%i: %s]", i, v.boolValue ? "true" : "false");
-                break;
-            case TypeInfo::TypeTag::F32:
-                builder.AppendFormat("[%i: %f]", i, v.f32Value);
-                break;
-            case TypeInfo::TypeTag::I32:
-                builder.AppendFormat("[%i: %i]", i, v.i32Value);
-                break;
-            case TypeInfo::TypeTag::Function:
-                builder.AppendFormat("[%i: <fn %s>]", i, v.pFunction->name.pData ? v.pFunction->name.pData : "");
-                break;
-            default:
-                break;
-        }
-    }
-    String s = builder.CreateString();
-    Log::Debug("->%s", s.pData);
-    FreeString(s);
+	// TODO: When we have locals debugging, draw a stack slot that is a known local as the local rather than a standard stack slot
+	for (uint32_t i = 1; i < vm.stack.array.count; i++) {
+		Value& v = vm.stack[vm.stack.array.count - i];
+
+		builder.AppendFormat("[%i: %#X|%g|%i]\n", vm.stack.array.count - i, (uint64_t)v.pFunction, v.f32Value, v.i32Value);
+	}
+	String s = builder.CreateString();
+	Log::Debug("->%s", s.pData);
+	FreeString(s);
 }
+#endif
 
 // ***********************************************************************
 
@@ -332,9 +292,12 @@ void DebugStack(VirtualMachine& vm) {
 void Run(Function* pFuncToRun) {
     VirtualMachine vm;
     
+	vm.stack.Reserve(1000);
+	vm.callStack.Reserve(100);
+
     Value fv;
     fv.pFunction = pFuncToRun;
-	StackPush(vm, fv, GetEmptyFuncType());
+	vm.stack.Push(fv);
 
     CallFrame frame;
     frame.pFunc = pFuncToRun;
@@ -346,7 +309,8 @@ void Run(Function* pFuncToRun) {
 
     // VM run
     CallFrame* pFrame = &vm.callStack.Top();
-    while (pFrame->pInstructionPointer < pFrame->pFunc->chunk.code.end()) {
+	uint8_t* pEndInstruction = pFrame->pFunc->chunk.code.end();
+    while (pFrame->pInstructionPointer < pEndInstruction) {
 #ifdef DEBUG_TRACE
         DisassembleInstruction(pFrame->pFunc->chunk, pFrame->pInstructionPointer);
 #endif
@@ -354,170 +318,170 @@ void Run(Function* pFuncToRun) {
             case OpCode::LoadConstant: {
 				uint8_t index = *pFrame->pInstructionPointer++;
 				Value constant = pFrame->pFunc->chunk.constants[index];
-				StackPush(vm, constant, pFrame->pFunc->chunk.dbgConstantsTypes[index]);
+				vm.stack.Push(constant);
                 break;
             }
             case OpCode::Negate: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value v = StackPop(vm);
+				Value v = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(-v.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(-v.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(-v.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(-v.i32Value));
 				}
                 break;
             }
             case OpCode::Not: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value v = StackPop(vm);
+				Value v = vm.stack.Pop();
 
 				if (typeId == TypeInfo::Bool) {
-					StackPush(vm, MakeValue(!v.boolValue), GetBoolType());
+					vm.stack.Push(MakeValue(!v.boolValue));
 				}
                 break;
             }
             case OpCode::Add: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-                Value b = StackPop(vm);
-                Value a = StackPop(vm);
+                Value b = vm.stack.Pop();
+                Value a = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(a.f32Value + b.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(a.f32Value + b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(a.i32Value + b.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(a.i32Value + b.i32Value));
 				}
                 break;
             }
             case OpCode::Subtract: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value b = StackPop(vm);
-				Value a = StackPop(vm);
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(a.f32Value - b.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(a.f32Value - b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(a.i32Value - b.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(a.i32Value - b.i32Value));
 				}
                 break;
             }
             case OpCode::Multiply: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value b = StackPop(vm);
-				Value a = StackPop(vm);
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(a.f32Value * b.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(a.f32Value * b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(a.i32Value * b.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(a.i32Value * b.i32Value));
 				}
                 break;
             }
             case OpCode::Divide: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value b = StackPop(vm);
-				Value a = StackPop(vm);
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(a.f32Value / b.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(a.f32Value / b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(a.i32Value / b.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(a.i32Value / b.i32Value));
 				}
                 break;
             }
             case OpCode::Greater: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value b = StackPop(vm);
-				Value a = StackPop(vm);
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(a.f32Value > b.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(a.f32Value > b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(a.i32Value > b.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(a.i32Value > b.i32Value));
 				}
                 break;
             }
             case OpCode::Less: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value b = StackPop(vm);
-				Value a = StackPop(vm);
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(a.f32Value < b.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(a.f32Value < b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(a.i32Value < b.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(a.i32Value < b.i32Value));
 				}
                 break;
             }
             case OpCode::GreaterEqual: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value b = StackPop(vm);
-				Value a = StackPop(vm);
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(a.f32Value >= b.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(a.f32Value >= b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(a.i32Value >= b.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(a.i32Value >= b.i32Value));
 				}
                 break;
             }
             case OpCode::LessEqual: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value b = StackPop(vm);
-				Value a = StackPop(vm);
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(a.f32Value <= b.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(a.f32Value <= b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(a.i32Value <= b.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(a.i32Value <= b.i32Value));
 				}
                 break;
             }
             case OpCode::Equal: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value b = StackPop(vm);
-				Value a = StackPop(vm);
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(a.f32Value == b.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(a.f32Value == b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(a.i32Value == b.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(a.i32Value == b.i32Value));
 				} else if (typeId == TypeInfo::Bool) {
-					StackPush(vm, MakeValue(a.boolValue == b.boolValue), GetBoolType());
+					vm.stack.Push(MakeValue(a.boolValue == b.boolValue));
 				}
                 break;
             }
             case OpCode::NotEqual: {
 				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				Value b = StackPop(vm);
-				Value a = StackPop(vm);
+				Value b = vm.stack.Pop();
+				Value a = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue(a.f32Value != b.f32Value), GetF32Type());
+					vm.stack.Push(MakeValue(a.f32Value != b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue(a.i32Value != b.i32Value), GetI32Type());
+					vm.stack.Push(MakeValue(a.i32Value != b.i32Value));
 				} else if (typeId == TypeInfo::Bool) {
-					StackPush(vm, MakeValue(a.boolValue != b.boolValue), GetBoolType());
+					vm.stack.Push(MakeValue(a.boolValue != b.boolValue));
 				}
                 break;
             }
             case OpCode::Print: {
-				TypeInfo* pType = nullptr;
-                Value v = StackPop(vm, &pType);
-                if (pType->tag == TypeInfo::TypeTag::Type)
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+                Value v = vm.stack.Pop();
+				if (typeId == TypeInfo::TypeTag::Type)
                     Log::Info("%s", v.pTypeInfo->name.pData);
-                if (pType->tag == TypeInfo::TypeTag::F32)
+				if (typeId == TypeInfo::TypeTag::F32)
                     Log::Info("%f", v.f32Value);
-                else if (pType->tag == TypeInfo::TypeTag::I32)
+				else if (typeId == TypeInfo::TypeTag::I32)
                     Log::Info("%i", v.i32Value);
-                else if (pType->tag == TypeInfo::TypeTag::Bool)
+				else if (typeId == TypeInfo::TypeTag::Bool)
                     Log::Info("%s", v.boolValue ? "true" : "false");
-                else if (pType->tag == TypeInfo::TypeTag::Function)
+				else if (typeId == TypeInfo::TypeTag::Function)
                     Log::Info("<fn %s>", v.pFunction->name.pData ? v.pFunction->name.pData : "");  // TODO Should probably show the type sig?
                 break;
             }
             case OpCode::Pop:
-                StackPop(vm);
+                vm.stack.Pop();
                 break;
 
             case OpCode::SetLocal: {
@@ -527,7 +491,8 @@ void Run(Function* pFuncToRun) {
             }
             case OpCode::GetLocal: {
                 uint8_t opIndex = *pFrame->pInstructionPointer++;
-				StackPush(vm, vm.stack[pFrame->stackBaseIndex + opIndex], vm.stackDbgInfo[pFrame->stackBaseIndex + opIndex]);
+				Value v = vm.stack[pFrame->stackBaseIndex + opIndex];
+				vm.stack.Push(v);
 				break;
             }
             case OpCode::JmpIfFalse: {
@@ -568,43 +533,43 @@ void Run(Function* pFuncToRun) {
                 vm.callStack.Push(frame);
 
                 pFrame = &vm.callStack.Top();
+				pEndInstruction = pFrame->pFunc->chunk.code.end();
                 break;
             }
 			case OpCode::Cast: {
 				TypeInfo::TypeTag fromTypeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
 				TypeInfo::TypeTag toTypeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
 	
-				Value copy = StackPop(vm);
+				Value copy = vm.stack.Pop();
 				if (toTypeId == TypeInfo::I32 && fromTypeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue((int32_t)copy.f32Value), GetI32Type());
+					vm.stack.Push(MakeValue((int32_t)copy.f32Value));
 				} else if (toTypeId == TypeInfo::I32 && fromTypeId == TypeInfo::Bool) {
-					StackPush(vm, MakeValue((int32_t)copy.boolValue), GetI32Type());
+					vm.stack.Push(MakeValue((int32_t)copy.boolValue));
 				} else if (toTypeId == TypeInfo::F32 && fromTypeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue((float)copy.i32Value), GetF32Type());
+					vm.stack.Push(MakeValue((float)copy.i32Value));
 				} else if (toTypeId == TypeInfo::F32 && fromTypeId == TypeInfo::Bool) {
-					StackPush(vm, MakeValue((float)copy.boolValue), GetF32Type());
+					vm.stack.Push(MakeValue((float)copy.boolValue));
 				} else if (toTypeId == TypeInfo::Bool && fromTypeId == TypeInfo::I32) {
-					StackPush(vm, MakeValue((bool)copy.i32Value), GetBoolType());
+					vm.stack.Push(MakeValue((bool)copy.i32Value));
 				} else if (toTypeId == TypeInfo::Bool && fromTypeId == TypeInfo::F32) {
-					StackPush(vm, MakeValue((bool)copy.f32Value), GetBoolType());
+					vm.stack.Push(MakeValue((bool)copy.f32Value));
 				}
 				break;
 			}
             case (uint8_t)OpCode::Return: {
-				TypeInfo* pReturnType;
-                Value returnVal = StackPop(vm, &pReturnType);
+                Value returnVal = vm.stack.Pop();
 
 				vm.callStack.Pop();
                 vm.stack.Resize(pFrame->stackBaseIndex);
 
-				if (vm.debugMode) vm.stackDbgInfo.Resize(pFrame->stackBaseIndex);
-                StackPush(vm, returnVal, pReturnType);
+                vm.stack.Push(returnVal);
 
                 if (vm.callStack.array.count == 0) {
                     return;
                 } else {
                     pFrame = &vm.callStack.Top();
-                }
+					pEndInstruction = pFrame->pFunc->chunk.code.end();
+				}
                 break;
             }
             default:

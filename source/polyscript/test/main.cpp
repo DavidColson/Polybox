@@ -64,7 +64,7 @@ int main() {
     bool success = errorState.ReportCompilationResult();
 
     //Log::Debug("---- AST -----");
-    //DebugStatements(program);
+    DebugStatements(program);
 
     if (success) {
         // Compile to bytecode

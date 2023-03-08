@@ -23,7 +23,8 @@ enum class NodeType {
     Unary,
     Call,
     Literal,
-    Function,
+	Function,
+	Structure,
     Grouping,
     Identifier,
 	VariableAssignment,
@@ -97,6 +98,11 @@ struct Function : public Expression {
     Block* pBody;
     Type * pReturnType;
     String identifier;
+};
+
+struct Statement;
+struct Structure : public Expression {
+	ResizableArray<Statement*> members;
 };
 
 struct VariableAssignment : public Expression {

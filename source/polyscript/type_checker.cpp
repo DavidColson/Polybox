@@ -137,6 +137,12 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             // TODO: Check maximum number of arguments (255 uint8) and error if above
             return pFunction;
         }
+		case Ast::NodeType::Structure: {
+			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
+			TypeCheckStatements(state, pStruct->members);
+			pStruct->pType = GetTypeType();
+			return pStruct;
+		}
         case Ast::NodeType::Identifier: {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
     

@@ -128,7 +128,7 @@ Ast::Statement* ParseWhile(ParsingState& state);
 Ast::Statement* ParseReturn(ParsingState& state);
 Ast::Statement* ParsePrint(ParsingState& state);
 Ast::Statement* ParseExpressionStmt(ParsingState& state);
-Ast::Statement* ParseDeclaration(ParsingState& state);
+Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations = false);
 
 // ***********************************************************************
 
@@ -295,11 +295,11 @@ Ast::Expression* ParseType(ParsingState& state) {
 Ast::Expression* ParsePrimary(ParsingState& state) {
 
 	if (Match(state, 1, TokenType::Func)) {
-		Token fn = Previous(state);
-
 		Ast::Function* pFunc = (Ast::Function*)state.pAllocator->Allocate(sizeof(Ast::Function));
 		pFunc->nodeKind = Ast::NodeType::Function;
 		pFunc->params.pAlloc = state.pAllocator;
+
+		Token func = Previous(state);
 
 		Consume(state, TokenType::LeftParen, "Expected left parenthesis to start function param list");
 
@@ -341,10 +341,25 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 			PushError(state, "Expected '{' to open function body");
 		}
 			
-		pFunc->pLocation = fn.pLocation;
-		pFunc->pLineStart = fn.pLineStart;
-		pFunc->line = fn.line;
+		pFunc->pLocation = func.pLocation;
+		pFunc->pLineStart = func.pLineStart;
+		pFunc->line = func.line;
 		return pFunc;
+	}
+
+	if (Match(state, 1, TokenType::Struct)) {
+		Ast::Structure* pStruct = (Ast::Structure*)state.pAllocator->Allocate(sizeof(Ast::Structure));
+		pStruct->nodeKind = Ast::NodeType::Structure;
+		pStruct->members.pAlloc = state.pAllocator;
+
+		Consume(state, TokenType::LeftBrace, "Expected '{' after struct to start member declarations");
+
+		while (!Check(state, TokenType::RightBrace) && !IsAtEnd(state)) {
+			pStruct->members.PushBack(ParseDeclaration(state, true));
+		}
+
+		Consume(state, TokenType::RightBrace, "Expected '}' to end member declarations of struct");
+		return pStruct;
 	}
 
     if (Match(state, 1, TokenType::LiteralInteger)) {
@@ -834,7 +849,7 @@ Ast::Statement* ParseBlock(ParsingState& state) {
 
 // ***********************************************************************
 
-Ast::Statement* ParseDeclaration(ParsingState& state) {
+Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
     Ast::Statement* pStmt = nullptr;
 
     if (Match(state, 1, TokenType::Identifier)) {
@@ -882,7 +897,7 @@ Ast::Statement* ParseDeclaration(ParsingState& state) {
         }
     }
     
-    if (pStmt == nullptr) {
+	if (!onlyDeclarations && pStmt == nullptr) {
 		pStmt = ParseStatement(state);
     }
 
@@ -1052,11 +1067,28 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
                     typeStr = pParam->pResolvedType->name;
                 }
 
-                Log::Debug("%*s- Param (%s:%s)", indentationLevel + 2, "", pParam->identifier.pData, typeStr.pData);
+                Log::Debug("%*s+ Param (%s:%s)", indentationLevel + 2, "", pParam->identifier.pData, typeStr.pData);
             }
             DebugStatement(pFunction->pBody, indentationLevel + 2);
             break;
         }
+		case Ast::NodeType::Structure: {
+			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
+			Log::Debug("%*s- Struct", indentationLevel, "");
+			for (Ast::Statement* pMemberStmt : pStruct->members) {
+				Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
+				String typeStr = "none";
+				if (pMember->pResolvedType) {
+					typeStr = pMember->pResolvedType->name;
+				}
+
+				Log::Debug("%*s+ Member (%s:%s)", indentationLevel + 2, "", pMember->identifier.pData, typeStr.pData);
+				
+				if (pMember->pInitializerExpr)
+					DebugExpression(pMember->pInitializerExpr, indentationLevel + 4);
+			}
+			break;
+		}
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
             String typeStr = "none";

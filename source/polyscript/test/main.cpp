@@ -72,8 +72,8 @@ int main() {
         Function* pFunc = CodeGen(program, emptyParams, "<script>", &errorState);
         defer(FreeFunction(pFunc));
     
-        //Log::Debug("---- Disassembly -----");
-        //Disassemble(pFunc, actualCode);
+        Log::Debug("---- Disassembly -----");
+        Disassemble(pFunc, actualCode);
         
         Log::Info("---- Program Running -----");
         Run(pFunc);

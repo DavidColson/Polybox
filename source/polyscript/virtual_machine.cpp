@@ -7,7 +7,7 @@
 #include <string_builder.h>
 #include <stack.inl>
 
-#define DEBUG_TRACE
+//#define DEBUG_TRACE
 
 struct CallFrame {
     Function* pFunc { nullptr };
@@ -22,7 +22,6 @@ struct VirtualMachine {
 
 // ***********************************************************************
 
-#ifdef DEBUG_TRACE
 uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
     StringBuilder builder;
     uint8_t returnIPOffset = 0;
@@ -273,7 +272,6 @@ void DebugStack(VirtualMachine& vm) {
 	Log::Debug("->%s", s.pData);
 	FreeString(s);
 }
-#endif
 
 // ***********************************************************************
 

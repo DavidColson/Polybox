@@ -278,8 +278,10 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             if (pDecl->pInitializerExpr)
                 CodeGenExpression(state, pDecl->pInitializerExpr);
             else {
-				CurrentChunk(state)->constants.PushBack(Value());
-				CurrentChunk(state)->dbgConstantsTypes.PushBack(GetVoidType());
+				Value v;
+				v.pFunction = 0;
+				CurrentChunk(state)->constants.PushBack(v);
+				CurrentChunk(state)->dbgConstantsTypes.PushBack(pDecl->pDeclaredType->pResolvedType);
                 uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
 
                 PushCode(state, OpCode::LoadConstant, pDecl->line);

@@ -34,16 +34,24 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
 			TypeInfo* pType = chunk.dbgConstantsTypes[constIndex];
             if (pType->tag == TypeInfo::TypeTag::Void)
                 builder.AppendFormat("%i (void)", constIndex);
-            if (pType->tag == TypeInfo::TypeTag::Type)
-                builder.AppendFormat("%i (%s)", constIndex, v.pTypeInfo->name.pData);
-            if (pType->tag == TypeInfo::TypeTag::F32)
+            else if (pType->tag == TypeInfo::TypeTag::F32)
                 builder.AppendFormat("%i (%f)", constIndex, v.f32Value);
             else if (pType->tag == TypeInfo::TypeTag::Bool)
                 builder.AppendFormat("%i (%s)", constIndex, v.boolValue ? "true" : "false");
             else if (pType->tag == TypeInfo::TypeTag::I32)
                 builder.AppendFormat("%i (%i)", constIndex, v.i32Value);
-            else if (pType->tag == TypeInfo::TypeTag::Function)
-                builder.AppendFormat("%i (<fn %s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");  // TODO Should probably show the type sig?
+            else if (pType->tag == TypeInfo::TypeTag::Type) {
+                if (v.pTypeInfo)
+                    builder.AppendFormat("%i (%s)", constIndex, v.pTypeInfo->name.pData);
+                else
+                    builder.AppendFormat("%i (none)", constIndex);
+            }
+            else if (pType->tag == TypeInfo::TypeTag::Function) {
+                if (v.pFunction)
+                    builder.AppendFormat("%i (<fn %s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");
+                else
+                    builder.AppendFormat("%i (none)", constIndex);
+            }
             returnIPOffset = 2;
             break;
         }
@@ -214,7 +222,8 @@ void Disassemble(Function* pFunc, String codeText) {
 	for (uint32_t i = 0; i < chunk.constants.count; i++) {
 		TypeInfo* pType = chunk.dbgConstantsTypes[i];
         if (pType->tag == TypeInfo::TypeTag::Function) {
-			Disassemble(chunk.constants[i].pFunction, codeText);
+            if (chunk.constants[i].pFunction)
+			    Disassemble(chunk.constants[i].pFunction, codeText);
         }
     }
 
@@ -523,6 +532,11 @@ void Run(Function* pFuncToRun) {
                 uint8_t argCount = *pFrame->pInstructionPointer++;
                 
                 Value funcValue = vm.stack[-1 - argCount];
+
+                if (funcValue.pFunction == nullptr) {
+                    Log::Info("Runtime Exception: Function pointer is not set to a function");
+                    return;
+                }
 
                 CallFrame frame;
                 frame.pFunc = funcValue.pFunction;

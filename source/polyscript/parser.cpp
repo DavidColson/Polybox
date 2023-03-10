@@ -28,9 +28,9 @@ struct ParsingState {
 
 // ***********************************************************************
 
-void ErrorState::Init(IAllocator* pAlloc) {
-    pAlloc = pAlloc;
-    errors.pAlloc = pAlloc;
+void ErrorState::Init(IAllocator* _pAlloc) {
+    pAlloc = _pAlloc;
+    errors.pAlloc = _pAlloc;
 }
 
 // ***********************************************************************
@@ -208,25 +208,12 @@ void PushError(ParsingState &state, const char* formatMessage, ...) {
 void Synchronize(ParsingState &state) {
     state.panicMode = false;
 
-    bool waitForBlock = false;
     while (state.pCurrent->type != TokenType::EndOfFile) {
-        if (state.pCurrent->type == TokenType::LeftBrace) {
-            waitForBlock = true;
+        if (state.pCurrent->type == TokenType::Semicolon) {
+            Advance(state); // Consume semicolon we found
+            return;
         }
-
-        if (waitForBlock) {
-            if (state.pCurrent->type == TokenType::RightBrace) {
-                Advance(state);
-                return;
-            }
-            Advance(state);
-        } else {
-            if (state.pCurrent->type == TokenType::Semicolon) {
-                Advance(state); // Consume semicolon we found
-                return;
-            }
-            Advance(state);
-        }
+        Advance(state);
     }
 }
 
@@ -872,18 +859,15 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
             }
 
             // Parse initializer
-            bool isFunc = false;
             if (Match(state, 1, TokenType::Equal)) {
 				pDecl->pInitializerExpr = ParseExpression(state);
                 if (pDecl->pInitializerExpr && pDecl->pInitializerExpr->nodeKind == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself
                     Ast::Function* pFunc = (Ast::Function*)pDecl->pInitializerExpr;
                     pFunc->identifier = pDecl->identifier;
-                    isFunc = true;
                 }
             }
 
-            if (!isFunc)
-                Consume(state, TokenType::Semicolon, "Expected \";\" at the end of this declaration");
+            Consume(state, TokenType::Semicolon, "Expected \";\" to end a previous declaration");
 
             if (pDecl) {
                 pDecl->pLocation = identifier.pLocation;

@@ -44,7 +44,14 @@ TypeInfo* FindOrAddType(TypeInfo* pNewType) {
             if (paramsMatch && returnTypeMatch) {
                 return pInfo;
             }
-        } else if (pInfo->tag == pNewType->tag && pInfo->size == pNewType->size) {
+		} else if (pInfo->tag == TypeInfo::TypeTag::Struct && pNewType->tag == pInfo->tag) {
+			TypeInfoStruct* pNewStruct = (TypeInfoStruct*)pNewType;
+			TypeInfoStruct* pOldStruct = (TypeInfoStruct*)pInfo;
+
+			if (pNewStruct->name == pOldStruct->name) {
+				return pInfo;
+			}
+		} else if (pInfo->tag == pNewType->tag && pInfo->size == pNewType->size) {
             return pInfo;
         }
     }
@@ -55,8 +62,13 @@ TypeInfo* FindOrAddType(TypeInfo* pNewType) {
             memcpy(pToAddType, pNewType, sizeof(TypeInfoFunction));
             break;
         }
+		case TypeInfo::TypeTag::Struct: {
+			pToAddType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfoStruct));
+			memcpy(pToAddType, pNewType, sizeof(TypeInfoStruct));
+			break;
+		}
         default: {
-            pToAddType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfoFunction));
+			pToAddType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
             memcpy(pToAddType, pNewType, sizeof(TypeInfo));
             break;
         }
@@ -74,13 +86,13 @@ void InitTypeTable() {
 
     TypeInfo* pI32Type = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
     pI32Type->tag = TypeInfo::TypeTag::I32;
-    pI32Type->size = 32;
+    pI32Type->size = 4;
     pI32Type->name = "i32";
     typeTable.PushBack(pI32Type);
 
     TypeInfo* pF32Type = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
     pF32Type->tag = TypeInfo::TypeTag::F32;
-    pF32Type->size = 32;
+    pF32Type->size = 4;
     pF32Type->name = "f32";
     typeTable.PushBack(pF32Type);
 
@@ -92,13 +104,13 @@ void InitTypeTable() {
 
     TypeInfo* pTypeType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
     pTypeType->tag = TypeInfo::TypeTag::Type;
-    pTypeType->size = 0;
+    pTypeType->size = 8;
     pTypeType->name = "Type";
     typeTable.PushBack(pTypeType);
 
     TypeInfoFunction* pEmptyFuncType = (TypeInfoFunction*)g_Allocator.Allocate(sizeof(TypeInfoFunction));
     pEmptyFuncType->tag = TypeInfo::TypeTag::Function;
-    pEmptyFuncType->size = 0;
+    pEmptyFuncType->size = 8;
     pEmptyFuncType->name = "()";
     typeTable.PushBack(pEmptyFuncType);
 }

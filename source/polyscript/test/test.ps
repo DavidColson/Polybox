@@ -35,11 +35,19 @@
 	print(castValue);
 }
 
-/*babysFirstStruct := struct {
-	boolMember: bool;
-	floatMember: f32;
-	intMember: i32;
-};*/
+babysFirstStruct := struct {
+	boolMember: bool = true;
+	floatMember: f32 = 7.0;
+	intMember: i32 = 2;
+
+	method := func () -> i32 {
+		return 5;
+	};
+
+	innerStruct := struct {
+		inner:= 5.0;
+	};
+};
 
 // Functions
 add := func (num: i32, float: f32, boolean: bool) -> i32 {
@@ -50,7 +58,7 @@ add := func (num: i32, float: f32, boolean: bool) -> i32 {
     result := 0;
     result = 5+2;
     return result;
-}
+};
 
 print(add(5, 55.2, true));
 
@@ -60,7 +68,7 @@ fibonacci := func (n: i32) -> i32 {
         return n;
     else
         return fibonacci(n-1) + fibonacci(n-2);
-}
+};
 
 // Loops
 nTerms := 2;

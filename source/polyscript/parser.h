@@ -103,6 +103,7 @@ struct Function : public Expression {
 struct Statement;
 struct Structure : public Expression {
 	ResizableArray<Statement*> members;
+	TypeInfo* pDescribedType;
 };
 
 struct VariableAssignment : public Expression {

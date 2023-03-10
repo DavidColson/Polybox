@@ -65,7 +65,8 @@ struct TypeInfo {
         I32,
         Bool,
         Function,
-        Type,
+		Type,
+		Struct,
         Count
     };
 	static const char* TagToString(TypeTag tag) {
@@ -81,6 +82,14 @@ struct TypeInfo {
 struct TypeInfoFunction : public TypeInfo {
     ResizableArray<TypeInfo*> params;
     TypeInfo* pReturnType;
+};
+
+struct TypeInfoStruct : public TypeInfo {
+	struct Member {
+		String identifier;
+		TypeInfo* pType;
+	};
+	ResizableArray<Member> members;
 };
 
 void InitTypeTable();

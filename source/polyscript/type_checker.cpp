@@ -14,9 +14,8 @@ struct TypeCheckerState {
     ErrorState* pErrors { nullptr };
     int currentScopeLevel { 0 };
     bool currentlyDeclaringParams { false };
-    IAllocator* pAllocator{ nullptr };
-
-    Ast::Declaration* lastFunctionDeclaration{ nullptr }; // temp until we have constant functions
+    Ast::Declaration* pCurrentDeclaration{ nullptr }; // nullptr if we are not currently parsing a declaration
+	IAllocator* pAllocator{ nullptr };
 };
 
 void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt);
@@ -97,6 +96,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
+			Ast::Declaration* pMyDeclaration = state.pCurrentDeclaration;
 
             // The params will end up in the same scope as the body, and get automatically yeeted from the declarations list at the end of the block
             state.currentlyDeclaringParams = true;
@@ -129,9 +129,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             newTypeInfo.name = builder.CreateString();
             pFunction->pType = FindOrAddType(&newTypeInfo);
 
-            // temp until we have constant declarations which will already be in declarations table
-            // This is required for recursion for now
-            state.lastFunctionDeclaration->pResolvedType = pFunction->pType;
+            pMyDeclaration->pResolvedType = pFunction->pType;
             TypeCheckStatement(state, pFunction->pBody);
 
             // TODO: Check maximum number of arguments (255 uint8) and error if above
@@ -139,8 +137,77 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
         }
 		case Ast::NodeType::Structure: {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
-			TypeCheckStatements(state, pStruct->members);
+			Ast::Declaration* pMyDeclaration = state.pCurrentDeclaration;
+
+			// Typecheck the declarations in this struct
+
+			// Declarations are dealt with differently here because this is not imperative executing code
+			// We want to ensure no duplicate identifiers, and ensure the initializers are constant and typematching
+			HashMap<String, Ast::Declaration*> internalDeclarations(state.pAllocator);
+			for (Ast::Statement* pMemberStmt : pStruct->members) {
+				Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
+				state.pCurrentDeclaration = pMember;
+
+				pMember->scopeLevel = state.currentScopeLevel + 1;
+				
+				if (internalDeclarations.Get(pMember->identifier) != nullptr)
+					state.pErrors->PushError(pMember, "Redefinition of member '%s'", pMember->identifier.pData);
+
+				// For now we don't add the member declarations to global list, since they aren't accessible to initializers inside this struct, such as functions
+				// We will eventually do this for constant values though, since they can be accessed
+				internalDeclarations.Add(pMember->identifier, pMember);
+
+				if (pMember->pInitializerExpr) {
+					if (pMember->pInitializerExpr->nodeKind == Ast::NodeType::Function) {
+						state.pCurrentDeclaration->initialized = true; // TODO: remove this we have default initialization now
+					}
+
+					// TODO: This should eventually be, values that are constant and reducible to constants at compile time.
+					if (!(pMember->pInitializerExpr->nodeKind == Ast::NodeType::Literal
+						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::Type
+						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::FnType
+						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::Function
+						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::Structure))
+					{
+						state.pErrors->PushError(pMember, "Unsupported struct member initializer '%s' initializer must be resolvable to a constant at compile time", pMember->identifier.pData);
+					}
+
+					pMember->pInitializerExpr = TypeCheckExpression(state, pMember->pInitializerExpr);
+
+					if (pMember->pDeclaredType)
+						pMember->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pMember->pDeclaredType);
+
+					if (pMember->pDeclaredType && pMember->pInitializerExpr->pType != pMember->pDeclaredType->pResolvedType) {
+						TypeInfo* pDeclaredType = pMember->pDeclaredType->pResolvedType;
+						TypeInfo* pInitType = pMember->pInitializerExpr->pType;
+						state.pErrors->PushError(pMember->pDeclaredType, "Type mismatch in declaration, declared as %s and initialized as %s", pDeclaredType->name.pData, pInitType->name.pData);
+					} else {
+						pMember->pResolvedType = pMember->pInitializerExpr->pType;
+					}
+				} else {
+					pMember->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pMember->pDeclaredType);
+					pMember->pResolvedType = pMember->pDeclaredType->pResolvedType;
+				}
+				state.pCurrentDeclaration = nullptr;
+			}
+
+			// Create the actual type that this struct is
+			TypeInfoStruct newTypeInfo;
+			newTypeInfo.tag = TypeInfo::TypeTag::Struct;
+			for (Ast::Statement* pMemberStmt : pStruct->members) {
+				Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
+				TypeInfoStruct::Member mem;
+				mem.identifier = pMember->identifier;
+				mem.pType = pMember->pResolvedType;
+				newTypeInfo.members.PushBack(mem);
+
+				if (mem.pType)
+					newTypeInfo.size += mem.pType->size;
+			}
+			newTypeInfo.name = pMyDeclaration->identifier;
+			pStruct->pDescribedType = FindOrAddType(&newTypeInfo);
 			pStruct->pType = GetTypeType();
+
 			return pStruct;
 		}
         case Ast::NodeType::Identifier: {
@@ -168,6 +235,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
                 if (pDecl->initialized) {
                     pIdentifier->pType = pDecl->pResolvedType;
                 } else {
+					// TODO: We initialize everything to zero now, potentially this error is not needed? Just allow people to use the value?
                     state.pErrors->PushError(pIdentifier, "Cannot use \'%s\', it is not initialized yet", pIdentifier->identifier.pData);     
                 }
             } else {
@@ -363,6 +431,8 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
     switch (pStmt->nodeKind) {
         case Ast::NodeType::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
+			state.pCurrentDeclaration = pDecl;
+
             pDecl->scopeLevel = state.currentScopeLevel;
 
             if (state.declarations.Get(pDecl->identifier) != nullptr)
@@ -373,9 +443,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
 
             if (pDecl->pInitializerExpr) {
                 if (pDecl->pInitializerExpr->nodeKind == Ast::NodeType::Function) {
-                    // Temp, Allows recursion without constant functions
-                    state.lastFunctionDeclaration = pDecl;
-                    state.lastFunctionDeclaration->initialized = true;
+                    state.pCurrentDeclaration->initialized = true;
                 }
 
                 state.declarations.Add(pDecl->identifier, pDecl);
@@ -397,7 +465,8 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 pDecl->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pDecl->pDeclaredType);
                 pDecl->pResolvedType = pDecl->pDeclaredType->pResolvedType;
             }
-            break;
+			state.pCurrentDeclaration = nullptr;
+			break;
         }
         case Ast::NodeType::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
@@ -474,6 +543,7 @@ void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErr
 
     state.pErrors = pErrors;
     state.pAllocator = pAlloc;
+	state.declarations.pAlloc = pAlloc;
 
     TypeCheckStatements(state, program);
 }

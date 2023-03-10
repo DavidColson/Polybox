@@ -163,7 +163,6 @@ struct Declaration : public Statement {
     
     // Used by the typechecker
     int scopeLevel{ 0 };
-    bool initialized{ 0 };
 };
 
 }

@@ -158,10 +158,6 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 				internalDeclarations.Add(pMember->identifier, pMember);
 
 				if (pMember->pInitializerExpr) {
-					if (pMember->pInitializerExpr->nodeKind == Ast::NodeType::Function) {
-						state.pCurrentDeclaration->initialized = true; // TODO: remove this we have default initialization now
-					}
-
 					// TODO: This should eventually be, values that are constant and reducible to constants at compile time.
 					if (!(pMember->pInitializerExpr->nodeKind == Ast::NodeType::Literal
 						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::Type
@@ -232,12 +228,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             Ast::Declaration** pDeclEntry = state.declarations.Get(pIdentifier->identifier);
             if (pDeclEntry) {
                 Ast::Declaration* pDecl = *pDeclEntry;
-                if (pDecl->initialized) {
-                    pIdentifier->pType = pDecl->pResolvedType;
-                } else {
-					// TODO: We initialize everything to zero now, potentially this error is not needed? Just allow people to use the value?
-                    state.pErrors->PushError(pIdentifier, "Cannot use \'%s\', it is not initialized yet", pIdentifier->identifier.pData);     
-                }
+                pIdentifier->pType = pDecl->pResolvedType;
             } else {
                 state.pErrors->PushError(pIdentifier, "Undeclared variable \'%s\', missing a declaration somewhere before?", pIdentifier->identifier.pData);
             }
@@ -259,7 +250,6 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
                 } else {
                     state.pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type '%s', but is being assigned a value with type '%s'", pVarAssignment->identifier.pData, pDeclaredVarType->name.pData, pAssignedVarType->name.pData);
                 }
-                pDecl->initialized = true;
             } else {
                 state.pErrors->PushError(pVarAssignment, "Assigning to undeclared variable \'%s\', missing a declaration somewhere before?", pVarAssignment->identifier.pData);
             }
@@ -438,17 +428,9 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             if (state.declarations.Get(pDecl->identifier) != nullptr)
                 state.pErrors->PushError(pDecl, "Redefinition of variable '%s'", pDecl->identifier.pData);
 
-            if (state.currentlyDeclaringParams)
-                pDecl->initialized = true;
-
             if (pDecl->pInitializerExpr) {
-                if (pDecl->pInitializerExpr->nodeKind == Ast::NodeType::Function) {
-                    state.pCurrentDeclaration->initialized = true;
-                }
-
                 state.declarations.Add(pDecl->identifier, pDecl);
                 pDecl->pInitializerExpr = TypeCheckExpression(state, pDecl->pInitializerExpr);
-                pDecl->initialized = true;
 
                 if (pDecl->pDeclaredType)
                     pDecl->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pDecl->pDeclaredType);

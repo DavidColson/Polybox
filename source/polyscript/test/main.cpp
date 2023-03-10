@@ -66,7 +66,7 @@ int main() {
     //Log::Debug("---- AST -----");
     DebugStatements(program);
 
-    if (false) {
+    if (success) {
         // Compile to bytecode
         ResizableArray<Ast::Declaration*> emptyParams;
         Function* pFunc = CodeGen(program, emptyParams, "<script>", &errorState);

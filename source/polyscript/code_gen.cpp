@@ -42,6 +42,21 @@ int ResolveLocal(State& state, String name) {
 
 // ***********************************************************************
 
+void PushCode4Byte(State& state, uint32_t code, uint32_t line) {
+	CurrentChunk(state)->code.PushBack((code >> 24) & 0xff);
+	CurrentChunk(state)->code.PushBack((code >> 16) & 0xff);
+	CurrentChunk(state)->code.PushBack((code >> 8) & 0xff);
+	CurrentChunk(state)->code.PushBack(code & 0xff);
+
+	CurrentChunk(state)->dbgLineInfo.PushBack(line);
+	CurrentChunk(state)->dbgLineInfo.PushBack(line);
+	CurrentChunk(state)->dbgLineInfo.PushBack(line);
+	CurrentChunk(state)->dbgLineInfo.PushBack(line);
+	Assert(line != 0);
+}
+
+// ***********************************************************************
+
 void PushCode(State& state, uint8_t code, uint32_t line) {
     CurrentChunk(state)->code.PushBack(code);
     CurrentChunk(state)->dbgLineInfo.PushBack(line);
@@ -278,14 +293,22 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             if (pDecl->pInitializerExpr)
                 CodeGenExpression(state, pDecl->pInitializerExpr);
             else {
-				Value v;
-				v.pFunction = 0;
-				CurrentChunk(state)->constants.PushBack(v);
-				CurrentChunk(state)->dbgConstantsTypes.PushBack(pDecl->pDeclaredType->pResolvedType);
-                uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
+				if (pDecl->pResolvedType->tag == TypeInfo::Struct)
+				{
+					// allocate memory for the struct
+					PushCode(state, OpCode::StructAlloc, pDecl->line);
+					PushCode4Byte(state, (uint32_t)pDecl->pResolvedType->size, pDecl->line); // TODO: do I support 4gb structs?
 
-                PushCode(state, OpCode::LoadConstant, pDecl->line);
-                PushCode(state, constIndex, pDecl->line);
+				} else { // For all non struct values we just push a new value on the operand stack that is zero
+					Value v;
+					v.pPtr = 0;
+					CurrentChunk(state)->constants.PushBack(v);
+					CurrentChunk(state)->dbgConstantsTypes.PushBack(pDecl->pResolvedType);
+					uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
+
+					PushCode(state, OpCode::LoadConstant, pDecl->line);
+					PushCode(state, constIndex, pDecl->line);
+				}
             }
             break;
         }

@@ -56,9 +56,15 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
                 pType->pResolvedType = GetBoolType();
             } else if (pType->identifier == "Type") {
                 pType->pResolvedType = GetTypeType();
-            } else {
+			} else if (TypeInfo* pFound = FindTypeByName(pType->identifier)) {
+				pType->pResolvedType = pFound;
+			} else {
                 pType->pResolvedType = GetVoidType();
             }
+
+			// TODO: If you ecounter a function type, you'll have to construct an actual type info and search for it. 
+			// TODO: Potential improvement, rather than constructing a type info and searching, just give the typeTable functions the AST node, and let them
+			// Search using it's members, however appropriate
 
             return pType;
         }
@@ -195,6 +201,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 				TypeInfoStruct::Member mem;
 				mem.identifier = pMember->identifier;
 				mem.pType = pMember->pResolvedType;
+				mem.offset = newTypeInfo.size;
 				newTypeInfo.members.PushBack(mem);
 
 				if (mem.pType)

@@ -9,6 +9,28 @@
 
 //#define DEBUG_TRACE
 
+#define GetOperand1Byte(ptr) *(ptr++)
+
+#define GetOperand2Byte(ptr) ((ptr[0] << 8) |\
+	ptr[1]);\
+	ptr += 2;
+
+#define GetOperand4Byte(ptr) ((ptr[0] << 24) |\
+	(ptr[1] << 16) |\
+	(ptr[2] << 8) |\
+	ptr[3]);\
+	ptr += 4;
+
+#define GetOperand8Byte(ptr) ((ptr[0] << 56) |\
+	(ptr[1] << 48) |\
+	(ptr[2] << 40) |\
+	(ptr[3] << 32) |\
+	(ptr[4] << 24) |\
+	(ptr[5] << 16) |\
+	(ptr[6] << 8) |\
+	ptr[7]);\
+	ptr += 8;
+
 struct CallFrame {
     Function* pFunc { nullptr };
     uint8_t* pInstructionPointer { nullptr };
@@ -24,11 +46,11 @@ struct VirtualMachine {
 
 uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
     StringBuilder builder;
-    uint8_t returnIPOffset = 0;
-    switch (*pInstruction) {
+	uint8_t* pInstructionStart = pInstruction;
+    switch (*pInstruction++) {
         case OpCode::LoadConstant: {
             builder.Append("LoadConstant ");
-            uint8_t constIndex = *(pInstruction + 1);
+			uint8_t constIndex = GetOperand1Byte(pInstruction);
 
             Value& v = chunk.constants[constIndex];
 			TypeInfo* pType = chunk.dbgConstantsTypes[constIndex];
@@ -52,164 +74,145 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
                 else
                     builder.AppendFormat("%i (none)", constIndex);
             }
-            returnIPOffset = 2;
             break;
         }
         case OpCode::SetLocal: {
             builder.Append("SetLocal ");
-            uint8_t index = *(pInstruction + 1);
+			uint8_t index = GetOperand1Byte(pInstruction);
             builder.AppendFormat("%i", index);
-            returnIPOffset = 2;
             break;
         }
         case OpCode::GetLocal: {
             builder.Append("GetLocal ");
-            uint8_t index = *(pInstruction + 1);
+			uint8_t index = GetOperand1Byte(pInstruction);
             builder.AppendFormat("%i", index);
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Negate: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Negate %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Not: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Not %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Add: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Add %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Subtract: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Subtract %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Multiply: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Multiply %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Divide: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Divide %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Greater: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Greater %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Less: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Less %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::GreaterEqual: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("GreaterEqual %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::LessEqual: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("LessEqual %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Equal: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Equal %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::NotEqual: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("NotEqual %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Print: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*(pInstruction + 1);
+			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Print %s", TypeInfo::TagToString(typeId));
-            returnIPOffset = 2;
             break;
         }
         case OpCode::Return: {
             builder.Append("Return");
-            returnIPOffset = 1;
             break;
         }
         case OpCode::Pop: {
             builder.Append("Pop");
-            returnIPOffset = 1;
             break;
         }
         case OpCode::JmpIfFalse: {
             builder.Append("JmpIfFalse");
-            uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
+			uint16_t jmp = (uint16_t)GetOperand2Byte(pInstruction);
             builder.AppendFormat(" %i", jmp);
-            returnIPOffset = 3;
             break;
         }
         case OpCode::JmpIfTrue: {
             builder.Append("JmpIfTrue");
-            uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
+			uint16_t jmp = (uint16_t)GetOperand2Byte(pInstruction);
             builder.AppendFormat(" %i", jmp);
-            returnIPOffset = 3;
             break;
         }
         case OpCode::Jmp: {
             builder.Append("Jmp");
-            uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
+			uint16_t jmp = (uint16_t)GetOperand2Byte(pInstruction);
             builder.AppendFormat(" %i", jmp);
-            returnIPOffset = 3;
             break;
         }
         case OpCode::Loop: {
             builder.Append("Loop");
-            uint16_t jmp = (uint16_t)((pInstruction[1] << 8) | pInstruction[2]);
+			uint16_t jmp = (uint16_t)GetOperand2Byte(pInstruction);
             builder.AppendFormat(" %i", -jmp);
-            returnIPOffset = 3;
             break;
         }
+		case OpCode::StructAlloc: {
+			builder.Append("StructAlloc");
+			uint32_t size = (uint32_t)GetOperand4Byte(pInstruction);
+			builder.AppendFormat(" %i", size);
+			break;
+		}
 		case OpCode::Cast: {
 			builder.Append("Cast ");
-			TypeInfo::TypeTag fromTypeId = (TypeInfo::TypeTag)*(pInstruction + 1);
-			TypeInfo::TypeTag toTypeId = (TypeInfo::TypeTag)*(pInstruction + 2);
+			TypeInfo::TypeTag fromTypeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
+			TypeInfo::TypeTag toTypeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("%s %s", TypeInfo::TagToString(fromTypeId), TypeInfo::TagToString(toTypeId));
-			returnIPOffset = 3;
 			break;
 		}
         case OpCode::Call: {
             builder.Append("Call ");
-            uint8_t argCount = *(pInstruction + 1);
+			uint8_t argCount = GetOperand1Byte(pInstruction);
             builder.AppendFormat("%i", argCount);
-            returnIPOffset = 2;
             break;
         }
         default:
             builder.Append("OpUnknown");
-            returnIPOffset = 1;
             break;
     }
 
     String output = builder.CreateString();
     Log::Debug("%s", output.pData);
     FreeString(output);
-    return returnIPOffset;
+    return (uint8_t)(pInstruction - pInstructionStart);
 }
 
 // ***********************************************************************
@@ -323,13 +326,13 @@ void Run(Function* pFuncToRun) {
 #endif
         switch (*pFrame->pInstructionPointer++) {
             case OpCode::LoadConstant: {
-				uint8_t index = *pFrame->pInstructionPointer++;
+				uint8_t index = GetOperand1Byte(pFrame->pInstructionPointer);
 				Value constant = pFrame->pFunc->chunk.constants[index];
 				vm.stack.Push(constant);
                 break;
             }
             case OpCode::Negate: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value v = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
@@ -340,7 +343,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::Not: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value v = vm.stack.Pop();
 
 				if (typeId == TypeInfo::Bool) {
@@ -349,7 +352,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::Add: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
                 Value b = vm.stack.Pop();
                 Value a = vm.stack.Pop();
 
@@ -361,7 +364,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::Subtract: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -373,7 +376,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::Multiply: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -385,7 +388,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::Divide: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -397,7 +400,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::Greater: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -409,7 +412,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::Less: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -421,7 +424,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::GreaterEqual: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -433,7 +436,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::LessEqual: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -445,7 +448,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::Equal: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -459,7 +462,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::NotEqual: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -473,7 +476,7 @@ void Run(Function* pFuncToRun) {
                 break;
             }
             case OpCode::Print: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
                 Value v = vm.stack.Pop();
 				if (typeId == TypeInfo::TypeTag::Type)
                     Log::Info("%s", v.pTypeInfo->name.pData);
@@ -492,44 +495,40 @@ void Run(Function* pFuncToRun) {
                 break;
 
             case OpCode::SetLocal: {
-                uint8_t opIndex = *pFrame->pInstructionPointer++;
+				uint8_t opIndex = GetOperand1Byte(pFrame->pInstructionPointer);
                 vm.stack[pFrame->stackBaseIndex + opIndex] = vm.stack.Top();
                 break;
             }
             case OpCode::GetLocal: {
-                uint8_t opIndex = *pFrame->pInstructionPointer++;
+				uint8_t opIndex = GetOperand1Byte(pFrame->pInstructionPointer);
 				Value v = vm.stack[pFrame->stackBaseIndex + opIndex];
 				vm.stack.Push(v);
 				break;
             }
             case OpCode::JmpIfFalse: {
-                uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
-                pFrame->pInstructionPointer += 2;
+				uint16_t jmp = (uint16_t)GetOperand2Byte(pFrame->pInstructionPointer);
                 if (!vm.stack.Top().boolValue)
                     pFrame->pInstructionPointer += jmp;
                 break;
             }
             case OpCode::JmpIfTrue: {
-                uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
-                pFrame->pInstructionPointer += 2;
+				uint16_t jmp = (uint16_t)GetOperand2Byte(pFrame->pInstructionPointer);
                 if (vm.stack.Top().boolValue)
                     pFrame->pInstructionPointer += jmp;
                 break;
             }
             case OpCode::Jmp: {
-                uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
-                pFrame->pInstructionPointer += 2;
+				uint16_t jmp = (uint16_t)GetOperand2Byte(pFrame->pInstructionPointer);
                 pFrame->pInstructionPointer += jmp;
                 break;
             }
             case OpCode::Loop: {
-                uint16_t jmp = (uint16_t)((pFrame->pInstructionPointer[0] << 8) | pFrame->pInstructionPointer[1]);
-                pFrame->pInstructionPointer += 2;
+				uint16_t jmp = (uint16_t)GetOperand2Byte(pFrame->pInstructionPointer);
                 pFrame->pInstructionPointer -= jmp;
                 break;
             }
             case OpCode::Call: {
-                uint8_t argCount = *pFrame->pInstructionPointer++;
+				uint8_t argCount = GetOperand1Byte(pFrame->pInstructionPointer);
                 
                 Value funcValue = vm.stack[-1 - argCount];
 
@@ -548,9 +547,20 @@ void Run(Function* pFuncToRun) {
 				pEndInstruction = pFrame->pFunc->chunk.code.end();
                 break;
             }
+			case OpCode::StructAlloc: {
+				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
+				
+				Value v;
+				v.pPtr = g_Allocator.Allocate(size_t(size)); // TODO: Stack memory, not heap
+
+				// All memory will be zero allocated by default
+				memset(v.pPtr, 0, size);
+				vm.stack.Push(v);
+				break;
+			}
 			case OpCode::Cast: {
-				TypeInfo::TypeTag fromTypeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
-				TypeInfo::TypeTag toTypeId = (TypeInfo::TypeTag)*pFrame->pInstructionPointer++;
+				TypeInfo::TypeTag fromTypeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag toTypeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
 	
 				Value copy = vm.stack.Pop();
 				if (toTypeId == TypeInfo::I32 && fromTypeId == TypeInfo::F32) {

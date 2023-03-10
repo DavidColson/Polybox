@@ -35,7 +35,11 @@
 	print(castValue);
 }
 
-babysFirstStruct := struct {
+// What should codegen do when it encounters a struct definition expression?
+// Push a type instance onto the stack?
+// For a non const yes, but for a const absolutely not
+// Ugh we need constants
+BabysFirstStruct := struct {
 	boolMember: bool = true;
 	floatMember: f32 = 7.0;
 	intMember: i32 = 2;
@@ -48,6 +52,8 @@ babysFirstStruct := struct {
 		inner:= 5.0;
 	};
 };
+
+firstInstance : BabysFirstStruct;
 
 // Functions
 add := func (num: i32, float: f32, boolean: bool) -> i32 {
@@ -71,7 +77,7 @@ fibonacci := func (n: i32) -> i32 {
 };
 
 // Loops
-nTerms := 2;
+nTerms := 4;
 n := 0;
 while n < nTerms {
     print(fibonacci(n));

@@ -77,6 +77,15 @@ TypeInfo* FindOrAddType(TypeInfo* pNewType) {
     return typeTable[typeTable.count - 1];
 }
 
+TypeInfo* FindTypeByName(String identifier) {
+	for (TypeInfo* pInfo : typeTable) {
+		if (pInfo->name == identifier) {
+			return pInfo;
+		}
+	}
+	return nullptr;
+}
+
 void InitTypeTable() {
     TypeInfo* pVoidType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
     pVoidType->tag = TypeInfo::TypeTag::Void;

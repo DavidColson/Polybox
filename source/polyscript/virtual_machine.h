@@ -37,14 +37,14 @@ enum Enum : uint8_t {
     Loop,
 
     // Misc
+	StructAlloc,
     SetLocal,
     GetLocal,
     Call,
 	Cast,
     Print,
     Return,
-    Pop,
-
+    Pop
 };
 }
 

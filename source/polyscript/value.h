@@ -11,24 +11,6 @@ namespace TokenType {
 enum Enum : uint32_t;
 }
 
-namespace ValueType {
-
-enum Enum : uint32_t {
-    Void,
-    F32,
-    I32,
-    Bool,
-    Function,
-    Type,
-    Count
-};
-
-static const char* stringNames[] = { "Void", "f32", "i32", "bool", "function", "type", "count" };
-static const char* ToString(ValueType::Enum type) {
-    return stringNames[type];
-}
-}
-
 namespace Operator {
 enum Enum : uint32_t {
     Add,
@@ -53,10 +35,6 @@ static const char* ToString(Operator::Enum type) {
     return stringNames[type];
 }
 }
-
-
-
-
 
 struct TypeInfo {
     enum TypeTag : uint8_t {
@@ -88,6 +66,7 @@ struct TypeInfoStruct : public TypeInfo {
 	struct Member {
 		String identifier;
 		TypeInfo* pType;
+		size_t offset;
 	};
 	ResizableArray<Member> members;
 };
@@ -95,6 +74,8 @@ struct TypeInfoStruct : public TypeInfo {
 void InitTypeTable();
 
 TypeInfo* FindOrAddType(TypeInfo* pNewType);
+
+TypeInfo* FindTypeByName(String identifier);
 
 TypeInfo* GetVoidType();
 
@@ -112,6 +93,7 @@ TypeInfo* GetEmptyFuncType();
 
 
 
+
 struct Function;
 struct Value {
     union {
@@ -120,9 +102,11 @@ struct Value {
         int32_t i32Value;
         Function* pFunction;
         TypeInfo* pTypeInfo;
+		void* pPtr;
     };
 };
 
+// TODO: Don't really need these now
 inline Value MakeValue(bool value) {
     Value v;
     v.boolValue = value;

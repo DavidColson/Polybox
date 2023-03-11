@@ -21,7 +21,9 @@ enum class NodeType {
     // Expressions
     Binary,
     Unary,
-    Call,
+	Call,
+	GetField,
+	SetField,
     Literal,
 	Function,
 	Structure,
@@ -119,6 +121,17 @@ struct Cast : public Expression {
 struct Call : public Expression {
     Expression* pCallee;
     ResizableArray<Expression*> args;
+};
+
+struct GetField : public Expression {
+	Expression *pTarget;
+	String fieldName;
+};
+
+struct SetField : public Expression {
+	Expression *pTarget;
+	String fieldName;
+	Expression* pAssignment;
 };
 
 

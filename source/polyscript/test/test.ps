@@ -55,6 +55,11 @@ BabysFirstStruct := struct {
 
 firstInstance : BabysFirstStruct;
 
+firstInstance.boolMember = true;
+firstInstance.floatMember = 1337.0;
+
+print(firstInstance.boolMember);
+
 // Functions
 add := func (num: i32, float: f32, boolean: bool) -> i32 {
     print(num);

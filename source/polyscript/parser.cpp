@@ -444,26 +444,44 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 Ast::Expression* ParseCall(ParsingState& state) {
 	Ast::Expression* pExpr = ParsePrimary(state);
 
-    while (Match(state, 1, TokenType::LeftParen)) {
-        Ast::Call* pCall = (Ast::Call*)state.pAllocator->Allocate(sizeof(Ast::Call));
-        pCall->nodeKind = Ast::NodeType::Call;
-        pCall->pCallee = pExpr;
-        pCall->args.pAlloc = state.pAllocator;
+	while (true) {
+		if (Match(state, 1, TokenType::LeftParen)) {
+			Ast::Call* pCall = (Ast::Call*)state.pAllocator->Allocate(sizeof(Ast::Call));
+			pCall->nodeKind = Ast::NodeType::Call;
+			pCall->pCallee = pExpr;
+			pCall->args.pAlloc = state.pAllocator;
 
-		if (!Check(state, TokenType::RightParen)) {
-            do {
-				pCall->args.PushBack(ParseExpression(state));
-            } while (Match(state, 1, TokenType::Comma));
-        }
+			if (!Check(state, TokenType::RightParen)) {
+				do {
+					pCall->args.PushBack(ParseExpression(state));
+				} while (Match(state, 1, TokenType::Comma));
+			}
 
-        Token closeParen = Consume(state, TokenType::RightParen, "Expected right parenthesis to end function call");
+			Token closeParen = Consume(state, TokenType::RightParen, "Expected right parenthesis to end function call");
         
-        pCall->pLocation = closeParen.pLocation;
-        pCall->pLineStart = closeParen.pLineStart;
-        pCall->line = closeParen.line;
+			pCall->pLocation = closeParen.pLocation;
+			pCall->pLineStart = closeParen.pLineStart;
+			pCall->line = closeParen.line;
 
-        pExpr = pCall;
-    }
+			pExpr = pCall;
+		} else if (Match(state, 1, TokenType::Dot)) {
+			Token dot = Previous(state);
+			Ast::GetField* pGetField  = (Ast::GetField*)state.pAllocator->Allocate(sizeof(Ast::GetField));
+			pGetField->nodeKind = Ast::NodeType::GetField;
+			pGetField->pTarget = pExpr;
+
+			Token fieldName = Consume(state, TokenType::Identifier, "Expected identifier after '.' to access a named field");
+			pGetField->fieldName = CopyCStringRange(fieldName.pLocation, fieldName.pLocation + fieldName.length, state.pAllocator);
+
+			pGetField->pLocation = dot.pLocation;
+			pGetField->pLineStart = dot.pLineStart;
+			pGetField->line = dot.line;
+
+			pExpr = pGetField;
+		} else {
+			break;
+		}
+	}
     return pExpr;
 }
 
@@ -651,12 +669,12 @@ Ast::Expression* ParseLogicOr(ParsingState& state) {
 
 // ***********************************************************************
 
-Ast::Expression* ParseVarAssignment(ParsingState& state) {
+Ast::Expression* ParseAssignment(ParsingState& state) {
 	Ast::Expression* pExpr = ParseLogicOr(state);
 
     if (Match(state, 1, TokenType::Equal)) {
         Token equal = Previous(state);
-		Ast::Expression* pAssignment = ParseVarAssignment(state);
+		Ast::Expression* pAssignment = ParseAssignment(state);
 
         if (pExpr->nodeKind == Ast::NodeType::Identifier) {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)state.pAllocator->Allocate(sizeof(Ast::VariableAssignment));
@@ -669,8 +687,21 @@ Ast::Expression* ParseVarAssignment(ParsingState& state) {
             pVarAssignment->pLineStart = equal.pLineStart;
             pVarAssignment->line = equal.line;
             return pVarAssignment;
-        }
-        state.pErrorState->PushError(equal.pLocation, equal.pLineStart, equal.line, "Expression preceding assignment op is not a variable we can assign to");
+		} else if (pExpr->nodeKind == Ast::NodeType::GetField) {
+			Ast::SetField* pSetField = (Ast::SetField*)state.pAllocator->Allocate(sizeof(Ast::SetField));
+			pSetField->nodeKind = Ast::NodeType::SetField;
+
+			Ast::GetField* pGet = (Ast::GetField*)pExpr;
+			pSetField->pTarget = pGet->pTarget;
+			pSetField->fieldName = pGet->fieldName;
+			pSetField->pAssignment = pAssignment;
+
+			pSetField->pLocation = equal.pLocation;
+			pSetField->pLineStart = equal.pLineStart;
+			pSetField->line = equal.line;
+			return pSetField;
+		}
+        state.pErrorState->PushError(equal.pLocation, equal.pLineStart, equal.line, "Expression preceding assignment is not a value we can assign to");
     }
     return pExpr;
 }
@@ -678,7 +709,7 @@ Ast::Expression* ParseVarAssignment(ParsingState& state) {
 // ***********************************************************************
 
 Ast::Expression* ParseExpression(ParsingState& state) {
-	return ParseVarAssignment(state);
+	return ParseAssignment(state);
 }
 
 // ***********************************************************************
@@ -1167,6 +1198,29 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
             }
             break;
         }
+		case Ast::NodeType::GetField: {
+			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
+
+			String nodeTypeStr = "none";
+			if (pGetField->pType) {
+				nodeTypeStr = pGetField->pType->name;
+			}
+			Log::Debug("%*s- Get Field (%s:%s)", indentationLevel, "", pGetField->fieldName.pData, nodeTypeStr.pData);
+			DebugExpression(pGetField->pTarget, indentationLevel + 2);
+			break;
+		}
+		case Ast::NodeType::SetField: {
+			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
+			String nodeTypeStr = "none";
+			if (pSetField->pType) {
+				nodeTypeStr = pSetField->pType->name;
+			}
+
+			Log::Debug("%*s- Set Field (%s:%s)", indentationLevel, "", pSetField->fieldName.pData, nodeTypeStr.pData);
+			DebugExpression(pSetField->pTarget, indentationLevel + 2);
+			DebugExpression(pSetField->pAssignment, indentationLevel + 2);
+			break;
+		}
         default:
             break;
     }

@@ -417,6 +417,70 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             pCall->pType = pFunctionType->pReturnType;
             return pCall;
         }
+		case Ast::NodeType::GetField: {
+			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
+			pGetField->pTarget = TypeCheckExpression(state, pGetField->pTarget);
+
+			if (pGetField->pTarget->pType == nullptr) {
+				return pGetField;
+			}
+			TypeInfo* pTargetTypeInfo = pGetField->pTarget->pType;
+			if (pTargetTypeInfo->tag != TypeInfo::Struct) {
+				state.pErrors->PushError(pGetField, "Attempting to access a field on type '%s' which is not a struct", pTargetTypeInfo->name.pData);
+				return pGetField;
+			}
+
+			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pTargetTypeInfo;
+
+			for (size_t i = 0; i < pTargetType->members.count; i++) {
+				TypeInfoStruct::Member& mem = pTargetType->members[i];
+				if (mem.identifier == pGetField->fieldName) {
+					pGetField->pType = mem.pType;
+					return pGetField;
+				}
+			}
+
+			state.pErrors->PushError(pGetField, "Specified field does not exist in struct '%s'", pTargetType->name.pData);
+			
+			return pGetField;
+			break;
+		}
+		case Ast::NodeType::SetField: {
+			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
+			pSetField->pTarget = TypeCheckExpression(state, pSetField->pTarget);
+			pSetField->pAssignment = TypeCheckExpression(state, pSetField->pAssignment);
+
+			if (pSetField->pTarget->pType == nullptr) {
+				return pSetField;
+			}
+			TypeInfo* pTargetTypeInfo = pSetField->pTarget->pType;
+			if (pTargetTypeInfo->tag != TypeInfo::Struct) {
+				state.pErrors->PushError(pSetField, "Attempting to set a field on type '%s' which is not a struct", pTargetTypeInfo->name.pData);
+				return pSetField;
+			}
+
+			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pTargetTypeInfo;
+			TypeInfoStruct::Member* pTargetField = nullptr;
+			for (size_t i = 0; i < pTargetType->members.count; i++) {
+				TypeInfoStruct::Member& mem = pTargetType->members[i];
+				if (mem.identifier == pSetField->fieldName) {
+					pTargetField = &pTargetType->members[i];
+					break;
+				}
+			}
+
+			if (pTargetField == nullptr) {
+				state.pErrors->PushError(pSetField, "Attempting to set a struct field which does not exist in struct '%s'", pTargetType->name.pData);
+				return pSetField;
+			}
+		
+			if (pTargetField->pType != pSetField->pAssignment->pType) {
+				state.pErrors->PushError(pSetField, "Type mismatch on assignment, field \'%s\' has type '%s', but is being assigned a value with type '%s'", pTargetField->identifier.pData, pTargetField->pType->name.pData, pSetField->pAssignment->pType->name.pData);
+			}
+
+			pSetField->pType = pTargetField->pType;
+			return pSetField;
+		}
         default:
             return pExpr;
     }

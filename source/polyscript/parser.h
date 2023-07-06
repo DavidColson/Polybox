@@ -61,12 +61,14 @@ struct Expression : public Node {
 };
 
 struct Binary : public Expression {
+	// left op right
     Expression* pLeft;
     Operator::Enum op;
     Expression* pRight;
 };
 
 struct Unary : public Expression {
+	// op right
     Operator::Enum op;
     Expression* pRight;
 };
@@ -90,12 +92,14 @@ struct Type : public Expression {
 
 struct Declaration;
 struct FnType : public Type {
+	// fn (param1, param2, ...) -> returnType
     ResizableArray<Type*> params;
     Type* pReturnType;
 };
 
 struct Block;
 struct Function : public Expression {
+	// identifier := func (param1, param2, ...) -> returnType {body}
     ResizableArray<Declaration*> params;
     Block* pBody;
     Type * pReturnType;
@@ -104,31 +108,37 @@ struct Function : public Expression {
 
 struct Statement;
 struct Structure : public Expression {
+	// struct { statement1, statement2, ...}
 	ResizableArray<Statement*> members;
 	TypeInfo* pDescribedType;
 };
 
 struct VariableAssignment : public Expression {
+	// identifier = assignment
     String identifier;
     Expression* pAssignment;
 };
 
 struct Cast : public Expression {
+	// as(targetType) exprToCast
 	Type* pTargetType;
 	Expression* pExprToCast;
 };
 
 struct Call : public Expression {
+	// callee(arg1, arg2, ..)
     Expression* pCallee;
     ResizableArray<Expression*> args;
 };
 
 struct GetField : public Expression {
+	// target.fieldName
 	Expression *pTarget;
 	String fieldName;
 };
 
 struct SetField : public Expression {
+	// target.fieldName = assignment
 	Expression *pTarget;
 	String fieldName;
 	Expression* pAssignment;
@@ -144,12 +154,14 @@ struct ExpressionStmt : public Statement {
 };
 
 struct If : public Statement {
+	// if condition thenStmt else elseStmt
     Expression* pCondition;
     Statement* pThenStmt;
     Statement* pElseStmt;
 };
 
 struct While: public Statement {
+	// while condition body
     Expression* pCondition;
     Statement* pBody;
 };
@@ -169,6 +181,7 @@ struct Block : public Statement {
 };
 
 struct Declaration : public Statement {
+	// identifier : declaredType = initializerExpr;
     String identifier;
     Type* pDeclaredType { nullptr };
     TypeInfo* pResolvedType;

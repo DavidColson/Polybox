@@ -1182,7 +1182,11 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
 		case Ast::NodeType::Cast: {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
 
-			Log::Debug("%*s- Cast (:%s)", indentationLevel, "", pCast->pType->name.pData);
+			if (pCast->pType) {
+				Log::Debug("%*s- Cast (:%s)", indentationLevel, "", pCast->pType->name.pData);
+			} else {
+				Log::Debug("%*s- Cast (:none)", indentationLevel, "");
+			}
 			DebugExpression(pCast->pTargetType, indentationLevel + 2);
 			DebugExpression(pCast->pExprToCast, indentationLevel + 2);
 			break;

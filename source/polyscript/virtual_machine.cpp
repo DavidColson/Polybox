@@ -88,6 +88,13 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             builder.AppendFormat("%i", index);
             break;
         }
+		case OpCode::SetField: {
+			builder.Append("SetField ");
+			uint32_t offset = GetOperand4Byte(pInstruction);
+			uint32_t size = GetOperand4Byte(pInstruction);
+			builder.AppendFormat("off: %i s: %i", offset, size);
+			break;
+		}
         case OpCode::Negate: {
 			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
 			builder.AppendFormat("Negate %s", TypeInfo::TagToString(typeId));

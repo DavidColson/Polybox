@@ -113,6 +113,44 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             }
             break;
         }
+		case Ast::NodeType::SetField: {
+			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
+
+			CodeGenExpression(state, pSetField->pTarget);
+			CodeGenExpression(state, pSetField->pAssignment);
+
+			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSetField->pTarget->pType;
+			TypeInfoStruct::Member* pTargetField = nullptr;
+			for (size_t i = 0; i < pTargetType->members.count; i++) {
+				TypeInfoStruct::Member& mem = pTargetType->members[i];
+				if (mem.identifier == pSetField->fieldName) {
+					pTargetField = &pTargetType->members[i];
+					break;
+				}
+			}
+
+			PushCode(state, OpCode::SetField, pSetField->line);
+			PushCode4Byte(state, (uint32_t)pTargetField->offset, pSetField->line);
+			PushCode4Byte(state, (uint32_t)pTargetField->pType->size, pSetField->line);
+			
+			// Okay dave you're doing it. Tomorrow, you gotta do the VM half of this. 
+			// Basically here's the plan
+
+			// value top
+			// target top - 1
+
+			// We'll pop and read the value
+			// Put it at the appropriate offset of target's ptr
+			// then pop target
+			// Then push value back onto the top
+
+			break;
+		}
+		case Ast::NodeType::GetField: {
+			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
+			
+			break;
+		}
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
 

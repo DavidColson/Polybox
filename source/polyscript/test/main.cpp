@@ -76,7 +76,7 @@ int main() {
         Disassemble(pFunc, actualCode);
         
         Log::Info("---- Program Running -----");
-        Run(pFunc);
+        //Run(pFunc);
     }
 
     //astMemory.Finished();

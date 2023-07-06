@@ -40,6 +40,8 @@ enum Enum : uint8_t {
 	StructAlloc,
     SetLocal,
     GetLocal,
+	SetField,
+	GetField,
     Call,
 	Cast,
     Print,

@@ -31,7 +31,7 @@
     print(funcType);
 
 	// Type casting
-	castValue := 5.0 * 12 + 4;
+	castValue := as(i32) 5.0 * 12 + 4;
 	print(castValue);
 }
 
@@ -57,6 +57,7 @@ firstInstance : BabysFirstStruct;
 
 firstInstance.boolMember = true;
 firstInstance.floatMember = 1337.0;
+firstInstance.intMember = 5;
 
 print(firstInstance.boolMember);
 

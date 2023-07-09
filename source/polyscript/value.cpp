@@ -11,9 +11,9 @@ ResizableArray<TypeInfo*> typeTable;
 }
 
 void FreeFunction(Function* pFunc) {
-    pFunc->chunk.constants.Free();
-    pFunc->chunk.code.Free();
-    pFunc->chunk.dbgLineInfo.Free();
+    pFunc->constants.Free();
+    pFunc->code.Free();
+    pFunc->dbgLineInfo.Free();
 }
 
 

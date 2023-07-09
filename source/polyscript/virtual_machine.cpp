@@ -44,7 +44,7 @@ struct VirtualMachine {
 
 // ***********************************************************************
 
-uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
+uint8_t DisassembleInstruction(Function& function, uint8_t* pInstruction) {
     StringBuilder builder;
 	uint8_t* pInstructionStart = pInstruction;
     switch (*pInstruction++) {
@@ -52,8 +52,8 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
             builder.Append("LoadConstant ");
 			uint8_t constIndex = GetOperand1Byte(pInstruction);
 
-            Value& v = chunk.constants[constIndex];
-			TypeInfo* pType = chunk.dbgConstantsTypes[constIndex];
+			Value& v = function.constants[constIndex];
+			TypeInfo* pType = function.dbgConstantsTypes[constIndex];
             if (pType->tag == TypeInfo::TypeTag::Void)
                 builder.AppendFormat("%i (void)", constIndex);
             else if (pType->tag == TypeInfo::TypeTag::F32)
@@ -246,15 +246,13 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
 // ***********************************************************************
 
 void Disassemble(Function* pFunc, String codeText) {
-    CodeChunk& chunk = pFunc->chunk;
+	uint8_t* pInstructionPointer = pFunc->code.pData;
 
-    uint8_t* pInstructionPointer = chunk.code.pData;
-
-	for (uint32_t i = 0; i < chunk.constants.count; i++) {
-		TypeInfo* pType = chunk.dbgConstantsTypes[i];
+	for (uint32_t i = 0; i < pFunc->constants.count; i++) {
+		TypeInfo* pType = pFunc->dbgConstantsTypes[i];
         if (pType->tag == TypeInfo::TypeTag::Function) {
-            if (chunk.constants[i].pFunction)
-			    Disassemble(chunk.constants[i].pFunction, codeText);
+            if (pFunc->constants[i].pFunction)
+			    Disassemble(pFunc->constants[i].pFunction, codeText);
         }
     }
 
@@ -278,14 +276,14 @@ void Disassemble(Function* pFunc, String codeText) {
     uint32_t lineCounter = 0;
     uint32_t currentLine = -1;
 
-    while (pInstructionPointer < chunk.code.end()) {
-        if (currentLine != chunk.dbgLineInfo[lineCounter]) {
-            currentLine = chunk.dbgLineInfo[lineCounter];
+    while (pInstructionPointer < pFunc->code.end()) {
+        if (currentLine != pFunc->dbgLineInfo[lineCounter]) {
+            currentLine = pFunc->dbgLineInfo[lineCounter];
             Log::Debug("");
             Log::Debug("  %i:%s", currentLine, lines[currentLine - 1].pData);
         }
 
-        uint8_t offset = DisassembleInstruction(chunk, pInstructionPointer);
+        uint8_t offset = DisassembleInstruction(*pFunc, pInstructionPointer);
         pInstructionPointer += offset;
         lineCounter += offset;
     }
@@ -339,7 +337,7 @@ void Run(Function* pFuncToRun) {
 
     CallFrame frame;
     frame.pFunc = pFuncToRun;
-    frame.pInstructionPointer = pFuncToRun->chunk.code.pData;
+    frame.pInstructionPointer = pFuncToRun->code.pData;
     frame.stackBaseIndex = 0;
     vm.callStack.Push(frame);
 
@@ -347,15 +345,15 @@ void Run(Function* pFuncToRun) {
 
     // VM run
     CallFrame* pFrame = &vm.callStack.Top();
-	uint8_t* pEndInstruction = pFrame->pFunc->chunk.code.end();
+	uint8_t* pEndInstruction = pFrame->pFunc->code.end();
     while (pFrame->pInstructionPointer < pEndInstruction) {
 #ifdef DEBUG_TRACE
-        DisassembleInstruction(pFrame->pFunc->chunk, pFrame->pInstructionPointer);
+        DisassembleInstruction(*pFrame->pFunc, pFrame->pInstructionPointer);
 #endif
 		switch (*pFrame->pInstructionPointer++) {
 			case OpCode::LoadConstant: {
 				uint8_t index = GetOperand1Byte(pFrame->pInstructionPointer);
-				Value constant = pFrame->pFunc->chunk.constants[index];
+				Value constant = pFrame->pFunc->constants[index];
 				vm.stack.Push(constant);
 				break;
 			}
@@ -611,12 +609,12 @@ void Run(Function* pFuncToRun) {
 
                 CallFrame frame;
                 frame.pFunc = funcValue.pFunction;
-                frame.pInstructionPointer = funcValue.pFunction->chunk.code.pData;
+                frame.pInstructionPointer = funcValue.pFunction->code.pData;
                 frame.stackBaseIndex = vm.stack.array.count - argCount - 1;
                 vm.callStack.Push(frame);
 
                 pFrame = &vm.callStack.Top();
-				pEndInstruction = pFrame->pFunc->chunk.code.end();
+				pEndInstruction = pFrame->pFunc->code.end();
                 break;
             }
 			case OpCode::StructAlloc: {
@@ -662,7 +660,7 @@ void Run(Function* pFuncToRun) {
                     return;
                 } else {
                     pFrame = &vm.callStack.Top();
-					pEndInstruction = pFrame->pFunc->chunk.code.end();
+					pEndInstruction = pFrame->pFunc->code.end();
 				}
                 break;
             }

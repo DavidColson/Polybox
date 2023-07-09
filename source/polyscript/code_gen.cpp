@@ -24,8 +24,8 @@ struct State {
 
 // ***********************************************************************
 
-CodeChunk* CurrentChunk(State& state) {
-    return &state.pFunc->chunk;
+Function* CurrentFunction(State& state) {
+    return state.pFunc;
 }
 
 // ***********************************************************************
@@ -43,23 +43,23 @@ int ResolveLocal(State& state, String name) {
 // ***********************************************************************
 
 void PushCode4Byte(State& state, uint32_t code, uint32_t line) {
-	CurrentChunk(state)->code.PushBack((code >> 24) & 0xff);
-	CurrentChunk(state)->code.PushBack((code >> 16) & 0xff);
-	CurrentChunk(state)->code.PushBack((code >> 8) & 0xff);
-	CurrentChunk(state)->code.PushBack(code & 0xff);
+	CurrentFunction(state)->code.PushBack((code >> 24) & 0xff);
+	CurrentFunction(state)->code.PushBack((code >> 16) & 0xff);
+	CurrentFunction(state)->code.PushBack((code >> 8) & 0xff);
+	CurrentFunction(state)->code.PushBack(code & 0xff);
 
-	CurrentChunk(state)->dbgLineInfo.PushBack(line);
-	CurrentChunk(state)->dbgLineInfo.PushBack(line);
-	CurrentChunk(state)->dbgLineInfo.PushBack(line);
-	CurrentChunk(state)->dbgLineInfo.PushBack(line);
+	CurrentFunction(state)->dbgLineInfo.PushBack(line);
+	CurrentFunction(state)->dbgLineInfo.PushBack(line);
+	CurrentFunction(state)->dbgLineInfo.PushBack(line);
+	CurrentFunction(state)->dbgLineInfo.PushBack(line);
 	Assert(line != 0);
 }
 
 // ***********************************************************************
 
 void PushCode(State& state, uint8_t code, uint32_t line) {
-    CurrentChunk(state)->code.PushBack(code);
-    CurrentChunk(state)->dbgLineInfo.PushBack(line);
+    CurrentFunction(state)->code.PushBack(code);
+    CurrentFunction(state)->dbgLineInfo.PushBack(line);
 	Assert(line != 0);
 }
 
@@ -69,7 +69,7 @@ int PushJump(State& state, OpCode::Enum jumpCode, uint32_t line) {
     PushCode(state, jumpCode, line);
     PushCode(state, 0xff, line);
     PushCode(state, 0xff, line);
-    return CurrentChunk(state)->code.count - 2;
+    return CurrentFunction(state)->code.count - 2;
 }
 
 // ***********************************************************************
@@ -77,7 +77,7 @@ int PushJump(State& state, OpCode::Enum jumpCode, uint32_t line) {
 void PushLoop(State& state, uint8_t loopTarget, uint32_t line) {
     PushCode(state, OpCode::Loop, line);
 
-    int offset = CurrentChunk(state)->code.count - loopTarget + 2;
+    int offset = CurrentFunction(state)->code.count - loopTarget + 2;
     PushCode(state, (offset >> 8) & 0xff, line);
     PushCode(state, offset & 0xff, line);
 }
@@ -85,9 +85,9 @@ void PushLoop(State& state, uint8_t loopTarget, uint32_t line) {
 // ***********************************************************************
 
 void PatchJump(State& state, int jumpCodeLocation) {
-    int jumpOffset = CurrentChunk(state)->code.count - jumpCodeLocation - 2;
-    CurrentChunk(state)->code[jumpCodeLocation] = (jumpOffset >> 8) & 0xff;
-    CurrentChunk(state)->code[jumpCodeLocation + 1] = jumpOffset & 0xff;
+    int jumpOffset = CurrentFunction(state)->code.count - jumpCodeLocation - 2;
+    CurrentFunction(state)->code[jumpCodeLocation] = (jumpOffset >> 8) & 0xff;
+    CurrentFunction(state)->code[jumpCodeLocation + 1] = jumpOffset & 0xff;
 }
 
 // ***********************************************************************
@@ -166,9 +166,9 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
 
-            CurrentChunk(state)->constants.PushBack(pLiteral->value);
-			CurrentChunk(state)->dbgConstantsTypes.PushBack(pLiteral->pType);
-            uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
+            CurrentFunction(state)->constants.PushBack(pLiteral->value);
+			CurrentFunction(state)->dbgConstantsTypes.PushBack(pLiteral->pType);
+            uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
 
             PushCode(state, OpCode::LoadConstant, pLiteral->line);
             PushCode(state, constIndex, pLiteral->line);
@@ -178,9 +178,9 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         case Ast::NodeType::FnType: {
             Ast::Type* pType = (Ast::Type*)pExpr;
 
-			CurrentChunk(state)->constants.PushBack(MakeValue(pType->pResolvedType));
-			CurrentChunk(state)->dbgConstantsTypes.PushBack(GetTypeType());
-            uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
+			CurrentFunction(state)->constants.PushBack(MakeValue(pType->pResolvedType));
+			CurrentFunction(state)->dbgConstantsTypes.PushBack(GetTypeType());
+            uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
 
             PushCode(state, OpCode::LoadConstant, pType->line);
             PushCode(state, constIndex, pType->line);
@@ -192,9 +192,9 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 
             Value value;
             value.pFunction = pFunc;
-			CurrentChunk(state)->constants.PushBack(value);
-			CurrentChunk(state)->dbgConstantsTypes.PushBack(pFunction->pType);
-            uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
+			CurrentFunction(state)->constants.PushBack(value);
+			CurrentFunction(state)->dbgConstantsTypes.PushBack(pFunction->pType);
+            uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
 
             PushCode(state, OpCode::LoadConstant, pFunction->line);
             PushCode(state, constIndex, pFunction->line);
@@ -204,9 +204,9 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 			Ast::Structure* pStructure = (Ast::Structure*)pExpr;
 
 			// Defines a type which we put on the stack as a local
-			CurrentChunk(state)->constants.PushBack(MakeValue(pStructure->pDescribedType));
-			CurrentChunk(state)->dbgConstantsTypes.PushBack(pStructure->pDescribedType);
-			uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
+			CurrentFunction(state)->constants.PushBack(MakeValue(pStructure->pDescribedType));
+			CurrentFunction(state)->dbgConstantsTypes.PushBack(pStructure->pDescribedType);
+			uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
 
 			PushCode(state, OpCode::LoadConstant, pStructure->line);
 			PushCode(state, constIndex, pStructure->line);
@@ -364,9 +364,9 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
 				} else { // For all non struct values we just push a new value on the operand stack that is zero
 					Value v;
 					v.pPtr = 0;
-					CurrentChunk(state)->constants.PushBack(v);
-					CurrentChunk(state)->dbgConstantsTypes.PushBack(pDecl->pResolvedType);
-					uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
+					CurrentFunction(state)->constants.PushBack(v);
+					CurrentFunction(state)->dbgConstantsTypes.PushBack(pDecl->pResolvedType);
+					uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
 
 					PushCode(state, OpCode::LoadConstant, pDecl->line);
 					PushCode(state, constIndex, pDecl->line);
@@ -415,7 +415,7 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
         }
         case Ast::NodeType::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
-            int loopStart = CurrentChunk(state)->code.count;
+            int loopStart = CurrentFunction(state)->code.count;
             CodeGenExpression(state, pWhile->pCondition);
 
             int ifJump = PushJump(state, OpCode::JmpIfFalse, pWhile->line);
@@ -479,9 +479,9 @@ Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::
 
     // return void
     Ast::Statement* pEnd = program[program.count - 1];
-	CurrentChunk(state)->constants.PushBack(Value());
-	CurrentChunk(state)->dbgConstantsTypes.PushBack(GetVoidType());
-    uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
+	CurrentFunction(state)->constants.PushBack(Value());
+	CurrentFunction(state)->dbgConstantsTypes.PushBack(GetVoidType());
+    uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
     PushCode(state, OpCode::LoadConstant, pEnd->line);
     PushCode(state, constIndex, pEnd->line);
     PushCode(state, OpCode::Return, pEnd->line);

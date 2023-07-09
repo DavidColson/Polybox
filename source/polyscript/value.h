@@ -131,19 +131,16 @@ inline Value MakeValue(TypeInfo* value) {
     return v;
 }
 
-
-struct CodeChunk {
-	ResizableArray<Value> constants;
-    ResizableArray<uint8_t> code;
-
-	ResizableArray<TypeInfo*> dbgConstantsTypes;
-    ResizableArray<uint32_t> dbgLineInfo;
-};
-
-// TODO: Just put the contents of CodeChunk in here and skip the second level
 struct Function {
 	String name;
-    CodeChunk chunk;
+    
+	// Code
+	ResizableArray<Value> constants;
+	ResizableArray<uint8_t> code;
+
+	// Debug Info
+	ResizableArray<TypeInfo*> dbgConstantsTypes;
+	ResizableArray<uint32_t> dbgLineInfo;
 };
 
 void FreeFunction(Function* pFunc);

@@ -63,6 +63,7 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 		}
 
 		// Error report
+		//errorState.ReportCompilationResult();
 		bool success = errorState.errors.count == 0;
 
 		//Log::Debug("---- AST -----");
@@ -119,17 +120,36 @@ void BasicExpressions() {
 	StartTest("Basic Expressions");
 	int errorCount = 0;
 	{
-		const char* subtraction = 
-			"print(5-1);\n"
-			"print(10-5);\n"
-			"print(4-7);";
+		// Tests basic arithmetic rules, associativity and ordering rules, unary operators plus grouping
+		const char* arithmetic = 
+			"print(-1);\n"
+			"print(-1 + 2);\n"
+			"print(5 - -2);\n"
+			"print(1 + 1);\n"
+			"print(7 - 2);\n"
+			"print(4 - 7);\n"
+			"print(6 * 3);\n"
+			"print(12 / 3);\n"
+			"print(6 * 3 + 2 - 10);\n"
+			"print(10 - 20 / 2 + 4);\n"
+			"print((10 - 20) / 2 + 4);\n"
+			"print((10 - 20) / (2 - 4));\n";
 
 		const char* expectation =
-			"4\n"
+			"-1\n"
+			"1\n"
+			"7\n"
+			"2\n"
 			"5\n"
-			"-3\n";
+			"-3\n"
+			"18\n"
+			"4\n"
+			"10\n"
+			"4\n"
+			"-1\n"
+			"5\n";
 		
-		errorCount += RunCompilerOnTestCase(subtraction, expectation, ResizableArray<String>());
+		errorCount += RunCompilerOnTestCase(arithmetic, expectation, ResizableArray<String>());
 	}
 	errorCount += ReportMemoryLeaks();
 	EndTest(errorCount);

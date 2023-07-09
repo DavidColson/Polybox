@@ -341,7 +341,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 				}
 			} else if (pUnary->op == Operator::UnaryMinus) {
 				pUnary->pType = pUnary->pRight->pType;
-				if (pUnary->pRight->pType != GetBoolType()) {
+				if (pUnary->pRight->pType == GetBoolType()) {
 					state.pErrors->PushError(pUnary, "Invalid type (%s) used with op \"%s\"", pUnary->pRight->pType->name.pData, Operator::ToString(pUnary->op));
 				}
 			}

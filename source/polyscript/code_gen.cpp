@@ -283,7 +283,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             CodeGenExpression(state, pUnary->pRight);
             switch (pUnary->op) {
-                case Operator::Subtract:
+                case Operator::UnaryMinus:
                     PushCode(state, OpCode::Negate, pUnary->line);
                     break;
                 case Operator::Not:

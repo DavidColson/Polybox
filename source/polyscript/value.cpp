@@ -13,7 +13,8 @@ ResizableArray<TypeInfo*> typeTable;
 void FreeFunction(Function* pFunc) {
     pFunc->constants.Free();
     pFunc->code.Free();
-    pFunc->dbgLineInfo.Free();
+	pFunc->dbgLineInfo.Free();
+	pFunc->dbgConstantsTypes.Free();
 }
 
 
@@ -92,36 +93,44 @@ void InitTypeTable() {
     pVoidType->size = 0;
     pVoidType->name = "void";
     typeTable.PushBack(pVoidType);
+	MarkNotALeak(pVoidType);
 
     TypeInfo* pI32Type = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
     pI32Type->tag = TypeInfo::TypeTag::I32;
     pI32Type->size = 4;
     pI32Type->name = "i32";
     typeTable.PushBack(pI32Type);
+	MarkNotALeak(pI32Type);
 
     TypeInfo* pF32Type = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
     pF32Type->tag = TypeInfo::TypeTag::F32;
     pF32Type->size = 4;
     pF32Type->name = "f32";
     typeTable.PushBack(pF32Type);
+	MarkNotALeak(pF32Type);
 
     TypeInfo* pBoolType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
     pBoolType->tag = TypeInfo::TypeTag::Bool;
     pBoolType->size = 1;
     pBoolType->name = "bool";
     typeTable.PushBack(pBoolType);
+	MarkNotALeak(pBoolType);
 
     TypeInfo* pTypeType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfo));
     pTypeType->tag = TypeInfo::TypeTag::Type;
     pTypeType->size = 8;
     pTypeType->name = "Type";
     typeTable.PushBack(pTypeType);
+	MarkNotALeak(pTypeType);
 
     TypeInfoFunction* pEmptyFuncType = (TypeInfoFunction*)g_Allocator.Allocate(sizeof(TypeInfoFunction));
     pEmptyFuncType->tag = TypeInfo::TypeTag::Function;
     pEmptyFuncType->size = 8;
     pEmptyFuncType->name = "()";
     typeTable.PushBack(pEmptyFuncType);
+	MarkNotALeak(pEmptyFuncType);
+
+	MarkNotALeak(typeTable.pData);
 }
 
 TypeInfo* GetVoidType() {

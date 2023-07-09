@@ -14,4 +14,6 @@ struct ResizableArray;
 
 struct String;
 
-Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::Declaration*>& params, String name, ErrorState* pErrorState);
+struct IAllocator;
+
+Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::Declaration*>& params, String name, ErrorState* pErrorState, IAllocator* pAlloc);

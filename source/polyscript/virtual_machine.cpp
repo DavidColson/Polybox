@@ -6,8 +6,9 @@
 #include <light_string.h>
 #include <string_builder.h>
 #include <stack.inl>
+#include <defer.h>
 
-#define DEBUG_TRACE
+//#define DEBUG_TRACE
 
 #define GetOperand1Byte(ptr) *(ptr++)
 
@@ -330,6 +331,8 @@ void Run(Function* pFuncToRun) {
     
 	vm.stack.Reserve(1000);
 	vm.callStack.Reserve(100);
+	defer(vm.callStack.Free());
+	defer(vm.stack.Free());
 
     Value fv;
     fv.pFunction = pFuncToRun;

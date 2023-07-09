@@ -19,6 +19,7 @@ struct State {
     int currentScopeDepth { 0 };
     ErrorState* pErrors;
     Function* pFunc;
+	IAllocator* pAlloc;
 };
 }
 
@@ -188,7 +189,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            Function* pFunc = CodeGen(pFunction->pBody->declarations, pFunction->params, pFunction->identifier, state.pErrors);
+            Function* pFunc = CodeGen(pFunction->pBody->declarations, pFunction->params, pFunction->identifier, state.pErrors, state.pAlloc);
 
             Value value;
             value.pFunction = pFunc;
@@ -455,15 +456,17 @@ void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements
 
 // ***********************************************************************
 
-Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::Declaration*>& params, String name, ErrorState* pErrorState) {
+Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::Declaration*>& params, String name, ErrorState* pErrorState, IAllocator* pAlloc) {
     State state;
+	state.pAlloc = pAlloc;
+	state.locals.pAlloc = pAlloc;
 
     Local local;
     local.depth = 0;
     local.name = name;
     state.locals.PushBack(local); // This is the local representing this function, allows it to call itself
 
-    state.pFunc = (Function*)g_Allocator.Allocate(sizeof(Function));
+    state.pFunc = (Function*)pAlloc->Allocate(sizeof(Function));
     SYS_P_NEW(state.pFunc) Function();
     state.pFunc->name = name;
     

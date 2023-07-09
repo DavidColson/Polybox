@@ -76,6 +76,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             builder.Append("fn (");
 
             TypeInfoFunction newTypeInfo;
+			newTypeInfo.params.pAlloc = state.pAllocator;
             newTypeInfo.tag = TypeInfo::TypeTag::Function;
 
             for (size_t i = 0; i < pFnType->params.count; i++) {
@@ -95,7 +96,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             builder.Append(")");
             if (newTypeInfo.pReturnType)
                 builder.AppendFormat(" -> %s", newTypeInfo.pReturnType->name.pData);
-            newTypeInfo.name = builder.CreateString();
+            newTypeInfo.name = builder.CreateString(true, state.pAllocator);
 
             pFnType->pResolvedType = FindOrAddType(&newTypeInfo);
             return pFnType;
@@ -117,6 +118,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             StringBuilder builder;
             builder.Append("fn (");
             TypeInfoFunction newTypeInfo;
+			newTypeInfo.params.pAlloc = state.pAllocator;
             newTypeInfo.tag = TypeInfo::TypeTag::Function;
             for (size_t i = 0; i < pFunction->params.count; i++) {
                 Ast::Declaration* pParam = pFunction->params[i];
@@ -193,6 +195,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 
 			// Create the actual type that this struct is
 			TypeInfoStruct newTypeInfo;
+			newTypeInfo.members.pAlloc = state.pAllocator;
 			newTypeInfo.tag = TypeInfo::TypeTag::Struct;
 			for (Ast::Statement* pMemberStmt : pStruct->members) {
 				Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
@@ -319,8 +322,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 				}
 			}
 
-			if (pBinary->op == Operator::Subtract
-				|| pBinary->op == Operator::Multiply
+			if (   pBinary->op == Operator::Multiply
 				|| pBinary->op == Operator::Divide
 				|| pBinary->op == Operator::Add
 				|| pBinary->op == Operator::Subtract) {

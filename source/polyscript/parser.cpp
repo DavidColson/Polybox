@@ -49,7 +49,7 @@ void ErrorState::PushError(Ast::Node* pNode, const char* formatMessage, ...) {
     er.line = pNode->line;
     er.pLineStart = pNode->pLineStart;
 
-    er.message = builder.CreateString();
+    er.message = builder.CreateString(true, pAlloc);
     errors.PushBack(er);
 }
 
@@ -73,7 +73,7 @@ void ErrorState::PushError(char* pLocation, char* pLineStart, size_t line, const
 	er.line = line;
 	er.pLineStart = pLineStart;
 
-    er.message = builder.CreateString();
+    er.message = builder.CreateString(true, pAlloc);
 
     errors.PushBack(er);
 }
@@ -109,10 +109,9 @@ bool ErrorState::ReportCompilationResult() {
             builder.AppendFormat("%s\n", err.message.pData);
 
             String output = builder.CreateString();
+			defer(FreeString(output));
             Log::Info("%s", output.pData);
         }
-    } else {
-        Log::Info("Compilation Succeeded");
     }
     return success;
 }

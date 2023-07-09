@@ -327,6 +327,9 @@ void DebugStack(VirtualMachine& vm) {
 
 
 void Run(Function* pFuncToRun) {
+	if (pFuncToRun == nullptr)
+		return;
+
     VirtualMachine vm;
     
 	vm.stack.Reserve(1000);
@@ -510,7 +513,7 @@ void Run(Function* pFuncToRun) {
 				if (typeId == TypeInfo::TypeTag::Type)
 					Log::Info("%s", v.pTypeInfo->name.pData);
 				if (typeId == TypeInfo::TypeTag::F32)
-					Log::Info("%f", v.f32Value);
+					Log::Info("%g", v.f32Value);
 				else if (typeId == TypeInfo::TypeTag::I32)
 					Log::Info("%i", v.i32Value);
 				else if (typeId == TypeInfo::TypeTag::Bool)

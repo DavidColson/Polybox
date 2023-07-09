@@ -143,8 +143,8 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
                             scan.pCurrentLineStart = scan.pCurrent;
                         }
                     }
-                    Scan::Advance(scan);  // *
-                    Scan::Advance(scan);  // /
+					if (!Scan::IsAtEnd(scan)) Scan::Advance(scan);  // *
+					if (!Scan::IsAtEnd(scan)) Scan::Advance(scan);  // /
                 } else {
                     tokens.PushBack(MakeToken(scan, TokenType::Slash));
                 }

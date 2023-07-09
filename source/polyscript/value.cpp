@@ -11,10 +11,12 @@ ResizableArray<TypeInfo*> typeTable;
 }
 
 void FreeFunction(Function* pFunc) {
-    pFunc->constants.Free();
-    pFunc->code.Free();
-	pFunc->dbgLineInfo.Free();
-	pFunc->dbgConstantsTypes.Free();
+	if (pFunc) {
+		pFunc->constants.Free();
+		pFunc->code.Free();
+		pFunc->dbgLineInfo.Free();
+		pFunc->dbgConstantsTypes.Free();
+	}
 }
 
 
@@ -74,7 +76,10 @@ TypeInfo* FindOrAddType(TypeInfo* pNewType) {
             break;
         }
     }
-    typeTable.PushBack(pToAddType);
+	MarkNotALeak(pToAddType);
+	typeTable.PushBack(pToAddType);
+	MarkNotALeak(typeTable.pData);
+
     return typeTable[typeTable.count - 1];
 }
 

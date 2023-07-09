@@ -63,7 +63,7 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 		}
 
 		// Error report
-		//errorState.ReportCompilationResult();
+		if (errorExpectations.count == 0) errorState.ReportCompilationResult();
 		bool success = errorState.errors.count == 0;
 
 		//Log::Debug("---- AST -----");
@@ -89,13 +89,14 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 	// Verify output
 	String output = logCollector.CreateString();
 	if (output != outputExpectation) {
-		Log::Info("FAIL");
+		Log::Info("The following test failed:\n%s", testCode);
 		Log::Info("Expected output was:\n%s\nWe got:\n%s", outputExpectation, output.pData);
 		errorCount++;
 	}
 	FreeString(output);
 
 	// Verify errors
+	bool failed = false;
 	for (String expectation : errorExpectations) {
 		bool found = false;
 		for (Error error : errorState.errors) {
@@ -106,9 +107,15 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 		}
 
 		if (!found) {
-			Log::Info("FAIL: Expected the following error, but it did not occur\n'%s'", expectation.pData);
+			Log::Info("The following test failed:\n%s", testCode);
+			Log::Info("Expected the following error, but it did not occur\n'%s'\n", expectation.pData);
 			errorCount++;
+			failed = true;
 		}
+	}
+	if (failed) {
+		Log::Info("Instead we got the following errors:");
+		errorState.ReportCompilationResult();
 	}
 
 	// Yeet memory
@@ -116,40 +123,112 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 	return errorCount;
 }
 
-void BasicExpressions() {
-	StartTest("Basic Expressions");
+void Values() {
+	StartTest("Values");
 	int errorCount = 0;
 	{
-		// Tests basic arithmetic rules, associativity and ordering rules, unary operators plus grouping
-		const char* arithmetic = 
-			"print(-1);\n"
-			"print(-1 + 2);\n"
-			"print(5 - -2);\n"
-			"print(1 + 1);\n"
-			"print(7 - 2);\n"
-			"print(4 - 7);\n"
-			"print(6 * 3);\n"
-			"print(12 / 3);\n"
-			"print(6 * 3 + 2 - 10);\n"
-			"print(10 - 20 / 2 + 4);\n"
-			"print((10 - 20) / 2 + 4);\n"
-			"print((10 - 20) / (2 - 4));\n";
+		const char* basicLiteralValues = 
+			"print(7);"
+			"print(true);"
+			"print(false);"
+			"print(5.231);";
 
 		const char* expectation =
-			"-1\n"
-			"1\n"
 			"7\n"
-			"2\n"
-			"5\n"
-			"-3\n"
-			"18\n"
-			"4\n"
-			"10\n"
-			"4\n"
-			"-1\n"
-			"5\n";
+			"true\n"
+			"false\n"
+			"5.231\n";
 		
-		errorCount += RunCompilerOnTestCase(arithmetic, expectation, ResizableArray<String>());
+		errorCount += RunCompilerOnTestCase(basicLiteralValues, expectation, ResizableArray<String>());
+
+		const char* typeLiterals = 
+			"print(Type);\n"
+			"print(i32);\n"
+			"print(f32);\n"
+			"print(bool);\n"
+			"print(fn () -> void);\n"
+			"print(fn (i32) -> void);\n"
+			"print(fn () -> f32);\n"
+			"print(fn (i32, f32, bool) -> i32);";
+
+		expectation =
+			"Type\n"
+			"i32\n"
+			"f32\n"
+			"bool\n"
+			"fn () -> void\n"
+			"fn (i32) -> void\n"
+			"fn () -> f32\n"
+			"fn (i32, f32, bool) -> i32\n";
+		
+		errorCount += RunCompilerOnTestCase(typeLiterals, expectation, ResizableArray<String>());
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
+void ArithmeticOperators() {
+	StartTest("Arithmetic Operators");
+	int errorCount = 0;
+	{
+		const char* addition = 
+			"print(5+2);\n"
+			"print(5.0+2);\n"
+			"print(5+2.0);\n";
+		const char* expectation =
+			"7\n"
+			"7\n"
+			"7\n";
+		errorCount += RunCompilerOnTestCase(addition, expectation, ResizableArray<String>());
+
+		const char* subtraction = 
+			"print(5-2);\n"
+			"print(5.0-2);\n"
+			"print(5-2.0);\n";
+		expectation =
+			"3\n"
+			"3\n"
+			"3\n";
+		errorCount += RunCompilerOnTestCase(subtraction, expectation, ResizableArray<String>());
+
+		const char* multiplication = 
+			"print(5*2);\n"
+			"print(5.0*2);\n"
+			"print(5*2.0);\n";
+		expectation =
+			"10\n"
+			"10\n"
+			"10\n";
+		errorCount += RunCompilerOnTestCase(multiplication, expectation, ResizableArray<String>());
+
+		const char* division = 
+			"print(5/2);\n"
+			"print(5.0/2);\n"
+			"print(5/2.0);\n";
+		expectation =
+			"2\n"
+			"2.5\n"
+			"2.5\n";
+		errorCount += RunCompilerOnTestCase(division, expectation, ResizableArray<String>());
+
+		// Test bad combinations
+		{
+			const char* invalidTypes =
+				"print(5 + bool);\n";
+			ResizableArray<String> expectedErrors;
+			defer(expectedErrors.Free());
+			expectedErrors.PushBack("Invalid types (i32, Type) used with op \"+\"");
+			errorCount += RunCompilerOnTestCase(invalidTypes, "", expectedErrors);
+		}
+
+		{
+			const char* invalidTypes2 =
+				"print(true * 2.0);\n";
+			ResizableArray<String> expectedErrors;
+			defer(expectedErrors.Free());
+			expectedErrors.PushBack("Invalid types (bool, f32) used with op \"*\"");
+			errorCount += RunCompilerOnTestCase(invalidTypes2, "", expectedErrors);
+		}
 	}
 	errorCount += ReportMemoryLeaks();
 	EndTest(errorCount);
@@ -160,7 +239,8 @@ int main() {
     InitTypeTable();
 	InitTokenToOperatorMap();
 
-	BasicExpressions();
+	Values();
+	ArithmeticOperators();
 
     __debugbreak();
     return 0;

@@ -457,7 +457,10 @@ void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements
 // ***********************************************************************
 
 Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::Declaration*>& params, String name, ErrorState* pErrorState, IAllocator* pAlloc) {
-    State state;
+    if (program.count == 0)
+		return nullptr;
+	
+	State state;
 	state.pAlloc = pAlloc;
 	state.locals.pAlloc = pAlloc;
 

@@ -167,11 +167,9 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 					// TODO: This should eventually be, values that are constant and reducible to constants at compile time.
 					if (!(pMember->pInitializerExpr->nodeKind == Ast::NodeType::Literal
 						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::Type
-						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::FnType
-						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::Function
-						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::Structure))
+						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::FnType))
 					{
-						state.pErrors->PushError(pMember, "Unsupported struct member initializer '%s' initializer must be resolvable to a constant at compile time", pMember->identifier.pData);
+						state.pErrors->PushError(pMember, "Unsupported struct member initializer '%s' initializer must be resolvable to a constant at compile time, and not a struct or function (yet)", pMember->identifier.pData);
 					}
 
 					pMember->pInitializerExpr = TypeCheckExpression(state, pMember->pInitializerExpr);
@@ -382,6 +380,11 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             Ast::Call* pCall = (Ast::Call*)pExpr;
 
             pCall->pCallee = TypeCheckExpression(state, pCall->pCallee);
+
+			if (pCall->pCallee->nodeKind == Ast::NodeType::GetField) {
+				state.pErrors->PushError(pCall, "Calling fields not currently supported");
+				return pCall;
+			}
 
             Ast::Identifier* pVar = (Ast::Identifier*)pCall->pCallee;
             Ast::Declaration** pDeclEntry = state.declarations.Get(pVar->identifier);

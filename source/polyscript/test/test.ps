@@ -40,17 +40,9 @@
 // For a non const yes, but for a const absolutely not
 // Ugh we need constants
 BabysFirstStruct := struct {
-	boolMember: bool = true;
-	floatMember: f32 = 7.0;
-	intMember: i32 = 2;
-
-	method := func () -> i32 {
-		return 5;
-	};
-
-	innerStruct := struct {
-		inner:= 5.0;
-	};
+	boolMember: bool;
+	floatMember: f32;
+	intMember: i32;
 };
 
 firstInstance : BabysFirstStruct;
@@ -58,11 +50,25 @@ firstInstance : BabysFirstStruct;
 firstInstance.boolMember = false;
 firstInstance.floatMember = 1337.0;
 firstInstance.intMember = 5;
-firstInstance.boolMember = true;
 
 print(firstInstance.boolMember);
 print(firstInstance.floatMember);
 print(firstInstance.intMember);
+
+SecondStruct := struct {
+	floatMember: f32;
+	intMember: i32;
+	innerStruct: BabysFirstStruct;
+};
+
+secondInstance : SecondStruct;
+secondInstance.floatMember = 420.0;
+secondInstance.intMember = 22;
+secondInstance.innerStruct = firstInstance;
+
+print(secondInstance.floatMember);
+print(secondInstance.innerStruct.floatMember);
+
 
 /*
 // Functions

@@ -95,8 +95,22 @@ uint8_t DisassembleInstruction(CodeChunk& chunk, uint8_t* pInstruction) {
 			builder.AppendFormat("off: %i s: %i", offset, size);
 			break;
 		}
+		case OpCode::SetFieldStruct: {
+			builder.Append("SetFieldDeref ");
+			uint32_t offset = GetOperand4Byte(pInstruction);
+			uint32_t size = GetOperand4Byte(pInstruction);
+			builder.AppendFormat("off: %i s: %i", offset, size);
+			break;
+		}
 		case OpCode::GetField: {
 			builder.Append("GetField ");
+			uint32_t offset = GetOperand4Byte(pInstruction);
+			uint32_t size = GetOperand4Byte(pInstruction);
+			builder.AppendFormat("off: %i s: %i", offset, size);
+			break;
+		}
+		case OpCode::GetFieldStruct: {
+			builder.Append("GetFieldStruct ");
 			uint32_t offset = GetOperand4Byte(pInstruction);
 			uint32_t size = GetOperand4Byte(pInstruction);
 			builder.AppendFormat("off: %i s: %i", offset, size);
@@ -530,6 +544,17 @@ void Run(Function* pFuncToRun) {
 				vm.stack.Push(v);
 				break;
 			}
+			case OpCode::SetFieldStruct: {
+				uint32_t offset = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
+				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
+				
+				Value v = vm.stack.Pop();
+				Value structValue = vm.stack.Pop();
+
+				memcpy((uint8_t*)structValue.pPtr + offset, v.pPtr, size);
+				vm.stack.Push(v);
+				break;
+			}
 			case OpCode::GetField: {
 				uint32_t offset = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
 				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
@@ -538,6 +563,17 @@ void Run(Function* pFuncToRun) {
 				Value v;
 
 				memcpy(&v.pPtr, (uint8_t*)structValue.pPtr + offset, size);
+				vm.stack.Push(v);
+				break;
+			}
+			case OpCode::GetFieldStruct: {
+				uint32_t offset = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
+				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
+				
+				Value structValue = vm.stack.Pop();
+				Value v;
+
+				v.pPtr = (uint8_t*)structValue.pPtr + offset;
 				vm.stack.Push(v);
 				break;
 			}

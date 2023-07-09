@@ -129,7 +129,11 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 				}
 			}
 
-			PushCode(state, OpCode::SetField, pSetField->line);
+			if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
+				PushCode(state, OpCode::SetFieldStruct, pSetField->line);
+			} else {
+				PushCode(state, OpCode::SetField, pSetField->line);
+			}
 			PushCode4Byte(state, (uint32_t)pTargetField->offset, pSetField->line);
 			PushCode4Byte(state, (uint32_t)pTargetField->pType->size, pSetField->line);
 			break;
@@ -149,7 +153,12 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 				}
 			}
 
-			PushCode(state, OpCode::GetField, pGetField->line);
+			if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
+				PushCode(state, OpCode::GetFieldStruct, pGetField->line);
+			} else {
+				PushCode(state, OpCode::GetField, pGetField->line);
+			}
+
 			PushCode4Byte(state, (uint32_t)pTargetField->offset, pGetField->line);
 			PushCode4Byte(state, (uint32_t)pTargetField->pType->size, pGetField->line);
 			break;

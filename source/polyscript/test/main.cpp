@@ -63,10 +63,10 @@ int main() {
     // Error report
     bool success = errorState.ReportCompilationResult();
 
-    //Log::Debug("---- AST -----");
+    Log::Debug("---- AST -----");
     DebugStatements(program);
 
-    if (false) {
+    if (success) {
         // Compile to bytecode
         ResizableArray<Ast::Declaration*> emptyParams;
         Function* pFunc = CodeGen(program, emptyParams, "<script>", &errorState);
@@ -76,7 +76,7 @@ int main() {
         Disassemble(pFunc, actualCode);
         
         Log::Info("---- Program Running -----");
-        //Run(pFunc);
+        Run(pFunc);
     }
 
     //astMemory.Finished();

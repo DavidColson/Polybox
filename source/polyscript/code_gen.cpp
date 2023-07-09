@@ -132,23 +132,26 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 			PushCode(state, OpCode::SetField, pSetField->line);
 			PushCode4Byte(state, (uint32_t)pTargetField->offset, pSetField->line);
 			PushCode4Byte(state, (uint32_t)pTargetField->pType->size, pSetField->line);
-			
-			// Okay dave you're doing it. Tomorrow, you gotta do the VM half of this. 
-			// Basically here's the plan
-
-			// value top
-			// target top - 1
-
-			// We'll pop and read the value
-			// Put it at the appropriate offset of target's ptr
-			// then pop target
-			// Then push value back onto the top
-
 			break;
 		}
 		case Ast::NodeType::GetField: {
 			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
 			
+			CodeGenExpression(state, pGetField->pTarget);
+
+			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pGetField->pTarget->pType;
+			TypeInfoStruct::Member* pTargetField = nullptr;
+			for (size_t i = 0; i < pTargetType->members.count; i++) {
+				TypeInfoStruct::Member& mem = pTargetType->members[i];
+				if (mem.identifier == pGetField->fieldName) {
+					pTargetField = &pTargetType->members[i];
+					break;
+				}
+			}
+
+			PushCode(state, OpCode::GetField, pGetField->line);
+			PushCode4Byte(state, (uint32_t)pTargetField->offset, pGetField->line);
+			PushCode4Byte(state, (uint32_t)pTargetField->pType->size, pGetField->line);
 			break;
 		}
         case Ast::NodeType::Literal: {
@@ -188,6 +191,18 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             PushCode(state, constIndex, pFunction->line);
             break;
         }
+		case Ast::NodeType::Structure: {
+			Ast::Structure* pStructure = (Ast::Structure*)pExpr;
+
+			// Defines a type which we put on the stack as a local
+			CurrentChunk(state)->constants.PushBack(MakeValue(pStructure->pDescribedType));
+			CurrentChunk(state)->dbgConstantsTypes.PushBack(pStructure->pDescribedType);
+			uint8_t constIndex = (uint8_t)CurrentChunk(state)->constants.count - 1;
+
+			PushCode(state, OpCode::LoadConstant, pStructure->line);
+			PushCode(state, constIndex, pStructure->line);
+			break;
+		}
         case Ast::NodeType::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
 

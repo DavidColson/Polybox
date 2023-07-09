@@ -346,6 +346,10 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 		}
 
 		Consume(state, TokenType::RightBrace, "Expected '}' to end member declarations of struct");
+		Token token = Previous(state);
+		pStruct->pLocation = token.pLocation;
+		pStruct->pLineStart = token.pLineStart;
+		pStruct->line = token.line;
 		return pStruct;
 	}
 
@@ -392,7 +396,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
         if (strncmp("true", token.pLocation, 4) == 0)
             pLiteralExpr->value = MakeValue(true);
         else if (strncmp("false", token.pLocation, 4) == 0)
-            pLiteralExpr->value = MakeValue(true);
+            pLiteralExpr->value = MakeValue(false);
 		pLiteralExpr->pType = GetBoolType();
 		return pLiteralExpr;
     }

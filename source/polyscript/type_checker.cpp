@@ -275,6 +275,11 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             pBinary->pLeft = TypeCheckExpression(state, pBinary->pLeft);
             pBinary->pRight = TypeCheckExpression(state, pBinary->pRight);
             
+			String str1 = pBinary->pLeft->pType->name;
+			String str2 = pBinary->pRight->pType->name;
+			String str3 = Operator::ToString(pBinary->op);
+			bool skipLeftTypeCheck = false;
+
 			// If mismatch, check if we can do an implicit cast, otherwise fail
 			if (pBinary->pLeft->pType != pBinary->pRight->pType) {
 				if (IsImplicitlyCastable(pBinary->pLeft->pType, pBinary->pRight->pType)) {
@@ -315,10 +320,26 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 
 					pBinary->pRight = TypeCheckExpression(state, pCastExpr);
 				} else {
-					String str1 = pBinary->pLeft->pType->name;
-					String str2 = pBinary->pRight->pType->name;
-					String str3 = Operator::ToString(pBinary->op);
 					state.pErrors->PushError(pBinary, "Invalid types (%s, %s) used with op \"%s\"", str1.pData, str2.pData, str3.pData);
+					skipLeftTypeCheck = true;
+				}
+			}
+
+			if (   pBinary->op == Operator::And
+				|| pBinary->op == Operator::Or) {
+				if (pBinary->pLeft->pType->tag != TypeInfo::Bool) {
+					state.pErrors->PushError(pBinary, "Invalid types (%s, %s) used with op \"%s\"", str1.pData, str2.pData, str3.pData);
+				}
+			}
+
+			if (!skipLeftTypeCheck) {
+				if (pBinary->op == Operator::Less
+					|| pBinary->op == Operator::LessEqual
+					|| pBinary->op == Operator::Greater
+					|| pBinary->op == Operator::GreaterEqual) {
+					if (pBinary->pLeft->pType->tag != TypeInfo::F32 && pBinary->pLeft->pType->tag != TypeInfo::I32) {
+						state.pErrors->PushError(pBinary, "Invalid types (%s, %s) used with op \"%s\"", str1.pData, str2.pData, str3.pData);
+					}
 				}
 			}
 

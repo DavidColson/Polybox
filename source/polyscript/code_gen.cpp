@@ -194,6 +194,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             Value value;
             value.pFunction = pFunc;
 			CurrentFunction(state)->constants.PushBack(value);
+            CurrentFunction(state)->functionConstants.PushBack(pFunc);
 			CurrentFunction(state)->dbgConstantsTypes.PushBack(pFunction->pType);
             uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
 

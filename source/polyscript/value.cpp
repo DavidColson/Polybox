@@ -16,15 +16,18 @@ void FreeFunction(Function* pFunc) {
 		pFunc->code.Free();
 		pFunc->dbgLineInfo.Free();
 		pFunc->dbgConstantsTypes.Free();
+        pFunc->functionConstants.Free([](Function* pFunc) {
+             FreeFunction(pFunc); 
+        });
 	}
 }
-
 
 Operator::Enum TokenToOperator(TokenType::Enum tokenType) {
     return tokenToOperatorMap[tokenType];
 }
 
 TypeInfo* FindOrAddType(TypeInfo* pNewType) {
+    // TODO: This whole function is fucked. It's slow, inefficient and doesn't even work. Please have a rethink and fix it
     for (TypeInfo* pInfo : typeTable) {
         if (pInfo->tag == TypeInfo::TypeTag::Function && pNewType->tag == pInfo->tag) {
             TypeInfoFunction* pNewFunc = (TypeInfoFunction*)pNewType;
@@ -63,11 +66,24 @@ TypeInfo* FindOrAddType(TypeInfo* pNewType) {
         case TypeInfo::TypeTag::Function: {
             pToAddType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfoFunction));
             memcpy(pToAddType, pNewType, sizeof(TypeInfoFunction));
+            pToAddType->name = CopyString(pNewType->name);
+            MarkNotALeak(pToAddType->name.pData);
+            // May be worth rethinking this copying thing we do here? It can be expensive
+
+            // deep copy params from pNewType to pToAddType
+            TypeInfoFunction* pNewFunc = (TypeInfoFunction*)pNewType;
+            TypeInfoFunction* pToAddFunc = (TypeInfoFunction*)pToAddType;
+            pToAddFunc->params = ResizableArray<TypeInfo*>();
+            for (size_t i = 0; i < pNewFunc->params.count; i++) {
+                pToAddFunc->params.PushBack(pNewFunc->params[i]);
+            }
+            MarkNotALeak(pToAddFunc->params.pData);
             break;
         }
 		case TypeInfo::TypeTag::Struct: {
 			pToAddType = (TypeInfo*)g_Allocator.Allocate(sizeof(TypeInfoStruct));
 			memcpy(pToAddType, pNewType, sizeof(TypeInfoStruct));
+            // THIS IS NOT GOOD ENOUGH, you must deep copy the member array as well
 			break;
 		}
         default: {
@@ -127,13 +143,6 @@ void InitTypeTable() {
     pTypeType->name = "Type";
     typeTable.PushBack(pTypeType);
 	MarkNotALeak(pTypeType);
-
-    TypeInfoFunction* pEmptyFuncType = (TypeInfoFunction*)g_Allocator.Allocate(sizeof(TypeInfoFunction));
-    pEmptyFuncType->tag = TypeInfo::TypeTag::Function;
-    pEmptyFuncType->size = 8;
-    pEmptyFuncType->name = "()";
-    typeTable.PushBack(pEmptyFuncType);
-	MarkNotALeak(pEmptyFuncType);
 
 	MarkNotALeak(typeTable.pData);
 }

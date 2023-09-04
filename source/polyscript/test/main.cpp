@@ -541,6 +541,164 @@ void VariableAssignment() {
 	EndTest(errorCount);
 }
 
+void Scopes() {
+	StartTest("Scopes");
+	int errorCount = 0;
+	{
+		// test that scopes work correctly
+		const char* scopes = 
+			"i := 5;\n"
+			"{} // testing empty scope\n"
+			"{\n"
+			"	j := 10;\n"
+			"	print(j);\n"
+			"}\n"
+			"print(i);\n";
+		const char* expectation =
+			"10\n"
+			"5\n";
+		errorCount += RunCompilerOnTestCase(scopes, expectation, ResizableArray<String>());
+
+		// test for variables being out of scope
+		const char* invalidScopes = 
+			"i := 5;\n"
+			"{\n"
+			"   i := 2;\n"
+			"	j = 10;\n"
+			"}\n"
+			"print(j);\n";
+		ResizableArray<String> expectedErrors;
+		defer(expectedErrors.Free());
+		expectedErrors.PushBack("Redefinition of variable 'i'");
+		expectedErrors.PushBack("Assigning to undeclared variable 'j', missing a declaration somewhere before?");
+		expectedErrors.PushBack("Undeclared variable 'j', missing a declaration somewhere before?");
+		errorCount += RunCompilerOnTestCase(invalidScopes, "", expectedErrors);
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
+void Casting() {
+	StartTest("Casting");
+	int errorCount = 0;
+	{
+		// test implicit typecasting on left and right of binary operator
+		// TODO: Should print type of these expressions when we can do that
+		const char* implicitCasting = 
+			"i:i32 = 5;\n"
+			"print(i + 5.0);\n"
+			"print(5.0 + i);\n";
+		const char* expectation =
+			"10\n"
+			"10\n";
+		errorCount += RunCompilerOnTestCase(implicitCasting, expectation, ResizableArray<String>());
+
+		// test explicit typecasting which should cover f32 to i32 and bool to f32 and i32
+		const char* explicitCasting = 
+			"i:i32 = 5;\n"
+			"print(i + as(i32) 5.0);\n"
+			"print(as(f32) 5 + i);\n"
+			"print(as(i32) true);\n"
+			"print(as(f32) true);\n"
+			"print(as(bool) 1);\n"
+			"print(as(bool) 0.0);\n";
+		expectation =
+			"10\n"
+			"10\n"
+			"1\n"
+			"1\n"
+			"true\n"
+			"false\n";
+		errorCount += RunCompilerOnTestCase(explicitCasting, expectation, ResizableArray<String>());
+
+		// test invalid casting, when from and to are the same and the casts are not covered above
+		const char* invalidCasting = 
+			"i:i32 = 5;\n"
+			"print(as(i32) i);\n"
+			"print(as(Type) i);\n";
+		ResizableArray<String> expectedErrors;
+		defer(expectedErrors.Free());
+		expectedErrors.PushBack("Cast from \"i32\" to \"i32\" is pointless");
+		expectedErrors.PushBack("Not possible to cast from type \"i32\" to \"Type\"");
+		errorCount += RunCompilerOnTestCase(invalidCasting, "", expectedErrors);
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
+void Functions() {
+	StartTest("Functions");
+	int errorCount = 0;
+	{
+		// Test function type literals
+		const char* functionTypeLiterals = 
+			"print(fn ());\n"
+			"print(fn (i32));\n"
+			"print(fn () -> f32);\n"
+			"print(fn (i32, f32, bool) -> i32);\n";
+		const char* expectation =
+			"fn () -> void\n"
+			"fn (i32) -> void\n"
+			"fn () -> f32\n"
+			"fn (i32, f32, bool) -> i32\n";
+		errorCount += RunCompilerOnTestCase(functionTypeLiterals, expectation, ResizableArray<String>());
+
+		// Test function declarations
+		const char* functionDeclarations = 
+			"test := func() { print(1); };\n"
+			"test2 := func(i:i32) { print(i); };\n"
+			"test3 := func() -> f32 { return 1.0; };\n"
+			"test4 := func(i:i32, f:f32, b:bool) -> i32 { return i; };\n"
+			"test5 := func(i:i32) -> i32 { return test5(i); };\n"
+			"print(test);\n"
+			"print(test2);\n"
+			"print(test3);\n"
+			"print(test4);\n"
+			"print(test5);\n";
+		expectation =	
+			"<fn test>\n"
+			"<fn test2>\n"
+			"<fn test3>\n"
+			"<fn test4>\n"
+			"<fn test5>\n";
+		errorCount += RunCompilerOnTestCase(functionDeclarations, expectation, ResizableArray<String>());
+
+		// Test function calling
+		const char* functionCalling = 
+			"test := func() { print(1); };\n"
+			"test2 := func(i:i32) { print(i); };\n"
+			"test3 := func() -> f32 { return 1.0; };\n"
+			"test4 := func(i:i32, f:f32, b:bool) -> i32 { return i; };\n"
+			"test5 := func(i:i32) -> bool { return i > 5; };\n"
+			"test();\n"
+			"test2(5);\n"
+			"print(test3());\n"
+			"print(test4(5, 2.0, true));\n"
+			"print(test5(10));\n";
+		expectation =
+			"1\n"
+			"5\n"
+			"1\n"
+			"5\n"
+			"true\n";
+		errorCount += RunCompilerOnTestCase(functionCalling, expectation, ResizableArray<String>());
+
+		// function pointer changing
+		const char* functionPointerChanging = 
+			"test := func(i: i32) { print(i); };\n"
+			"test2 := func(i: i32) { print(i*2); };\n"
+			"test(5);\n"
+			"test = test2;\n"
+			"test(5);\n";
+		expectation =
+			"5\n"
+			"10\n";
+		errorCount += RunCompilerOnTestCase(functionPointerChanging, expectation, ResizableArray<String>());
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
 int main() {
 	// TODO: Move to program structure
     InitTypeTable();
@@ -553,6 +711,9 @@ int main() {
 	ControlFlow();
 	Declarations();
 	VariableAssignment();
+	Scopes();
+	Casting();
+	Functions();
 
     __debugbreak();
     return 0;

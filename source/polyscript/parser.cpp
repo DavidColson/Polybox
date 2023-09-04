@@ -259,9 +259,8 @@ Ast::Expression* ParseType(ParsingState& state) {
             pFnType->pReturnType = (Ast::Type*)ParseType(state);
         } else {
             pFnType->pReturnType = (Ast::Type*)state.pAllocator->Allocate(sizeof(Ast::Type));
-            pFnType->pReturnType->nodeKind = Ast::NodeType::Identifier;
+            pFnType->pReturnType->nodeKind = Ast::NodeType::Type;
             pFnType->pReturnType->identifier = CopyCString("void", state.pAllocator);
-            pFnType->pReturnType->pType = GetVoidType();
             pFnType->pReturnType->pLocation = Previous(state).pLocation;
             pFnType->pReturnType->pLineStart = Previous(state).pLineStart;
             pFnType->pReturnType->line = Previous(state).line;
@@ -313,9 +312,8 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 			pFunc->pReturnType = (Ast::Type*)ParseType(state);
 		} else {
 			pFunc->pReturnType = (Ast::Type*)state.pAllocator->Allocate(sizeof(Ast::Type));
-			pFunc->pReturnType->nodeKind = Ast::NodeType::Identifier;
+			pFunc->pReturnType->nodeKind = Ast::NodeType::Type;
 			pFunc->pReturnType->identifier = CopyCString("void", state.pAllocator);
-			pFunc->pReturnType->pType = GetVoidType();
 			pFunc->pReturnType->pLocation = Previous(state).pLocation;
 			pFunc->pReturnType->pLineStart = Previous(state).pLineStart;
 			pFunc->pReturnType->line = Previous(state).line;

@@ -48,7 +48,9 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             pType->pType = GetTypeType();
 
             // Resolve Type
-            if (pType->identifier == "i32") {
+            if (pType->identifier == "void") {
+                pType->pResolvedType = GetVoidType();
+            } else if (pType->identifier == "i32") {
                 pType->pResolvedType = GetI32Type();
             } else if (pType->identifier == "f32") {
                 pType->pResolvedType = GetF32Type(); 
@@ -58,9 +60,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
                 pType->pResolvedType = GetTypeType();
 			} else if (TypeInfo* pFound = FindTypeByName(pType->identifier)) {
 				pType->pResolvedType = pFound;
-			} else if (pType->identifier == "void") {
-                pType->pResolvedType = GetVoidType();
-            } else {
+			} else {
                 state.pErrors->PushError(pType, "Unknown type '%s'", pType->identifier.pData);
             }
 
@@ -80,6 +80,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             TypeInfoFunction newTypeInfo;
 			newTypeInfo.params.pAlloc = state.pAllocator;
             newTypeInfo.tag = TypeInfo::TypeTag::Function;
+            newTypeInfo.size = 8;
 
             for (size_t i = 0; i < pFnType->params.count; i++) {
                 pFnType->params[i] = (Ast::Type*)TypeCheckExpression(state, pFnType->params[i]);
@@ -136,7 +137,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             builder.Append(")");
             if (newTypeInfo.pReturnType)
                 builder.AppendFormat(" -> %s", newTypeInfo.pReturnType->name.pData);
-            newTypeInfo.name = builder.CreateString();
+            newTypeInfo.name = builder.CreateString(true, state.pAllocator);
             pFunction->pType = FindOrAddType(&newTypeInfo);
 
             pMyDeclaration->pResolvedType = pFunction->pType;

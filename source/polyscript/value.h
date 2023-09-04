@@ -137,6 +137,7 @@ struct Function {
 	// Code
 	ResizableArray<Value> constants;
 	ResizableArray<uint8_t> code;
+    ResizableArray<Function*> functionConstants;
 
 	// Debug Info
 	ResizableArray<TypeInfo*> dbgConstantsTypes;

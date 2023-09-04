@@ -327,7 +327,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 
 			if (   pBinary->op == Operator::And
 				|| pBinary->op == Operator::Or) {
-				if (pBinary->pLeft->pType->tag != TypeInfo::Bool) {
+				if (pBinary->pLeft->pType->tag != TypeInfo::Bool && pBinary->pRight->pType->tag != TypeInfo::Bool) {
 					state.pErrors->PushError(pBinary, "Invalid types (%s, %s) used with op \"%s\"", str1.pData, str2.pData, str3.pData);
 				}
 			}

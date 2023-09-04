@@ -107,12 +107,16 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 		}
 
 		if (!found) {
-			
 			Log::Info("Expected the following error, but it did not occur\n'%s'\n", expectation.pData);
 			errorCount++;
 			failed = true;
 		}
 	}
+	if (errorExpectations.count != errorState.errors.count) {
+		Log::Info("Expected %d errors, but got %d", errorExpectations.count, errorState.errors.count);
+		failed = true;
+	}
+
 	if (failed) {
 		Log::Info("In test:\n%s", testCode);
 		Log::Info("We got the following output:\n%s ", output.pData);
@@ -220,29 +224,15 @@ void ArithmeticOperators() {
 		// Test bad combinations
 		{
 			const char* invalidTypes =
-				"print(5 + bool);\n";
-			ResizableArray<String> expectedErrors;
-			defer(expectedErrors.Free());
-			expectedErrors.PushBack("Invalid types (i32, Type) used with op \"+\"");
-			errorCount += RunCompilerOnTestCase(invalidTypes, "", expectedErrors);
-		}
-
-		{
-			const char* invalidTypes2 =
-				"print(true * 2.0);\n";
-			ResizableArray<String> expectedErrors;
-			defer(expectedErrors.Free());
-			expectedErrors.PushBack("Invalid types (bool, f32) used with op \"*\"");
-			errorCount += RunCompilerOnTestCase(invalidTypes2, "", expectedErrors);
-		}
-		
-		{
-			const char* invalidTypes2 =
+				"print(5 + bool);\n"
+				"print(true * 2.0);\n"
 				"print(-true);";
 			ResizableArray<String> expectedErrors;
 			defer(expectedErrors.Free());
+			expectedErrors.PushBack("Invalid types (i32, Type) used with op \"+\"");
+			expectedErrors.PushBack("Invalid types (bool, f32) used with op \"*\"");
 			expectedErrors.PushBack("Invalid type (bool) used with op \"-\"");
-			errorCount += RunCompilerOnTestCase(invalidTypes2, "", expectedErrors);
+			errorCount += RunCompilerOnTestCase(invalidTypes, "", expectedErrors);
 		}
 	}
 	errorCount += ReportMemoryLeaks();
@@ -367,6 +357,109 @@ void LogicalOperators() {
 	EndTest(errorCount);
 }
 
+void Expressions() {
+	StartTest("Expressions");
+	int errorCount = 0;
+	{
+		// Grouping
+		// Operator precedence
+
+		const char* grouping = 
+			"print((10 - 20) / (2 - 4));\n"
+			"print(((1 + (5 - (8 / 2))) * 2) + 2);\n";
+		const char* expectation =
+			"5\n"
+			"6\n";
+		errorCount += RunCompilerOnTestCase(grouping, expectation, ResizableArray<String>());
+
+		// Operator precedence
+		const char* precedence = 
+			"print(2 * 2 + 4 / 2 - 1);\n"
+			"print(5 * -5);\n"
+			"print(5 + 1 < 7 * 2 == -5 > (2 * 10));\n";
+		expectation =
+			"5\n"
+			"-25\n"
+			"false\n";
+		errorCount += RunCompilerOnTestCase(precedence, expectation, ResizableArray<String>());
+
+		// test logical operators
+		const char* logic = 
+			"print(true && false);\n"
+			"print(true || false);\n"
+			"print(true && false || true);\n"
+			"print(true && (false || true));\n";
+		expectation = 
+			"false\n"
+			"true\n"
+			"true\n"
+			"true\n";
+		errorCount += RunCompilerOnTestCase(logic, expectation, ResizableArray<String>());
+
+		// test invalid grouping expressions
+		const char* invalidGrouping = 
+			"print(5 + (2 * 2);\n"
+			"print(5 + ((2 * 2) + 1);\n"
+			"print(5 + 2 * 2));\n"
+			"print(5 + 2+)1 * 2);\n";
+		ResizableArray<String> expectedErrors;
+		defer(expectedErrors.Free());
+		expectedErrors.PushBack("Expected \")\" to close print expression");
+		expectedErrors.PushBack("Expected \";\" at the end of this statement");
+		expectedErrors.PushBack("Expected \";\" at the end of this statement");
+		errorCount += RunCompilerOnTestCase(invalidGrouping, "", expectedErrors);
+
+		// test mismatched types in and/or expressions
+		const char* invalidLogic = 
+			"print(5 && true);\n"
+			"print(true || 5);\n";
+		expectedErrors.Resize(0);
+		expectedErrors.PushBack("Invalid types (i32, bool) used with op \"&&\"");
+		expectedErrors.PushBack("Invalid types (bool, i32) used with op \"||\"");
+		errorCount += RunCompilerOnTestCase(invalidLogic, "", expectedErrors);
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
+void ControlFlow() {
+	StartTest("Control Flow");
+	int errorCount = 0;
+	{
+		// test all the possible if cases
+		const char* ifStatements = 
+			"if true { print(1); }\n"
+			"if false { print(2); }\n"
+			"if true { print(3); } else { print(4); }\n"
+			"if false { print(5); } else { print(6); }\n"
+			"if true { print(7); } else if false { print(8); } else { print(9); }\n"
+			"if false { print(10); } else if true { print(11); } else { print(12); }\n"
+			"if false { print(13); } else if false { print(14); } else { print(15); }\n";
+		const char* expectation =	
+			"1\n"
+			"3\n"
+			"6\n"
+			"7\n"
+			"11\n"
+			"15\n";
+		errorCount += RunCompilerOnTestCase(ifStatements, expectation, ResizableArray<String>());
+
+		// test while loops
+		const char* whileLoops = 
+			"i := 0;\n"
+			"while i < 5 { print(i); i = i + 1; }\n";
+		expectation =
+			"0\n"
+			"1\n"
+			"2\n"
+			"3\n"
+			"4\n";
+		errorCount += RunCompilerOnTestCase(whileLoops, expectation, ResizableArray<String>());
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
 int main() {
 	// TODO: Move to program structure
     InitTypeTable();
@@ -375,6 +468,8 @@ int main() {
 	Values();
 	ArithmeticOperators();
 	LogicalOperators();
+	Expressions();
+	ControlFlow();
 
     __debugbreak();
     return 0;

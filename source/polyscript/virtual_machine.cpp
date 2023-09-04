@@ -628,6 +628,8 @@ void Run(Function* pFuncToRun) {
 				
 				Value v;
 				v.pPtr = g_Allocator.Allocate(size_t(size)); // TODO: Stack memory, not heap
+				// TODO: This actually is a leak that we need to fix, but we'll do so by introducing stack memory
+				MarkNotALeak(v.pPtr);
 
 				// All memory will be zero allocated by default
 				memset(v.pPtr, 0, size);

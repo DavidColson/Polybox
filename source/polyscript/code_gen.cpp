@@ -403,14 +403,18 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             PushCode(state, OpCode::Pop, pIf->pThenStmt->line);
 
             CodeGenStatement(state, pIf->pThenStmt);
-            int elseJump = PushJump(state, OpCode::Jmp, pIf->pElseStmt->line);
-            PatchJump(state, ifJump);
-
-            PushCode(state, OpCode::Pop, pIf->pElseStmt->line);
             if (pIf->pElseStmt) {
-                CodeGenStatement(state, pIf->pElseStmt);
+                int elseJump = PushJump(state, OpCode::Jmp, pIf->pElseStmt->line);
+                PatchJump(state, ifJump);
+
+                PushCode(state, OpCode::Pop, pIf->pElseStmt->line);
+                if (pIf->pElseStmt) {
+                    CodeGenStatement(state, pIf->pElseStmt);
+                }
+                PatchJump(state, elseJump);
+            } else {
+                PatchJump(state, ifJump);
             }
-            PatchJump(state, elseJump);
 
             break;
         }

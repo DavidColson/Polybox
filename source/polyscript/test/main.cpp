@@ -460,6 +460,87 @@ void ControlFlow() {
 	EndTest(errorCount);
 }
 
+void Declarations() {
+	StartTest("Declarations");
+	int errorCount = 0;
+	{
+		// At some point expand this to print the type of the declarations so we know they are infered correctly
+		// Right now there is no "type()" function that'll tell us the type
+		const char* basicDeclaration = 
+			"i := 5;\n"
+			"print(i);\n"
+			"a : bool;\n"
+			"a = false;\n"
+			"print(a);\n"
+			"b:f32 = 2.5;\n"
+			"print(b);\n"
+			"t:Type = i32;\n"
+			"print(t);\n";
+		const char* expectation =
+			"5\n"
+			"false\n"
+			"2.5\n"
+			"i32\n";
+		errorCount += RunCompilerOnTestCase(basicDeclaration, expectation, ResizableArray<String>());
+
+		// test for invalid declarations and type mismatches
+		const char* invalidDeclarations = 
+			"i : 5;\n";
+		ResizableArray<String> expectedErrors;
+		defer(expectedErrors.Free());
+		expectedErrors.PushBack("Expected a type here, potentially missing an equal sign before an initializer?");
+		errorCount += RunCompilerOnTestCase(invalidDeclarations, "", expectedErrors);
+
+		const char* invalidDeclarations2 = 
+			"j := 22.0\n"
+			"k:i32 = 10;\n";
+		expectedErrors.Resize(0);
+		expectedErrors.PushBack("Expected \";\" to end a previous declaration");
+		errorCount += RunCompilerOnTestCase(invalidDeclarations2, "", expectedErrors);
+
+		const char* invalidDeclarations3 = 
+			"k:i32 = true;\n";
+		expectedErrors.Resize(0);
+		expectedErrors.PushBack("Type mismatch in declaration, declared as i32 and initialized as bool");
+		errorCount += RunCompilerOnTestCase(invalidDeclarations3, "", expectedErrors);
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
+void VariableAssignment() {
+	StartTest("Variable Assignment");
+	int errorCount = 0;
+	{
+		const char* assignment = 
+			"i := 5;\n"
+			"i = 10;\n"
+			"print(i);\n"
+			"i = i + 5 * 10;\n"
+			"print(i);\n"
+			"b := true;\n"
+			"b = 5 * 5 < 10 || true;\n"
+			"print(b);\n";
+		const char* expectation =
+			"10\n"
+			"60\n"
+			"true\n";
+		errorCount += RunCompilerOnTestCase(assignment, expectation, ResizableArray<String>());
+
+		const char* invalidAssignment = 
+			"i := 5;\n"
+			"i = true;\n"
+			"j = 10;\n";
+		ResizableArray<String> expectedErrors;
+		defer(expectedErrors.Free());
+		expectedErrors.PushBack("Type mismatch on assignment, 'i' has type 'i32', but is being assigned a value with type 'bool'");
+		expectedErrors.PushBack("Assigning to undeclared variable \'j\', missing a declaration somewhere before?");
+		errorCount += RunCompilerOnTestCase(invalidAssignment, "", expectedErrors);
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
 int main() {
 	// TODO: Move to program structure
     InitTypeTable();
@@ -470,6 +551,8 @@ int main() {
 	LogicalOperators();
 	Expressions();
 	ControlFlow();
+	Declarations();
+	VariableAssignment();
 
     __debugbreak();
     return 0;

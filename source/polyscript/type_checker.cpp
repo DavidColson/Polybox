@@ -58,8 +58,10 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
                 pType->pResolvedType = GetTypeType();
 			} else if (TypeInfo* pFound = FindTypeByName(pType->identifier)) {
 				pType->pResolvedType = pFound;
-			} else {
+			} else if (pType->identifier == "void") {
                 pType->pResolvedType = GetVoidType();
+            } else {
+                state.pErrors->PushError(pType, "Unknown type '%s'", pType->identifier.pData);
             }
 
 			// TODO: If you ecounter a function type, you'll have to construct an actual type info and search for it. 
@@ -535,7 +537,8 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 if (pDecl->pDeclaredType && pDecl->pInitializerExpr->pType != pDecl->pDeclaredType->pResolvedType) {
                     TypeInfo* pDeclaredType = pDecl->pDeclaredType->pResolvedType;
                     TypeInfo* pInitType = pDecl->pInitializerExpr->pType;
-                    state.pErrors->PushError(pDecl->pDeclaredType, "Type mismatch in declaration, declared as %s and initialized as %s", pDeclaredType->name.pData, pInitType->name.pData);
+                    if (pDeclaredType && pInitType)
+                        state.pErrors->PushError(pDecl->pDeclaredType, "Type mismatch in declaration, declared as %s and initialized as %s", pDeclaredType->name.pData, pInitType->name.pData);
                 } else {
                     pDecl->pResolvedType = pDecl->pInitializerExpr->pType;
                 }

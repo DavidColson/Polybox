@@ -75,7 +75,7 @@ int PushJump(State& state, OpCode::Enum jumpCode, uint32_t line) {
 
 // ***********************************************************************
 
-void PushLoop(State& state, uint8_t loopTarget, uint32_t line) {
+void PushLoop(State& state, uint32_t loopTarget, uint32_t line) {
     PushCode(state, OpCode::Loop, line);
 
     int offset = CurrentFunction(state)->code.count - loopTarget + 2;
@@ -421,7 +421,7 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
         }
         case Ast::NodeType::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
-            int loopStart = CurrentFunction(state)->code.count;
+            uint32_t loopStart = CurrentFunction(state)->code.count;
             CodeGenExpression(state, pWhile->pCondition);
 
             int ifJump = PushJump(state, OpCode::JmpIfFalse, pWhile->line);

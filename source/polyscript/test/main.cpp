@@ -129,6 +129,62 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 	return errorCount;
 }
 
+void RunTestPlayground() {
+	LinearAllocator compilerMemory;
+
+    FILE* pFile;
+    fopen_s(&pFile, "test.ps", "r");
+    if (pFile == NULL) {
+        return;
+    }
+
+    String actualCode;
+    {
+        uint32_t size;
+        fseek(pFile, 0, SEEK_END);
+        size = ftell(pFile);
+        fseek(pFile, 0, SEEK_SET);
+
+        actualCode = AllocString(size, &compilerMemory);
+        fread(actualCode.pData, size, 1, pFile);
+        fclose(pFile);
+    }
+
+    ErrorState errorState;
+    errorState.Init(&compilerMemory);
+
+    // Tokenize
+    ResizableArray<Token> tokens = Tokenize(&compilerMemory, actualCode);
+    defer(tokens.Free());
+
+    // Parse
+    ResizableArray<Ast::Statement*> program = InitAndParse(tokens, &errorState, &compilerMemory);
+
+    // Type check
+    if (errorState.errors.count == 0) {
+        TypeCheckProgram(program, &errorState, &compilerMemory);
+    }
+
+    // Error report
+    bool success = errorState.ReportCompilationResult();
+
+    Log::Debug("---- AST -----");
+    DebugStatements(program);
+
+    if (success) {
+        // Compile to bytecode
+        ResizableArray<Ast::Declaration*> emptyParams;
+        Function* pFunc = CodeGen(program, emptyParams, "<script>", &errorState, &compilerMemory);
+        defer(FreeFunction(pFunc));
+    
+        Log::Debug("---- Disassembly -----");
+        Disassemble(pFunc, actualCode);
+        
+        Log::Info("---- Program Running -----");
+        Run(pFunc);
+    }
+}
+
 void Values() {
 	StartTest("Values");
 	int errorCount = 0;
@@ -694,6 +750,64 @@ void Functions() {
 			"5\n"
 			"10\n";
 		errorCount += RunCompilerOnTestCase(functionPointerChanging, expectation, ResizableArray<String>());
+
+		// TODO: Functions don't have any typechecking errors, but test for parse errors
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
+void Structs() {
+	StartTest("Structs");
+	int errorCount = 0;
+	{
+		// Test struct declarations
+		const char* structDeclarations = 
+			"test := struct { i:i32 = 2; f:f32 = 2.0; b:bool = true; };\n"
+			"print(test);\n"
+			"test2 := struct { i:i32 = 3; f:f32 = 2.0; b:bool = false; };\n"
+			"print(test2);\n";
+		const char* expectation =	
+			"test\n"
+			"test2\n";
+		errorCount += RunCompilerOnTestCase(structDeclarations, expectation, ResizableArray<String>());
+
+		// Test struct member access
+		const char* structMemberAccess = 
+			"TestStruct := struct { i:i32; f:f32; b:bool; };\n"
+			"instance:TestStruct;"
+			"instance.i = 2;\n"
+			"instance.f = 4.0;\n"
+			"instance.b = true;\n"
+			"print(instance.i);\n"
+			"print(instance.f);\n"
+			"print(instance.b);\n";
+		expectation =
+			"2\n"
+			"4\n"
+			"true\n";
+		errorCount += RunCompilerOnTestCase(structMemberAccess, expectation, ResizableArray<String>());
+
+		// test struct member being another struct
+		const char* structMemberStruct = 
+			"TestStruct := struct { i:i32; f:f32; b:bool; };\n"
+			"TestStruct2 := struct { s:TestStruct; };\n"
+			"instance:TestStruct;\n"
+			"instance.i = 2;\n"
+			"instance.f = 4.0;\n"
+			"instance.b = true;\n"
+			"instance2:TestStruct2;\n"
+			"instance2.s = instance;\n"
+			"print(instance2.s.i);\n"
+			"print(instance2.s.f);\n"
+			"print(instance2.s.b);\n";
+		expectation =
+			"2\n"
+			"4\n"
+			"true\n";
+		errorCount += RunCompilerOnTestCase(structMemberStruct, expectation, ResizableArray<String>());
+
+		// TODO: Test struct type check and compile error messages
 	}
 	errorCount += ReportMemoryLeaks();
 	EndTest(errorCount);
@@ -714,6 +828,9 @@ int main() {
 	Scopes();
 	Casting();
 	Functions();
+	Structs();
+
+	//RunTestPlayground();
 
     __debugbreak();
     return 0;

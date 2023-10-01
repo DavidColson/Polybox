@@ -1,6 +1,10 @@
 #include "compiler_explorer.h"
 
+#include "compiler.h"
+#include "virtual_machine.h"
+
 #include <resizable_array.inl>
+#include <light_string.h>
 #include <SDL.h>
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
@@ -10,6 +14,7 @@
 #include <bx/allocator.h>
 #include <bx/timer.h>
 #include <bx/math.h>
+#include <stdio.h>
 
 // This defines a macro called min somehow? We should avoid it at all costs and include it last
 namespace SDL {
@@ -20,9 +25,6 @@ namespace SDL {
 #include "imgui_data/fs_ocornut_imgui.bin.h"
 #include "imgui_data/vs_imgui_image.bin.h"
 #include "imgui_data/fs_imgui_image.bin.h"
-
-#include "imgui_data/roboto_regular.ttf.h"
-#include "imgui_data/robotomono_regular.ttf.h"
 
 #define IMGUI_FLAGS_NONE        UINT8_C(0x00)
 #define IMGUI_FLAGS_ALPHA_BLEND UINT8_C(0x01)
@@ -329,7 +331,8 @@ bool ProcessEvent(SDL_Event& event)
 
 // ***********************************************************************
 
-void UpdateCompilerExplorer() {
+void UpdateCompilerExplorer(Compiler& compiler) {
+    // Draw UI
    	ImGuiViewport* pViewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(pViewport->WorkPos);
 	ImGui::SetNextWindowSize(pViewport->WorkSize);
@@ -350,15 +353,39 @@ void UpdateCompilerExplorer() {
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
 
     ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y));
+    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
 
     if (ImGui::Begin("Source Code")) {
-        ImGui::Text("I am source code");
+        ImGui::BeginChild("Source Code Editor", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar);
+        ImDrawList* pDrawList = ImGui::GetWindowDrawList();
+
+        char* pCodeCurrent = compiler.code.pData;
+        char* pCodeEnd = pCodeCurrent + compiler.code.length; 
+
+        // TODO:
+        // [] - Draw line numbers, space then text
+        // [] - Detect hover then highlight line for selection
+        // [] - Horizontal scroll the cursor appropriately
+
+        while (pCodeCurrent < pCodeEnd && *pCodeCurrent != '\0') {
+            // Draw a line
+            ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
+            char* pLineStart = pCodeCurrent;
+            while(*pCodeCurrent != '\n' && *pCodeCurrent != '\0') {
+                pCodeCurrent++;
+            }
+            pDrawList->AddText(cursorScreenPos, 0xffffffff, pLineStart, pCodeCurrent);
+            ImVec2 size = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, pLineStart, pCodeCurrent);
+            cursorScreenPos.y += size.y;
+            ImGui::SetCursorScreenPos(cursorScreenPos);
+            pCodeCurrent++;
+        }
+        ImGui::EndChild();
     }
     ImGui::End();
 
     ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y));
+    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("AST")) {
         ImGui::Text("I am AST");
 
@@ -372,7 +399,7 @@ void UpdateCompilerExplorer() {
     ImGui::End();
 
     ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y));
+    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Code Gen")) {
         ImGui::Text("I am bytecode");
     }
@@ -468,7 +495,7 @@ void RunCompilerExplorer() {
     config.MergeMode = false;
 
     const ImWchar* ranges = io.Fonts->GetGlyphRangesCyrillic();
-    io.Fonts->AddFontFromMemoryTTF( (void*)s_robotoRegularTtf,     sizeof(s_robotoRegularTtf),     15.0,      &config, ranges);
+    ImFont* pFont = io.Fonts->AddFontFromFileTTF("imgui_data/Consolas.ttf", 15.0f, &config, ranges);
     ImGui::StyleColorsDark();
 
     uint8_t* data;
@@ -493,6 +520,28 @@ void RunCompilerExplorer() {
     platform_io.Renderer_DestroyWindow = OnDestroyWindow;
     platform_io.Renderer_SetWindowSize = OnSetWindowSize;
     platform_io.Renderer_RenderWindow = OnRenderWindow;
+
+    // Load a code file and compile it for analysis
+    FILE* pFile;
+    fopen_s(&pFile, "test.ps", "r");
+    if (pFile == NULL) {
+        return;
+    }
+
+	Compiler compiler;
+    {
+        uint32_t size;
+        fseek(pFile, 0, SEEK_END);
+        size = ftell(pFile);
+        fseek(pFile, 0, SEEK_SET);
+
+        compiler.code = AllocString(size, &compiler.compilerMemory);
+        fread(compiler.code.pData, size, 1, pFile);
+        fclose(pFile);
+    }
+	compiler.bPrintAst = true;
+	compiler.bPrintByteCode = true;
+	CompileCode(compiler);
 
 	while (appRunning) {
 		frameStartTime = SDL_GetPerformanceCounter();
@@ -521,10 +570,12 @@ void RunCompilerExplorer() {
 		}
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
+        ImGui::PushFont(pFont);
 
-		//ImGui::ShowDemoWindow();
-        UpdateCompilerExplorer();
+		ImGui::ShowDemoWindow();
+        UpdateCompilerExplorer(compiler);
 
+        ImGui::PopFont();
         ImGui::Render();
         RenderView(pBackend->m_mainViewId, ImGui::GetDrawData(), 0);
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {

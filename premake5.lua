@@ -18,6 +18,7 @@ local EABASE_DIR  = "Engine/source/third_party/EABase"
 local EASTL_DIR   = "Engine/source/third_party/EASTL"
 
 function setBxCompat()
+    local BX_DIR      = "Engine/source/third_party/bx"
 	filter "action:vs*"
 		includedirs { path.join(BX_DIR, "include/compat/msvc") }
 	filter { "system:windows", "action:gmake" }

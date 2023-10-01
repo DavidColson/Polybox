@@ -11,8 +11,6 @@ project "imgui"
     {
         "imgui/backends/imgui_impl_sdl2.cpp",
         "imgui/backends/imgui_impl_sdl2.h",
-        "imgui/backends/imgui_impl_bgfx.cpp",
-        "imgui/backends/imgui_impl_bgfx.h",
         "imgui/*.cpp",
         "imgui/*.h"
     }
@@ -23,7 +21,7 @@ project "imgui"
         "bgfx/include",
         "bimg/include",
         "bx/include",
-        "../../source/common_lib/source/"
+        "../common_lib/source/"
     }
     if ASAN_Enabled then
     filter { "system:windows", "configurations:Debug*" }

@@ -48,11 +48,11 @@ project "polyscript_tests"
 	}
 	includedirs
 	{
-		"../../source/common_lib/source/",
-		"../../source/third_party/imgui",
+		"../common_lib/source/",
+		"../third_party/imgui",
 		"../../lib/SDL2-2.0.8/include",
-		"../../source/third_party/bgfx/include",
-		"../../source/third_party/bx/include",
+		"../third_party/bgfx/include",
+		"../third_party/bx/include",
 		""
 	}
 	links
@@ -78,5 +78,12 @@ project "polyscript_tests"
 		flags { "NoIncrementalLink" }
 		editandcontinue "Off"
 	end
+	filter "action:vs*"
+		includedirs { "../third_party/bx/include/compat/msvc" }
+	filter { "system:windows", "action:gmake" }
+		includedirs { "../third_party/bx/include/compat/mingw" }
+	filter { "system:macosx" }
+		includedirs { "../third_party/bx/include/compat/osx" }
+		buildoptions { "-x objective-c++" }
 
 group ""

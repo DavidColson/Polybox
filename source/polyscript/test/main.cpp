@@ -722,7 +722,7 @@ int main(int argc, char *argv[]) {
 
 	//RunTestPlayground();
 
-	//RunCompilerExplorer();
+	RunCompilerExplorer();
 
     __debugbreak();
     return 0;

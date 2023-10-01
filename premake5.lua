@@ -52,6 +52,7 @@ solution "polybox"
     dofile("source/third_party/bgfx.lua")
     dofile("source/third_party/FreeType.lua")
     dofile("source/third_party/lua.lua")
+    dofile("source/third_party/imgui.lua")
 
     dofile("source/polyscript/polyscript.lua")
     
@@ -62,6 +63,7 @@ solution "polybox"
         exceptionhandling "Off"
         rtti "Off"
         debugdir ""
+        justmycode "Off"
         files 
         {
             "source/*.cpp",

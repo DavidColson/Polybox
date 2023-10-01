@@ -2,13 +2,6 @@
 
 #pragma once
 
-namespace Ast {
-struct Statement;
-}
-struct ErrorState;
+struct Compiler;
 
-template<typename T>
-struct ResizableArray;
-struct IAllocator;
-
-void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErrors, IAllocator* pAlloc);
+void TypeCheckProgram(Compiler& compilerState);

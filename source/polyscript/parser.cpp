@@ -3,6 +3,7 @@
 #include "parser.h"
 
 #include "lexer.h"
+#include "compiler.h"
 
 #include <log.h>
 #include <stdarg.h>
@@ -11,7 +12,6 @@
 #include <string_builder.h>
 #include <defer.h>
 #include <maths.h>
-
 
 
 struct ParsingState {
@@ -925,24 +925,23 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
 
 // ***********************************************************************
 
-ResizableArray<Ast::Statement*> InitAndParse(ResizableArray<Token>& tokens, ErrorState* pErrors, IAllocator* pAlloc) {
+void Parse(Compiler& compilerState) {
+    ResizableArray<Token>& tokens = compilerState.tokens;
+
 	ParsingState state;
 	state.pTokensStart = tokens.pData;
 	state.pTokensEnd = tokens.pData + tokens.count - 1;
 	state.pCurrent = tokens.pData;
-	state.pAllocator = pAlloc;
-	state.pErrorState = pErrors;
+	state.pAllocator = &compilerState.compilerMemory;
+	state.pErrorState = &compilerState.errorState;
 
-    ResizableArray<Ast::Statement*> statements;
-    statements.pAlloc = pAlloc;
+    compilerState.program = ResizableArray<Ast::Statement*>(&compilerState.compilerMemory);
 
 	while (!IsAtEnd(state)) {
 		Ast::Statement* pStmt = ParseDeclaration(state);
         if (pStmt)
-            statements.PushBack(pStmt);
+            compilerState.program.PushBack(pStmt);
     }
-
-    return statements;
 }
 
 // ***********************************************************************

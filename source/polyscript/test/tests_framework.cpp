@@ -8,6 +8,7 @@
 #include "code_gen.h"
 #include "type_checker.h"
 #include "virtual_machine.h"
+#include "compiler.h"
 
 StringBuilder* pLogCollectorBuilder { nullptr };
 void LogCollectorFunc(Log::LogLevel level, String message) {
@@ -28,44 +29,18 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 	pLogCollectorBuilder = &logCollector;
 	Log::SetConfig(config);
 
-	// Setup state
-	ErrorState errorState;
-	LinearAllocator compilerMemory;
-	errorState.Init(&compilerMemory);
-	
 	// Run test
-	// TODO: This should probably be wrapped up in a nice "compile and run" function
-	{
-		// Tokenize
-		ResizableArray<Token> tokens = Tokenize(&compilerMemory, testCode);
-		defer(tokens.Free());
+	Compiler compiler;
+	compiler.code = testCode;
+	CompileCode(compiler);
 
-		// Parse
-		ResizableArray<Ast::Statement*> program = InitAndParse(tokens, &errorState, &compilerMemory);
+	if (errorExpectations.count == 0) compiler.errorState.ReportCompilationResult();
 
-		// Type check
-		if (errorState.errors.count == 0) {
-			TypeCheckProgram(program, &errorState, &compilerMemory);
-		}
+	if (compiler.errorState.errors.count == 0) {
+		Run(compiler.pTopLevelFunction);
 
-		// Error report
-		if (errorExpectations.count == 0) errorState.ReportCompilationResult();
-		bool success = errorState.errors.count == 0;
-
-		//Log::Debug("---- AST -----");
-		//DebugStatements(program);
-
-		if (success) {
-			// Compile to bytecode
-			ResizableArray<Ast::Declaration*> emptyParams;
-			Function* pFunc = CodeGen(program, emptyParams, "<script>", &errorState, &compilerMemory);
-			defer(FreeFunction(pFunc));
-    
-			//Log::Debug("---- Disassembly -----");
-			//Disassemble(pFunc, actualCode);
-        
-			Run(pFunc);
-		}
+		// TODO: Some of this function is using compiler memory and some isn't (debug info and constants) - should probably be consistent
+		FreeFunction(compiler.pTopLevelFunction);
 	}
 
 	// Reset Log
@@ -85,7 +60,7 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 	bool failed = false;
 	for (String expectation : errorExpectations) {
 		bool found = false;
-		for (Error error : errorState.errors) {
+		for (Error error : compiler.errorState.errors) {
 			if (error.message == expectation) {
 				found = true;
 				break;
@@ -98,8 +73,8 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 			failed = true;
 		}
 	}
-	if (errorExpectations.count != errorState.errors.count) {
-		Log::Info("Expected %d errors, but got %d", errorExpectations.count, errorState.errors.count);
+	if (errorExpectations.count != compiler.errorState.errors.count) {
+		Log::Info("Expected %d errors, but got %d", errorExpectations.count, compiler.errorState.errors.count);
 		failed = true;
 	}
 
@@ -107,10 +82,10 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 		Log::Info("In test:\n%s", testCode);
 		Log::Info("We got the following output:\n%s ", output.pData);
 		Log::Info("And the following Errors: ");
-		errorState.ReportCompilationResult();
+		compiler.errorState.ReportCompilationResult();
 	}
 
 	// Yeet memory
-	compilerMemory.Finished();
+	compiler.compilerMemory.Finished();
 	return errorCount;
 }

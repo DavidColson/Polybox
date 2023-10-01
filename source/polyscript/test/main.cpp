@@ -13,6 +13,7 @@
 #include "type_checker.h"
 #include "compiler_explorer.h"
 #include "tests_framework.h"
+#include "compiler.h"
 
 // TODO: 
 // [ ] Move error state to it's own file
@@ -20,59 +21,30 @@
 // [ ] Consider removing the grouping AST node, serves no purpose and the ast can enforce the structure
 
 void RunTestPlayground() {
-	LinearAllocator compilerMemory;
-
     FILE* pFile;
     fopen_s(&pFile, "test.ps", "r");
     if (pFile == NULL) {
         return;
     }
 
-    String actualCode;
+	Compiler compiler;
     {
         uint32_t size;
         fseek(pFile, 0, SEEK_END);
         size = ftell(pFile);
         fseek(pFile, 0, SEEK_SET);
 
-        actualCode = AllocString(size, &compilerMemory);
-        fread(actualCode.pData, size, 1, pFile);
+        compiler.code = AllocString(size, &compiler.compilerMemory);
+        fread(compiler.code.pData, size, 1, pFile);
         fclose(pFile);
     }
+	compiler.bPrintAst = true;
+	compiler.bPrintByteCode = true;
+	CompileCode(compiler);
 
-    ErrorState errorState;
-    errorState.Init(&compilerMemory);
-
-    // Tokenize
-    ResizableArray<Token> tokens = Tokenize(&compilerMemory, actualCode);
-    defer(tokens.Free());
-
-    // Parse
-    ResizableArray<Ast::Statement*> program = InitAndParse(tokens, &errorState, &compilerMemory);
-
-    // Type check
-    if (errorState.errors.count == 0) {
-        TypeCheckProgram(program, &errorState, &compilerMemory);
-    }
-
-    // Error report
-    bool success = errorState.ReportCompilationResult();
-
-    Log::Debug("---- AST -----");
-    DebugStatements(program);
-
-    if (success) {
-        // Compile to bytecode
-        ResizableArray<Ast::Declaration*> emptyParams;
-        Function* pFunc = CodeGen(program, emptyParams, "<script>", &errorState, &compilerMemory);
-        defer(FreeFunction(pFunc));
-    
-        Log::Debug("---- Disassembly -----");
-        Disassemble(pFunc, actualCode);
-        
-        Log::Info("---- Program Running -----");
-        Run(pFunc);
-    }
+	if (compiler.errorState.errors.count == 0) {
+		Run(compiler.pTopLevelFunction);
+	}
 }
 
 void Values() {
@@ -720,10 +692,10 @@ int main(int argc, char *argv[]) {
 	Functions();
 	Structs();
 
-	//RunTestPlayground();
+	RunTestPlayground();
 
 	RunCompilerExplorer();
 
-    __debugbreak();
+    //__debugbreak();
     return 0;
 }

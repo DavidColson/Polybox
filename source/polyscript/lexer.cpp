@@ -6,6 +6,8 @@
 #include <resizable_array.inl>
 #include <light_string.h>
 
+#include "compiler.h"
+
 // ***********************************************************************
 
 Token MakeToken(Scan::ScanningState& scanner, TokenType::Enum type) {
@@ -56,7 +58,10 @@ Token ParseNumber(Scan::ScanningState& scan) {
 
 // ***********************************************************************
 
-ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
+void Tokenize(Compiler& compilerState) {
+    IAllocator* pAllocator = &compilerState.compilerMemory;
+    String sourceText = compilerState.code;
+
     Scan::ScanningState scan;
     scan.pTextStart = sourceText.pData;
     scan.pTextEnd = sourceText.pData + sourceText.length;
@@ -64,7 +69,8 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
     scan.pCurrentLineStart = (char*)scan.pTextStart;
     scan.line = 1;
 
-    ResizableArray<Token> tokens(pAllocator);
+    compilerState.tokens = ResizableArray<Token>(pAllocator);
+    ResizableArray<Token>& tokens = compilerState.tokens;
 
     while (!Scan::IsAtEnd(scan)) {
         scan.pTokenStart = scan.pCurrent;
@@ -211,5 +217,4 @@ ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText) {
 
     scan.pTokenStart = scan.pCurrent;
     tokens.PushBack(MakeToken(scan, TokenType::EndOfFile));
-    return tokens;
 }

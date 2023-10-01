@@ -330,13 +330,61 @@ bool ProcessEvent(SDL_Event& event)
 // ***********************************************************************
 
 void UpdateCompilerExplorer() {
+   	ImGuiViewport* pViewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(pViewport->WorkPos);
+	ImGui::SetNextWindowSize(pViewport->WorkSize);
+	ImGui::SetNextWindowViewport(pViewport->ID);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+	window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+	window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBackground;;
 
+	bool open = true;
+	ImGui::Begin("Root", &open, window_flags);
+
+	ImGui::PopStyleVar(3);
+	
+	ImGuiID dockspace_id = ImGui::GetID("MainDockspace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+
+    ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y));
+
+    if (ImGui::Begin("Source Code")) {
+        ImGui::Text("I am source code");
+    }
+    ImGui::End();
+
+    ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y));
+    if (ImGui::Begin("AST")) {
+        ImGui::Text("I am AST");
+
+        ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 200 - ImGui::GetFrameHeight());
+        if (ImGui::BeginChild("Properties", ImVec2(0, 200), true)) {
+            ImGui::Text("Ast Node Properties");
+        }
+        ImGui::EndChild();
+
+    }
+    ImGui::End();
+
+    ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y));
+    if (ImGui::Begin("Code Gen")) {
+        ImGui::Text("I am bytecode");
+    }
+    ImGui::End();
+
+    ImGui::End();
 }
 
 // ***********************************************************************
 
 void RunCompilerExplorer() {
-	bool gameRunning{ true };
+	bool appRunning{ true };
 	float deltaTime;
 	uint64_t frameStartTime;
 	const bgfx::ViewId kClearView{ 255 };
@@ -369,7 +417,7 @@ void RunCompilerExplorer() {
 	bgfx::setViewClear(kClearView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x404040ff, 1.0f, 0);
 	bgfx::setViewRect(kClearView, 0, 0, width, height);
 	bgfx::reset(width, height, BGFX_RESET_VSYNC | BGFX_RESET_MSAA_X8);
-	gameRunning = true;
+	appRunning = true;
 	deltaTime = 0.016f;
 
 	IMGUI_CHECKVERSION();
@@ -446,7 +494,7 @@ void RunCompilerExplorer() {
     platform_io.Renderer_SetWindowSize = OnSetWindowSize;
     platform_io.Renderer_RenderWindow = OnRenderWindow;
 
-	while (gameRunning) {
+	while (appRunning) {
 		frameStartTime = SDL_GetPerformanceCounter();
 		// Deal with events
 		SDL_Event event;
@@ -465,7 +513,7 @@ void RunCompilerExplorer() {
 					}
 					break;
 				case SDL_QUIT:
-					gameRunning = false;
+					appRunning = false;
 					break;
 				default:
 					break;
@@ -474,7 +522,7 @@ void RunCompilerExplorer() {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-		ImGui::ShowDemoWindow();
+		//ImGui::ShowDemoWindow();
         UpdateCompilerExplorer();
 
         ImGui::Render();

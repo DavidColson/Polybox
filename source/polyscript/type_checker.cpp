@@ -3,6 +3,7 @@
 #include "type_checker.h"
 
 #include "parser.h"
+#include "compiler.h"
 
 #include <hashmap.inl>
 #include <resizable_array.inl>
@@ -621,12 +622,14 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
 
 // ***********************************************************************
 
-void TypeCheckProgram(ResizableArray<Ast::Statement*>& program, ErrorState* pErrors, IAllocator* pAlloc) {
-    TypeCheckerState state;
+void TypeCheckProgram(Compiler& compilerState) {
+    if (compilerState.errorState.errors.count == 0) {
+        TypeCheckerState state;
 
-    state.pErrors = pErrors;
-    state.pAllocator = pAlloc;
-	state.declarations.pAlloc = pAlloc;
+        state.pErrors = &compilerState.errorState;
+        state.pAllocator = &compilerState.compilerMemory;
+        state.declarations.pAlloc = &compilerState.compilerMemory;
 
-    TypeCheckStatements(state, program);
+        TypeCheckStatements(state, compilerState.program);
+    }
 }

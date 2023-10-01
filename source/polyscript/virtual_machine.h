@@ -4,9 +4,8 @@
 
 #include "value.h"
 
-#include <resizable_array.h>
-
 struct String;
+struct Compiler;
 
 namespace OpCode {
 enum Enum : uint8_t {

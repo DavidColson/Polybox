@@ -8,6 +8,7 @@ template<typename T>
 struct ResizableArray;
 struct String;
 struct IAllocator;
+struct Compiler;
 
 namespace TokenType {
 enum Enum : uint32_t {
@@ -72,4 +73,4 @@ struct Token {
     uint32_t line { 0 };
 };
 
-ResizableArray<Token> Tokenize(IAllocator* pAllocator, String sourceText);
+void Tokenize(Compiler& compilerState);

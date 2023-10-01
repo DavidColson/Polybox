@@ -2,6 +2,8 @@
 
 #include "virtual_machine.h"
 
+#include "compiler.h"
+
 #include <resizable_array.inl>
 #include <light_string.h>
 #include <string_builder.h>

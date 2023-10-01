@@ -12,6 +12,7 @@ template<typename T>
 struct ResizableArray;
 struct String;
 struct IAllocator;
+struct Compiler;
 
 namespace Ast {
 
@@ -215,7 +216,7 @@ struct ErrorState {
 
 struct Token;
 
-ResizableArray<Ast::Statement*> InitAndParse(ResizableArray<Token>& tokens, ErrorState* pErrors, IAllocator* pAlloc);
+void Parse(Compiler& compilerState);
 
 void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentationLevel = 0);
 

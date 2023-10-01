@@ -320,87 +320,6 @@ void OnRenderWindow(ImGuiViewport* pViewport, void*)
 
 // ***********************************************************************
 
-void Initialize(SDL_Window* pWindow)
-{
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
-
-    ImGui_ImplSDL2_InitForD3D(pWindow);
-
-    IM_ASSERT(io.BackendRendererUserData == NULL && "Already initialized a renderer backend!");
-
-    // Setup backend capabilities flags
-    BackendData* pBackend = IM_NEW(BackendData)();
-    io.BackendRendererUserData = (void*)pBackend;
-    io.BackendRendererName = "imgui_bgfx";
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;  // We can honor the ImDrawCmd::VtxOffset field, allowing for large meshes.
-    //io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;  // We can create multi-viewports on the Renderer side (optional)
-
-    // init vars, create shader programs, textures load fonts
-    pBackend->m_SdlWindow = pWindow;
-    pBackend->m_mainViewId = 255;
-
-    bgfx::RendererType::Enum type = bgfx::getRendererType();
-    pBackend->imguiVertex = bgfx::createEmbeddedShader(s_embeddedShaders, type, "vs_ocornut_imgui");
-    pBackend->imguiFragment = bgfx::createEmbeddedShader(s_embeddedShaders, type, "fs_ocornut_imgui");
-    pBackend->imguiImageVertex = bgfx::createEmbeddedShader(s_embeddedShaders, type, "vs_imgui_image");
-    pBackend->imguiImageFragment = bgfx::createEmbeddedShader(s_embeddedShaders, type, "fs_imgui_image");
-
-    pBackend->m_program = bgfx::createProgram(pBackend->imguiVertex, pBackend->imguiFragment, false);
-
-    pBackend->u_imageLodEnabled = bgfx::createUniform("u_imageLodEnabled", bgfx::UniformType::Vec4);
-    pBackend->m_imageProgram = bgfx::createProgram(pBackend->imguiImageVertex, pBackend->imguiImageFragment, false);
-
-
-    pBackend->m_layout
-        .begin()
-        .add(bgfx::Attrib::Position,  2, bgfx::AttribType::Float)
-        .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
-        .add(bgfx::Attrib::Color0,    4, bgfx::AttribType::Uint8, true)
-        .end();
-
-    pBackend->s_tex = bgfx::createUniform("s_tex", bgfx::UniformType::Sampler);
-
-    ImFontConfig config;
-    config.FontDataOwnedByAtlas = false;
-    config.MergeMode = false;
-
-    const ImWchar* ranges = io.Fonts->GetGlyphRangesCyrillic();
-    io.Fonts->AddFontFromMemoryTTF( (void*)s_robotoRegularTtf,     sizeof(s_robotoRegularTtf),     15.0,      &config, ranges);
-    ImGui::StyleColorsDark();
-
-    uint8_t* data;
-    int32_t width;
-    int32_t height;
-    io.Fonts->GetTexDataAsRGBA32(&data, &width, &height);
-
-    pBackend->m_texture = bgfx::createTexture2D(
-            (uint16_t)width
-        , (uint16_t)height
-        , false
-        , 1
-        , bgfx::TextureFormat::BGRA8
-        , 0
-        , bgfx::copy(data, width*height*4)
-        );
-
-    io.Fonts->TexID = (void*)(intptr_t)pBackend->m_texture.idx;
-
-    // TODO: Init platform interface for multiviewports
-    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
-    platform_io.Renderer_CreateWindow = OnCreateWindow;
-    platform_io.Renderer_DestroyWindow = OnDestroyWindow;
-    platform_io.Renderer_SetWindowSize = OnSetWindowSize;
-    platform_io.Renderer_RenderWindow = OnRenderWindow;
-}
-
-// ***********************************************************************
-
 bool ProcessEvent(SDL_Event& event)
 {
     if (ImGui_ImplSDL2_ProcessEvent(&event))
@@ -410,47 +329,11 @@ bool ProcessEvent(SDL_Event& event)
 
 // ***********************************************************************
 
-void NewFrame()
-{
-    ImGuiIO& io = ImGui::GetIO();
-    BackendData* pBackend = (BackendData*)io.BackendRendererUserData;
-    ImGui_ImplSDL2_NewFrame();
-    ImGui::NewFrame();
+void UpdateCompilerExplorer() {
+
 }
 
 // ***********************************************************************
-
-void Render()
-{
-    ImGuiIO& io = ImGui::GetIO();
-    BackendData* pBackend = (BackendData*)io.BackendRendererUserData;
-
-    ImGui::Render();
-    RenderView(pBackend->m_mainViewId, ImGui::GetDrawData(), 0);
-
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-    {
-        ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
-    }
-}
-
-// ***********************************************************************
-
-void Destroy()
-{
-    ImGuiIO& io = ImGui::GetIO();
-    BackendData* pBackend = (BackendData*)io.BackendRendererUserData;
-
-    bgfx::destroy(pBackend->s_tex);
-    bgfx::destroy(pBackend->m_texture);
-
-    bgfx::destroy(pBackend->u_imageLodEnabled);
-    bgfx::destroy(pBackend->m_imageProgram);
-    bgfx::destroy(pBackend->m_program);
-
-    ImGui_ImplSDL2_Shutdown();
-}
 
 void RunCompilerExplorer() {
 	bool gameRunning{ true };
@@ -489,7 +372,79 @@ void RunCompilerExplorer() {
 	gameRunning = true;
 	deltaTime = 0.016f;
 
-	Initialize(pWindow);
+	IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
+
+    ImGui_ImplSDL2_InitForD3D(pWindow);
+
+    IM_ASSERT(io.BackendRendererUserData == NULL && "Already initialized a renderer backend!");
+
+    // Setup backend capabilities flags
+    BackendData* pBackend = IM_NEW(BackendData)();
+    io.BackendRendererUserData = (void*)pBackend;
+    io.BackendRendererName = "imgui_bgfx";
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;  // We can honor the ImDrawCmd::VtxOffset field, allowing for large meshes.
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;  // We can create multi-viewports on the Renderer side (optional)
+
+    // init vars, create shader programs, textures load fonts
+    pBackend->m_SdlWindow = pWindow;
+    pBackend->m_mainViewId = 255;
+
+    bgfx::RendererType::Enum type = bgfx::getRendererType();
+    pBackend->imguiVertex = bgfx::createEmbeddedShader(s_embeddedShaders, type, "vs_ocornut_imgui");
+    pBackend->imguiFragment = bgfx::createEmbeddedShader(s_embeddedShaders, type, "fs_ocornut_imgui");
+    pBackend->imguiImageVertex = bgfx::createEmbeddedShader(s_embeddedShaders, type, "vs_imgui_image");
+    pBackend->imguiImageFragment = bgfx::createEmbeddedShader(s_embeddedShaders, type, "fs_imgui_image");
+
+    pBackend->m_program = bgfx::createProgram(pBackend->imguiVertex, pBackend->imguiFragment, false);
+
+    pBackend->u_imageLodEnabled = bgfx::createUniform("u_imageLodEnabled", bgfx::UniformType::Vec4);
+    pBackend->m_imageProgram = bgfx::createProgram(pBackend->imguiImageVertex, pBackend->imguiImageFragment, false);
+
+    pBackend->m_layout
+        .begin()
+        .add(bgfx::Attrib::Position,  2, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::Color0,    4, bgfx::AttribType::Uint8, true)
+        .end();
+
+    pBackend->s_tex = bgfx::createUniform("s_tex", bgfx::UniformType::Sampler);
+
+    ImFontConfig config;
+    config.FontDataOwnedByAtlas = false;
+    config.MergeMode = false;
+
+    const ImWchar* ranges = io.Fonts->GetGlyphRangesCyrillic();
+    io.Fonts->AddFontFromMemoryTTF( (void*)s_robotoRegularTtf,     sizeof(s_robotoRegularTtf),     15.0,      &config, ranges);
+    ImGui::StyleColorsDark();
+
+    uint8_t* data;
+    int32_t imgWidth;
+    int32_t imgHeight;
+    io.Fonts->GetTexDataAsRGBA32(&data, &imgWidth, &imgHeight);
+
+    pBackend->m_texture = bgfx::createTexture2D(
+            (uint16_t)imgWidth
+        , (uint16_t)imgHeight
+        , false
+        , 1
+        , bgfx::TextureFormat::BGRA8
+        , 0
+        , bgfx::copy(data, imgWidth*imgHeight*4)
+        );
+
+    io.Fonts->TexID = (void*)(intptr_t)pBackend->m_texture.idx;
+
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    platform_io.Renderer_CreateWindow = OnCreateWindow;
+    platform_io.Renderer_DestroyWindow = OnDestroyWindow;
+    platform_io.Renderer_SetWindowSize = OnSetWindowSize;
+    platform_io.Renderer_RenderWindow = OnRenderWindow;
 
 	while (gameRunning) {
 		frameStartTime = SDL_GetPerformanceCounter();
@@ -516,20 +471,22 @@ void RunCompilerExplorer() {
 					break;
 			}
 		}
-
-		NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
 
 		ImGui::ShowDemoWindow();
+        UpdateCompilerExplorer();
 
-		// Do your rendering here
+        ImGui::Render();
+        RenderView(pBackend->m_mainViewId, ImGui::GetDrawData(), 0);
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+        }
 
-		// [] Render the code in a window
-		// [] Render the ast as an explorable tree with a properties panel
-
-		Render();
 		bgfx::touch(kClearView);
-
 		bgfx::frame();
+
 		float targetFrameTime = 0.0166f;
 		float realframeTime = float(SDL_GetPerformanceCounter() - frameStartTime) / SDL_GetPerformanceFrequency();
 		if (realframeTime < targetFrameTime)
@@ -541,6 +498,14 @@ void RunCompilerExplorer() {
 		deltaTime = float(SDL_GetPerformanceCounter() - frameStartTime) / SDL_GetPerformanceFrequency();
 	}
 
-	Destroy();
+    bgfx::destroy(pBackend->s_tex);
+    bgfx::destroy(pBackend->m_texture);
+
+    bgfx::destroy(pBackend->u_imageLodEnabled);
+    bgfx::destroy(pBackend->m_imageProgram);
+    bgfx::destroy(pBackend->m_program);
+
+    ImGui_ImplSDL2_Shutdown();
+
 	bgfx::shutdown();
 }

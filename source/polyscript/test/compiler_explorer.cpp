@@ -28,6 +28,11 @@ namespace SDL {
 #include "imgui_data/vs_imgui_image.bin.h"
 #include "imgui_data/fs_imgui_image.bin.h"
 
+
+namespace {
+    int selectedLine = 12;
+}
+
 #define IMGUI_FLAGS_NONE        UINT8_C(0x00)
 #define IMGUI_FLAGS_ALPHA_BLEND UINT8_C(0x01)
 
@@ -333,6 +338,369 @@ bool ProcessEvent(SDL_Event& event)
 
 // ***********************************************************************
 
+void DrawAstExpression(Ast::Expression* pExpr);
+void DrawAstStatements(ResizableArray<Ast::Statement*>& statements);
+
+void DrawAstStatement(Ast::Statement* pStmt) {
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    ImGuiTreeNodeFlags node_flags = 0;
+    if (selectedLine+1 == pStmt->line)
+        node_flags |= ImGuiTreeNodeFlags_Selected;      
+    
+    switch (pStmt->nodeKind) {
+        case Ast::NodeType::Declaration: {
+            Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
+            if (ImGui::TreeNodeEx(pDecl, node_flags, "Declaration - %s", pDecl->identifier.pData)) {
+                if (pDecl->pDeclaredType) {
+                    String typeStr = "none";
+                    if (pDecl->pDeclaredType->pResolvedType) {
+                        typeStr = pDecl->pDeclaredType->pResolvedType->name;
+                    }
+                    ImGui::Text("Type: %s", typeStr.pData);
+                }
+                else if (pDecl->pInitializerExpr)
+                    ImGui::Text("Type: inferred as %s", pDecl->pInitializerExpr->pType ? pDecl->pInitializerExpr->pType->name.pData : "none");
+
+                if (pDecl->pInitializerExpr) {
+                    DrawAstExpression(pDecl->pInitializerExpr);
+                }
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::Print: {
+            Ast::Print* pPrint = (Ast::Print*)pStmt;
+            if (ImGui::TreeNodeEx(pPrint, node_flags, "Print Statement")) {
+                DrawAstExpression(pPrint->pExpr);
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::Return: {
+            Ast::Return* pReturn = (Ast::Return*)pStmt;
+            if (ImGui::TreeNodeEx(pReturn, node_flags, "Return Statement")) {
+                if (pReturn->pExpr) {
+                    DrawAstExpression(pReturn->pExpr);
+                }
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::ExpressionStmt: {
+            Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
+            if (ImGui::TreeNodeEx(pExprStmt, node_flags, "Expression Statement")) {
+                DrawAstExpression(pExprStmt->pExpr);
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::If: {
+            Ast::If* pIf = (Ast::If*)pStmt;
+            if (ImGui::TreeNodeEx(pIf, node_flags, "If Statement")) {
+                DrawAstExpression(pIf->pCondition);
+                DrawAstStatement(pIf->pThenStmt);
+                if (pIf->pElseStmt)
+                    DrawAstStatement(pIf->pElseStmt);
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::While: {
+            Ast::While* pWhile = (Ast::While*)pStmt;
+            if (ImGui::TreeNodeEx(pWhile, node_flags, "While Statement")) {
+                DrawAstExpression(pWhile->pCondition);
+                DrawAstStatement(pWhile->pBody);
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::Block: {
+            Ast::Block* pBlock = (Ast::Block*)pStmt;
+            if (ImGui::TreeNodeEx(pBlock, node_flags, "Block Statement")) {
+                DrawAstStatements(pBlock->declarations);
+                ImGui::TreePop();
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+// ***********************************************************************
+
+void DrawAstExpression(Ast::Expression* pExpr) {
+    if (pExpr == nullptr) {
+        ImGui::Text("nullptr");
+        return;
+    }
+
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    ImGuiTreeNodeFlags node_flags = 0;
+    if (selectedLine+1 == pExpr->line)
+        node_flags |= ImGuiTreeNodeFlags_Selected;      
+    
+    // What we really want is
+    // if a node is selected, then the cursor is already at the right position
+    // So you'll have to do a split draw lists thing again
+    // Then draw the tree node fully, record the cursor position again
+    // Then draw a rect start to end, covering the whole area
+
+    switch (pExpr->nodeKind) {
+        case Ast::NodeType::Identifier: {
+            Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
+            if (ImGui::TreeNodeEx(pIdentifier, node_flags, "Identifier - %s", pIdentifier->identifier.pData)) {
+                String nodeTypeStr = "none";
+                if (pIdentifier->pType) {
+                    nodeTypeStr = pIdentifier->pType->name;
+                }
+                ImGui::Text("Type: %s", nodeTypeStr.pData);
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::FnType: 
+        case Ast::NodeType::Type: {
+            Ast::Type* pType = (Ast::Type*)pExpr;
+            if (ImGui::TreeNodeEx(pType, node_flags, "Type Literal")) {
+                if (pType->pType && pType->pResolvedType) {
+                    ImGui::Text("Type: %s", pType->pType->name.pData);
+                    ImGui::Text("Resolved Type: %s", pType->pResolvedType->name.pData);
+                }
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::VariableAssignment: {
+            Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pExpr;
+            if (ImGui::TreeNodeEx(pAssignment, node_flags, "Variable Assignment - %s", pAssignment->identifier.pData)) {
+                String nodeTypeStr = "none";
+                if (pAssignment->pType) {
+                    nodeTypeStr = pAssignment->pType->name;
+                }
+                ImGui::Text("Type: %s", nodeTypeStr.pData);
+                DrawAstExpression(pAssignment->pAssignment);
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::Literal: {
+            Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
+            if (ImGui::TreeNodeEx(pLiteral, node_flags, "Literal")) {
+                String nodeTypeStr = "none";
+                if (pLiteral->pType) {
+                    nodeTypeStr = pLiteral->pType->name;
+                }
+                ImGui::Text("Type: %s", nodeTypeStr.pData);
+
+                if (pLiteral->pType == GetF32Type())
+                    ImGui::Text("Value: %f", pLiteral->value.f32Value);
+                else if (pLiteral->pType == GetI32Type())
+                    ImGui::Text("Value: %i", pLiteral->value.i32Value);
+                else if (pLiteral->pType == GetBoolType())
+                    ImGui::Text("Value: %s", pLiteral->value.boolValue ? "true" : "false");
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::Function: {
+            Ast::Function* pFunction = (Ast::Function*)pExpr;
+            if (ImGui::TreeNodeEx(pFunction, node_flags, "Function")) {
+                for (Ast::Declaration* pParam : pFunction->params) {
+                    String typeStr = "none";
+                    if (pParam->pResolvedType) {
+                        typeStr = pParam->pResolvedType->name;
+                    }
+
+                    ImGui::Text("Param (%s:%s)", pParam->identifier.pData, typeStr.pData);
+                }
+                DrawAstStatement(pFunction->pBody);
+                ImGui::TreePop();
+            }
+            break;
+        }
+		case Ast::NodeType::Structure: {
+			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
+            if (ImGui::TreeNodeEx(pStruct, node_flags, "Struct")) {
+                for (Ast::Statement* pMemberStmt : pStruct->members) {
+                    Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
+                    String typeStr = "none";
+                    if (pMember->pResolvedType) {
+                        typeStr = pMember->pResolvedType->name;
+                    }
+
+                    ImGui::Text("Member (%s:%s)", pMember->identifier.pData, typeStr.pData);
+
+                    if (pMember->pInitializerExpr)
+					    DrawAstExpression(pMember->pInitializerExpr);
+                }
+                ImGui::TreePop();
+            }
+			break;
+		}
+        case Ast::NodeType::Grouping: {
+            Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
+            if (ImGui::TreeNodeEx(pGroup, node_flags, "Grouping")) {
+                String typeStr = "none";
+                if (pGroup->pType) {
+                    typeStr = pGroup->pType->name;
+                }
+                ImGui::Text("Type: %s", typeStr.pData);
+                DrawAstExpression(pGroup->pExpression);
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::Binary: {
+            Ast::Binary* pBinary = (Ast::Binary*)pExpr;
+            if (ImGui::TreeNodeEx(pBinary, node_flags, "Binary")) {
+                String nodeTypeStr = "none";
+                if (pBinary->pType) {
+                    nodeTypeStr = pBinary->pType->name;
+                }
+                ImGui::Text("Type: %s", nodeTypeStr.pData);
+                switch (pBinary->op) {
+                    case Operator::Add:
+                        ImGui::Text("Operator: +");
+                        break;
+                    case Operator::Subtract:
+                        ImGui::Text("Operator: -");
+                        break;
+                    case Operator::Divide:
+                        ImGui::Text("Operator: /");
+                        break;
+                    case Operator::Multiply:
+                        ImGui::Text("Operator: *");
+                        break;
+                    case Operator::Greater:
+                        ImGui::Text("Operator: >");
+                        break;
+                    case Operator::Less:
+                        ImGui::Text("Operator: <");
+                        break;
+                    case Operator::GreaterEqual:
+                        ImGui::Text("Operator: >=");
+                        break;
+                    case Operator::LessEqual:
+                        ImGui::Text("Operator: <=");
+                        break;
+                    case Operator::Equal:
+                        ImGui::Text("Operator: ==");
+                        break;
+                    case Operator::NotEqual:
+                        ImGui::Text("Operator: !=");
+                        break;
+                    case Operator::And:
+                        ImGui::Text("Operator: &&");
+                        break;
+                    case Operator::Or:
+                        ImGui::Text("Operator: ||");
+                        break;
+                    default:
+                        break;
+                }
+                DrawAstExpression(pBinary->pLeft);
+                DrawAstExpression(pBinary->pRight);
+                ImGui::TreePop();
+            }
+            break;
+        }
+        case Ast::NodeType::Unary: {
+            Ast::Unary* pUnary = (Ast::Unary*)pExpr;
+            if (ImGui::TreeNodeEx(pUnary, node_flags, "Unary")) {
+                String nodeTypeStr = "none";
+                if (pUnary->pType) {
+                    nodeTypeStr = pUnary->pType->name;
+                }
+                ImGui::Text("Type: %s", nodeTypeStr.pData);
+                switch (pUnary->op) {
+                    case Operator::UnaryMinus:
+                        ImGui::Text("Operator: -");
+                        break;
+                    case Operator::Not:
+                        ImGui::Text("Operator: !");
+                        break;
+                    default:
+                        break;
+                }
+                DrawAstExpression(pUnary->pRight);
+                ImGui::TreePop();
+            }
+            break;
+        }
+		case Ast::NodeType::Cast: {
+			Ast::Cast* pCast = (Ast::Cast*)pExpr;
+            if (ImGui::TreeNodeEx(pCast, node_flags, "Cast")) {
+                String nodeTypeStr = "none";
+                if (pCast->pType) {
+                    nodeTypeStr = pCast->pType->name;
+                }
+                ImGui::Text("Type: %s", nodeTypeStr.pData);
+                DrawAstExpression(pCast->pTargetType);
+                DrawAstExpression(pCast->pExprToCast);
+                ImGui::TreePop();
+            }
+			break;
+		}
+        case Ast::NodeType::Call: {
+            Ast::Call* pCall = (Ast::Call*)pExpr;
+            if (ImGui::TreeNodeEx(pCall, node_flags, "Call")) {
+                String nodeTypeStr = "none";
+                if (pCall->pType) {
+                    nodeTypeStr = pCall->pType->name;
+                }
+                ImGui::Text("Type: %s", nodeTypeStr.pData);
+                DrawAstExpression(pCall->pCallee);
+                for (Ast::Expression* pArg : pCall->args) {
+                    DrawAstExpression(pArg);
+                }
+                ImGui::TreePop();
+            }
+            break;
+        }
+		case Ast::NodeType::GetField: {
+			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
+            if (ImGui::TreeNodeEx(pGetField, node_flags, "Get Field - %s", pGetField->fieldName.pData)) {
+                String nodeTypeStr = "none";
+                if (pGetField->pType) {
+                    nodeTypeStr = pGetField->pType->name;
+                }
+                ImGui::Text("Type: %s", nodeTypeStr.pData);
+                DrawAstExpression(pGetField->pTarget);
+                ImGui::TreePop();
+            }
+			break;
+		}
+		case Ast::NodeType::SetField: {
+			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
+            if (ImGui::TreeNodeEx(pSetField, node_flags, "Set Field - %s", pSetField->fieldName.pData)) {
+                String nodeTypeStr = "none";
+                if (pSetField->pType) {
+                    nodeTypeStr = pSetField->pType->name;
+                }
+                ImGui::Text("Type: %s", nodeTypeStr.pData);
+                DrawAstExpression(pSetField->pTarget);
+                DrawAstExpression(pSetField->pAssignment);
+                ImGui::TreePop();
+            }
+			break;
+		}
+        default:
+            break;
+    }
+}
+
+// ***********************************************************************
+
+void DrawAstStatements(ResizableArray<Ast::Statement*>& statements) {
+    for (size_t i = 0; i < statements.count; i++) {
+        Ast::Statement* pStmt = statements[i];
+        DrawAstStatement(pStmt);
+    }
+}
+
+// ***********************************************************************
+
 void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
     // Draw UI
    	ImGuiViewport* pViewport = ImGui::GetMainViewport();
@@ -357,16 +725,13 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
     ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
 
-    // Move to a compiler explorer state struct
-    static int selectedLine = 12;
-
     if (ImGui::Begin("Source Code")) {
         ImGui::BeginChild("Source Code Editor", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar);
         ImDrawList* pDrawList = ImGui::GetWindowDrawList();
 
         char* pCodeCurrent = compiler.code.pData;
         char* pCodeEnd = pCodeCurrent + compiler.code.length; 
-        
+
         int nLines = lines.count;
 
         StringBuilder builder;
@@ -389,7 +754,7 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
                 pDrawList->AddRectFilled(lineStartPos, lineEndPos, ImColor(ImGui::GetStyleColorVec4(ImGuiCol_ScrollbarGrabActive)));
             }
 
-            if (ImGui::IsMouseHoveringRect(lineStartPos, lineEndPos)) {
+            if (ImGui::IsWindowFocused() && ImGui::IsMouseHoveringRect(lineStartPos, lineEndPos)) {
                 pDrawList->AddRectFilled(lineStartPos, lineEndPos, ImColor(ImGui::GetStyleColorVec4(ImGuiCol_ScrollbarGrab)));
 
                 if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -421,14 +786,8 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
     ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("AST")) {
-        ImGui::Text("I am AST");
-
-        ImGui::SetCursorPosY(ImGui::GetWindowHeight() - 200 - ImGui::GetFrameHeight());
-        if (ImGui::BeginChild("Properties", ImVec2(0, 200), true)) {
-            ImGui::Text("Ast Node Properties");
-        }
-        ImGui::EndChild();
-
+        // Draw AST
+        DrawAstStatements(compiler.program);
     }
     ImGui::End();
 

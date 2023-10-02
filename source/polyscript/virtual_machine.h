@@ -51,7 +51,7 @@ enum Enum : uint8_t {
 };
 }
 
-uint8_t DisassembleInstruction(Function& function, uint8_t* pInstruction);
+String DisassembleInstruction(Function& function, uint8_t* pInstruction, uint8_t& outOffset);
 
 void Disassemble(Function* pFunc, String codeText);
 

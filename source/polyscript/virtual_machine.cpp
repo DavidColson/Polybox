@@ -47,7 +47,7 @@ struct VirtualMachine {
 
 // ***********************************************************************
 
-uint8_t DisassembleInstruction(Function& function, uint8_t* pInstruction) {
+String DisassembleInstruction(Function& function, uint8_t* pInstruction, uint8_t& outOffset) {
     StringBuilder builder;
 	uint8_t* pInstructionStart = pInstruction;
     switch (*pInstruction++) {
@@ -240,10 +240,8 @@ uint8_t DisassembleInstruction(Function& function, uint8_t* pInstruction) {
             break;
     }
 
-    String output = builder.CreateString();
-    Log::Debug("%s", output.pData);
-    FreeString(output);
-    return (uint8_t)(pInstruction - pInstructionStart);
+    outOffset = (uint8_t)(pInstruction - pInstructionStart);
+    return builder.CreateString();
 }
 
 // ***********************************************************************
@@ -286,7 +284,11 @@ void Disassemble(Function* pFunc, String codeText) {
             Log::Debug("  %i:%s", currentLine, lines[currentLine - 1].pData);
         }
 
-        uint8_t offset = DisassembleInstruction(*pFunc, pInstructionPointer);
+        uint8_t offset;
+		String output = DisassembleInstruction(*pFunc, pInstructionPointer, offset);
+		Log::Debug("%s", output.pData);
+    	FreeString(output);
+
         pInstructionPointer += offset;
         lineCounter += offset;
     }

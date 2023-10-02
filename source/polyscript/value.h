@@ -73,7 +73,9 @@ struct TypeInfoStruct : public TypeInfo {
 
 void InitTypeTable();
 
-TypeInfo* FindOrAddType(TypeInfo* pNewType);
+bool CheckTypesIdentical(TypeInfo* pType1, TypeInfo* pType2);
+
+void AddTypeForRuntime(TypeInfo* pNewType);
 
 TypeInfo* FindTypeByName(String identifier);
 

@@ -26,7 +26,7 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
 
 bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 	// TODO: When adding new core types, ensure no loss of signedness and no truncation or loss of precision
-	if (pFrom == GetI32Type() && pTo == GetF32Type()) {
+	if (CheckTypesIdentical(pFrom, GetI32Type()) && CheckTypesIdentical(pTo, GetF32Type())) {
 		return true;
 	}
 	return false;
@@ -59,15 +59,31 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
                 pType->pResolvedType = GetBoolType();
             } else if (pType->identifier == "Type") {
                 pType->pResolvedType = GetTypeType();
-			} else if (TypeInfo* pFound = FindTypeByName(pType->identifier)) {
-				pType->pResolvedType = pFound;
 			} else {
-                state.pErrors->PushError(pType, "Unknown type '%s'", pType->identifier.pData);
+                // Warning, temp hack ahead
+
+                // This looks up the type by identifier in some previous declaration we encountered. It should be wrapped up
+                // In the whole name resolution, i.e. this item becomes an entity, and the node is an identifier, not a type
+
+                Ast::Declaration** pDeclEntry = state.declarations.Get(pType->identifier);
+                if (pDeclEntry) {
+                    Ast::Declaration* pDecl = *pDeclEntry;
+                    if (pDecl->pInitializerExpr) {
+                        if (pDecl->pInitializerExpr->nodeKind == Ast::NodeType::Structure) {
+                            Ast::Structure* pStruct = (Ast::Structure*)pDecl->pInitializerExpr;
+                            pType->pResolvedType = pStruct->pDescribedType;
+                        } else {
+                            state.pErrors->PushError(pType, "Type with identifier '%s' did not resolve to some named type", pType->identifier.pData);
+                        }
+                    } else {
+                        state.pErrors->PushError(pType, "Type with identifier '%s' did not resolve to some named type", pType->identifier.pData);
+                    }
+                } else {
+                    state.pErrors->PushError(pType, "Unknown type '%s'", pType->identifier.pData);
+                }
             }
 
-			// TODO: If you ecounter a function type, you'll have to construct an actual type info and search for it. 
-			// TODO: Potential improvement, rather than constructing a type info and searching, just give the typeTable functions the AST node, and let them
-			// Search using it's members, however appropriate
+            // Note this doesn't handle function types. They are handled in the FnType node typecheck below
 
             return pType;
         }
@@ -78,16 +94,16 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             StringBuilder builder;
             builder.Append("fn (");
 
-            TypeInfoFunction newTypeInfo;
-			newTypeInfo.params.pAlloc = state.pAllocator;
-            newTypeInfo.tag = TypeInfo::TypeTag::Function;
-            newTypeInfo.size = 8;
+            TypeInfoFunction* pFunctionTypeInfo = (TypeInfoFunction*)state.pAllocator->Allocate(sizeof(TypeInfoFunction));
+            pFunctionTypeInfo->tag = TypeInfo::TypeTag::Function;
+            pFunctionTypeInfo->size = 8;
+            pFunctionTypeInfo->params = ResizableArray<TypeInfo*>(state.pAllocator);
 
             for (size_t i = 0; i < pFnType->params.count; i++) {
                 pFnType->params[i] = (Ast::Type*)TypeCheckExpression(state, pFnType->params[i]);
                 Ast::Type* pParam = pFnType->params[i];
 
-                newTypeInfo.params.PushBack(pParam->pResolvedType);
+                pFunctionTypeInfo->params.PushBack(pParam->pResolvedType);
                 if (i < pFnType->params.count - 1) {
                     builder.AppendFormat("%s, ", pParam->pResolvedType->name.pData);
                 } else {
@@ -96,13 +112,13 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             }
 
             pFnType->pReturnType = (Ast::Type*)TypeCheckExpression(state, pFnType->pReturnType);
-            newTypeInfo.pReturnType = pFnType->pReturnType->pResolvedType;
+            pFunctionTypeInfo->pReturnType = pFnType->pReturnType->pResolvedType;
             builder.Append(")");
-            if (newTypeInfo.pReturnType)
-                builder.AppendFormat(" -> %s", newTypeInfo.pReturnType->name.pData);
-            newTypeInfo.name = builder.CreateString(true, state.pAllocator);
+            if (pFunctionTypeInfo->pReturnType)
+                builder.AppendFormat(" -> %s", pFunctionTypeInfo->pReturnType->name.pData);
+            pFunctionTypeInfo->name = builder.CreateString(true, state.pAllocator);
 
-            pFnType->pResolvedType = FindOrAddType(&newTypeInfo);
+            pFnType->pResolvedType = pFunctionTypeInfo;
             return pFnType;
         }
         case Ast::NodeType::Function: {
@@ -118,29 +134,33 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             state.currentScopeLevel--;
             state.currentlyDeclaringParams = false;
 
+            // TODO: Refactor this so it calls the FnType typecheck above, so we don't do this type creation twice
             // Create or find type info for this function
             StringBuilder builder;
             builder.Append("fn (");
-            TypeInfoFunction newTypeInfo;
-			newTypeInfo.params.pAlloc = state.pAllocator;
-            newTypeInfo.tag = TypeInfo::TypeTag::Function;
+            TypeInfoFunction* pFunctionTypeInfo = (TypeInfoFunction*)state.pAllocator->Allocate(sizeof(TypeInfoFunction));
+            pFunctionTypeInfo->tag = TypeInfo::TypeTag::Function;
+            pFunctionTypeInfo->size = 8;
+            pFunctionTypeInfo->params = ResizableArray<TypeInfo*>(state.pAllocator);
+
             for (size_t i = 0; i < pFunction->params.count; i++) {
                 Ast::Declaration* pParam = pFunction->params[i];
-                newTypeInfo.params.PushBack(pParam->pResolvedType);
+                pFunctionTypeInfo->params.PushBack(pParam->pResolvedType);
                 if (i < pFunction->params.count - 1) {
                     builder.AppendFormat("%s, ", pParam->pResolvedType->name.pData);
                 } else {
                     builder.AppendFormat("%s", pParam->pResolvedType->name.pData);
                 }
             }
-            pFunction->pReturnType = (Ast::Type*)TypeCheckExpression(state, pFunction->pReturnType);
-            newTypeInfo.pReturnType = pFunction->pReturnType->pResolvedType;
-            builder.Append(")");
-            if (newTypeInfo.pReturnType)
-                builder.AppendFormat(" -> %s", newTypeInfo.pReturnType->name.pData);
-            newTypeInfo.name = builder.CreateString(true, state.pAllocator);
-            pFunction->pType = FindOrAddType(&newTypeInfo);
 
+            pFunction->pReturnType = (Ast::Type*)TypeCheckExpression(state, pFunction->pReturnType);
+            pFunctionTypeInfo->pReturnType = pFunction->pReturnType->pResolvedType;
+            builder.Append(")");
+            if (pFunctionTypeInfo->pReturnType)
+                builder.AppendFormat(" -> %s", pFunctionTypeInfo->pReturnType->name.pData);
+            pFunctionTypeInfo->name = builder.CreateString(true, state.pAllocator);
+
+            pFunction->pType = pFunctionTypeInfo;
             pMyDeclaration->pResolvedType = pFunction->pType;
             TypeCheckStatement(state, pFunction->pBody);
 
@@ -155,6 +175,8 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 
 			// Declarations are dealt with differently here because this is not imperative executing code
 			// We want to ensure no duplicate identifiers, and ensure the initializers are constant and typematching
+            // TODO: This should not need custom declaration code once we've sorted out name resolution and data scopes
+
 			HashMap<String, Ast::Declaration*> internalDeclarations(state.pAllocator);
 			for (Ast::Statement* pMemberStmt : pStruct->members) {
 				Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
@@ -183,7 +205,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 					if (pMember->pDeclaredType)
 						pMember->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pMember->pDeclaredType);
 
-					if (pMember->pDeclaredType && pMember->pInitializerExpr->pType != pMember->pDeclaredType->pResolvedType) {
+					if (pMember->pDeclaredType && !CheckTypesIdentical(pMember->pDeclaredType->pResolvedType, pMember->pInitializerExpr->pType)) {
 						TypeInfo* pDeclaredType = pMember->pDeclaredType->pResolvedType;
 						TypeInfo* pInitType = pMember->pInitializerExpr->pType;
 						state.pErrors->PushError(pMember->pDeclaredType, "Type mismatch in declaration, declared as %s and initialized as %s", pDeclaredType->name.pData, pInitType->name.pData);
@@ -198,22 +220,24 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 			}
 
 			// Create the actual type that this struct is
-			TypeInfoStruct newTypeInfo;
-			newTypeInfo.members.pAlloc = state.pAllocator;
-			newTypeInfo.tag = TypeInfo::TypeTag::Struct;
+            TypeInfoStruct* pStructTypeInfo = (TypeInfoStruct*)state.pAllocator->Allocate(sizeof(TypeInfoStruct));
+			pStructTypeInfo->members.pAlloc = state.pAllocator;
+			pStructTypeInfo->tag = TypeInfo::TypeTag::Struct;
+
 			for (Ast::Statement* pMemberStmt : pStruct->members) {
 				Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
 				TypeInfoStruct::Member mem;
-				mem.identifier = pMember->identifier;
+
+				mem.identifier = pMember->identifier; // Note, not a deep string copy, sharing it here
 				mem.pType = pMember->pResolvedType;
-				mem.offset = newTypeInfo.size;
-				newTypeInfo.members.PushBack(mem);
+				mem.offset = pStructTypeInfo->size;
+				pStructTypeInfo->members.PushBack(mem);
 
 				if (mem.pType)
-					newTypeInfo.size += mem.pType->size;
+					pStructTypeInfo->size += mem.pType->size;
 			}
-			newTypeInfo.name = pMyDeclaration->identifier;
-			pStruct->pDescribedType = FindOrAddType(&newTypeInfo);
+			pStructTypeInfo->name = pMyDeclaration->identifier;
+			pStruct->pDescribedType = pStructTypeInfo;
 			pStruct->pType = GetTypeType();
 
 			return pStruct;
@@ -257,7 +281,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 
                 TypeInfo* pDeclaredVarType = pDecl->pResolvedType;
                 TypeInfo* pAssignedVarType = pVarAssignment->pAssignment->pType;
-                if (pDeclaredVarType == pAssignedVarType) {
+                if (CheckTypesIdentical(pDeclaredVarType, pAssignedVarType)) {
                     pVarAssignment->pType = pDeclaredVarType;
                 } else {
                     state.pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type '%s', but is being assigned a value with type '%s'", pVarAssignment->identifier.pData, pDeclaredVarType->name.pData, pAssignedVarType->name.pData);
@@ -285,7 +309,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 			bool skipLeftTypeCheck = false;
 
 			// If mismatch, check if we can do an implicit cast, otherwise fail
-			if (pBinary->pLeft->pType != pBinary->pRight->pType) {
+			if (!CheckTypesIdentical(pBinary->pLeft->pType, pBinary->pRight->pType)) {
 				if (IsImplicitlyCastable(pBinary->pLeft->pType, pBinary->pRight->pType)) {
 					Ast::Cast* pCastExpr = (Ast::Cast*)state.pAllocator->Allocate(sizeof(Ast::Cast));
 					pCastExpr->nodeKind = Ast::NodeType::Cast;
@@ -331,7 +355,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 
 			if (   pBinary->op == Operator::And
 				|| pBinary->op == Operator::Or) {
-				if (pBinary->pLeft->pType->tag != TypeInfo::Bool && pBinary->pRight->pType->tag != TypeInfo::Bool) {
+				if (!CheckTypesIdentical(pBinary->pLeft->pType, GetBoolType()) && !CheckTypesIdentical(pBinary->pRight->pType, GetBoolType())) {
 					state.pErrors->PushError(pBinary, "Invalid types (%s, %s) used with op \"%s\"", str1.pData, str2.pData, str3.pData);
 				}
 			}
@@ -341,7 +365,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 					|| pBinary->op == Operator::LessEqual
 					|| pBinary->op == Operator::Greater
 					|| pBinary->op == Operator::GreaterEqual) {
-					if (pBinary->pLeft->pType->tag != TypeInfo::F32 && pBinary->pLeft->pType->tag != TypeInfo::I32) {
+				    if (!CheckTypesIdentical(pBinary->pLeft->pType, GetF32Type()) && !CheckTypesIdentical(pBinary->pRight->pType, GetI32Type())) {
 						state.pErrors->PushError(pBinary, "Invalid types (%s, %s) used with op \"%s\"", str1.pData, str2.pData, str3.pData);
 					}
 				}
@@ -363,12 +387,12 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 
 			if (pUnary->op == Operator::Not) {
 				pUnary->pType = GetBoolType();
-				if (pUnary->pRight->pType != GetBoolType()) {
+                if (!CheckTypesIdentical(pUnary->pRight->pType, GetBoolType())) {
 					state.pErrors->PushError(pUnary, "Invalid type (%s) used with op \"%s\"", pUnary->pRight->pType->name.pData, Operator::ToString(pUnary->op));
 				}
 			} else if (pUnary->op == Operator::UnaryMinus) {
 				pUnary->pType = pUnary->pRight->pType;
-				if (pUnary->pRight->pType == GetBoolType()) {
+				if (CheckTypesIdentical(pUnary->pRight->pType, GetBoolType())) {
 					state.pErrors->PushError(pUnary, "Invalid type (%s) used with op \"%s\"", pUnary->pRight->pType->name.pData, Operator::ToString(pUnary->op));
 				}
 			}
@@ -385,16 +409,16 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 
 			// TODO: Replace this with a function which actually checks their compatibility, in terms of size, etc etc, see umka code
 			bool castAllowed = false;
-			if ((pFrom == GetF32Type() && pTo == GetI32Type())
-				| (pFrom == GetF32Type() && pTo == GetBoolType())
-				| (pFrom == GetI32Type() && pTo == GetF32Type())
-				| (pFrom == GetI32Type() && pTo == GetBoolType())
-				| (pFrom == GetBoolType() && pTo == GetI32Type())
-				| (pFrom == GetBoolType() && pTo == GetF32Type())) {
+			if ((CheckTypesIdentical(pFrom, GetF32Type()) && CheckTypesIdentical(pTo, GetI32Type()))
+				| (CheckTypesIdentical(pFrom, GetF32Type()) && CheckTypesIdentical(pTo, GetBoolType()))
+				| (CheckTypesIdentical(pFrom, GetI32Type()) && CheckTypesIdentical(pTo, GetF32Type()))
+				| (CheckTypesIdentical(pFrom, GetI32Type()) && CheckTypesIdentical(pTo, GetBoolType()))
+				| (CheckTypesIdentical(pFrom, GetBoolType()) && CheckTypesIdentical(pTo, GetI32Type()))
+				| (CheckTypesIdentical(pFrom, GetBoolType()) && CheckTypesIdentical(pTo, GetF32Type()))) {
 				castAllowed = true;
 			}
 
-			if (pFrom == pTo) {
+			if (CheckTypesIdentical(pFrom, pTo)) {
 				state.pErrors->PushError(pCast, "Cast from \"%s\" to \"%s\" is pointless", pFrom->name.pData, pTo->name.pData);
 			} else if (castAllowed == false) {
 				state.pErrors->PushError(pCast, "Not possible to cast from type \"%s\" to \"%s\"", pFrom->name.pData, pTo->name.pData);
@@ -441,8 +465,9 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             for (size_t i = 0; i < minArgs; i++) {
                 Ast::Expression* arg = pCall->args[i];
                 TypeInfo* pArgType = pFunctionType->params[i];
-                if (arg->pType != pArgType)
+                if (!CheckTypesIdentical(arg->pType, pArgType)) {
                     state.pErrors->PushError(arg, "Type mismatch in function argument '<argname TODO>', expected %s, got %s", pArgType->name.pData, arg->pType->name.pData);
+                }
             }
             pCall->pType = pFunctionType->pReturnType;
             return pCall;
@@ -503,8 +528,8 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 				state.pErrors->PushError(pSetField, "Attempting to set a struct field which does not exist in struct '%s'", pTargetType->name.pData);
 				return pSetField;
 			}
-		
-			if (pTargetField->pType != pSetField->pAssignment->pType) {
+
+            if (!CheckTypesIdentical(pTargetField->pType, pSetField->pAssignment->pType)) {
 				state.pErrors->PushError(pSetField, "Type mismatch on assignment, field \'%s\' has type '%s', but is being assigned a value with type '%s'", pTargetField->identifier.pData, pTargetField->pType->name.pData, pSetField->pAssignment->pType->name.pData);
 			}
 
@@ -536,7 +561,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 if (pDecl->pDeclaredType)
                     pDecl->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pDecl->pDeclaredType);
 
-                if (pDecl->pDeclaredType && pDecl->pInitializerExpr->pType != pDecl->pDeclaredType->pResolvedType) {
+                if (pDecl->pDeclaredType && !CheckTypesIdentical(pDecl->pDeclaredType->pResolvedType, pDecl->pInitializerExpr->pType)) {
                     TypeInfo* pDeclaredType = pDecl->pDeclaredType->pResolvedType;
                     TypeInfo* pInitType = pDecl->pInitializerExpr->pType;
                     if (pDeclaredType && pInitType)
@@ -570,7 +595,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
         case Ast::NodeType::If: {
             Ast::If* pIf = (Ast::If*)pStmt;
             pIf->pCondition = TypeCheckExpression(state, pIf->pCondition);
-            if (pIf->pCondition->pType != GetBoolType())
+            if (!CheckTypesIdentical(pIf->pCondition->pType, GetBoolType()))
                 state.pErrors->PushError(pIf->pCondition, "if conditional expression does not evaluate to a boolean");
 
             TypeCheckStatement(state, pIf->pThenStmt);
@@ -582,7 +607,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
         case Ast::NodeType::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             pWhile->pCondition = TypeCheckExpression(state, pWhile->pCondition);
-            if (pWhile->pCondition->pType != GetBoolType())
+            if (!CheckTypesIdentical(pWhile->pCondition->pType, GetBoolType()))
                 state.pErrors->PushError(pWhile->pCondition, "while conditional expression does not evaluate to a boolean");
 
             TypeCheckStatement(state, pWhile->pBody);

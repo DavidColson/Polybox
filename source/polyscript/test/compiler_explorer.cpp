@@ -15,6 +15,8 @@
 #include <bx/timer.h>
 #include <bx/math.h>
 #include <stdio.h>
+#include <defer.h>
+#include <string_builder.h>
 
 // This defines a macro called min somehow? We should avoid it at all costs and include it last
 namespace SDL {
@@ -331,7 +333,7 @@ bool ProcessEvent(SDL_Event& event)
 
 // ***********************************************************************
 
-void UpdateCompilerExplorer(Compiler& compiler) {
+void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
     // Draw UI
    	ImGuiViewport* pViewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(pViewport->WorkPos);
@@ -355,31 +357,63 @@ void UpdateCompilerExplorer(Compiler& compiler) {
     ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
 
+    // Move to a compiler explorer state struct
+    static int selectedLine = 12;
+
     if (ImGui::Begin("Source Code")) {
         ImGui::BeginChild("Source Code Editor", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar);
         ImDrawList* pDrawList = ImGui::GetWindowDrawList();
 
         char* pCodeCurrent = compiler.code.pData;
         char* pCodeEnd = pCodeCurrent + compiler.code.length; 
+        
+        int nLines = lines.count;
 
-        // TODO:
-        // [] - Draw line numbers, space then text
-        // [] - Detect hover then highlight line for selection
-        // [] - Horizontal scroll the cursor appropriately
+        StringBuilder builder;
+        char* pBuilderBasePtr = builder.pData;
+        builder.AppendFormat(" %d ", nLines);
+        String lineNumberString = builder.CreateString(false);
+        defer(FreeString(lineNumberString));
+        ImVec2 lineNumberMaxSize = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, lineNumberString.pData, lineNumberString.pData + lineNumberString.length);
+        float widestColumn = 0;
 
-        while (pCodeCurrent < pCodeEnd && *pCodeCurrent != '\0') {
-            // Draw a line
+        for (uint32_t i = 0; i < lines.count; i++) {
+            String line = lines[i];
             ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
-            char* pLineStart = pCodeCurrent;
-            while(*pCodeCurrent != '\n' && *pCodeCurrent != '\0') {
-                pCodeCurrent++;
+
+            ImVec2 lineStartPos = ImVec2(cursorScreenPos.x + lineNumberMaxSize.x, cursorScreenPos.y);
+            ImVec2 size = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, line.pData, line.pData + line.length);
+            ImVec2 lineEndPos = ImVec2(lineStartPos.x + ImGui::GetContentRegionAvail().x, lineStartPos.y + size.y);
+
+            if (selectedLine == i) {
+                pDrawList->AddRectFilled(lineStartPos, lineEndPos, ImColor(ImGui::GetStyleColorVec4(ImGuiCol_ScrollbarGrabActive)));
             }
-            pDrawList->AddText(cursorScreenPos, 0xffffffff, pLineStart, pCodeCurrent);
-            ImVec2 size = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, pLineStart, pCodeCurrent);
+
+            if (ImGui::IsMouseHoveringRect(lineStartPos, lineEndPos)) {
+                pDrawList->AddRectFilled(lineStartPos, lineEndPos, ImColor(ImGui::GetStyleColorVec4(ImGuiCol_ScrollbarGrab)));
+
+                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                    selectedLine = i;
+                }
+            }
+
+            // Draw line number
+            builder.length = 0;
+            builder.AppendFormat("%*d  ", (int)floor(log10(nLines) + 1), i + 1);
+            lineNumberString = builder.ToExistingString(false, lineNumberString);
+            pDrawList->AddText(cursorScreenPos, 0xffffffff, lineNumberString.pData, lineNumberString.pData + lineNumberString.length);
+
+            // Draw a line
+            pDrawList->AddText(lineStartPos, 0xffffffff, line.pData, line.pData + line.length);
             cursorScreenPos.y += size.y;
+            
+            if (size.x > widestColumn) {
+                widestColumn = size.x;
+            }
             ImGui::SetCursorScreenPos(cursorScreenPos);
-            pCodeCurrent++;
         }
+        ImGui::SetCursorScreenPos(ImVec2(ImGui::GetCursorScreenPos().x + widestColumn + lineNumberMaxSize.x, ImGui::GetCursorScreenPos().y));
+
         ImGui::EndChild();
     }
     ImGui::End();
@@ -543,6 +577,22 @@ void RunCompilerExplorer() {
 	compiler.bPrintByteCode = true;
 	CompileCode(compiler);
 
+    ResizableArray<String> lines;
+    defer(lines.Free());
+
+    // Write some code to split compiler.code into lines, putting it into the lines array
+    char* pCodeCurrent = compiler.code.pData;
+    char* pCodeEnd = pCodeCurrent + compiler.code.length;
+    while (pCodeCurrent < pCodeEnd && *pCodeCurrent != '\0') {
+        char* pLineStart = pCodeCurrent;
+        while(*pCodeCurrent != '\n' && *pCodeCurrent != '\0') {
+            pCodeCurrent++;
+        }
+        String line = compiler.code.SubStr(pLineStart - compiler.code.pData, pCodeCurrent - pLineStart);
+        lines.PushBack(line);
+        pCodeCurrent++;
+    }
+
 	while (appRunning) {
 		frameStartTime = SDL_GetPerformanceCounter();
 		// Deal with events
@@ -573,7 +623,7 @@ void RunCompilerExplorer() {
         ImGui::PushFont(pFont);
 
 		ImGui::ShowDemoWindow();
-        UpdateCompilerExplorer(compiler);
+        UpdateCompilerExplorer(compiler, lines);
 
         ImGui::PopFont();
         ImGui::Render();

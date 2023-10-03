@@ -59,6 +59,9 @@ struct Node {
 // Expression type nodes
 struct Expression : public Node {
     TypeInfo* pType;
+    bool isConstant { false };
+    Value constantValue; // TODO: Set this as you propogate up and down the tree in type checking
+    // codegen will check if the node is constant, and if it is, it'll use the constant value as a literal (i.e. putting in constant table)
 };
 
 struct Binary : public Expression {
@@ -187,7 +190,8 @@ struct Declaration : public Statement {
     Type* pDeclaredType { nullptr };
     TypeInfo* pResolvedType;
     Expression* pInitializerExpr { nullptr };
-    
+    bool isConstantDeclaration { false };
+
     // Used by the typechecker
     int scopeLevel{ 0 };
 };

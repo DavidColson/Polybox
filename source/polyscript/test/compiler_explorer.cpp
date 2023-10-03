@@ -363,6 +363,11 @@ void DrawAstStatement(Ast::Statement* pStmt) {
                 else if (pDecl->pInitializerExpr)
                     ImGui::Text("Type: inferred as %s", pDecl->pInitializerExpr->pType ? pDecl->pInitializerExpr->pType->name.pData : "none");
 
+                if (pDecl->isConstantDeclaration)
+                    ImGui::Text("Constant: true");
+                else
+                    ImGui::Text("Constant: false");
+
                 if (pDecl->pInitializerExpr) {
                     DrawAstExpression(pDecl->pInitializerExpr);
                 }
@@ -464,6 +469,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     nodeTypeStr = pIdentifier->pType->name;
                 }
                 ImGui::Text("Type: %s", nodeTypeStr.pData);
+                ImGui::Text("Constant: %s", pIdentifier->isConstant ? "true" : "false");
                 ImGui::TreePop();
             }
             break;
@@ -477,6 +483,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     ImGui::Text("Type: %s", pType->pType->name.pData);
                     ImGui::Text("Resolved Type: %s", pType->pResolvedType->name.pData);
                 }
+                ImGui::Text("Constant: %s", pType->isConstant ? "true" : "false");
                 ImGui::TreePop();
             }
             break;
@@ -490,6 +497,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     nodeTypeStr = pAssignment->pType->name;
                 }
                 ImGui::Text("Type: %s", nodeTypeStr.pData);
+                ImGui::Text("Constant: %s", pAssignment->isConstant ? "true" : "false");
                 DrawAstExpression(pAssignment->pAssignment);
                 ImGui::TreePop();
             }
@@ -511,6 +519,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     ImGui::Text("Value: %i", pLiteral->value.i32Value);
                 else if (pLiteral->pType == GetBoolType())
                     ImGui::Text("Value: %s", pLiteral->value.boolValue ? "true" : "false");
+                ImGui::Text("Constant: %s", pLiteral->isConstant ? "true" : "false");
                 ImGui::TreePop();
             }
             break;
@@ -519,6 +528,8 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             if (ImGui::TreeNodeEx(pFunction, nodeFlags, "Function")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                ImGui::Text("Constant: %s", pFunction->isConstant ? "true" : "false");
+                // TODO: Should probably draw these as just normal nodes
                 for (Ast::Declaration* pParam : pFunction->params) {
                     String typeStr = "none";
                     if (pParam->pResolvedType) {
@@ -536,6 +547,8 @@ void DrawAstExpression(Ast::Expression* pExpr) {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
             if (ImGui::TreeNodeEx(pStruct, nodeFlags, "Struct")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                ImGui::Text("Constant: %s", pStruct->isConstant ? "true" : "false");
+                // Draw these as normal nodes
                 for (Ast::Statement* pMemberStmt : pStruct->members) {
                     Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
                     String typeStr = "none";
@@ -561,6 +574,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     typeStr = pGroup->pType->name;
                 }
                 ImGui::Text("Type: %s", typeStr.pData);
+                ImGui::Text("Constant: %s", pGroup->isConstant ? "true" : "false");
                 DrawAstExpression(pGroup->pExpression);
                 ImGui::TreePop();
             }
@@ -575,6 +589,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     nodeTypeStr = pBinary->pType->name;
                 }
                 ImGui::Text("Type: %s", nodeTypeStr.pData);
+                ImGui::Text("Constant: %s", pBinary->isConstant ? "true" : "false");
                 switch (pBinary->op) {
                     case Operator::Add:
                         ImGui::Text("Operator: +");
@@ -630,6 +645,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     nodeTypeStr = pUnary->pType->name;
                 }
                 ImGui::Text("Type: %s", nodeTypeStr.pData);
+                ImGui::Text("Constant: %s", pUnary->isConstant ? "true" : "false");
                 switch (pUnary->op) {
                     case Operator::UnaryMinus:
                         ImGui::Text("Operator: -");
@@ -654,6 +670,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     nodeTypeStr = pCast->pType->name;
                 }
                 ImGui::Text("Type: %s", nodeTypeStr.pData);
+                ImGui::Text("Constant: %s", pCast->isConstant ? "true" : "false");
                 DrawAstExpression(pCast->pTargetType);
                 DrawAstExpression(pCast->pExprToCast);
                 ImGui::TreePop();
@@ -669,6 +686,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     nodeTypeStr = pCall->pType->name;
                 }
                 ImGui::Text("Type: %s", nodeTypeStr.pData);
+                ImGui::Text("Constant: %s", pCall->isConstant ? "true" : "false");
                 DrawAstExpression(pCall->pCallee);
                 for (Ast::Expression* pArg : pCall->args) {
                     DrawAstExpression(pArg);
@@ -686,6 +704,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     nodeTypeStr = pGetField->pType->name;
                 }
                 ImGui::Text("Type: %s", nodeTypeStr.pData);
+                ImGui::Text("Constant: %s", pGetField->isConstant ? "true" : "false");
                 DrawAstExpression(pGetField->pTarget);
                 ImGui::TreePop();
             }
@@ -700,6 +719,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                     nodeTypeStr = pSetField->pType->name;
                 }
                 ImGui::Text("Type: %s", nodeTypeStr.pData);
+                ImGui::Text("Constant: %s", pSetField->isConstant ? "true" : "false");
                 DrawAstExpression(pSetField->pTarget);
                 DrawAstExpression(pSetField->pAssignment);
                 ImGui::TreePop();
@@ -873,7 +893,8 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
     ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Code Gen")) {
-        DrawByteCode(compiler.pTopLevelFunction, lines);
+        if (compiler.errorState.errors.count == 0)
+            DrawByteCode(compiler.pTopLevelFunction, lines);
     }
     ImGui::End();
 
@@ -1011,8 +1032,8 @@ void RunCompilerExplorer() {
         fread(compiler.code.pData, size, 1, pFile);
         fclose(pFile);
     }
-	compiler.bPrintAst = true;
-	compiler.bPrintByteCode = true;
+	compiler.bPrintAst = false;
+	compiler.bPrintByteCode = false;
 	CompileCode(compiler);
 
     ResizableArray<String> lines;

@@ -41,14 +41,15 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
     switch (pExpr->nodeKind) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-			// Nothing to do
+            pLiteral->isConstant = true;
             return pLiteral;
         }
         case Ast::NodeType::Type: {
             Ast::Type* pType = (Ast::FnType*)pExpr;
             pType->pType = GetTypeType();
-
+            pType->isConstant = true;
             // Resolve Type
+
             if (pType->identifier == "void") {
                 pType->pResolvedType = GetVoidType();
             } else if (pType->identifier == "i32") {
@@ -90,6 +91,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
         case Ast::NodeType::FnType: {
             Ast::FnType* pFnType = (Ast::FnType*)pExpr;
             pFnType->pType = GetTypeType();
+            pFnType->isConstant = true;
 
             StringBuilder builder;
             builder.Append("fn (");
@@ -123,6 +125,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
+            pFunction->isConstant = true;
 			Ast::Declaration* pMyDeclaration = state.pCurrentDeclaration;
 
             // The params will end up in the same scope as the body, and get automatically yeeted from the declarations list at the end of the block
@@ -169,6 +172,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
         }
 		case Ast::NodeType::Structure: {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
+            pStruct->isConstant = true;
 			Ast::Declaration* pMyDeclaration = state.pCurrentDeclaration;
 
 			// Typecheck the declarations in this struct
@@ -244,7 +248,8 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 		}
         case Ast::NodeType::Identifier: {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
-    
+
+            // TODO: These basic types should be declared as entities, and not special cased
             // Is this a type? If so need to replace this identifier node with a type node
             if (pIdentifier->identifier == "i32"
                 | pIdentifier->identifier == "f32"
@@ -261,6 +266,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
                 return pType;
             }
 
+            // TODO: Constant if the declaration is constant
             Ast::Declaration** pDeclEntry = state.declarations.Get(pIdentifier->identifier);
             if (pDeclEntry) {
                 Ast::Declaration* pDecl = *pDeclEntry;
@@ -274,6 +280,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
         case Ast::NodeType::VariableAssignment: {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
             pVarAssignment->pAssignment = TypeCheckExpression(state, pVarAssignment->pAssignment);
+            pVarAssignment->isConstant = false;
 
             Ast::Declaration** pDeclEntry = state.declarations.Get(pVarAssignment->identifier);
             if (pDeclEntry) {
@@ -296,6 +303,9 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
             pGroup->pExpression = TypeCheckExpression(state, pGroup->pExpression);
             pGroup->pType = pGroup->pExpression->pType;
+
+            if (pGroup->pExpression->isConstant)
+                pGroup->isConstant = true;
             return pGroup;
         }
         case Ast::NodeType::Binary: {
@@ -303,6 +313,9 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             pBinary->pLeft = TypeCheckExpression(state, pBinary->pLeft);
             pBinary->pRight = TypeCheckExpression(state, pBinary->pRight);
             
+            if (pBinary->pLeft->isConstant && pBinary->pRight->isConstant)
+                pBinary->isConstant = true;
+
 			String str1 = pBinary->pLeft->pType->name;
 			String str2 = pBinary->pRight->pType->name;
 			String str3 = Operator::ToString(pBinary->op);
@@ -379,11 +392,20 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 			} else {
 				pBinary->pType = GetBoolType();
 			}
+
+            // Now that we're all typechecked, we can evaluate the expression if it's constant
+            // Recursive evaluate function?
+            if (pBinary->isConstant) {
+                // pBinary->value = MakeValue(left->value op right->value)
+            }
             return pBinary;
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             pUnary->pRight = TypeCheckExpression(state, pUnary->pRight);
+
+            if (pUnary->pRight->isConstant)
+                pUnary->isConstant = true;
 
 			if (pUnary->op == Operator::Not) {
 				pUnary->pType = GetBoolType();
@@ -403,6 +425,9 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
 			pCast->pTargetType = (Ast::Type*)TypeCheckExpression(state, pCast->pTargetType);
 			pCast->pExprToCast = TypeCheckExpression(state, pCast->pExprToCast);
+            
+            if (pCast->pExprToCast->isConstant)
+                pCast->isConstant = true;
 
 			TypeInfo* pFrom = pCast->pExprToCast->pType;
 			TypeInfo* pTo = pCast->pTargetType->pResolvedType;
@@ -429,8 +454,8 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 		}
         case Ast::NodeType::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
-
             pCall->pCallee = TypeCheckExpression(state, pCall->pCallee);
+            pCall->isConstant = false;
 
 			if (pCall->pCallee->nodeKind == Ast::NodeType::GetField) {
 				state.pErrors->PushError(pCall, "Calling fields not currently supported");
@@ -475,6 +500,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 		case Ast::NodeType::GetField: {
 			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
 			pGetField->pTarget = TypeCheckExpression(state, pGetField->pTarget);
+            pGetField->isConstant = false;
 
 			if (pGetField->pTarget->pType == nullptr) {
 				return pGetField;
@@ -504,6 +530,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
 			pSetField->pTarget = TypeCheckExpression(state, pSetField->pTarget);
 			pSetField->pAssignment = TypeCheckExpression(state, pSetField->pAssignment);
+            pSetField->isConstant = false;
 
 			if (pSetField->pTarget->pType == nullptr) {
 				return pSetField;
@@ -551,12 +578,16 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
 
             pDecl->scopeLevel = state.currentScopeLevel;
 
+            // TODO: Our name lookup code goes here
             if (state.declarations.Get(pDecl->identifier) != nullptr)
                 state.pErrors->PushError(pDecl, "Redefinition of variable '%s'", pDecl->identifier.pData);
 
             if (pDecl->pInitializerExpr) {
                 state.declarations.Add(pDecl->identifier, pDecl);
                 pDecl->pInitializerExpr = TypeCheckExpression(state, pDecl->pInitializerExpr);
+
+                if (pDecl->isConstantDeclaration && !pDecl->pInitializerExpr->isConstant)
+                    state.pErrors->PushError(pDecl, "Constant declaration '%s' is not initialized with a constant expression", pDecl->identifier.pData);
 
                 if (pDecl->pDeclaredType)
                     pDecl->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pDecl->pDeclaredType);

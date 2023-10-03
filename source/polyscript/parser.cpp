@@ -233,6 +233,7 @@ Ast::Expression* ParseType(ParsingState& state) {
         return pType;
     }
 
+    // TODO: Combine this with function parsing in parse type
     if (Match(state, 1, TokenType::Fn)) {
         Token fn = Previous(state);
 
@@ -881,7 +882,7 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
             pDecl->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
 
             // Optionally Parse type 
-            if (Peek(state).type != TokenType::Equal) {
+            if (Peek(state).type != TokenType::Equal && Peek(state).type != TokenType::Colon) {
 				pDecl->pDeclaredType = (Ast::Type*)ParseType(state);
 
                 if (pDecl->pDeclaredType == nullptr)
@@ -890,16 +891,29 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
                 pDecl->pDeclaredType = nullptr;
             }
 
+            // Parse initializer for constant declaration
+            if (Match(state, 1, TokenType::Colon)) {
+                pDecl->isConstantDeclaration = true;
+                pDecl->pInitializerExpr = ParseExpression(state);
+                if (pDecl->pInitializerExpr == nullptr)
+                    PushError(state, "Need an expression to initialize this constant declaration");
+            }
+
             // Parse initializer
             if (Match(state, 1, TokenType::Equal)) {
 				pDecl->pInitializerExpr = ParseExpression(state);
+                // TODO: Remove when we have out of order name resolution
                 if (pDecl->pInitializerExpr && pDecl->pInitializerExpr->nodeKind == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself
                     Ast::Function* pFunc = (Ast::Function*)pDecl->pInitializerExpr;
                     pFunc->identifier = pDecl->identifier;
                 }
+                if (pDecl->pInitializerExpr == nullptr)
+                    PushError(state, "Need an expression to initialize this declaration. If you want it uninitialized, leave out the '=' sign");
             }
 
-            Consume(state, TokenType::Semicolon, "Expected \";\" to end a previous declaration");
+            // Let the synchronize function get us back to the next statement
+            if (!state.panicMode) 
+                Consume(state, TokenType::Semicolon, "Expected \";\" to end a previous declaration");
 
             if (pDecl) {
                 pDecl->pLocation = identifier.pLocation;

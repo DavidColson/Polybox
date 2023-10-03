@@ -675,6 +675,45 @@ void Structs() {
 	EndTest(errorCount);
 }
 
+void Constants() {
+	StartTest("Constants");
+	int errorCount = 0;
+	{
+		// Test struct declarations
+		const char* structDeclarations = 
+			"variable := 3*12.3/8+1;\n"
+			"print(variable);\n"
+			"constant :: 3*12.3/8+1;\n"
+			"print(constant);\n"
+			"constantWithType:f32 : 3*12.3/8+1;\n"
+			"print(constantWithType);\n";
+		const char* expectation =	
+			"5.6125\n"
+			"5.6125\n"
+			"5.6125\n";
+		errorCount += RunCompilerOnTestCase(structDeclarations, expectation, ResizableArray<String>());
+
+		// test for variables being out of scope
+		const char* parseErrors = 
+			"uninit ::;\n"
+			"typeNoInit : int32 :;\n";
+		ResizableArray<String> expectedErrors;
+		defer(expectedErrors.Free());
+		expectedErrors.PushBack("Need an expression to initialize this constant declaration");
+		expectedErrors.PushBack("Need an expression to initialize this constant declaration");
+		errorCount += RunCompilerOnTestCase(parseErrors, "", expectedErrors);
+
+		const char* typeCheckErrors = 
+			"nonConst:i32 = 5;\n"
+			"invalidInit :: nonConst * 2;";
+		expectedErrors.Resize(0);
+		expectedErrors.PushBack("Constant declaration 'invalidInit' is not initialized with a constant expression");
+		errorCount += RunCompilerOnTestCase(typeCheckErrors, "", expectedErrors);
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
 int main(int argc, char *argv[]) {
 	// TODO: Move to program structure
     InitTypeTable();
@@ -691,6 +730,7 @@ int main(int argc, char *argv[]) {
 	Casting();
 	Functions();
 	Structs();
+	Constants();
 
 	RunTestPlayground();
 

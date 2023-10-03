@@ -2,6 +2,7 @@
 
 #include "compiler.h"
 #include "virtual_machine.h"
+#include "type_checker.h"
 
 #include <resizable_array.inl>
 #include <light_string.h>
@@ -714,7 +715,7 @@ void DrawAstStatements(ResizableArray<Ast::Statement*>& statements) {
 
 // ***********************************************************************
 
-void DrawByteCode(Function* pFunc, ResizableArray<String>& lines) {
+void DrawByteCode(Function* pFunc) {
     ImDrawList* pDrawList = ImGui::GetWindowDrawList();
     uint8_t* pInstructionPointer = pFunc->code.pData;
 
@@ -723,7 +724,7 @@ void DrawByteCode(Function* pFunc, ResizableArray<String>& lines) {
 		TypeInfo* pType = pFunc->dbgConstantsTypes[i];
         if (pType->tag == TypeInfo::TypeTag::Function) {
             if (pFunc->constants[i].pFunction)
-			    DrawByteCode(pFunc->constants[i].pFunction, lines);
+			    DrawByteCode(pFunc->constants[i].pFunction);
         }
     }
 
@@ -767,6 +768,43 @@ void DrawByteCode(Function* pFunc, ResizableArray<String>& lines) {
 
         pInstructionPointer += offset;
         lineCounter += offset;
+    }
+}
+
+// ***********************************************************************
+
+void DrawScopes(Scope* pScope) {
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth;
+
+    if (selectedLine+1 == pScope->startLine)
+        nodeFlags |= ImGuiTreeNodeFlags_Selected;
+
+    if (ImGui::TreeNodeEx(pScope, nodeFlags, "Scope - Kind: %s", ScopeKind::ToString(pScope->kind))) {
+        if (ImGui::IsItemClicked()) { selectedLine = pScope->startLine-1; }
+
+        // TODO: Should really make a hashmap iterator
+        for (size_t i = 0; i < pScope->entities.tableSize; i++) { 
+            HashNode<String, Entity*>& node = pScope->entities.pTable[i];
+            ImGuiTreeNodeFlags entityNodeFlags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+
+            if (node.hash != UNUSED_HASH) {
+                Entity* pEntity = node.value;
+
+                if (selectedLine+1 == pEntity->pDeclaration->line)
+                    entityNodeFlags |= ImGuiTreeNodeFlags_Selected;      
+
+                ImGui::TreeNodeEx(pEntity, entityNodeFlags, "Entity - Name: %s Type: N/A", pEntity->name.pData);
+
+                if (ImGui::IsItemClicked())
+                    selectedLine = pEntity->pDeclaration->line-1; 
+            }
+        }
+
+        for (Scope* pChildScope : pScope->children) {
+            DrawScopes(pChildScope);
+        }
+        ImGui::TreePop();
     }
 }
 
@@ -866,7 +904,15 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Code Gen")) {
         if (compiler.errorState.errors.count == 0)
-            DrawByteCode(compiler.pTopLevelFunction, lines);
+            DrawByteCode(compiler.pTopLevelFunction);
+    }
+    ImGui::End();
+
+    ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("Scopes")) {
+        if (compiler.errorState.errors.count == 0)
+            DrawScopes(compiler.pGlobalScope);
     }
     ImGui::End();
 

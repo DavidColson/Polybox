@@ -12,60 +12,10 @@
 
 // ***********************************************************************
 
-namespace ScopeKind {
-enum Enum {
-    Invalid,
-    // data scope
-    Global,
-    Struct,
-
-    // imperative scope
-    Function,
-    Block
-};
-}
-
-struct Entity;
-struct Scope {
-    Scope* pParent;
-    ScopeKind::Enum kind{ ScopeKind::Invalid };
-    HashMap<String, Entity*> entities;
-};
-
-// ***********************************************************************
-
-namespace EntityKind {
-enum Enum {
-    Invalid,
-    Variable,
-    Constant
-};
-}
-
-namespace EntityStatus {
-enum Enum {
-    Unresolved,
-    InProgress,
-    Resolved
-};
-}
-
-// Represents some named object in the language, such as a variable, function, type, or constant
-struct Entity {
-    EntityKind::Enum kind{ EntityKind::Invalid };
-    String name;
-
-    EntityStatus::Enum status{ EntityStatus::Unresolved };
-    TypeInfo* pType{ nullptr };
-    Ast::Declaration* pDeclaration{ nullptr };
-    bool isLive{ false }; // used for non const variables. Means that it's in memory and usable
-};
-
-// ***********************************************************************
-
 Scope* CreateScope(ScopeKind::Enum kind, Scope* pParent, IAllocator* pAllocator) {
     Scope* pScope = (Scope*)pAllocator->Allocate(sizeof(Scope));
     pScope->entities.pAlloc = pAllocator;
+    pScope->children.pAlloc = pAllocator;
     pScope->kind = kind;
     pScope->pParent = pParent;
     return pScope;
@@ -997,6 +947,12 @@ void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) 
         case Ast::NodeType::Block: {
             Ast::Block* pBlock = (Ast::Block*)pStmt;
             pBlock->pScope = CreateScope(ScopeKind::Block, state.pCurrentScope, state.pAllocator);
+            pBlock->pScope->startLine = pBlock->startToken.line;
+            pBlock->pScope->endLine = pBlock->endToken.line;
+
+            state.pCurrentScope->children.PushBack(pBlock->pScope);
+
+            // Make scope active
             pBlock->pScope->pParent = state.pCurrentScope;
             state.pCurrentScope = pBlock->pScope;
             CollectEntities(state, pBlock->declarations);
@@ -1034,5 +990,7 @@ void TypeCheckProgram(Compiler& compilerState) {
 
         // stage 2, actually typecheck program
         TypeCheckStatements(state, compilerState.program);
+
+        compilerState.pGlobalScope = state.pGlobalScope;
     }
 }

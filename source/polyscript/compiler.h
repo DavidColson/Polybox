@@ -5,6 +5,7 @@
 #include "parser.h"
 
 struct Function;
+struct Scope;
 
 struct Compiler {
     // Input
@@ -15,6 +16,7 @@ struct Compiler {
     // Output
     ResizableArray<Token> tokens;
     ResizableArray<Ast::Statement*> program;
+    Scope* pGlobalScope;
     Function* pTopLevelFunction;
     ErrorState errorState;
 

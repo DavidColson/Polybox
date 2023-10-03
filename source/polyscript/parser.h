@@ -7,12 +7,14 @@
 
 #include <light_string.h>
 #include <resizable_array.h>
+#include <hashmap.h>
 
 template<typename T>
 struct ResizableArray;
 struct String;
 struct IAllocator;
 struct Compiler;
+struct Scope;
 
 namespace Ast {
 
@@ -102,6 +104,7 @@ struct FnType : public Type {
 struct Block;
 struct Function : public Expression {
 	// identifier := func (param1, param2, ...) -> returnType {body}
+    // TODO: Refactor to be Type* and Block* for body
     ResizableArray<Declaration*> params;
     Block* pBody;
     Type * pReturnType;
@@ -180,6 +183,7 @@ struct Block : public Statement {
     ResizableArray<Statement*> declarations;
     Token startToken;
     Token endToken;
+    Scope* pScope;
 };
 
 struct Declaration : public Statement {
@@ -191,6 +195,7 @@ struct Declaration : public Statement {
     bool isConstantDeclaration { false };
 
     // Used by the typechecker
+    // TODO: Yeet after we've refactored scopes
     int scopeLevel{ 0 };
 };
 

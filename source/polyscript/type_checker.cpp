@@ -10,7 +10,73 @@
 #include <string_builder.h>
 #include <memory.h>
 
+// ***********************************************************************
+
+namespace ScopeKind {
+enum Enum {
+    Invalid,
+    // data scope
+    Global,
+    Struct,
+
+    // imperative scope
+    Function,
+    Block
+};
+}
+
+struct Entity;
+struct Scope {
+    Scope* pParent;
+    ScopeKind::Enum kind{ ScopeKind::Invalid };
+    HashMap<String, Entity*> entities;
+};
+
+// ***********************************************************************
+
+namespace EntityKind {
+enum Enum {
+    Invalid,
+    Variable,
+    Constant
+};
+}
+
+namespace EntityStatus {
+enum Enum {
+    Unresolved,
+    InProgress,
+    Resolved
+};
+}
+
+// Represents some named object in the language, such as a variable, function, type, or constant
+struct Entity {
+    EntityKind::Enum kind{ EntityKind::Invalid };
+    String name;
+
+    EntityStatus::Enum status{ EntityStatus::Unresolved };
+    TypeInfo* pType{ nullptr };
+    Ast::Declaration* pDeclaration{ nullptr };
+    bool isLive{ false }; // used for non const variables. Means that it's in memory and usable
+};
+
+// ***********************************************************************
+
+Scope* CreateScope(ScopeKind::Enum kind, Scope* pParent, IAllocator* pAllocator) {
+    Scope* pScope = (Scope*)pAllocator->Allocate(sizeof(Scope));
+    pScope->entities.pAlloc = pAllocator;
+    pScope->kind = kind;
+    pScope->pParent = pParent;
+    return pScope;
+}
+
+// ***********************************************************************
+
 struct TypeCheckerState {
+    Scope* pGlobalScope{ nullptr };
+    Scope* pCurrentScope{ nullptr };
+
     HashMap<String, Ast::Declaration*> declarations;
     ErrorState* pErrors { nullptr };
     int currentScopeLevel { 0 };
@@ -791,6 +857,168 @@ void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*
 
 // ***********************************************************************
 
+void CollectEntities(TypeCheckerState& state, ResizableArray<Ast::Statement*>& statements);
+void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt);
+
+void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
+    switch (pExpr->nodeKind) {
+        case Ast::NodeType::Binary: {
+            Ast::Binary* pBinary = (Ast::Binary*)pExpr;
+            CollectEntitiesInExpression(state, pBinary->pLeft);
+            CollectEntitiesInExpression(state, pBinary->pRight);
+            break;
+        }
+        case Ast::NodeType::Unary: {
+            Ast::Unary* pUnary = (Ast::Unary*)pExpr;
+            CollectEntitiesInExpression(state, pUnary->pRight);
+            break;
+        }
+        case Ast::NodeType::Call: {
+            Ast::Call* pCall = (Ast::Call*)pExpr;
+            CollectEntitiesInExpression(state, pCall->pCallee);
+            for (size_t i = 0; i < pCall->args.count; i++) {
+                CollectEntitiesInExpression(state, pCall->args[i]);
+            }
+            break;
+        }
+        case Ast::NodeType::GetField: {
+            Ast::GetField* pGetField = (Ast::GetField*)pExpr;
+            CollectEntitiesInExpression(state, pGetField->pTarget);
+            break;
+        }
+        case Ast::NodeType::SetField: {
+            Ast::SetField* pSetField = (Ast::SetField*)pExpr;
+            CollectEntitiesInExpression(state, pSetField->pTarget);
+            CollectEntitiesInExpression(state, pSetField->pAssignment);
+            break;
+        }
+        case Ast::NodeType::Grouping: {
+            Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
+            CollectEntitiesInExpression(state, pGroup->pExpression);
+            break;
+        }
+        case Ast::NodeType::Cast: {
+            Ast::Cast* pCast = (Ast::Cast*)pExpr;
+            CollectEntitiesInExpression(state, pCast->pExprToCast);
+            CollectEntitiesInExpression(state, pCast->pTargetType);
+            break;
+        }
+        case Ast::NodeType::VariableAssignment: {
+            Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
+            CollectEntitiesInExpression(state, pVarAssignment->pAssignment);
+            break;
+        }
+        case Ast::NodeType::FnType: {
+            Ast::FnType* pFnType = (Ast::FnType*)pExpr;
+            for (size_t i = 0; i < pFnType->params.count; i++) {
+                CollectEntitiesInExpression(state, pFnType->params[i]);
+            }
+            CollectEntitiesInExpression(state, pFnType->pReturnType);
+            break;
+        }
+        case Ast::NodeType::Structure: {
+            Ast::Structure* pStruct = (Ast::Structure*)pExpr;
+            // TODO: Create data scope here for declarations
+            for (size_t i = 0; i < pStruct->members.count; i++) {
+                CollectEntitiesInStatement(state, pStruct->members[i]);
+            }
+            break;
+        }
+        case Ast::NodeType::Function: {
+            Ast::Function* pFunction = (Ast::Function*)pExpr;
+            // TODO: Create scope here for params
+            for (size_t i = 0; i < pFunction->params.count; i++) {
+                CollectEntitiesInStatement(state, pFunction->params[i]);
+            }
+            CollectEntitiesInExpression(state, pFunction->pReturnType);
+            CollectEntitiesInStatement(state, pFunction->pBody);
+            break;
+        }
+        case Ast::NodeType::Identifier:
+        case Ast::NodeType::Literal:
+        default:
+            break;
+    }
+}
+
+// ***********************************************************************
+
+void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
+    switch (pStmt->nodeKind) {
+        case Ast::NodeType::ExpressionStmt: {
+            Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
+            CollectEntitiesInExpression(state, pExprStmt->pExpr);
+            break;
+        }
+        case Ast::NodeType::If: {
+            Ast::If* pIf = (Ast::If*)pStmt;
+            // TODO: Create scope here for conditions
+            CollectEntitiesInExpression(state, pIf->pCondition);
+            CollectEntitiesInStatement(state, pIf->pThenStmt);
+            if (pIf->pElseStmt)
+                CollectEntitiesInStatement(state, pIf->pElseStmt);
+            break;
+        }
+        case Ast::NodeType::While: {
+            Ast::While* pWhile = (Ast::While*)pStmt;
+            // TODO: Create scope here for condition
+            CollectEntitiesInExpression(state, pWhile->pCondition);
+            CollectEntitiesInStatement(state, pWhile->pBody);
+            break;
+        }
+        case Ast::NodeType::Print: {
+            Ast::Print* pPrint = (Ast::Print*)pStmt;
+            CollectEntitiesInExpression(state, pPrint->pExpr);
+            break;
+        }
+        case Ast::NodeType::Return: {
+            Ast::Return* pReturn = (Ast::Return*)pStmt;
+            CollectEntitiesInExpression(state, pReturn->pExpr);
+            break;
+        }
+        case Ast::NodeType::Declaration: {
+            Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
+            Entity* pEntity = (Entity*)state.pAllocator->Allocate(sizeof(Entity));
+            pEntity->pDeclaration = pDecl;
+            pEntity->isLive = false;
+            pEntity->status = EntityStatus::Unresolved;
+            pEntity->pType = nullptr;
+            pEntity->name = pDecl->identifier;
+
+            if (pDecl->isConstantDeclaration) {
+                pEntity->kind = EntityKind::Constant;
+            } else {
+                pEntity->kind = EntityKind::Variable;
+            }
+            
+            state.pCurrentScope->entities[pEntity->name] = pEntity;
+            break;
+        }
+        case Ast::NodeType::Block: {
+            Ast::Block* pBlock = (Ast::Block*)pStmt;
+            pBlock->pScope = CreateScope(ScopeKind::Block, state.pCurrentScope, state.pAllocator);
+            pBlock->pScope->pParent = state.pCurrentScope;
+            state.pCurrentScope = pBlock->pScope;
+            CollectEntities(state, pBlock->declarations);
+            state.pCurrentScope = pBlock->pScope->pParent;
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+// ***********************************************************************
+
+void CollectEntities(TypeCheckerState& state, ResizableArray<Ast::Statement*>& statements) {
+    for (size_t i = 0; i < statements.count; i++) {
+        Ast::Statement* pStmt = statements[i];
+        CollectEntitiesInStatement(state, pStmt);
+    }
+}
+
+// ***********************************************************************
+
 void TypeCheckProgram(Compiler& compilerState) {
     if (compilerState.errorState.errors.count == 0) {
         TypeCheckerState state;
@@ -798,7 +1026,13 @@ void TypeCheckProgram(Compiler& compilerState) {
         state.pErrors = &compilerState.errorState;
         state.pAllocator = &compilerState.compilerMemory;
         state.declarations.pAlloc = &compilerState.compilerMemory;
+        state.pGlobalScope = CreateScope(ScopeKind::Global, nullptr, &compilerState.compilerMemory);
+        state.pCurrentScope = state.pGlobalScope;
 
+        // stage 1, collect all entities, tracking scope
+        CollectEntities(state, compilerState.program);
+
+        // stage 2, actually typecheck program
         TypeCheckStatements(state, compilerState.program);
     }
 }

@@ -458,7 +458,7 @@ void DrawExprProperties(Ast::Expression* pExpr) {
             ImGui::Text("Constant Value: %i", pExpr->constantValue.i32Value);
         else if (CheckTypesIdentical(pExpr->pType, GetBoolType()))
             ImGui::Text("Constant Value: %s", pExpr->constantValue.boolValue ? "true" : "false");
-        else if (CheckTypesIdentical(pExpr->pType, GetTypeType()))
+        else if (CheckTypesIdentical(pExpr->pType, GetTypeType()) && pExpr->constantValue.pTypeInfo)
             ImGui::Text("Constant Value: %s", pExpr->constantValue.pTypeInfo->name.pData);
     } else {
         ImGui::Text("Constant Value: none");

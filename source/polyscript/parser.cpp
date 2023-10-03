@@ -904,6 +904,7 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
 
             // Parse initializer
             if (Match(state, 1, TokenType::Equal)) {
+                pDecl->isConstantDeclaration = false;
 				pDecl->pInitializerExpr = ParseExpression(state);
                 // TODO: Remove when we have out of order name resolution
                 if (pDecl->pInitializerExpr && pDecl->pInitializerExpr->nodeKind == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself

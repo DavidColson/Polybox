@@ -34,15 +34,120 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 
 // ***********************************************************************
 
+Value ComputeBinaryConstant(TypeInfo* pType, Operator::Enum op, Value left, Value right) {
+        switch (pType->tag) {
+                case TypeInfo::TypeTag::I32:
+                    switch (op) {
+                        case Operator::Add: return MakeValue(left.i32Value + right.i32Value);
+                        case Operator::Subtract: return MakeValue(left.i32Value - right.i32Value);
+                        case Operator::Multiply: return MakeValue(left.i32Value * right.i32Value);
+                        case Operator::Divide: return MakeValue(left.i32Value / right.i32Value);
+                        case Operator::Less: return MakeValue(left.i32Value < right.i32Value); 
+                        case Operator::LessEqual: return MakeValue(left.i32Value <= right.i32Value);
+                        case Operator::Greater: return MakeValue(left.i32Value > right.i32Value);
+                        case Operator::GreaterEqual: return MakeValue(left.i32Value >= right.i32Value);
+                        case Operator::Equal: return MakeValue(left.i32Value == right.i32Value);
+                        case Operator::NotEqual: return MakeValue(left.i32Value != right.i32Value);
+                        default: return MakeValueNill();
+                    }
+                    break;
+                case TypeInfo::TypeTag::F32:
+                    switch (op) {
+                        case Operator::Add: return MakeValue(left.f32Value + right.f32Value);
+                        case Operator::Subtract: return MakeValue(left.f32Value - right.f32Value);
+                        case Operator::Multiply: return MakeValue(left.f32Value * right.f32Value);
+                        case Operator::Divide: return MakeValue(left.f32Value / right.f32Value);
+                        case Operator::Less: return MakeValue(left.f32Value < right.f32Value);
+                        case Operator::LessEqual: return MakeValue(left.f32Value <= right.f32Value);
+                        case Operator::Greater: return MakeValue(left.f32Value > right.f32Value);
+                        case Operator::GreaterEqual: return MakeValue(left.f32Value >= right.f32Value);
+                        case Operator::Equal: return MakeValue(left.f32Value == right.f32Value);
+                        case Operator::NotEqual: return MakeValue(left.f32Value != right.f32Value);
+                        default: return MakeValueNill();
+                    }
+                    break;
+                case TypeInfo::TypeTag::Bool:
+                    switch (op) {
+                        case Operator::And: return MakeValue(left.boolValue && right.boolValue);
+                        case Operator::Or: return MakeValue(left.boolValue || right.boolValue);
+                        default: return MakeValueNill();
+                    }
+                    break;
+                default:
+                    return MakeValueNill();
+                    break;
+        }
+}
+
+// ***********************************************************************
+
+Value ComputeUnaryConstant(TypeInfo* pType, Operator::Enum op, Value right) {
+        switch (pType->tag) {
+                case TypeInfo::TypeTag::I32:
+                    switch (op) {
+                        case Operator::UnaryMinus: return MakeValue(-right.i32Value);
+                        default: return MakeValueNill();
+                    }
+                    break;
+                case TypeInfo::TypeTag::F32:
+                    switch (op) {
+                        case Operator::UnaryMinus: return MakeValue(-right.f32Value);
+                        default: return MakeValueNill();
+                    }
+                    break;
+                case TypeInfo::TypeTag::Bool:
+                    switch (op) {
+                        case Operator::Not: return MakeValue(!right.boolValue);
+                        default: return MakeValueNill();
+                    }
+                    break;
+                default:
+                    return MakeValueNill();
+                    break;
+        }
+}
+
+// ***********************************************************************
+
+Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
+        switch (pFrom->tag) {
+                case TypeInfo::TypeTag::I32:
+                    switch (pTo->tag) {
+                        case TypeInfo::TypeTag::F32: return MakeValue((float)value.i32Value);
+                        case TypeInfo::TypeTag::Bool: return MakeValue((bool)value.i32Value);
+                        default: return MakeValueNill();
+                    }
+                    break;
+                case TypeInfo::TypeTag::F32:
+                    switch (pTo->tag) {
+                        case TypeInfo::TypeTag::I32: return MakeValue((int32_t)value.f32Value);
+                        case TypeInfo::TypeTag::Bool: return MakeValue((bool)value.f32Value);
+                        default: return MakeValueNill();
+                    }
+                    break;
+                case TypeInfo::TypeTag::Bool:
+                    switch (pTo->tag) {
+                        case TypeInfo::TypeTag::I32: return MakeValue((int32_t)value.boolValue);
+                        case TypeInfo::TypeTag::F32: return MakeValue((float)value.boolValue);
+                        default: return MakeValueNill();
+                    }
+                    break;
+                default:
+                    return MakeValueNill();
+                    break;
+        }
+}
+
+// ***********************************************************************
+
 [[nodiscard]] Ast::Expression* TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
     if (pExpr == nullptr)
         return pExpr;
 
     switch (pExpr->nodeKind) {
         case Ast::NodeType::Literal: {
-            Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-            pLiteral->isConstant = true;
-            return pLiteral;
+            // Nothing to do
+            return pExpr;
         }
         case Ast::NodeType::Type: {
             Ast::Type* pType = (Ast::FnType*)pExpr;
@@ -50,6 +155,8 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             pType->isConstant = true;
             // Resolve Type
 
+            // TODO: I think this should be refactored so that all types that are just a name are identifiers, which resolve to types
+            // The actual Type node should be syntactically described types, like a function header, or a struct definition, or a pointer and so on
             if (pType->identifier == "void") {
                 pType->pResolvedType = GetVoidType();
             } else if (pType->identifier == "i32") {
@@ -125,7 +232,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
         }
         case Ast::NodeType::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            pFunction->isConstant = true;
+            pFunction->isConstant = true; // The value of this constant is the generated bytecode for the function, but we don't have that yet
 			Ast::Declaration* pMyDeclaration = state.pCurrentDeclaration;
 
             // The params will end up in the same scope as the body, and get automatically yeeted from the declarations list at the end of the block
@@ -266,7 +373,7 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
                 return pType;
             }
 
-            // TODO: Constant if the declaration is constant
+            // TODO: Constant if the declaration is constant, can set the constantValue
             Ast::Declaration** pDeclEntry = state.declarations.Get(pIdentifier->identifier);
             if (pDeclEntry) {
                 Ast::Declaration* pDecl = *pDeclEntry;
@@ -304,17 +411,16 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
             pGroup->pExpression = TypeCheckExpression(state, pGroup->pExpression);
             pGroup->pType = pGroup->pExpression->pType;
 
-            if (pGroup->pExpression->isConstant)
+            if (pGroup->pExpression->isConstant) {
                 pGroup->isConstant = true;
+                pGroup->constantValue = pGroup->pExpression->constantValue;
+            }
             return pGroup;
         }
         case Ast::NodeType::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             pBinary->pLeft = TypeCheckExpression(state, pBinary->pLeft);
             pBinary->pRight = TypeCheckExpression(state, pBinary->pRight);
-            
-            if (pBinary->pLeft->isConstant && pBinary->pRight->isConstant)
-                pBinary->isConstant = true;
 
 			String str1 = pBinary->pLeft->pType->name;
 			String str2 = pBinary->pRight->pType->name;
@@ -393,19 +499,17 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 				pBinary->pType = GetBoolType();
 			}
 
-            // Now that we're all typechecked, we can evaluate the expression if it's constant
-            // Recursive evaluate function?
-            if (pBinary->isConstant) {
-                // pBinary->value = MakeValue(left->value op right->value)
+            // Do this at the end so we include the evaluation of any potential implicit casts that were added
+             if (pBinary->pLeft->isConstant && pBinary->pRight->isConstant) {
+                pBinary->isConstant = true;
+                pBinary->constantValue = ComputeBinaryConstant(pBinary->pLeft->pType, pBinary->op, pBinary->pLeft->constantValue, pBinary->pRight->constantValue);
             }
+
             return pBinary;
         }
         case Ast::NodeType::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             pUnary->pRight = TypeCheckExpression(state, pUnary->pRight);
-
-            if (pUnary->pRight->isConstant)
-                pUnary->isConstant = true;
 
 			if (pUnary->op == Operator::Not) {
 				pUnary->pType = GetBoolType();
@@ -419,6 +523,11 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 				}
 			}
 
+            if (pUnary->isConstant) {
+                pUnary->isConstant = true;
+                pUnary->constantValue = ComputeUnaryConstant(pUnary->pType, pUnary->op, pUnary->pRight->constantValue);
+            }
+
             return pUnary;
         }
 		case Ast::NodeType::Cast: {
@@ -426,9 +535,6 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 			pCast->pTargetType = (Ast::Type*)TypeCheckExpression(state, pCast->pTargetType);
 			pCast->pExprToCast = TypeCheckExpression(state, pCast->pExprToCast);
             
-            if (pCast->pExprToCast->isConstant)
-                pCast->isConstant = true;
-
 			TypeInfo* pFrom = pCast->pExprToCast->pType;
 			TypeInfo* pTo = pCast->pTargetType->pResolvedType;
 
@@ -449,6 +555,11 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 				state.pErrors->PushError(pCast, "Not possible to cast from type \"%s\" to \"%s\"", pFrom->name.pData, pTo->name.pData);
 			}
 			
+            if (pCast->pExprToCast->isConstant) {
+                pCast->isConstant = true;
+                pCast->constantValue = ComputeCastConstant(pCast->pExprToCast->constantValue, pFrom, pTo);
+            }
+
 			pCast->pType = pCast->pTargetType->pResolvedType;
 			return pCast;
 		}
@@ -500,6 +611,8 @@ bool IsImplicitlyCastable(TypeInfo* pFrom, TypeInfo* pTo) {
 		case Ast::NodeType::GetField: {
 			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
 			pGetField->pTarget = TypeCheckExpression(state, pGetField->pTarget);
+            
+            // TODO: This could be constant actually. If the field was declared as a constant, then this can be constant, for later.
             pGetField->isConstant = false;
 
 			if (pGetField->pTarget->pType == nullptr) {

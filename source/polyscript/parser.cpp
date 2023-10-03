@@ -354,6 +354,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
     if (Match(state, 1, TokenType::LiteralInteger)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)state.pAllocator->Allocate(sizeof(Ast::Literal));
         pLiteralExpr->nodeKind = Ast::NodeType::Literal;
+        pLiteralExpr->isConstant = true;
 
         Token token = Previous(state);
         pLiteralExpr->pLocation = token.pLocation;
@@ -361,7 +362,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
         pLiteralExpr->line = token.line;
 
         char* endPtr = token.pLocation + token.length;
-        pLiteralExpr->value = MakeValue((int32_t)strtol(token.pLocation, &endPtr, 10));
+        pLiteralExpr->constantValue = MakeValue((int32_t)strtol(token.pLocation, &endPtr, 10));
 		pLiteralExpr->pType = GetI32Type();
         return pLiteralExpr;
     }
@@ -369,6 +370,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
     if (Match(state, 1, TokenType::LiteralFloat)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)state.pAllocator->Allocate(sizeof(Ast::Literal));
         pLiteralExpr->nodeKind = Ast::NodeType::Literal;
+        pLiteralExpr->isConstant = true;
 
         Token token = Previous(state);
         pLiteralExpr->pLocation = token.pLocation;
@@ -376,7 +378,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
         pLiteralExpr->line = token.line;
 
         char* endPtr = token.pLocation + token.length;
-        pLiteralExpr->value = MakeValue((float)strtod(token.pLocation, &endPtr));
+        pLiteralExpr->constantValue = MakeValue((float)strtod(token.pLocation, &endPtr));
 		pLiteralExpr->pType = GetF32Type();
 		return pLiteralExpr;
     }
@@ -384,6 +386,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
     if (Match(state, 1, TokenType::LiteralBool)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)state.pAllocator->Allocate(sizeof(Ast::Literal));
         pLiteralExpr->nodeKind = Ast::NodeType::Literal;
+        pLiteralExpr->isConstant = true;
 
         Token token = Previous(state);
         pLiteralExpr->pLocation = token.pLocation;
@@ -392,9 +395,9 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 
         char* endPtr = token.pLocation + token.length;
         if (strncmp("true", token.pLocation, 4) == 0)
-            pLiteralExpr->value = MakeValue(true);
+            pLiteralExpr->constantValue = MakeValue(true);
         else if (strncmp("false", token.pLocation, 4) == 0)
-            pLiteralExpr->value = MakeValue(false);
+            pLiteralExpr->constantValue = MakeValue(false);
 		pLiteralExpr->pType = GetBoolType();
 		return pLiteralExpr;
     }
@@ -1079,12 +1082,12 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
                 nodeTypeStr = pLiteral->pType->name;
             }
 
-            if (pLiteral->pType == GetF32Type())
-                Log::Debug("%*s- Literal (%f:%s)", indentationLevel, "", pLiteral->value.f32Value, nodeTypeStr.pData);
-            else if (pLiteral->pType == GetI32Type())
-                Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->value.i32Value, nodeTypeStr.pData);
-            else if (pLiteral->pType == GetBoolType())
-                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->value.boolValue ? "true" : "false", nodeTypeStr.pData);
+            if (CheckTypesIdentical(pLiteral->pType, GetF32Type()))
+                Log::Debug("%*s- Literal (%f:%s)", indentationLevel, "", pLiteral->constantValue.f32Value, nodeTypeStr.pData);
+            else if (CheckTypesIdentical(pLiteral->pType, GetI32Type()))
+                Log::Debug("%*s- Literal (%i:%s)", indentationLevel, "", pLiteral->constantValue.i32Value, nodeTypeStr.pData);
+            else if (CheckTypesIdentical(pLiteral->pType, GetBoolType()))
+                Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->constantValue.boolValue ? "true" : "false", nodeTypeStr.pData);
             break;
         }
         case Ast::NodeType::Function: {

@@ -442,6 +442,31 @@ void DrawAstStatement(Ast::Statement* pStmt) {
 
 // ***********************************************************************
 
+void DrawExprProperties(Ast::Expression* pExpr) {
+    String nodeTypeStr = "none";
+    if (pExpr->pType) {
+        nodeTypeStr = pExpr->pType->name;
+    }
+    ImGui::Text("Type: %s", nodeTypeStr.pData);
+    
+    ImGui::Text("Constant: %s", pExpr->isConstant ? "true" : "false");
+
+    if (pExpr->isConstant) {
+        if (CheckTypesIdentical(pExpr->pType, GetF32Type()))
+            ImGui::Text("Constant Value: %f", pExpr->constantValue.f32Value);
+        else if (CheckTypesIdentical(pExpr->pType, GetI32Type()))
+            ImGui::Text("Constant Value: %i", pExpr->constantValue.i32Value);
+        else if (CheckTypesIdentical(pExpr->pType, GetBoolType()))
+            ImGui::Text("Constant Value: %s", pExpr->constantValue.boolValue ? "true" : "false");
+        else if (CheckTypesIdentical(pExpr->pType, GetTypeType()))
+            ImGui::Text("Constant Value: %s", pExpr->constantValue.pTypeInfo->name.pData);
+    } else {
+        ImGui::Text("Constant Value: none");
+    }
+}
+
+// ***********************************************************************
+
 void DrawAstExpression(Ast::Expression* pExpr) {
     if (pExpr == nullptr) {
         ImGui::Text("nullptr");
@@ -464,12 +489,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
             if (ImGui::TreeNodeEx(pIdentifier, nodeFlags, "Identifier - %s", pIdentifier->identifier.pData)) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                String nodeTypeStr = "none";
-                if (pIdentifier->pType) {
-                    nodeTypeStr = pIdentifier->pType->name;
-                }
-                ImGui::Text("Type: %s", nodeTypeStr.pData);
-                ImGui::Text("Constant: %s", pIdentifier->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 ImGui::TreePop();
             }
             break;
@@ -479,6 +499,9 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             Ast::Type* pType = (Ast::Type*)pExpr;
             if (ImGui::TreeNodeEx(pType, nodeFlags, "Type Literal")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                // TODO: Leaving this for now, but once the type node refactor is done, this can draw like any other expr
+                // DrawExprProperties(pExpr);
+                
                 if (pType->pType && pType->pResolvedType) {
                     ImGui::Text("Type: %s", pType->pType->name.pData);
                     ImGui::Text("Resolved Type: %s", pType->pResolvedType->name.pData);
@@ -492,12 +515,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pExpr;
             if (ImGui::TreeNodeEx(pAssignment, nodeFlags, "Variable Assignment - %s", pAssignment->identifier.pData)) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                String nodeTypeStr = "none";
-                if (pAssignment->pType) {
-                    nodeTypeStr = pAssignment->pType->name;
-                }
-                ImGui::Text("Type: %s", nodeTypeStr.pData);
-                ImGui::Text("Constant: %s", pAssignment->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 DrawAstExpression(pAssignment->pAssignment);
                 ImGui::TreePop();
             }
@@ -507,19 +525,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
             if (ImGui::TreeNodeEx(pLiteral, nodeFlags, "Literal")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                String nodeTypeStr = "none";
-                if (pLiteral->pType) {
-                    nodeTypeStr = pLiteral->pType->name;
-                }
-                ImGui::Text("Type: %s", nodeTypeStr.pData);
-
-                if (pLiteral->pType == GetF32Type())
-                    ImGui::Text("Value: %f", pLiteral->value.f32Value);
-                else if (pLiteral->pType == GetI32Type())
-                    ImGui::Text("Value: %i", pLiteral->value.i32Value);
-                else if (pLiteral->pType == GetBoolType())
-                    ImGui::Text("Value: %s", pLiteral->value.boolValue ? "true" : "false");
-                ImGui::Text("Constant: %s", pLiteral->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 ImGui::TreePop();
             }
             break;
@@ -528,7 +534,8 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             if (ImGui::TreeNodeEx(pFunction, nodeFlags, "Function")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                ImGui::Text("Constant: %s", pFunction->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
+
                 // TODO: Should probably draw these as just normal nodes
                 for (Ast::Declaration* pParam : pFunction->params) {
                     String typeStr = "none";
@@ -547,7 +554,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
             if (ImGui::TreeNodeEx(pStruct, nodeFlags, "Struct")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                ImGui::Text("Constant: %s", pStruct->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 // Draw these as normal nodes
                 for (Ast::Statement* pMemberStmt : pStruct->members) {
                     Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
@@ -569,12 +576,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
             if (ImGui::TreeNodeEx(pGroup, nodeFlags, "Grouping")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                String typeStr = "none";
-                if (pGroup->pType) {
-                    typeStr = pGroup->pType->name;
-                }
-                ImGui::Text("Type: %s", typeStr.pData);
-                ImGui::Text("Constant: %s", pGroup->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 DrawAstExpression(pGroup->pExpression);
                 ImGui::TreePop();
             }
@@ -584,12 +586,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             if (ImGui::TreeNodeEx(pBinary, nodeFlags, "Binary")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                String nodeTypeStr = "none";
-                if (pBinary->pType) {
-                    nodeTypeStr = pBinary->pType->name;
-                }
-                ImGui::Text("Type: %s", nodeTypeStr.pData);
-                ImGui::Text("Constant: %s", pBinary->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 switch (pBinary->op) {
                     case Operator::Add:
                         ImGui::Text("Operator: +");
@@ -640,12 +637,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             if (ImGui::TreeNodeEx(pUnary, nodeFlags, "Unary")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                String nodeTypeStr = "none";
-                if (pUnary->pType) {
-                    nodeTypeStr = pUnary->pType->name;
-                }
-                ImGui::Text("Type: %s", nodeTypeStr.pData);
-                ImGui::Text("Constant: %s", pUnary->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 switch (pUnary->op) {
                     case Operator::UnaryMinus:
                         ImGui::Text("Operator: -");
@@ -665,12 +657,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
             if (ImGui::TreeNodeEx(pCast, nodeFlags, "Cast")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                String nodeTypeStr = "none";
-                if (pCast->pType) {
-                    nodeTypeStr = pCast->pType->name;
-                }
-                ImGui::Text("Type: %s", nodeTypeStr.pData);
-                ImGui::Text("Constant: %s", pCast->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 DrawAstExpression(pCast->pTargetType);
                 DrawAstExpression(pCast->pExprToCast);
                 ImGui::TreePop();
@@ -681,12 +668,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             if (ImGui::TreeNodeEx(pCall, nodeFlags, "Call")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                String nodeTypeStr = "none";
-                if (pCall->pType) {
-                    nodeTypeStr = pCall->pType->name;
-                }
-                ImGui::Text("Type: %s", nodeTypeStr.pData);
-                ImGui::Text("Constant: %s", pCall->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 DrawAstExpression(pCall->pCallee);
                 for (Ast::Expression* pArg : pCall->args) {
                     DrawAstExpression(pArg);
@@ -699,12 +681,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
 			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
             if (ImGui::TreeNodeEx(pGetField, nodeFlags, "Get Field - %s", pGetField->fieldName.pData)) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                String nodeTypeStr = "none";
-                if (pGetField->pType) {
-                    nodeTypeStr = pGetField->pType->name;
-                }
-                ImGui::Text("Type: %s", nodeTypeStr.pData);
-                ImGui::Text("Constant: %s", pGetField->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 DrawAstExpression(pGetField->pTarget);
                 ImGui::TreePop();
             }
@@ -714,12 +691,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
 			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
             if (ImGui::TreeNodeEx(pSetField, nodeFlags, "Set Field - %s", pSetField->fieldName.pData)) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                String nodeTypeStr = "none";
-                if (pSetField->pType) {
-                    nodeTypeStr = pSetField->pType->name;
-                }
-                ImGui::Text("Type: %s", nodeTypeStr.pData);
-                ImGui::Text("Constant: %s", pSetField->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 DrawAstExpression(pSetField->pTarget);
                 DrawAstExpression(pSetField->pAssignment);
                 ImGui::TreePop();

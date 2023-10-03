@@ -60,8 +60,7 @@ struct Node {
 struct Expression : public Node {
     TypeInfo* pType;
     bool isConstant { false };
-    Value constantValue; // TODO: Set this as you propogate up and down the tree in type checking
-    // codegen will check if the node is constant, and if it is, it'll use the constant value as a literal (i.e. putting in constant table)
+    Value constantValue;
 };
 
 struct Binary : public Expression {
@@ -78,7 +77,6 @@ struct Unary : public Expression {
 };
 
 struct Literal : public Expression {
-    Value value;
 };
 
 struct Grouping : public Expression {

@@ -94,6 +94,21 @@ void PatchJump(State& state, int jumpCodeLocation) {
 // ***********************************************************************
 
 void CodeGenExpression(State& state, Ast::Expression* pExpr) {
+
+    // Constant folding
+    // If this expression is a constant, there's no need to generate any bytecode, just emit the constant literal
+    // TODO: Temporary that we block types, fntypes and structures here, they should eventually work, cause the type value will be in the constant value member
+    if (pExpr->isConstant && 
+    (pExpr->nodeKind != Ast::NodeType::Type &&  pExpr->nodeKind != Ast::NodeType::FnType && pExpr->nodeKind != Ast::NodeType::Function && pExpr->nodeKind != Ast::NodeType::Structure)) {
+        CurrentFunction(state)->constants.PushBack(pExpr->constantValue);
+        CurrentFunction(state)->dbgConstantsTypes.PushBack(pExpr->pType);
+        uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
+
+        PushCode(state, OpCode::LoadConstant, pExpr->line);
+        PushCode(state, constIndex, pExpr->line);
+        return;
+    }
+
     switch (pExpr->nodeKind) {
         case Ast::NodeType::Identifier: {
             Ast::Identifier* pVariable = (Ast::Identifier*)pExpr;
@@ -167,7 +182,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         case Ast::NodeType::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
 
-            CurrentFunction(state)->constants.PushBack(pLiteral->value);
+            CurrentFunction(state)->constants.PushBack(pLiteral->constantValue);
 			CurrentFunction(state)->dbgConstantsTypes.PushBack(pLiteral->pType);
             uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
 

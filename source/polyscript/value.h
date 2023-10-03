@@ -108,7 +108,12 @@ struct Value {
     };
 };
 
-// TODO: Don't really need these now
+inline Value MakeValueNill() {
+    Value v;
+    v.pPtr = nullptr;
+    return v;
+} 
+
 inline Value MakeValue(bool value) {
     Value v;
     v.boolValue = value;

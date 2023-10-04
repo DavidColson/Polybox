@@ -220,59 +220,61 @@ void Synchronize(ParsingState &state) {
 
 Ast::Expression* ParseType(ParsingState& state) {
 
+    // This should parse an identifier, or each of the primitive syntactic types
+    // There is redundancy in looking for an identifier (due to ParsePrimary) but it's fine
     if (Match(state, 1, TokenType::Identifier)) {
         Token identifier = Previous(state);
 
-        Ast::Type* pType = (Ast::Type*)state.pAllocator->Allocate(sizeof(Ast::Type));
-        pType->nodeKind = Ast::NodeType::Type;
-        pType->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
-        pType->pLocation = identifier.pLocation;
-        pType->pLineStart = identifier.pLineStart;
-        pType->line = identifier.line;
+        Ast::Identifier* pIdentifier = (Ast::Identifier*)state.pAllocator->Allocate(sizeof(Ast::Identifier));
+        pIdentifier->nodeKind = Ast::NodeKind::Identifier;
+        pIdentifier->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
 
-        return pType;
+        pIdentifier->pLocation = identifier.pLocation;
+        pIdentifier->pLineStart = identifier.pLineStart;
+        pIdentifier->line = identifier.line;
+
+        return pIdentifier;
     }
 
-    // TODO: Combine this with function parsing in parse type
-    if (Match(state, 1, TokenType::Fn)) {
-        Token fn = Previous(state);
+    if (Match(state, 1, TokenType::Func)) {
+		Token func = Previous(state);
+        Ast::FunctionType* pFuncType = (Ast::FunctionType*)state.pAllocator->Allocate(sizeof(Ast::FunctionType));
+        pFuncType->nodeKind = Ast::NodeKind::FunctionType;
+        pFuncType->params.pAlloc = state.pAllocator;
 
-        Ast::FnType* pFnType = (Ast::FnType*)state.pAllocator->Allocate(sizeof(Ast::FnType));
-        pFnType->nodeKind = Ast::NodeType::FnType;
-        pFnType->params.pAlloc = state.pAllocator;
-
-        Consume(state, TokenType::LeftParen, "Expected left parenthesis to start function signature");
+		Consume(state, TokenType::LeftParen, "Expected left parenthesis to start function param list");
 
         if (Peek(state).type != TokenType::RightParen) {
-            do {
-                pFnType->params.PushBack((Ast::Type*)ParseType(state));
+			// Parse parameter list
+			do {
+				Token arg = Consume(state, TokenType::Identifier, "Expected argument identifier after comma");
+				Consume(state, TokenType::Colon, "Expected colon after argument identifier");
 
-                if (Peek(state).type == TokenType::Colon) {
-					PushError(state, "Expected a function signature, but this looks like a function header. Potentially replace 'fn' with 'func' from start of expression");
-                    return nullptr;
-                }
-            } while (Match(state, 1, TokenType::Comma));
-        }
-        Consume(state, TokenType::RightParen, "Expected right parenthesis to close argument list");
+				Ast::Declaration* pParamDecl = (Ast::Declaration*)state.pAllocator->Allocate(sizeof(Ast::Declaration));
+				pParamDecl->nodeKind = Ast::NodeKind::Declaration;
+				pParamDecl->identifier = CopyCStringRange(arg.pLocation, arg.pLocation + arg.length, state.pAllocator);
+				pParamDecl->pTypeAnnotation = (Ast::Type*)ParseType(state);
+				pParamDecl->pLocation = arg.pLocation;
+				pParamDecl->line = arg.line;
+				pParamDecl->pLineStart = arg.pLineStart;
+
+				pFuncType->params.PushBack(pParamDecl);
+			} while (Match(state, 1, TokenType::Comma));
+		}
+		Consume(state, TokenType::RightParen, "Expected right parenthesis to close argument list");
 
         // Parse return type
-        if (Match(state, 1, TokenType::FuncSigReturn)) {
-            pFnType->pReturnType = (Ast::Type*)ParseType(state);
-        } else {
-            pFnType->pReturnType = (Ast::Type*)state.pAllocator->Allocate(sizeof(Ast::Type));
-            pFnType->pReturnType->nodeKind = Ast::NodeType::Type;
-            pFnType->pReturnType->identifier = CopyCString("void", state.pAllocator);
-            pFnType->pReturnType->pLocation = Previous(state).pLocation;
-            pFnType->pReturnType->pLineStart = Previous(state).pLineStart;
-            pFnType->pReturnType->line = Previous(state).line;
-        }
+		if (Match(state, 1, TokenType::FuncSigReturn)) {
+			pFuncType->pReturnType = (Ast::Type*)ParseType(state);
+		}
 
-        pFnType->pLocation = fn.pLocation;
-        pFnType->pLineStart = fn.pLineStart;
-        pFnType->line = fn.line;
-        return pFnType;
+        pFuncType->pLocation = func.pLocation;
+        pFuncType->pLineStart = func.pLineStart;
+        pFuncType->line = func.line;
+        return pFuncType;
     }
 
+    // TODO: return BadExpr
     return nullptr;
 }
 
@@ -281,60 +283,28 @@ Ast::Expression* ParseType(ParsingState& state) {
 Ast::Expression* ParsePrimary(ParsingState& state) {
 
 	if (Match(state, 1, TokenType::Func)) {
-		Ast::Function* pFunc = (Ast::Function*)state.pAllocator->Allocate(sizeof(Ast::Function));
-		pFunc->nodeKind = Ast::NodeType::Function;
-		pFunc->params.pAlloc = state.pAllocator;
-
 		Token func = Previous(state);
+        state.pCurrent--;
+        Ast::FunctionType* pFuncType = (Ast::FunctionType*)ParseType(state);
 
-		Consume(state, TokenType::LeftParen, "Expected left parenthesis to start function param list");
+        if (Match(state, 1, TokenType::LeftBrace)) {
+		    Ast::Function* pFunc = (Ast::Function*)state.pAllocator->Allocate(sizeof(Ast::Function));
+			pFunc->nodeKind = Ast::NodeKind::Function;
 
-		if (Peek(state).type != TokenType::RightParen) {
-			// Parse parameter list
-			do {
-				Token arg = Consume(state, TokenType::Identifier, "Expected argument identifier after comma");
-				Consume(state, TokenType::Colon, "Expected colon after argument identifier");
+            pFunc->pFuncType = pFuncType;
+            pFunc->pBody = (Ast::Block*)ParseBlock(state);
 
-				Ast::Declaration* pParamDecl = (Ast::Declaration*)state.pAllocator->Allocate(sizeof(Ast::Declaration));
-				pParamDecl->nodeKind = Ast::NodeType::Declaration;
-				pParamDecl->identifier = CopyCStringRange(arg.pLocation, arg.pLocation + arg.length, state.pAllocator);
-				pParamDecl->pDeclaredType = (Ast::Type*)ParseType(state);
-				pParamDecl->pLocation = arg.pLocation;
-				pParamDecl->line = arg.line;
-				pParamDecl->pLineStart = arg.pLineStart;
-
-				pFunc->params.PushBack(pParamDecl);
-			} while (Match(state, 1, TokenType::Comma));
+            pFunc->pLocation = func.pLocation;
+		    pFunc->pLineStart = func.pLineStart;
+		    pFunc->line = func.line;
+            return pFunc;
 		}
-		Consume(state, TokenType::RightParen, "Expected right parenthesis to close argument list");
-
-		// Parse return type
-		if (Match(state, 1, TokenType::FuncSigReturn)) {
-			pFunc->pReturnType = (Ast::Type*)ParseType(state);
-		} else {
-			pFunc->pReturnType = (Ast::Type*)state.pAllocator->Allocate(sizeof(Ast::Type));
-			pFunc->pReturnType->nodeKind = Ast::NodeType::Type;
-			pFunc->pReturnType->identifier = CopyCString("void", state.pAllocator);
-			pFunc->pReturnType->pLocation = Previous(state).pLocation;
-			pFunc->pReturnType->pLineStart = Previous(state).pLineStart;
-			pFunc->pReturnType->line = Previous(state).line;
-		}
-
-		if (Match(state, 1, TokenType::LeftBrace)) {
-			pFunc->pBody = (Ast::Block*)ParseBlock(state);
-		} else {
-			PushError(state, "Expected '{' to open function body");
-		}
-			
-		pFunc->pLocation = func.pLocation;
-		pFunc->pLineStart = func.pLineStart;
-		pFunc->line = func.line;
-		return pFunc;
+		return pFuncType;
 	}
 
 	if (Match(state, 1, TokenType::Struct)) {
 		Ast::Structure* pStruct = (Ast::Structure*)state.pAllocator->Allocate(sizeof(Ast::Structure));
-		pStruct->nodeKind = Ast::NodeType::Structure;
+		pStruct->nodeKind = Ast::NodeKind::Structure;
 		pStruct->members.pAlloc = state.pAllocator;
 
 		Consume(state, TokenType::LeftBrace, "Expected '{' after struct to start member declarations");
@@ -353,7 +323,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 
     if (Match(state, 1, TokenType::LiteralInteger)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)state.pAllocator->Allocate(sizeof(Ast::Literal));
-        pLiteralExpr->nodeKind = Ast::NodeType::Literal;
+        pLiteralExpr->nodeKind = Ast::NodeKind::Literal;
         pLiteralExpr->isConstant = true;
 
         Token token = Previous(state);
@@ -369,7 +339,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 
     if (Match(state, 1, TokenType::LiteralFloat)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)state.pAllocator->Allocate(sizeof(Ast::Literal));
-        pLiteralExpr->nodeKind = Ast::NodeType::Literal;
+        pLiteralExpr->nodeKind = Ast::NodeKind::Literal;
         pLiteralExpr->isConstant = true;
 
         Token token = Previous(state);
@@ -385,7 +355,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 
     if (Match(state, 1, TokenType::LiteralBool)) {
         Ast::Literal* pLiteralExpr = (Ast::Literal*)state.pAllocator->Allocate(sizeof(Ast::Literal));
-        pLiteralExpr->nodeKind = Ast::NodeType::Literal;
+        pLiteralExpr->nodeKind = Ast::NodeKind::Literal;
         pLiteralExpr->isConstant = true;
 
         Token token = Previous(state);
@@ -409,7 +379,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 
         if (pExpr) {
             Ast::Grouping* pGroupExpr = (Ast::Grouping*)state.pAllocator->Allocate(sizeof(Ast::Grouping));
-            pGroupExpr->nodeKind = Ast::NodeType::Grouping;
+            pGroupExpr->nodeKind = Ast::NodeKind::Grouping;
 
             pGroupExpr->pLocation = startToken.pLocation;
             pGroupExpr->pLineStart = startToken.pLineStart;
@@ -427,7 +397,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 
         // Should become identifier with a type, variable or type or something like that
         Ast::Identifier* pIdentifier = (Ast::Identifier*)state.pAllocator->Allocate(sizeof(Ast::Identifier));
-        pIdentifier->nodeKind = Ast::NodeType::Identifier;
+        pIdentifier->nodeKind = Ast::NodeKind::Identifier;
         pIdentifier->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
 
         pIdentifier->pLocation = identifier.pLocation;
@@ -452,7 +422,7 @@ Ast::Expression* ParseCall(ParsingState& state) {
 	while (true) {
 		if (Match(state, 1, TokenType::LeftParen)) {
 			Ast::Call* pCall = (Ast::Call*)state.pAllocator->Allocate(sizeof(Ast::Call));
-			pCall->nodeKind = Ast::NodeType::Call;
+			pCall->nodeKind = Ast::NodeKind::Call;
 			pCall->pCallee = pExpr;
 			pCall->args.pAlloc = state.pAllocator;
 
@@ -472,7 +442,7 @@ Ast::Expression* ParseCall(ParsingState& state) {
 		} else if (Match(state, 1, TokenType::Dot)) {
 			Token dot = Previous(state);
 			Ast::GetField* pGetField  = (Ast::GetField*)state.pAllocator->Allocate(sizeof(Ast::GetField));
-			pGetField->nodeKind = Ast::NodeType::GetField;
+			pGetField->nodeKind = Ast::NodeKind::GetField;
 			pGetField->pTarget = pExpr;
 
 			Token fieldName = Consume(state, TokenType::Identifier, "Expected identifier after '.' to access a named field");
@@ -501,8 +471,8 @@ Ast::Expression* ParseUnary(ParsingState& state) {
 			Consume(state, TokenType::LeftParen, "Expected '(' before cast target type");
 
 			Ast::Cast* pCastExpr = (Ast::Cast*)state.pAllocator->Allocate(sizeof(Ast::Cast));
-			pCastExpr->nodeKind = Ast::NodeType::Cast;
-			pCastExpr->pTargetType = (Ast::Type*)ParseType(state);
+			pCastExpr->nodeKind = Ast::NodeKind::Cast;
+			pCastExpr->pTypeExpr = (Ast::Type*)ParseType(state);
 			pCastExpr->pLocation = prev.pLocation;
 			pCastExpr->pLineStart = prev.pLineStart;
 			pCastExpr->line = prev.line;
@@ -516,7 +486,7 @@ Ast::Expression* ParseUnary(ParsingState& state) {
 		else {
 
 			Ast::Unary* pUnaryExpr = (Ast::Unary*)state.pAllocator->Allocate(sizeof(Ast::Unary));
-			pUnaryExpr->nodeKind = Ast::NodeType::Unary;
+			pUnaryExpr->nodeKind = Ast::NodeKind::Unary;
 
 			pUnaryExpr->pLocation = prev.pLocation;
 			pUnaryExpr->pLineStart = prev.pLineStart;
@@ -541,7 +511,7 @@ Ast::Expression* ParseMulDiv(ParsingState& state) {
 
     while (Match(state, 2, TokenType::Star, TokenType::Slash)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)state.pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeKind::Binary;
 
         Token opToken = Previous(state);
         pBinaryExpr->pLocation = opToken.pLocation;
@@ -564,7 +534,7 @@ Ast::Expression* ParseAddSub(ParsingState& state) {
 
     while (Match(state, 2, TokenType::Minus, TokenType::Plus)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)state.pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeKind::Binary;
 
         Token opToken = Previous(state);
         pBinaryExpr->pLocation = opToken.pLocation;
@@ -587,7 +557,7 @@ Ast::Expression* ParseComparison(ParsingState& state) {
 
     while (Match(state, 4, TokenType::Greater, TokenType::Less, TokenType::GreaterEqual, TokenType::LessEqual)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)state.pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeKind::Binary;
 
         Token opToken = Previous(state);
         pBinaryExpr->pLocation = opToken.pLocation;
@@ -610,7 +580,7 @@ Ast::Expression* ParseEquality(ParsingState& state) {
 
     while (Match(state, 2, TokenType::EqualEqual, TokenType::BangEqual)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)state.pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeKind::Binary;
 
         Token opToken = Previous(state);
         pBinaryExpr->pLocation = opToken.pLocation;
@@ -633,7 +603,7 @@ Ast::Expression* ParseLogicAnd(ParsingState& state) {
 
     while (Match(state, 1, TokenType::And)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)state.pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeKind::Binary;
 
         Token opToken = Previous(state);
         pBinaryExpr->pLocation = opToken.pLocation;
@@ -656,7 +626,7 @@ Ast::Expression* ParseLogicOr(ParsingState& state) {
 
     while (Match(state, 1, TokenType::Or)) {
         Ast::Binary* pBinaryExpr = (Ast::Binary*)state.pAllocator->Allocate(sizeof(Ast::Binary));
-        pBinaryExpr->nodeKind = Ast::NodeType::Binary;
+        pBinaryExpr->nodeKind = Ast::NodeKind::Binary;
 
         Token opToken = Previous(state);
         pBinaryExpr->pLocation = opToken.pLocation;
@@ -681,20 +651,20 @@ Ast::Expression* ParseAssignment(ParsingState& state) {
         Token equal = Previous(state);
 		Ast::Expression* pAssignment = ParseAssignment(state);
 
-        if (pExpr->nodeKind == Ast::NodeType::Identifier) {
+        if (pExpr->nodeKind == Ast::NodeKind::Identifier) {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)state.pAllocator->Allocate(sizeof(Ast::VariableAssignment));
-            pVarAssignment->nodeKind = Ast::NodeType::VariableAssignment;
+            pVarAssignment->nodeKind = Ast::NodeKind::VariableAssignment;
 
-            pVarAssignment->identifier = ((Ast::Identifier*)pExpr)->identifier;
+            pVarAssignment->pIdentifier = (Ast::Identifier*)pExpr;
             pVarAssignment->pAssignment = pAssignment;
 
             pVarAssignment->pLocation = equal.pLocation;
             pVarAssignment->pLineStart = equal.pLineStart;
             pVarAssignment->line = equal.line;
             return pVarAssignment;
-		} else if (pExpr->nodeKind == Ast::NodeType::GetField) {
+		} else if (pExpr->nodeKind == Ast::NodeKind::GetField) {
 			Ast::SetField* pSetField = (Ast::SetField*)state.pAllocator->Allocate(sizeof(Ast::SetField));
-			pSetField->nodeKind = Ast::NodeType::SetField;
+			pSetField->nodeKind = Ast::NodeKind::SetField;
 
 			Ast::GetField* pGet = (Ast::GetField*)pExpr;
 			pSetField->pTarget = pGet->pTarget;
@@ -766,7 +736,7 @@ Ast::Statement* ParseExpressionStmt(ParsingState& state) {
     Consume(state, TokenType::Semicolon, "Expected \";\" at the end of this statement");
 
     Ast::ExpressionStmt* pStmt = (Ast::ExpressionStmt*)state.pAllocator->Allocate(sizeof(Ast::ExpressionStmt));
-    pStmt->nodeKind = Ast::NodeType::ExpressionStmt;
+    pStmt->nodeKind = Ast::NodeKind::ExpressionStmt;
 
     pStmt->pExpr = pExpr;
 
@@ -780,7 +750,7 @@ Ast::Statement* ParseExpressionStmt(ParsingState& state) {
 
 Ast::Statement* ParseIf(ParsingState& state) {
     Ast::If* pIf = (Ast::If*)state.pAllocator->Allocate(sizeof(Ast::If));
-    pIf->nodeKind = Ast::NodeType::If;
+    pIf->nodeKind = Ast::NodeKind::If;
 
     pIf->pLocation = Previous(state).pLocation;
     pIf->pLineStart = Previous(state).pLineStart;
@@ -799,7 +769,7 @@ Ast::Statement* ParseIf(ParsingState& state) {
 
 Ast::Statement* ParseWhile(ParsingState& state) {
     Ast::While* pWhile = (Ast::While*)state.pAllocator->Allocate(sizeof(Ast::While));
-    pWhile->nodeKind = Ast::NodeType::While;
+    pWhile->nodeKind = Ast::NodeKind::While;
 
     pWhile->pLocation = Previous(state).pLocation;
     pWhile->pLineStart = Previous(state).pLineStart;
@@ -821,7 +791,7 @@ Ast::Statement* ParsePrint(ParsingState& state) {
     Consume(state, TokenType::Semicolon, "Expected \";\" at the end of this statement");
     
     Ast::Print* pPrintStmt = (Ast::Print*)state.pAllocator->Allocate(sizeof(Ast::Print));
-    pPrintStmt->nodeKind = Ast::NodeType::Print;
+    pPrintStmt->nodeKind = Ast::NodeKind::Print;
 
     pPrintStmt->pExpr = pExpr;
 
@@ -835,7 +805,7 @@ Ast::Statement* ParsePrint(ParsingState& state) {
 
 Ast::Statement* ParseReturn(ParsingState& state) {
     Ast::Return* pReturnStmt = (Ast::Return*)state.pAllocator->Allocate(sizeof(Ast::Return));
-    pReturnStmt->nodeKind = Ast::NodeType::Return;
+    pReturnStmt->nodeKind = Ast::NodeKind::Return;
 
 	if (!Check(state, TokenType::Semicolon)) {
 		pReturnStmt->pExpr = ParseExpression(state);
@@ -854,7 +824,7 @@ Ast::Statement* ParseReturn(ParsingState& state) {
 
 Ast::Statement* ParseBlock(ParsingState& state) {
     Ast::Block* pBlock = (Ast::Block*)state.pAllocator->Allocate(sizeof(Ast::Block));
-    pBlock->nodeKind = Ast::NodeType::Block;
+    pBlock->nodeKind = Ast::NodeKind::Block;
     pBlock->declarations.pAlloc = state.pAllocator;
     pBlock->startToken = Previous(state);
 
@@ -881,17 +851,17 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
         if (Match(state, 1, TokenType::Colon)) {
             // We now know we are dealing with a declaration of some kind
             Ast::Declaration* pDecl = (Ast::Declaration*)state.pAllocator->Allocate(sizeof(Ast::Declaration));
-            pDecl->nodeKind = Ast::NodeType::Declaration;
+            pDecl->nodeKind = Ast::NodeKind::Declaration;
             pDecl->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
 
             // Optionally Parse type 
             if (Peek(state).type != TokenType::Equal && Peek(state).type != TokenType::Colon) {
-				pDecl->pDeclaredType = (Ast::Type*)ParseType(state);
+				pDecl->pTypeAnnotation = (Ast::Type*)ParseType(state);
 
-                if (pDecl->pDeclaredType == nullptr)
+                if (pDecl->pTypeAnnotation == nullptr)
                     PushError(state, "Expected a type here, potentially missing an equal sign before an initializer?");
             } else {
-                pDecl->pDeclaredType = nullptr;
+                pDecl->pTypeAnnotation = nullptr;
             }
 
             // Parse initializer for constant declaration
@@ -906,11 +876,7 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
             if (Match(state, 1, TokenType::Equal)) {
                 pDecl->isConstantDeclaration = false;
 				pDecl->pInitializerExpr = ParseExpression(state);
-                // TODO: Remove when we have out of order name resolution
-                if (pDecl->pInitializerExpr && pDecl->pInitializerExpr->nodeKind == Ast::NodeType::Function) {  // Required for recursion, function will be able to refer to itself
-                    Ast::Function* pFunc = (Ast::Function*)pDecl->pInitializerExpr;
-                    pFunc->identifier = pDecl->identifier;
-                }
+
                 if (pDecl->pInitializerExpr == nullptr)
                     PushError(state, "Need an expression to initialize this declaration. If you want it uninitialized, leave out the '=' sign");
             }
@@ -966,44 +932,37 @@ void Parse(Compiler& compilerState) {
 
 void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
     switch (pStmt->nodeKind) {
-        case Ast::NodeType::Declaration: {
+        case Ast::NodeKind::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
             Log::Debug("%*s+ Decl (%s)", indentationLevel, "", pDecl->identifier.pData);
-            if (pDecl->pDeclaredType) {
-                String typeStr = "none";
-                if (pDecl->pDeclaredType->pResolvedType) {
-                    typeStr = pDecl->pDeclaredType->pResolvedType->name;
-                }
-                Log::Debug("%*s  Type: %s", indentationLevel + 2, "", typeStr.pData);
-            }
-            else if (pDecl->pInitializerExpr)
-                Log::Debug("%*s  Type: inferred as %s", indentationLevel + 2, "", pDecl->pInitializerExpr->pType ? pDecl->pInitializerExpr->pType->name.pData : "none");
-
+            if (pDecl->pTypeAnnotation) {
+                DebugExpression(pDecl->pTypeAnnotation, indentationLevel + 2);
+            } 
             if (pDecl->pInitializerExpr) {
                 DebugExpression(pDecl->pInitializerExpr, indentationLevel + 2);
             }
             break;
         }
-        case Ast::NodeType::Print: {
+        case Ast::NodeKind::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
             Log::Debug("%*s> PrintStmt", indentationLevel, "");
             DebugExpression(pPrint->pExpr, indentationLevel + 2);
             break;
         }
-        case Ast::NodeType::Return: {
+        case Ast::NodeKind::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
             Log::Debug("%*s> ReturnStmt", indentationLevel, "");
             if (pReturn->pExpr)
                 DebugExpression(pReturn->pExpr, indentationLevel + 2);
             break;
         }
-        case Ast::NodeType::ExpressionStmt: {
+        case Ast::NodeKind::ExpressionStmt: {
             Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
             Log::Debug("%*s> ExpressionStmt", indentationLevel, "");
             DebugExpression(pExprStmt->pExpr, indentationLevel + 2);
             break;
         }
-        case Ast::NodeType::If: {
+        case Ast::NodeKind::If: {
             Ast::If* pIf = (Ast::If*)pStmt;
             Log::Debug("%*s> If", indentationLevel, "");
             DebugExpression(pIf->pCondition, indentationLevel + 2);
@@ -1012,14 +971,14 @@ void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
                 DebugStatement(pIf->pElseStmt, indentationLevel + 2);
             break;
         }
-        case Ast::NodeType::While: {
+        case Ast::NodeKind::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             Log::Debug("%*s> While", indentationLevel, "");
             DebugExpression(pWhile->pCondition, indentationLevel + 2);
             DebugStatement(pWhile->pBody, indentationLevel + 2);
             break;
         }
-        case Ast::NodeType::Block: {
+        case Ast::NodeKind::Block: {
             Ast::Block* pBlock = (Ast::Block*)pStmt;
             Log::Debug("%*s> Block", indentationLevel, "");
             DebugStatements(pBlock->declarations, indentationLevel + 2);
@@ -1048,7 +1007,7 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
     }
 
     switch (pExpr->nodeKind) {
-        case Ast::NodeType::Identifier: {
+        case Ast::NodeKind::Identifier: {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
             String nodeTypeStr = "none";
             if (pIdentifier->pType) {
@@ -1058,25 +1017,25 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
             Log::Debug("%*s- Identifier (%s:%s)", indentationLevel, "", pIdentifier->identifier.pData, nodeTypeStr.pData);
             break;
         }
-        case Ast::NodeType::FnType: 
-        case Ast::NodeType::Type: {
+        case Ast::NodeKind::FunctionType: 
+        case Ast::NodeKind::Type: {
             Ast::Type* pType = (Ast::Type*)pExpr;
-            if (pType->pType && pType->pResolvedType)
-                Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pType->pResolvedType->name.pData, pType->pType->name.pData);
+            if (pType->pType && pType->constantValue.pTypeInfo)
+                Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pType->constantValue.pTypeInfo->name.pData, pType->pType->name.pData);
             break;
         }
-        case Ast::NodeType::VariableAssignment: {
+        case Ast::NodeKind::VariableAssignment: {
             Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pExpr;
             String nodeTypeStr = "none";
             if (pAssignment->pType) {
                 nodeTypeStr = pAssignment->pType->name;
             }
 
-            Log::Debug("%*s- Variable Assignment (%s:%s)", indentationLevel, "", pAssignment->identifier.pData, nodeTypeStr.pData);
+            Log::Debug("%*s- Variable Assignment (%s:%s)", indentationLevel, "", pAssignment->pIdentifier->identifier.pData, nodeTypeStr.pData);
             DebugExpression(pAssignment->pAssignment, indentationLevel + 2);
             break;
         }
-        case Ast::NodeType::Literal: {
+        case Ast::NodeKind::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
             String nodeTypeStr = "none";
             if (pLiteral->pType) {
@@ -1091,28 +1050,21 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
                 Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->constantValue.boolValue ? "true" : "false", nodeTypeStr.pData);
             break;
         }
-        case Ast::NodeType::Function: {
+        case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             Log::Debug("%*s- Function", indentationLevel, "");
-            for (Ast::Declaration* pParam : pFunction->params) {
-                String typeStr = "none";
-                if (pParam->pResolvedType) {
-                    typeStr = pParam->pResolvedType->name;
-                }
-
-                Log::Debug("%*s+ Param (%s:%s)", indentationLevel + 2, "", pParam->identifier.pData, typeStr.pData);
-            }
+            DebugExpression(pFunction->pFuncType, indentationLevel + 2);
             DebugStatement(pFunction->pBody, indentationLevel + 2);
             break;
         }
-		case Ast::NodeType::Structure: {
+		case Ast::NodeKind::Structure: {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
 			Log::Debug("%*s- Struct", indentationLevel, "");
 			for (Ast::Statement* pMemberStmt : pStruct->members) {
 				Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
 				String typeStr = "none";
-				if (pMember->pResolvedType) {
-					typeStr = pMember->pResolvedType->name;
+				if (pMember->pType) {
+					typeStr = pMember->pType->name;
 				}
 
 				Log::Debug("%*s+ Member (%s:%s)", indentationLevel + 2, "", pMember->identifier.pData, typeStr.pData);
@@ -1122,7 +1074,7 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
 			}
 			break;
 		}
-        case Ast::NodeType::Grouping: {
+        case Ast::NodeKind::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
             String typeStr = "none";
             if (pGroup->pType) {
@@ -1132,7 +1084,7 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
             DebugExpression(pGroup->pExpression, indentationLevel + 2);
             break;
         }
-        case Ast::NodeType::Binary: {
+        case Ast::NodeKind::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             String nodeTypeStr = "none";
             if (pBinary->pType) {
@@ -1182,7 +1134,7 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
             DebugExpression(pBinary->pRight, indentationLevel + 2);
             break;
         }
-        case Ast::NodeType::Unary: {
+        case Ast::NodeKind::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             switch (pUnary->op) {
                 case Operator::UnaryMinus:
@@ -1197,7 +1149,7 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
             DebugExpression(pUnary->pRight, indentationLevel + 2);
             break;
         }
-		case Ast::NodeType::Cast: {
+		case Ast::NodeKind::Cast: {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
 
 			if (pCast->pType) {
@@ -1205,11 +1157,11 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
 			} else {
 				Log::Debug("%*s- Cast (:none)", indentationLevel, "");
 			}
-			DebugExpression(pCast->pTargetType, indentationLevel + 2);
+			DebugExpression(pCast->pTypeExpr, indentationLevel + 2);
 			DebugExpression(pCast->pExprToCast, indentationLevel + 2);
 			break;
 		}
-        case Ast::NodeType::Call: {
+        case Ast::NodeKind::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
 
             DebugExpression(pCall->pCallee, indentationLevel);
@@ -1220,7 +1172,7 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
             }
             break;
         }
-		case Ast::NodeType::GetField: {
+		case Ast::NodeKind::GetField: {
 			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
 
 			String nodeTypeStr = "none";
@@ -1231,7 +1183,7 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
 			DebugExpression(pGetField->pTarget, indentationLevel + 2);
 			break;
 		}
-		case Ast::NodeType::SetField: {
+		case Ast::NodeKind::SetField: {
 			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
 			String nodeTypeStr = "none";
 			if (pSetField->pType) {

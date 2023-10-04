@@ -96,10 +96,8 @@ void PatchJump(State& state, int jumpCodeLocation) {
 void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 
     // Constant folding
-    // If this expression is a constant, there's no need to generate any bytecode, just emit the constant literal
-    // TODO: Temporary that we block types, fntypes and structures here, they should eventually work, cause the type value will be in the constant value member
-    if (pExpr->isConstant && 
-    (pExpr->nodeKind != Ast::NodeType::Type &&  pExpr->nodeKind != Ast::NodeType::FnType && pExpr->nodeKind != Ast::NodeType::Function && pExpr->nodeKind != Ast::NodeType::Structure)) {
+    // If this expression is a constant (and not a function, since they must be codegen'd), there's no need to generate any bytecode, just emit the constant literal
+    if (pExpr->isConstant && (pExpr->nodeKind != Ast::NodeKind::Function)) {
         CurrentFunction(state)->constants.PushBack(pExpr->constantValue);
         CurrentFunction(state)->dbgConstantsTypes.PushBack(pExpr->pType);
         uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
@@ -110,26 +108,32 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
     }
 
     switch (pExpr->nodeKind) {
-        case Ast::NodeType::Identifier: {
+        case Ast::NodeKind::Identifier: {
             Ast::Identifier* pVariable = (Ast::Identifier*)pExpr;
-            int localIndex = ResolveLocal(state, pVariable->identifier);
-            if (localIndex != -1) {
-                PushCode(state, OpCode::GetLocal, pVariable->line);
-                PushCode(state, localIndex, pVariable->line);
+            if (pVariable->isConstant) {
+                // Do a load from constant table
+                // how do we know it's constant index?
+            } else {
+                // do a load from locals memory
+                int localIndex = ResolveLocal(state, pVariable->identifier);
+                if (localIndex != -1) {
+                    PushCode(state, OpCode::GetLocal, pVariable->line);
+                    PushCode(state, localIndex, pVariable->line);
+                }
             }
             break;
         }
-        case Ast::NodeType::VariableAssignment: {
+        case Ast::NodeKind::VariableAssignment: {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
             CodeGenExpression(state, pVarAssignment->pAssignment);
-            int localIndex = ResolveLocal(state, pVarAssignment->identifier);
+            int localIndex = ResolveLocal(state, pVarAssignment->pIdentifier->identifier);
             if (localIndex != -1) {
                 PushCode(state, OpCode::SetLocal, pVarAssignment->line);
                 PushCode(state, localIndex, pVarAssignment->line);
             }
             break;
         }
-		case Ast::NodeType::SetField: {
+		case Ast::NodeKind::SetField: {
 			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
 
 			CodeGenExpression(state, pSetField->pTarget);
@@ -154,7 +158,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 			PushCode4Byte(state, (uint32_t)pTargetField->pType->size, pSetField->line);
 			break;
 		}
-		case Ast::NodeType::GetField: {
+		case Ast::NodeKind::GetField: {
 			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
 			
 			CodeGenExpression(state, pGetField->pTarget);
@@ -179,7 +183,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 			PushCode4Byte(state, (uint32_t)pTargetField->pType->size, pGetField->line);
 			break;
 		}
-        case Ast::NodeType::Literal: {
+        case Ast::NodeKind::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
 
             CurrentFunction(state)->constants.PushBack(pLiteral->constantValue);
@@ -190,21 +194,9 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             PushCode(state, constIndex, pLiteral->line);
             break;
         }
-        case Ast::NodeType::Type:
-        case Ast::NodeType::FnType: {
-            Ast::Type* pType = (Ast::Type*)pExpr;
-
-			CurrentFunction(state)->constants.PushBack(MakeValue(pType->pResolvedType));
-			CurrentFunction(state)->dbgConstantsTypes.PushBack(GetTypeType());
-            uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
-
-            PushCode(state, OpCode::LoadConstant, pType->line);
-            PushCode(state, constIndex, pType->line);
-            break;
-        }
-        case Ast::NodeType::Function: {
+        case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            Function* pFunc = CodeGen(pFunction->pBody->declarations, pFunction->params, pFunction->identifier, state.pErrors, state.pAlloc);
+            Function* pFunc = CodeGen(pFunction->pBody->declarations, pFunction->pFuncType->params, pFunction->pDeclaration->identifier, state.pErrors, state.pAlloc);
 
             Value value;
             value.pFunction = pFunc;
@@ -217,25 +209,13 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
             PushCode(state, constIndex, pFunction->line);
             break;
         }
-		case Ast::NodeType::Structure: {
-			Ast::Structure* pStructure = (Ast::Structure*)pExpr;
-
-			// Defines a type which we put on the stack as a local
-			CurrentFunction(state)->constants.PushBack(MakeValue(pStructure->pDescribedType));
-			CurrentFunction(state)->dbgConstantsTypes.PushBack(pStructure->pDescribedType);
-			uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
-
-			PushCode(state, OpCode::LoadConstant, pStructure->line);
-			PushCode(state, constIndex, pStructure->line);
-			break;
-		}
-        case Ast::NodeType::Grouping: {
+        case Ast::NodeKind::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
 
             CodeGenExpression(state, pGroup->pExpression);
             break;
         }
-        case Ast::NodeType::Binary: {
+        case Ast::NodeKind::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
 
             if (pBinary->op == Operator::And) {
@@ -295,7 +275,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 			PushCode(state, pBinary->pLeft->pType->tag, pBinary->line);
 			break;
         }
-        case Ast::NodeType::Unary: {
+        case Ast::NodeKind::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             CodeGenExpression(state, pUnary->pRight);
             switch (pUnary->op) {
@@ -311,7 +291,7 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 			PushCode(state, pUnary->pRight->pType->tag, pUnary->line);
 			break;
         }
-		case Ast::NodeType::Cast: {
+		case Ast::NodeKind::Cast: {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
 			CodeGenExpression(state, pCast->pExprToCast);
 
@@ -327,18 +307,18 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 				AssertMsg(false, "Don't know how to cast non base types yet");
 			}
 
-			if (pCast->pTargetType->pResolvedType == GetI32Type()) {
+			if (pCast->pTypeExpr->constantValue.pTypeInfo == GetI32Type()) {
 				PushCode(state, (uint8_t)TypeInfo::I32, pCast->line);
-			} else if (pCast->pTargetType->pResolvedType == GetF32Type()) {
+			} else if (pCast->pTypeExpr->constantValue.pTypeInfo == GetF32Type()) {
 				PushCode(state, (uint8_t)TypeInfo::F32, pCast->line);
-			} else if (pCast->pTargetType->pResolvedType == GetBoolType()) {
+			} else if (pCast->pTypeExpr->constantValue.pTypeInfo == GetBoolType()) {
 				PushCode(state, (uint8_t)TypeInfo::Bool, pCast->line);
 			} else {
 				AssertMsg(false, "Don't know how to cast non base types yet");
 			}
 			break;
 		}
-        case Ast::NodeType::Call: {
+        case Ast::NodeKind::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             CodeGenExpression(state, pCall->pCallee);
 
@@ -361,8 +341,24 @@ void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements
 
 void CodeGenStatement(State& state, Ast::Statement* pStmt) {
     switch (pStmt->nodeKind) {
-        case Ast::NodeType::Declaration: {
+        case Ast::NodeKind::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
+
+            if (pDecl->isConstantDeclaration) {
+                // The initializer expression will put something into the constant table
+
+                // BUT, it will not load it, we must do that as part of the declaration 
+                // TODO: I.E. Refactor Literals codegen to not push a load constant opcode that should be done by the declaration 
+
+                // We need to expose the entity table to codegen.
+                // During typechecking, functions objects will be allocated and put in the entity table as their const value
+                // First pass codegen will go through all constant entities, and put their constant values in the constant table, storing the index in the entity
+                // Second pass is what we have now. Identifiers can look up the entity, grab the constant index and push that if need be.
+                // declarations will codegen their initializers (if they are literals they will not emit anything, functions will codegen their bodies)
+                // Non const declarations will push a constant, const ones won't
+                
+                break;
+            }
 
             Local local;
             local.depth = state.currentScopeDepth;
@@ -372,17 +368,17 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             if (pDecl->pInitializerExpr)
                 CodeGenExpression(state, pDecl->pInitializerExpr);
             else {
-				if (pDecl->pResolvedType->tag == TypeInfo::Struct)
+				if (pDecl->pType->tag == TypeInfo::Struct)
 				{
 					// allocate memory for the struct
 					PushCode(state, OpCode::StructAlloc, pDecl->line);
-					PushCode4Byte(state, (uint32_t)pDecl->pResolvedType->size, pDecl->line); // TODO: do I support 4gb structs?
+					PushCode4Byte(state, (uint32_t)pDecl->pType->size, pDecl->line); // TODO: do I support 4gb structs?
 
 				} else { // For all non struct values we just push a new value on the operand stack that is zero
 					Value v;
 					v.pPtr = 0;
 					CurrentFunction(state)->constants.PushBack(v);
-					CurrentFunction(state)->dbgConstantsTypes.PushBack(pDecl->pResolvedType);
+					CurrentFunction(state)->dbgConstantsTypes.PushBack(pDecl->pType);
 					uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
 
 					PushCode(state, OpCode::LoadConstant, pDecl->line);
@@ -391,27 +387,27 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             }
             break;
         }
-        case Ast::NodeType::Print: {
+        case Ast::NodeKind::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
             CodeGenExpression(state, pPrint->pExpr);
             PushCode(state, OpCode::Print, pPrint->line);
 			PushCode(state, pPrint->pExpr->pType->tag, pPrint->line);
 			break;
         }
-        case Ast::NodeType::Return: {
+        case Ast::NodeKind::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
             if (pReturn->pExpr)
                 CodeGenExpression(state, pReturn->pExpr);
             PushCode(state, OpCode::Return, pReturn->line);
             break;
         }
-        case Ast::NodeType::ExpressionStmt: {
+        case Ast::NodeKind::ExpressionStmt: {
             Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
             CodeGenExpression(state, pExprStmt->pExpr);
             PushCode(state, OpCode::Pop, pExprStmt->line);
             break;
         }
-        case Ast::NodeType::If: {
+        case Ast::NodeKind::If: {
             Ast::If* pIf = (Ast::If*)pStmt;
             CodeGenExpression(state, pIf->pCondition);
 
@@ -434,7 +430,7 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
 
             break;
         }
-        case Ast::NodeType::While: {
+        case Ast::NodeKind::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             uint32_t loopStart = CurrentFunction(state)->code.count;
             CodeGenExpression(state, pWhile->pCondition);
@@ -449,7 +445,7 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
             PushCode(state, OpCode::Pop, pWhile->pBody->line);
             break;
         }
-        case Ast::NodeType::Block: {
+        case Ast::NodeKind::Block: {
             Ast::Block* pBlock = (Ast::Block*)pStmt;
             state.currentScopeDepth++;
             CodeGenStatements(state, pBlock->declarations);
@@ -504,6 +500,7 @@ Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::
     CodeGenStatements(state, program);
 
     // return void
+    // TODO: If there is a return in the function body you don't need to emit this 
     Ast::Statement* pEnd = program[program.count - 1];
 	CurrentFunction(state)->constants.PushBack(Value());
 	CurrentFunction(state)->dbgConstantsTypes.PushBack(GetVoidType());

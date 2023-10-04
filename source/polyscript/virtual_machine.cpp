@@ -73,7 +73,7 @@ String DisassembleInstruction(Function& function, uint8_t* pInstruction, uint8_t
             }
             else if (pType->tag == TypeInfo::TypeTag::Function) {
                 if (v.pFunction)
-                    builder.AppendFormat("%i (<fn %s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");
+                    builder.AppendFormat("%i (<func %s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");
                 else
                     builder.AppendFormat("%i (none)", constIndex);
             }
@@ -523,7 +523,7 @@ void Run(Function* pFuncToRun) {
 				else if (typeId == TypeInfo::TypeTag::Bool)
 					Log::Info("%s", v.boolValue ? "true" : "false");
 				else if (typeId == TypeInfo::TypeTag::Function)
-					Log::Info("<fn %s>", v.pFunction->name.pData ? v.pFunction->name.pData : "");  // TODO Should probably show the type sig?
+					Log::Info("<func %s>", v.pFunction->name.pData ? v.pFunction->name.pData : "");  // TODO Should probably show the type sig?
 				break;
 			}
 			case OpCode::Pop:

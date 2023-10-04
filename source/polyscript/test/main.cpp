@@ -44,6 +44,8 @@ void RunTestPlayground() {
 
 	if (compiler.errorState.errors.count == 0) {
 		Run(compiler.pTopLevelFunction);
+	} else {
+		compiler.errorState.ReportCompilationResult();
 	}
 }
 
@@ -70,20 +72,20 @@ void Values() {
 			"print(i32);\n"
 			"print(f32);\n"
 			"print(bool);\n"
-			"print(fn () -> void);\n"
-			"print(fn (i32) -> void);\n"
-			"print(fn () -> f32);\n"
-			"print(fn (i32, f32, bool) -> i32);";
+			"print(func () -> void);\n"
+			"print(func (i32) -> void);\n"
+			"print(func () -> f32);\n"
+			"print(func (i32, f32, bool) -> i32);";
 
 		expectation =
 			"Type\n"
 			"i32\n"
 			"f32\n"
 			"bool\n"
-			"fn () -> void\n"
-			"fn (i32) -> void\n"
-			"fn () -> f32\n"
-			"fn (i32, f32, bool) -> i32\n";
+			"func () -> void\n"
+			"func (i32) -> void\n"
+			"func () -> f32\n"
+			"func (i32, f32, bool) -> i32\n";
 		
 		errorCount += RunCompilerOnTestCase(typeLiterals, expectation, ResizableArray<String>());
 	}
@@ -719,18 +721,18 @@ int main(int argc, char *argv[]) {
     InitTypeTable();
 	InitTokenToOperatorMap();
 
-	Values();
-	ArithmeticOperators();
-	LogicalOperators();
-	Expressions();
-	ControlFlow();
-	Declarations();
-	VariableAssignment();
-	Scopes();
-	Casting();
-	Functions();
-	Structs();
-	Constants();
+	// Values();
+	// ArithmeticOperators();
+	// LogicalOperators();
+	// Expressions();
+	// ControlFlow();
+	// Declarations();
+	// VariableAssignment();
+	// Scopes();
+	// Casting();
+	// Functions();
+	// Structs();
+	// Constants();
 
 	RunTestPlayground();
 

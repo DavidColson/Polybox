@@ -18,7 +18,7 @@ struct Scope;
 
 namespace Ast {
 
-enum class NodeType {
+enum class NodeKind {
     Invalid,
 
     // Expressions
@@ -37,7 +37,7 @@ enum class NodeType {
 
     // Types
     Type,
-    FnType,
+    FunctionType,
 
     // Statements
     ExpressionStmt,
@@ -51,7 +51,7 @@ enum class NodeType {
 
 // Base AST Node
 struct Node {
-    NodeType nodeKind;
+    NodeKind nodeKind;
 
     char* pLocation { nullptr };
     char* pLineStart { nullptr };
@@ -89,44 +89,27 @@ struct Identifier : public Expression {
     String identifier;
 };
 
-struct Type : public Expression {
-    String identifier;
-    TypeInfo* pResolvedType;
-};
-
-struct Declaration;
-struct FnType : public Type {
-	// fn (param1, param2, ...) -> returnType
-    ResizableArray<Type*> params;
-    Type* pReturnType;
-};
-
 struct Block;
+struct FunctionType;
+struct Declaration;
 struct Function : public Expression {
-	// identifier := func (param1, param2, ...) -> returnType {body}
-    // TODO: Refactor to be Type* and Block* for body
-    ResizableArray<Declaration*> params;
+	// func (param1:type1, param2:type1, ...) -> returnType body
+    FunctionType* pFuncType;
     Block* pBody;
-    Type * pReturnType;
-    String identifier;
-};
 
-struct Statement;
-struct Structure : public Expression {
-	// struct { statement1, statement2, ...}
-	ResizableArray<Statement*> members;
-	TypeInfo* pDescribedType;
+    Scope* pScope;
+    Declaration* pDeclaration;
 };
 
 struct VariableAssignment : public Expression {
 	// identifier = assignment
-    String identifier;
+    Identifier* pIdentifier;
     Expression* pAssignment;
 };
 
 struct Cast : public Expression {
-	// as(targetType) exprToCast
-	Type* pTargetType;
+	// as(typeExpr) exprToCast
+	Expression* pTypeExpr;
 	Expression* pExprToCast;
 };
 
@@ -147,6 +130,29 @@ struct SetField : public Expression {
 	Expression *pTarget;
 	String fieldName;
 	Expression* pAssignment;
+};
+
+// Type type nodes
+struct Type : public Expression {
+};
+
+struct FunctionType : public Type {
+	// func (param1:type1, param2:type2, ...) -> returnType
+    Scope* pScope;
+    ResizableArray<Declaration*> params;
+    Expression* pReturnType;
+};
+
+struct Statement;
+struct Structure : public Type {
+	// struct { statement1, statement2, ...}
+	ResizableArray<Statement*> members;
+
+    Token startToken;
+    Token endToken;
+    
+    Scope* pScope;
+    Declaration* pDeclaration; // TODO: Temp, remove when we have named types
 };
 
 
@@ -187,16 +193,12 @@ struct Block : public Statement {
 };
 
 struct Declaration : public Statement {
-	// identifier : declaredType = initializerExpr;
+	// identifier : typeAnnotation = initializerExpr;
     String identifier;
-    Type* pDeclaredType { nullptr };
-    TypeInfo* pResolvedType;
+    Expression* pTypeAnnotation { nullptr };
+    TypeInfo* pType;
     Expression* pInitializerExpr { nullptr };
     bool isConstantDeclaration { false };
-
-    // Used by the typechecker
-    // TODO: Yeet after we've refactored scopes
-    int scopeLevel{ 0 };
 };
 
 }

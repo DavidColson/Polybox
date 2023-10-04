@@ -17,7 +17,11 @@ Scope* CreateScope(ScopeKind::Enum kind, Scope* pParent, IAllocator* pAllocator)
     pScope->entities.pAlloc = pAllocator;
     pScope->children.pAlloc = pAllocator;
     pScope->kind = kind;
+
+    if (pParent)
+        pParent->children.PushBack(pScope);
     pScope->pParent = pParent;
+
     return pScope;
 }
 
@@ -27,16 +31,15 @@ struct TypeCheckerState {
     Scope* pGlobalScope{ nullptr };
     Scope* pCurrentScope{ nullptr };
 
-    HashMap<String, Ast::Declaration*> declarations;
     ErrorState* pErrors { nullptr };
     int currentScopeLevel { 0 };
-    bool currentlyDeclaringParams { false };
     Ast::Declaration* pCurrentDeclaration{ nullptr }; // nullptr if we are not currently parsing a declaration
 	IAllocator* pAllocator{ nullptr };
 };
 
 void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt);
 void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program);
+[[nodiscard]] Ast::Expression* TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr);
 
 // ***********************************************************************
 
@@ -156,195 +159,71 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
 
 // ***********************************************************************
 
+void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType) {
+    pFuncType->pType = GetTypeType();
+    pFuncType->isConstant = true;
+
+    StringBuilder builder;
+    builder.Append("func (");
+
+    TypeInfoFunction* pFunctionTypeInfo = (TypeInfoFunction*)state.pAllocator->Allocate(sizeof(TypeInfoFunction));
+    pFunctionTypeInfo->tag = TypeInfo::TypeTag::Function;
+    pFunctionTypeInfo->size = 8;
+    pFunctionTypeInfo->params = ResizableArray<TypeInfo*>(state.pAllocator);
+
+    for (size_t i = 0; i < pFuncType->params.count; i++) {
+        TypeCheckStatement(state, pFuncType->params[i]);
+        Ast::Declaration* pParam = pFuncType->params[i];
+
+        pFunctionTypeInfo->params.PushBack(pParam->pType);
+        if (i < pFuncType->params.count - 1) {
+            builder.AppendFormat("%s, ", pParam->pType->name.pData);
+        } else {
+            builder.AppendFormat("%s", pParam->pType->name.pData);
+        }
+    }
+
+    pFuncType->pReturnType = (Ast::Type*)TypeCheckExpression(state, pFuncType->pReturnType);
+    pFunctionTypeInfo->pReturnType = pFuncType->pReturnType->constantValue.pTypeInfo;
+    builder.Append(")");
+    if (pFunctionTypeInfo->pReturnType)
+        builder.AppendFormat(" -> %s", pFunctionTypeInfo->pReturnType->name.pData);
+    pFunctionTypeInfo->name = builder.CreateString(true, state.pAllocator);
+
+    // Types are constant literals
+    pFuncType->constantValue = MakeValue(pFunctionTypeInfo);
+}
+
+// ***********************************************************************
+
 [[nodiscard]] Ast::Expression* TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
     if (pExpr == nullptr)
         return pExpr;
 
     switch (pExpr->nodeKind) {
-        case Ast::NodeType::Literal: {
+        case Ast::NodeKind::Literal: {
             // Nothing to do
             return pExpr;
         }
-        case Ast::NodeType::Type: {
-            Ast::Type* pType = (Ast::FnType*)pExpr;
-            pType->pType = GetTypeType();
-            pType->isConstant = true;
-            // Resolve Type
-
-            // TODO: I think this should be refactored so that all types that are just a name are identifiers, which resolve to types
-            // The actual Type node should be syntactically described types, like a function header, or a struct definition, or a pointer and so on
-            if (pType->identifier == "void") {
-                pType->pResolvedType = GetVoidType();
-            } else if (pType->identifier == "i32") {
-                pType->pResolvedType = GetI32Type();
-            } else if (pType->identifier == "f32") {
-                pType->pResolvedType = GetF32Type(); 
-            } else if (pType->identifier == "bool") {
-                pType->pResolvedType = GetBoolType();
-            } else if (pType->identifier == "Type") {
-                pType->pResolvedType = GetTypeType();
-			} else {
-                // Warning, temp hack ahead
-
-                // This looks up the type by identifier in some previous declaration we encountered. It should be wrapped up
-                // In the whole name resolution, i.e. this item becomes an entity, and the node is an identifier, not a type
-
-                Ast::Declaration** pDeclEntry = state.declarations.Get(pType->identifier);
-                if (pDeclEntry) {
-                    Ast::Declaration* pDecl = *pDeclEntry;
-                    if (pDecl->pInitializerExpr) {
-                        if (pDecl->pInitializerExpr->nodeKind == Ast::NodeType::Structure) {
-                            Ast::Structure* pStruct = (Ast::Structure*)pDecl->pInitializerExpr;
-                            pType->pResolvedType = pStruct->pDescribedType;
-                        } else {
-                            state.pErrors->PushError(pType, "Type with identifier '%s' did not resolve to some named type", pType->identifier.pData);
-                        }
-                    } else {
-                        state.pErrors->PushError(pType, "Type with identifier '%s' did not resolve to some named type", pType->identifier.pData);
-                    }
-                } else {
-                    state.pErrors->PushError(pType, "Unknown type '%s'", pType->identifier.pData);
-                }
-            }
-
-            // Note this doesn't handle function types. They are handled in the FnType node typecheck below
-
-            return pType;
+        case Ast::NodeKind::Type: {
+            return pExpr;
         }
-        case Ast::NodeType::FnType: {
-            Ast::FnType* pFnType = (Ast::FnType*)pExpr;
-            pFnType->pType = GetTypeType();
-            pFnType->isConstant = true;
+        case Ast::NodeKind::FunctionType: {
+            Ast::FunctionType* pFuncType = (Ast::FunctionType*)pExpr;
 
-            StringBuilder builder;
-            builder.Append("fn (");
-
-            TypeInfoFunction* pFunctionTypeInfo = (TypeInfoFunction*)state.pAllocator->Allocate(sizeof(TypeInfoFunction));
-            pFunctionTypeInfo->tag = TypeInfo::TypeTag::Function;
-            pFunctionTypeInfo->size = 8;
-            pFunctionTypeInfo->params = ResizableArray<TypeInfo*>(state.pAllocator);
-
-            for (size_t i = 0; i < pFnType->params.count; i++) {
-                pFnType->params[i] = (Ast::Type*)TypeCheckExpression(state, pFnType->params[i]);
-                Ast::Type* pParam = pFnType->params[i];
-
-                pFunctionTypeInfo->params.PushBack(pParam->pResolvedType);
-                if (i < pFnType->params.count - 1) {
-                    builder.AppendFormat("%s, ", pParam->pResolvedType->name.pData);
-                } else {
-                    builder.AppendFormat("%s", pParam->pResolvedType->name.pData);
-                }
-            }
-
-            pFnType->pReturnType = (Ast::Type*)TypeCheckExpression(state, pFnType->pReturnType);
-            pFunctionTypeInfo->pReturnType = pFnType->pReturnType->pResolvedType;
-            builder.Append(")");
-            if (pFunctionTypeInfo->pReturnType)
-                builder.AppendFormat(" -> %s", pFunctionTypeInfo->pReturnType->name.pData);
-            pFunctionTypeInfo->name = builder.CreateString(true, state.pAllocator);
-
-            pFnType->pResolvedType = pFunctionTypeInfo;
-            return pFnType;
+            state.pCurrentScope = pFuncType->pScope;
+            TypeCheckFunctionType(state, pFuncType);
+            state.pCurrentScope = pFuncType->pScope->pParent;
+            return pFuncType;
         }
-        case Ast::NodeType::Function: {
-            Ast::Function* pFunction = (Ast::Function*)pExpr;
-            pFunction->isConstant = true; // The value of this constant is the generated bytecode for the function, but we don't have that yet
-			Ast::Declaration* pMyDeclaration = state.pCurrentDeclaration;
-
-            // The params will end up in the same scope as the body, and get automatically yeeted from the declarations list at the end of the block
-            state.currentlyDeclaringParams = true;
-            state.currentScopeLevel++;
-            for (Ast::Declaration* pParamDecl : pFunction->params) {
-                TypeCheckStatement(state, pParamDecl);
-            }
-            state.currentScopeLevel--;
-            state.currentlyDeclaringParams = false;
-
-            // TODO: Refactor this so it calls the FnType typecheck above, so we don't do this type creation twice
-            // Create or find type info for this function
-            StringBuilder builder;
-            builder.Append("fn (");
-            TypeInfoFunction* pFunctionTypeInfo = (TypeInfoFunction*)state.pAllocator->Allocate(sizeof(TypeInfoFunction));
-            pFunctionTypeInfo->tag = TypeInfo::TypeTag::Function;
-            pFunctionTypeInfo->size = 8;
-            pFunctionTypeInfo->params = ResizableArray<TypeInfo*>(state.pAllocator);
-
-            for (size_t i = 0; i < pFunction->params.count; i++) {
-                Ast::Declaration* pParam = pFunction->params[i];
-                pFunctionTypeInfo->params.PushBack(pParam->pResolvedType);
-                if (i < pFunction->params.count - 1) {
-                    builder.AppendFormat("%s, ", pParam->pResolvedType->name.pData);
-                } else {
-                    builder.AppendFormat("%s", pParam->pResolvedType->name.pData);
-                }
-            }
-
-            pFunction->pReturnType = (Ast::Type*)TypeCheckExpression(state, pFunction->pReturnType);
-            pFunctionTypeInfo->pReturnType = pFunction->pReturnType->pResolvedType;
-            builder.Append(")");
-            if (pFunctionTypeInfo->pReturnType)
-                builder.AppendFormat(" -> %s", pFunctionTypeInfo->pReturnType->name.pData);
-            pFunctionTypeInfo->name = builder.CreateString(true, state.pAllocator);
-
-            pFunction->pType = pFunctionTypeInfo;
-            pMyDeclaration->pResolvedType = pFunction->pType;
-            TypeCheckStatement(state, pFunction->pBody);
-
-            // TODO: Check maximum number of arguments (255 uint8) and error if above
-            return pFunction;
-        }
-		case Ast::NodeType::Structure: {
+		case Ast::NodeKind::Structure: {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
             pStruct->isConstant = true;
-			Ast::Declaration* pMyDeclaration = state.pCurrentDeclaration;
 
-			// Typecheck the declarations in this struct
-
-			// Declarations are dealt with differently here because this is not imperative executing code
-			// We want to ensure no duplicate identifiers, and ensure the initializers are constant and typematching
-            // TODO: This should not need custom declaration code once we've sorted out name resolution and data scopes
-
-			HashMap<String, Ast::Declaration*> internalDeclarations(state.pAllocator);
-			for (Ast::Statement* pMemberStmt : pStruct->members) {
-				Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
-				state.pCurrentDeclaration = pMember;
-
-				pMember->scopeLevel = state.currentScopeLevel + 1;
-				
-				if (internalDeclarations.Get(pMember->identifier) != nullptr)
-					state.pErrors->PushError(pMember, "Redefinition of member '%s'", pMember->identifier.pData);
-
-				// For now we don't add the member declarations to global list, since they aren't accessible to initializers inside this struct, such as functions
-				// We will eventually do this for constant values though, since they can be accessed
-				internalDeclarations.Add(pMember->identifier, pMember);
-
-				if (pMember->pInitializerExpr) {
-					// TODO: This should eventually be, values that are constant and reducible to constants at compile time.
-					if (!(pMember->pInitializerExpr->nodeKind == Ast::NodeType::Literal
-						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::Type
-						|| pMember->pInitializerExpr->nodeKind == Ast::NodeType::FnType))
-					{
-						state.pErrors->PushError(pMember, "Unsupported struct member initializer '%s' initializer must be resolvable to a constant at compile time, and not a struct or function (yet)", pMember->identifier.pData);
-					}
-
-					pMember->pInitializerExpr = TypeCheckExpression(state, pMember->pInitializerExpr);
-
-					if (pMember->pDeclaredType)
-						pMember->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pMember->pDeclaredType);
-
-					if (pMember->pDeclaredType && !CheckTypesIdentical(pMember->pDeclaredType->pResolvedType, pMember->pInitializerExpr->pType)) {
-						TypeInfo* pDeclaredType = pMember->pDeclaredType->pResolvedType;
-						TypeInfo* pInitType = pMember->pInitializerExpr->pType;
-						state.pErrors->PushError(pMember->pDeclaredType, "Type mismatch in declaration, declared as %s and initialized as %s", pDeclaredType->name.pData, pInitType->name.pData);
-					} else {
-						pMember->pResolvedType = pMember->pInitializerExpr->pType;
-					}
-				} else {
-					pMember->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pMember->pDeclaredType);
-					pMember->pResolvedType = pMember->pDeclaredType->pResolvedType;
-				}
-				state.pCurrentDeclaration = nullptr;
-			}
+            state.pCurrentScope = pStruct->pScope;
+            // Typecheck statements, the declaration typechecking must ensure the initializers are constant, if the scope is a struct type
+            TypeCheckStatements(state, pStruct->members);
+            state.pCurrentScope = pStruct->pScope->pParent;
 
 			// Create the actual type that this struct is
             TypeInfoStruct* pStructTypeInfo = (TypeInfoStruct*)state.pAllocator->Allocate(sizeof(TypeInfoStruct));
@@ -352,77 +231,125 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
 			pStructTypeInfo->tag = TypeInfo::TypeTag::Struct;
 
 			for (Ast::Statement* pMemberStmt : pStruct->members) {
+                if (pMemberStmt->nodeKind != Ast::NodeKind::Declaration)
+                    continue;
+
 				Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
-				TypeInfoStruct::Member mem;
+				TypeInfoStruct::Member member;
 
-				mem.identifier = pMember->identifier; // Note, not a deep string copy, sharing it here
-				mem.pType = pMember->pResolvedType;
-				mem.offset = pStructTypeInfo->size;
-				pStructTypeInfo->members.PushBack(mem);
+				member.identifier = pMember->identifier; // Note, not a deep string copy, sharing it here
+				member.pType = pMember->pType;
+				member.offset = pStructTypeInfo->size;
+				pStructTypeInfo->members.PushBack(member);
 
-				if (mem.pType)
-					pStructTypeInfo->size += mem.pType->size;
+				if (member.pType)
+					pStructTypeInfo->size += member.pType->size;
 			}
-			pStructTypeInfo->name = pMyDeclaration->identifier;
-			pStruct->pDescribedType = pStructTypeInfo;
-			pStruct->pType = GetTypeType();
+            // TODO: Naming the struct is interesting right, cause the way odin does it is that the struct itself and the named struct are two different things
+            // But I don't want to implement named types like that today, so for now we'll store the declaration here and set the name. You wanna come back to this
+            // soon though, so anonymous struct types are a thing
+			pStructTypeInfo->name = pStruct->pDeclaration->identifier;
 
+			pStruct->pType = GetTypeType();
+            pStruct->constantValue.pTypeInfo = pStructTypeInfo;
 			return pStruct;
 		}
-        case Ast::NodeType::Identifier: {
+        case Ast::NodeKind::Identifier: {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
 
-            // TODO: These basic types should be declared as entities, and not special cased
-            // Is this a type? If so need to replace this identifier node with a type node
-            if (pIdentifier->identifier == "i32"
-                | pIdentifier->identifier == "f32"
-                | pIdentifier->identifier == "bool"
-                | pIdentifier->identifier == "Type") {
-                Ast::Type* pType = (Ast::Type*)state.pAllocator->Allocate(sizeof(Ast::Type));
-                pType->nodeKind = Ast::NodeType::Type;
-                pType->identifier = pIdentifier->identifier;
-                pType->pLocation = pIdentifier->pLocation;
-                pType->pLineStart = pIdentifier->pLineStart;
-                pType->line = pIdentifier->line;
-
-                pType = (Ast::Type*)TypeCheckExpression(state, pType);
-                return pType;
+            // Find the entity corresponding to this identifier
+            Entity* pEntity = nullptr;
+            Scope* pSearchScope = state.pCurrentScope;
+            while(pEntity == nullptr && pSearchScope != nullptr) {
+                Entity** pEntry = pSearchScope->entities.Get(pIdentifier->identifier);
+                if (pEntry == nullptr) {
+                    pSearchScope = pSearchScope->pParent;
+                } else {
+                    pEntity = *pEntry;
+                }
             }
 
-            // TODO: Constant if the declaration is constant, can set the constantValue
-            Ast::Declaration** pDeclEntry = state.declarations.Get(pIdentifier->identifier);
-            if (pDeclEntry) {
-                Ast::Declaration* pDecl = *pDeclEntry;
-                pIdentifier->pType = pDecl->pResolvedType;
-            } else {
-                state.pErrors->PushError(pIdentifier, "Undeclared variable \'%s\', missing a declaration somewhere before?", pIdentifier->identifier.pData);
+            if (pEntity == nullptr) {
+                state.pErrors->PushError(pIdentifier, "Undeclared identifier \'%s\', not found in any available scope", pIdentifier->identifier.pData);
+                pIdentifier->pType = GetVoidType();
+                return pIdentifier;
             }
 
+            if (pEntity->status == EntityStatus::InProgress) {
+                state.pErrors->PushError(pIdentifier, "Circular dependency detected on identifier \'%s\'", pIdentifier->identifier.pData);
+                pIdentifier->pType = GetVoidType();
+                return pIdentifier;
+            }
+
+            if (pEntity->status == EntityStatus::Unresolved) {
+                TypeCheckStatement(state, pEntity->pDeclaration);
+            }
+
+            if (pEntity->kind == EntityKind::Constant) {
+                pIdentifier->isConstant = true;
+                pIdentifier->constantValue = pEntity->constantValue;
+            } else if (pEntity->kind == EntityKind::Variable) {
+                pIdentifier->isConstant = false;
+                if (!pEntity->isLive) {
+                    state.pErrors->PushError(pIdentifier, "Can't use variable \'%s\', it's not defined yet", pIdentifier->identifier.pData);
+                }
+            }
+
+            pIdentifier->pType = pEntity->pType;
             return pIdentifier;
         }
-        case Ast::NodeType::VariableAssignment: {
-            Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
-            pVarAssignment->pAssignment = TypeCheckExpression(state, pVarAssignment->pAssignment);
-            pVarAssignment->isConstant = false;
+        case Ast::NodeKind::Function: {
+            Ast::Function* pFunction = (Ast::Function*)pExpr;
+            pFunction->isConstant = true;
 
-            Ast::Declaration** pDeclEntry = state.declarations.Get(pVarAssignment->identifier);
-            if (pDeclEntry) {
-                Ast::Declaration* pDecl = *pDeclEntry;
+            state.pCurrentScope = pFunction->pScope;
+            TypeCheckFunctionType(state, pFunction->pFuncType);
 
-                TypeInfo* pDeclaredVarType = pDecl->pResolvedType;
-                TypeInfo* pAssignedVarType = pVarAssignment->pAssignment->pType;
-                if (CheckTypesIdentical(pDeclaredVarType, pAssignedVarType)) {
-                    pVarAssignment->pType = pDeclaredVarType;
-                } else {
-                    state.pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type '%s', but is being assigned a value with type '%s'", pVarAssignment->identifier.pData, pDeclaredVarType->name.pData, pAssignedVarType->name.pData);
+            // For recursion to work, we have to resolve the function's type before typechecking it's body
+            // If it has a declaration (it may not), we'll go get the entity, and resolve it so we can move on.
+            if (pFunction->pDeclaration) {
+                // Find the entity corresponding to this function
+                Entity* pEntity = nullptr;
+                Scope* pSearchScope = state.pCurrentScope;
+                while(pEntity == nullptr && pSearchScope != nullptr) {
+                    Entity** pEntry = pSearchScope->entities.Get(pFunction->pDeclaration->identifier);
+                    if (pEntry == nullptr) {
+                        pSearchScope = pSearchScope->pParent;
+                    } else {
+                        pEntity = *pEntry;
+                    }
                 }
+
+                pEntity->pType = pFunction->pFuncType->constantValue.pTypeInfo;
+                pEntity->status = EntityStatus::Resolved;
+            }
+
+            pFunction->pType = pFunction->pFuncType->constantValue.pTypeInfo;
+            TypeCheckStatement(state, pFunction->pBody);
+
+            // Pop function scope (where the params live)
+            state.pCurrentScope = pFunction->pScope->pParent;
+
+            // TODO: Check maximum number of arguments (255 uint8) and error if above
+            return pFunction;
+        }
+        case Ast::NodeKind::VariableAssignment: {
+            Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
+            pVarAssignment->isConstant = false;
+            pVarAssignment->pIdentifier = (Ast::Identifier*)TypeCheckExpression(state, pVarAssignment->pIdentifier);
+            pVarAssignment->pAssignment = TypeCheckExpression(state, pVarAssignment->pAssignment);
+
+            TypeInfo* pIdentifierType = pVarAssignment->pIdentifier->pType;
+            TypeInfo* pAssignedVarType = pVarAssignment->pAssignment->pType;
+            if (CheckTypesIdentical(pIdentifierType, pAssignedVarType)) {
+                pVarAssignment->pType = pIdentifierType;
             } else {
-                state.pErrors->PushError(pVarAssignment, "Assigning to undeclared variable \'%s\', missing a declaration somewhere before?", pVarAssignment->identifier.pData);
+                state.pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type '%s', but is being assigned a value with type '%s'", pVarAssignment->pIdentifier->identifier.pData, pIdentifierType->name.pData, pAssignedVarType->name.pData);
             }
 
             return pVarAssignment;
         }
-        case Ast::NodeType::Grouping: {
+        case Ast::NodeKind::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
             pGroup->pExpression = TypeCheckExpression(state, pGroup->pExpression);
             pGroup->pType = pGroup->pExpression->pType;
@@ -433,7 +360,7 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
             }
             return pGroup;
         }
-        case Ast::NodeType::Binary: {
+        case Ast::NodeKind::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             pBinary->pLeft = TypeCheckExpression(state, pBinary->pLeft);
             pBinary->pRight = TypeCheckExpression(state, pBinary->pRight);
@@ -447,16 +374,17 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
 			if (!CheckTypesIdentical(pBinary->pLeft->pType, pBinary->pRight->pType)) {
 				if (IsImplicitlyCastable(pBinary->pLeft->pType, pBinary->pRight->pType)) {
 					Ast::Cast* pCastExpr = (Ast::Cast*)state.pAllocator->Allocate(sizeof(Ast::Cast));
-					pCastExpr->nodeKind = Ast::NodeType::Cast;
+					pCastExpr->nodeKind = Ast::NodeKind::Cast;
 					pCastExpr->pExprToCast = pBinary->pLeft;
 
 					Ast::Type* pType = (Ast::Type*)state.pAllocator->Allocate(sizeof(Ast::Type));
-					pType->nodeKind = Ast::NodeType::Type;
-					pType->identifier = pBinary->pRight->pType->name;
+					pType->nodeKind = Ast::NodeKind::Type;
+                    pType->isConstant = true;
+                    pType->constantValue = MakeValue(pBinary->pRight->pType);
 					pType->pLocation = pBinary->pRight->pLocation;
 					pType->pLineStart = pBinary->pRight->pLineStart;
 					pType->line = pBinary->pRight->line;
-					pCastExpr->pTargetType = (Ast::Type*)TypeCheckExpression(state, pType);
+					pCastExpr->pTypeExpr = TypeCheckExpression(state, pType);
 
 					pCastExpr->pLocation = pBinary->pLeft->pLocation;
 					pCastExpr->pLineStart = pBinary->pLeft->pLineStart;
@@ -466,16 +394,17 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
 
 				} else if (IsImplicitlyCastable(pBinary->pRight->pType, pBinary->pLeft->pType)) {
 					Ast::Cast* pCastExpr = (Ast::Cast*)state.pAllocator->Allocate(sizeof(Ast::Cast));
-					pCastExpr->nodeKind = Ast::NodeType::Cast;
+					pCastExpr->nodeKind = Ast::NodeKind::Cast;
 					pCastExpr->pExprToCast = pBinary->pRight;
 
 					Ast::Type* pType = (Ast::Type*)state.pAllocator->Allocate(sizeof(Ast::Type));
-					pType->nodeKind = Ast::NodeType::Type;
-					pType->identifier = pBinary->pLeft->pType->name;
+					pType->nodeKind = Ast::NodeKind::Type;
+					pType->isConstant = true;
+                    pType->constantValue = MakeValue(pBinary->pLeft->pType);
 					pType->pLocation = pBinary->pLeft->pLocation;
 					pType->pLineStart = pBinary->pLeft->pLineStart;
 					pType->line = pBinary->pLeft->line;
-					pCastExpr->pTargetType = (Ast::Type*)TypeCheckExpression(state, pType);
+					pCastExpr->pTypeExpr = TypeCheckExpression(state, pType);
 
 					pCastExpr->pLocation = pBinary->pRight->pLocation;
 					pCastExpr->pLineStart = pBinary->pRight->pLineStart;
@@ -523,7 +452,7 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
 
             return pBinary;
         }
-        case Ast::NodeType::Unary: {
+        case Ast::NodeKind::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             pUnary->pRight = TypeCheckExpression(state, pUnary->pRight);
 
@@ -546,13 +475,13 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
 
             return pUnary;
         }
-		case Ast::NodeType::Cast: {
+		case Ast::NodeKind::Cast: {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
-			pCast->pTargetType = (Ast::Type*)TypeCheckExpression(state, pCast->pTargetType);
+			pCast->pTypeExpr = TypeCheckExpression(state, pCast->pTypeExpr);
 			pCast->pExprToCast = TypeCheckExpression(state, pCast->pExprToCast);
             
 			TypeInfo* pFrom = pCast->pExprToCast->pType;
-			TypeInfo* pTo = pCast->pTargetType->pResolvedType;
+			TypeInfo* pTo = pCast->pTypeExpr->constantValue.pTypeInfo;
 
 			// TODO: Replace this with a function which actually checks their compatibility, in terms of size, etc etc, see umka code
 			bool castAllowed = false;
@@ -576,27 +505,20 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
                 pCast->constantValue = ComputeCastConstant(pCast->pExprToCast->constantValue, pFrom, pTo);
             }
 
-			pCast->pType = pCast->pTargetType->pResolvedType;
+			pCast->pType = pCast->pTypeExpr->constantValue.pTypeInfo;
 			return pCast;
 		}
-        case Ast::NodeType::Call: {
+        case Ast::NodeKind::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
-            pCall->pCallee = TypeCheckExpression(state, pCall->pCallee);
             pCall->isConstant = false;
+            pCall->pCallee = TypeCheckExpression(state, pCall->pCallee);
+            // 1. How do we cope with typechecking failing to produce a type? We need to be able to continue, and not crash
+            // 2. Technically, function typechecking should produce a type _before_ the body gets typechecked.
 
-			if (pCall->pCallee->nodeKind == Ast::NodeType::GetField) {
+			if (pCall->pCallee->nodeKind == Ast::NodeKind::GetField) {
 				state.pErrors->PushError(pCall, "Calling fields not currently supported");
 				return pCall;
 			}
-
-            Ast::Identifier* pVar = (Ast::Identifier*)pCall->pCallee;
-            Ast::Declaration** pDeclEntry = state.declarations.Get(pVar->identifier);
-
-            if (pDeclEntry == nullptr) {
-                state.pErrors->PushError(pCall, "Attempt to call a value which is not declared yet");
-                return pCall;
-            }
-            Ast::Declaration* pDecl = *pDeclEntry;
 
             if (pCall->pCallee->pType->tag != TypeInfo::TypeTag::Function) {
                 state.pErrors->PushError(pCall, "Attempt to call a value which is not a function");
@@ -606,10 +528,11 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
                 pCall->args[i] = TypeCheckExpression(state, pCall->args[i]);
             }
             
-            TypeInfoFunction* pFunctionType = (TypeInfoFunction*)pDecl->pResolvedType;
+            TypeInfoFunction* pFunctionType = (TypeInfoFunction*)pCall->pCallee->pType;
             int argsCount = pCall->args.count;
-            int paramsCount = pFunctionType->params.count;
+            int paramsCount = pFunctionType->tag == TypeInfo::TypeTag::Void ? 0 : pFunctionType->params.count;
             if (pCall->args.count != pFunctionType->params.count) {
+                Ast::Identifier* pVar = (Ast::Identifier*)pCall->pCallee;
                 state.pErrors->PushError(pCall, "Mismatched number of arguments in call to function '%s', expected %i, got %i", pVar->identifier.pData, paramsCount, argsCount);
             }
 
@@ -624,7 +547,7 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
             pCall->pType = pFunctionType->pReturnType;
             return pCall;
         }
-		case Ast::NodeType::GetField: {
+		case Ast::NodeKind::GetField: {
 			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
 			pGetField->pTarget = TypeCheckExpression(state, pGetField->pTarget);
             
@@ -655,7 +578,7 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
 			return pGetField;
 			break;
 		}
-		case Ast::NodeType::SetField: {
+		case Ast::NodeKind::SetField: {
 			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
 			pSetField->pTarget = TypeCheckExpression(state, pSetField->pTarget);
 			pSetField->pAssignment = TypeCheckExpression(state, pSetField->pAssignment);
@@ -701,58 +624,61 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
 
 void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
     switch (pStmt->nodeKind) {
-        case Ast::NodeType::Declaration: {
+        case Ast::NodeKind::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
-			state.pCurrentDeclaration = pDecl;
+            // Look for entity with this name in the current scope - no need to look in higher ones, since we're always put in the scope we're declared in
+            Entity* pEntity = state.pCurrentScope->entities[pDecl->identifier];
+            if (pEntity->kind == EntityKind::Variable)
+                pEntity->isLive = true;
 
-            pDecl->scopeLevel = state.currentScopeLevel;
+            pEntity->status = EntityStatus::InProgress;
 
-            // TODO: Our name lookup code goes here
-            if (state.declarations.Get(pDecl->identifier) != nullptr)
-                state.pErrors->PushError(pDecl, "Redefinition of variable '%s'", pDecl->identifier.pData);
-
+            // Has initializer
             if (pDecl->pInitializerExpr) {
-                state.declarations.Add(pDecl->identifier, pDecl);
                 pDecl->pInitializerExpr = TypeCheckExpression(state, pDecl->pInitializerExpr);
 
                 if (pDecl->isConstantDeclaration && !pDecl->pInitializerExpr->isConstant)
                     state.pErrors->PushError(pDecl, "Constant declaration '%s' is not initialized with a constant expression", pDecl->identifier.pData);
 
-                if (pDecl->pDeclaredType)
-                    pDecl->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pDecl->pDeclaredType);
+                if (pDecl->pTypeAnnotation)
+                    pDecl->pTypeAnnotation = TypeCheckExpression(state, pDecl->pTypeAnnotation);
 
-                if (pDecl->pDeclaredType && !CheckTypesIdentical(pDecl->pDeclaredType->pResolvedType, pDecl->pInitializerExpr->pType)) {
-                    TypeInfo* pDeclaredType = pDecl->pDeclaredType->pResolvedType;
+                // has type annotation, check it matches the initializer, if so, set the type of the declaration
+                if (pDecl->pTypeAnnotation && !CheckTypesIdentical(pDecl->pTypeAnnotation->constantValue.pTypeInfo, pDecl->pInitializerExpr->pType)) {
+                    TypeInfo* pDeclaredType = pDecl->pTypeAnnotation->constantValue.pTypeInfo;
                     TypeInfo* pInitType = pDecl->pInitializerExpr->pType;
                     if (pDeclaredType && pInitType)
-                        state.pErrors->PushError(pDecl->pDeclaredType, "Type mismatch in declaration, declared as %s and initialized as %s", pDeclaredType->name.pData, pInitType->name.pData);
+                        state.pErrors->PushError(pDecl->pTypeAnnotation, "Type mismatch in declaration, declared as %s and initialized as %s", pDeclaredType->name.pData, pInitType->name.pData);
                 } else {
-                    pDecl->pResolvedType = pDecl->pInitializerExpr->pType;
+                    pDecl->pType = pDecl->pInitializerExpr->pType;
                 }
+                pEntity->constantValue = pDecl->pInitializerExpr->constantValue;
+            // No initializer, must have type annotation
             } else {
-                state.declarations.Add(pDecl->identifier, pDecl);
-                pDecl->pDeclaredType = (Ast::Type*)TypeCheckExpression(state, pDecl->pDeclaredType);
-                pDecl->pResolvedType = pDecl->pDeclaredType->pResolvedType;
+                pDecl->pTypeAnnotation = TypeCheckExpression(state, pDecl->pTypeAnnotation);
+                pDecl->pType = pDecl->pTypeAnnotation->constantValue.pTypeInfo;
             }
-			state.pCurrentDeclaration = nullptr;
+
+            pEntity->pType = pDecl->pType;
+            pEntity->status = EntityStatus::Resolved;
 			break;
         }
-        case Ast::NodeType::Print: {
+        case Ast::NodeKind::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
             pPrint->pExpr = TypeCheckExpression(state, pPrint->pExpr);
             break;
         }
-        case Ast::NodeType::Return: {
+        case Ast::NodeKind::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
             pReturn->pExpr = TypeCheckExpression(state, pReturn->pExpr);
             break;
         }
-        case Ast::NodeType::ExpressionStmt: {
+        case Ast::NodeKind::ExpressionStmt: {
             Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
             pExprStmt->pExpr = TypeCheckExpression(state, pExprStmt->pExpr);
             break;
         }
-        case Ast::NodeType::If: {
+        case Ast::NodeKind::If: {
             Ast::If* pIf = (Ast::If*)pStmt;
             pIf->pCondition = TypeCheckExpression(state, pIf->pCondition);
             if (!CheckTypesIdentical(pIf->pCondition->pType, GetBoolType()))
@@ -764,7 +690,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 TypeCheckStatement(state, pIf->pElseStmt);
             break;
         }
-        case Ast::NodeType::While: {
+        case Ast::NodeKind::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             pWhile->pCondition = TypeCheckExpression(state, pWhile->pCondition);
             if (!CheckTypesIdentical(pWhile->pCondition->pType, GetBoolType()))
@@ -773,22 +699,22 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             TypeCheckStatement(state, pWhile->pBody);
             break;
         }
-        case Ast::NodeType::Block: {
+        case Ast::NodeKind::Block: {
             Ast::Block* pBlock = (Ast::Block*)pStmt;
 
-            state.currentScopeLevel++;
+            state.pCurrentScope = pBlock->pScope;
             TypeCheckStatements(state, pBlock->declarations);
-            state.currentScopeLevel--;
+            state.pCurrentScope = pBlock->pScope->pParent;
 
-            // Remove variable declarations that are now out of scope
-            for (size_t i = 0; i < state.declarations.tableSize; i++) {
-                if (state.declarations.pTable[i].hash != UNUSED_HASH) {
-                    int scopeLevel = state.declarations.pTable[i].value->scopeLevel;
-
-                    if (scopeLevel > state.currentScopeLevel)
-                        state.declarations.Erase(state.declarations.pTable[i].key);
+            for (size_t i = 0; i < pBlock->pScope->entities.tableSize; i++) { 
+                HashNode<String, Entity*>& node = pBlock->pScope->entities.pTable[i];
+                if (node.hash != UNUSED_HASH) {
+                    Entity* pEntity = node.value;
+                    if (pEntity->kind == EntityKind::Variable)
+                        pEntity->isLive = false;
                 }
             }
+
             break;
         }
         default:
@@ -812,18 +738,18 @@ void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt);
 
 void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
     switch (pExpr->nodeKind) {
-        case Ast::NodeType::Binary: {
+        case Ast::NodeKind::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             CollectEntitiesInExpression(state, pBinary->pLeft);
             CollectEntitiesInExpression(state, pBinary->pRight);
             break;
         }
-        case Ast::NodeType::Unary: {
+        case Ast::NodeKind::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             CollectEntitiesInExpression(state, pUnary->pRight);
             break;
         }
-        case Ast::NodeType::Call: {
+        case Ast::NodeKind::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             CollectEntitiesInExpression(state, pCall->pCallee);
             for (size_t i = 0; i < pCall->args.count; i++) {
@@ -831,61 +757,79 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             }
             break;
         }
-        case Ast::NodeType::GetField: {
+        case Ast::NodeKind::GetField: {
             Ast::GetField* pGetField = (Ast::GetField*)pExpr;
             CollectEntitiesInExpression(state, pGetField->pTarget);
             break;
         }
-        case Ast::NodeType::SetField: {
+        case Ast::NodeKind::SetField: {
             Ast::SetField* pSetField = (Ast::SetField*)pExpr;
             CollectEntitiesInExpression(state, pSetField->pTarget);
             CollectEntitiesInExpression(state, pSetField->pAssignment);
             break;
         }
-        case Ast::NodeType::Grouping: {
+        case Ast::NodeKind::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
             CollectEntitiesInExpression(state, pGroup->pExpression);
             break;
         }
-        case Ast::NodeType::Cast: {
+        case Ast::NodeKind::Cast: {
             Ast::Cast* pCast = (Ast::Cast*)pExpr;
             CollectEntitiesInExpression(state, pCast->pExprToCast);
-            CollectEntitiesInExpression(state, pCast->pTargetType);
+            CollectEntitiesInExpression(state, pCast->pTypeExpr);
             break;
         }
-        case Ast::NodeType::VariableAssignment: {
+        case Ast::NodeKind::VariableAssignment: {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
             CollectEntitiesInExpression(state, pVarAssignment->pAssignment);
             break;
         }
-        case Ast::NodeType::FnType: {
-            Ast::FnType* pFnType = (Ast::FnType*)pExpr;
-            for (size_t i = 0; i < pFnType->params.count; i++) {
-                CollectEntitiesInExpression(state, pFnType->params[i]);
+        case Ast::NodeKind::FunctionType: {
+            Ast::FunctionType* pFuncType = (Ast::FunctionType*)pExpr;
+            pFuncType->pScope = CreateScope(ScopeKind::FunctionType, state.pCurrentScope, state.pAllocator);
+            pFuncType->pScope->startLine = pFuncType->line;
+            pFuncType->pScope->endLine = pFuncType->line;
+
+            state.pCurrentScope = pFuncType->pScope;
+            for (size_t i = 0; i < pFuncType->params.count; i++) {
+                CollectEntitiesInStatement(state, pFuncType->params[i]);
             }
-            CollectEntitiesInExpression(state, pFnType->pReturnType);
+            CollectEntitiesInExpression(state, pFuncType->pReturnType);
+            state.pCurrentScope = pFuncType->pScope->pParent;
             break;
         }
-        case Ast::NodeType::Structure: {
+        case Ast::NodeKind::Structure: {
             Ast::Structure* pStruct = (Ast::Structure*)pExpr;
-            // TODO: Create data scope here for declarations
+            pStruct->pScope = CreateScope(ScopeKind::Struct, state.pCurrentScope, state.pAllocator);
+            pStruct->pScope->startLine = pStruct->startToken.line;
+            pStruct->pScope->endLine = pStruct->endToken.line;
+
+            state.pCurrentScope = pStruct->pScope;
             for (size_t i = 0; i < pStruct->members.count; i++) {
                 CollectEntitiesInStatement(state, pStruct->members[i]);
             }
+            state.pCurrentScope = pStruct->pScope->pParent;
             break;
         }
-        case Ast::NodeType::Function: {
+        case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            // TODO: Create scope here for params
-            for (size_t i = 0; i < pFunction->params.count; i++) {
-                CollectEntitiesInStatement(state, pFunction->params[i]);
+            pFunction->pScope = CreateScope(ScopeKind::Function, state.pCurrentScope, state.pAllocator);
+            pFunction->pScope->startLine = pFunction->line;
+            pFunction->pScope->endLine = pFunction->line;
+
+            state.pCurrentScope = pFunction->pScope;
+            for (size_t i = 0; i < pFunction->pFuncType->params.count; i++) {
+                CollectEntitiesInStatement(state, pFunction->pFuncType->params[i]);
             }
-            CollectEntitiesInExpression(state, pFunction->pReturnType);
+            CollectEntitiesInExpression(state, pFunction->pFuncType->pReturnType);
+
             CollectEntitiesInStatement(state, pFunction->pBody);
+
+            state.pCurrentScope = pFunction->pScope->pParent;
             break;
         }
-        case Ast::NodeType::Identifier:
-        case Ast::NodeType::Literal:
+        case Ast::NodeKind::Identifier:
+        case Ast::NodeKind::Literal:
         default:
             break;
     }
@@ -895,12 +839,12 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
 
 void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
     switch (pStmt->nodeKind) {
-        case Ast::NodeType::ExpressionStmt: {
+        case Ast::NodeKind::ExpressionStmt: {
             Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
             CollectEntitiesInExpression(state, pExprStmt->pExpr);
             break;
         }
-        case Ast::NodeType::If: {
+        case Ast::NodeKind::If: {
             Ast::If* pIf = (Ast::If*)pStmt;
             // TODO: Create scope here for conditions
             CollectEntitiesInExpression(state, pIf->pCondition);
@@ -909,25 +853,28 @@ void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) 
                 CollectEntitiesInStatement(state, pIf->pElseStmt);
             break;
         }
-        case Ast::NodeType::While: {
+        case Ast::NodeKind::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             // TODO: Create scope here for condition
             CollectEntitiesInExpression(state, pWhile->pCondition);
             CollectEntitiesInStatement(state, pWhile->pBody);
             break;
         }
-        case Ast::NodeType::Print: {
+        case Ast::NodeKind::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
             CollectEntitiesInExpression(state, pPrint->pExpr);
             break;
         }
-        case Ast::NodeType::Return: {
+        case Ast::NodeKind::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
             CollectEntitiesInExpression(state, pReturn->pExpr);
             break;
         }
-        case Ast::NodeType::Declaration: {
+        case Ast::NodeKind::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
+
+            // TODO: Check for duplicate declarations
+
             Entity* pEntity = (Entity*)state.pAllocator->Allocate(sizeof(Entity));
             pEntity->pDeclaration = pDecl;
             pEntity->isLive = false;
@@ -940,20 +887,32 @@ void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) 
             } else {
                 pEntity->kind = EntityKind::Variable;
             }
-            
+
             state.pCurrentScope->entities[pEntity->name] = pEntity;
+
+            if (pDecl->pTypeAnnotation)
+                CollectEntitiesInExpression(state, pDecl->pTypeAnnotation);
+
+            if (pDecl->pInitializerExpr) {
+                CollectEntitiesInExpression(state, pDecl->pInitializerExpr);
+                if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::Function) {
+                    Ast::Function* pFunc = (Ast::Function*)pDecl->pInitializerExpr;
+                    pFunc->pDeclaration = pDecl;
+                }
+                if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::Structure) {
+                    Ast::Structure* pStruct = (Ast::Structure*)pDecl->pInitializerExpr;
+                    pStruct->pDeclaration = pDecl;
+                }
+            }
             break;
         }
-        case Ast::NodeType::Block: {
+        case Ast::NodeKind::Block: {
             Ast::Block* pBlock = (Ast::Block*)pStmt;
             pBlock->pScope = CreateScope(ScopeKind::Block, state.pCurrentScope, state.pAllocator);
             pBlock->pScope->startLine = pBlock->startToken.line;
             pBlock->pScope->endLine = pBlock->endToken.line;
 
-            state.pCurrentScope->children.PushBack(pBlock->pScope);
-
             // Make scope active
-            pBlock->pScope->pParent = state.pCurrentScope;
             state.pCurrentScope = pBlock->pScope;
             CollectEntities(state, pBlock->declarations);
             state.pCurrentScope = pBlock->pScope->pParent;
@@ -975,18 +934,121 @@ void CollectEntities(TypeCheckerState& state, ResizableArray<Ast::Statement*>& s
 
 // ***********************************************************************
 
+void AddCoreTypeEntities(TypeCheckerState& state) {
+
+    {
+        Ast::Declaration* pDecl = (Ast::Declaration*)state.pAllocator->Allocate(sizeof(Ast::Declaration));
+        pDecl->nodeKind = Ast::NodeKind::Declaration;
+        pDecl->identifier = String("i32");
+        pDecl->pType = GetTypeType();
+        pDecl->isConstantDeclaration = true;
+
+        Entity* pEntity = (Entity*)state.pAllocator->Allocate(sizeof(Entity));
+        pEntity->pDeclaration = pDecl;
+        pEntity->isLive = false;
+        pEntity->status = EntityStatus::Resolved;
+        pEntity->pType = GetTypeType();
+        pEntity->name = pDecl->identifier;
+        pEntity->kind = EntityKind::Constant;
+        pEntity->constantValue = MakeValue(GetI32Type());
+        
+        state.pGlobalScope->entities[GetI32Type()->name] = pEntity;
+    }
+    // Question, what _is_ the entity?
+
+    {
+        Ast::Declaration* pDecl = (Ast::Declaration*)state.pAllocator->Allocate(sizeof(Ast::Declaration));
+        pDecl->nodeKind = Ast::NodeKind::Declaration;
+        pDecl->identifier = String("f32");
+        pDecl->pType = GetTypeType();
+        pDecl->isConstantDeclaration = true;
+
+        Entity* pEntity = (Entity*)state.pAllocator->Allocate(sizeof(Entity));
+        pEntity->pDeclaration = pDecl;
+        pEntity->isLive = false;
+        pEntity->status = EntityStatus::Resolved;
+        pEntity->pType = GetTypeType();
+        pEntity->name = pDecl->identifier;
+        pEntity->kind = EntityKind::Constant;
+        pEntity->constantValue = MakeValue(GetF32Type());
+        
+        state.pGlobalScope->entities[GetF32Type()->name] = pEntity;
+    }
+
+     {
+        Ast::Declaration* pDecl = (Ast::Declaration*)state.pAllocator->Allocate(sizeof(Ast::Declaration));
+        pDecl->nodeKind = Ast::NodeKind::Declaration;
+        pDecl->identifier = String("bool");
+        pDecl->pType = GetTypeType();
+        pDecl->isConstantDeclaration = true;
+
+        Entity* pEntity = (Entity*)state.pAllocator->Allocate(sizeof(Entity));
+        pEntity->pDeclaration = pDecl;
+        pEntity->isLive = false;
+        pEntity->status = EntityStatus::Resolved;
+        pEntity->pType = GetTypeType();
+        pEntity->name = pDecl->identifier;
+        pEntity->kind = EntityKind::Constant;
+        pEntity->constantValue = MakeValue(GetBoolType());
+        
+        state.pGlobalScope->entities[GetBoolType()->name] = pEntity;
+    }
+
+    {
+        Ast::Declaration* pDecl = (Ast::Declaration*)state.pAllocator->Allocate(sizeof(Ast::Declaration));
+        pDecl->nodeKind = Ast::NodeKind::Declaration;
+        pDecl->identifier = String("void");
+        pDecl->pType = GetTypeType();
+        pDecl->isConstantDeclaration = true;
+
+        Entity* pEntity = (Entity*)state.pAllocator->Allocate(sizeof(Entity));
+        pEntity->pDeclaration = pDecl;
+        pEntity->isLive = false;
+        pEntity->status = EntityStatus::Resolved;
+        pEntity->pType = GetTypeType();
+        pEntity->name = pDecl->identifier;
+        pEntity->kind = EntityKind::Constant;
+        pEntity->constantValue = MakeValue(GetVoidType());
+        
+        state.pGlobalScope->entities[GetVoidType()->name] = pEntity;
+    }
+
+    {
+        Ast::Declaration* pDecl = (Ast::Declaration*)state.pAllocator->Allocate(sizeof(Ast::Declaration));
+        pDecl->nodeKind = Ast::NodeKind::Declaration;
+        pDecl->identifier = String("type");
+        pDecl->pType = GetTypeType();
+        pDecl->isConstantDeclaration = true;
+
+        Entity* pEntity = (Entity*)state.pAllocator->Allocate(sizeof(Entity));
+        pEntity->pDeclaration = pDecl;
+        pEntity->isLive = false;
+        pEntity->status = EntityStatus::Resolved;
+        pEntity->pType = GetTypeType();
+        pEntity->name = pDecl->identifier;
+        pEntity->kind = EntityKind::Constant;
+        pEntity->constantValue = MakeValue(GetTypeType());
+        
+        state.pGlobalScope->entities[GetTypeType()->name] = pEntity;
+    }
+}
+
+// ***********************************************************************
+
 void TypeCheckProgram(Compiler& compilerState) {
     if (compilerState.errorState.errors.count == 0) {
         TypeCheckerState state;
 
         state.pErrors = &compilerState.errorState;
         state.pAllocator = &compilerState.compilerMemory;
-        state.declarations.pAlloc = &compilerState.compilerMemory;
         state.pGlobalScope = CreateScope(ScopeKind::Global, nullptr, &compilerState.compilerMemory);
         state.pCurrentScope = state.pGlobalScope;
 
         // stage 1, collect all entities, tracking scope
         CollectEntities(state, compilerState.program);
+
+        // stage 1.5 add core types to global scope
+        AddCoreTypeEntities(state);
 
         // stage 2, actually typecheck program
         TypeCheckStatements(state, compilerState.program);

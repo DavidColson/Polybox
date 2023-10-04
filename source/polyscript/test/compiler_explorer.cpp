@@ -349,17 +349,14 @@ void DrawAstStatement(Ast::Statement* pStmt) {
         nodeFlags |= ImGuiTreeNodeFlags_Selected;      
     
     switch (pStmt->nodeKind) {
-        case Ast::NodeType::Declaration: {
+        case Ast::NodeKind::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
             if (ImGui::TreeNodeEx(pDecl, nodeFlags, "Declaration - %s", pDecl->identifier.pData)) {
                 if (ImGui::IsItemClicked()) { selectedLine = pStmt->line-1; }
 
-                if (pDecl->pDeclaredType) {
-                    String typeStr = "none";
-                    if (pDecl->pDeclaredType->pResolvedType) {
-                        typeStr = pDecl->pDeclaredType->pResolvedType->name;
-                    }
-                    ImGui::Text("Type: %s", typeStr.pData);
+
+                if (pDecl->pTypeAnnotation) {
+                    DrawAstExpression(pDecl->pTypeAnnotation);
                 }
                 else if (pDecl->pInitializerExpr)
                     ImGui::Text("Type: inferred as %s", pDecl->pInitializerExpr->pType ? pDecl->pInitializerExpr->pType->name.pData : "none");
@@ -376,7 +373,7 @@ void DrawAstStatement(Ast::Statement* pStmt) {
             }
             break;
         }
-        case Ast::NodeType::Print: {
+        case Ast::NodeKind::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
             if (ImGui::TreeNodeEx(pPrint, nodeFlags, "Print Statement")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pStmt->line-1; }
@@ -385,7 +382,7 @@ void DrawAstStatement(Ast::Statement* pStmt) {
             }
             break;
         }
-        case Ast::NodeType::Return: {
+        case Ast::NodeKind::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
             if (ImGui::TreeNodeEx(pReturn, nodeFlags, "Return Statement")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pStmt->line-1; }
@@ -396,7 +393,7 @@ void DrawAstStatement(Ast::Statement* pStmt) {
             }
             break;
         }
-        case Ast::NodeType::ExpressionStmt: {
+        case Ast::NodeKind::ExpressionStmt: {
             Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
             if (ImGui::TreeNodeEx(pExprStmt, nodeFlags, "Expression Statement")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pStmt->line-1; }
@@ -405,7 +402,7 @@ void DrawAstStatement(Ast::Statement* pStmt) {
             }
             break;
         }
-        case Ast::NodeType::If: {
+        case Ast::NodeKind::If: {
             Ast::If* pIf = (Ast::If*)pStmt;
             if (ImGui::TreeNodeEx(pIf, nodeFlags, "If Statement")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pStmt->line-1; }
@@ -417,7 +414,7 @@ void DrawAstStatement(Ast::Statement* pStmt) {
             }
             break;
         }
-        case Ast::NodeType::While: {
+        case Ast::NodeKind::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             if (ImGui::TreeNodeEx(pWhile, nodeFlags, "While Statement")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pStmt->line-1; }
@@ -427,7 +424,7 @@ void DrawAstStatement(Ast::Statement* pStmt) {
             }
             break;
         }
-        case Ast::NodeType::Block: {
+        case Ast::NodeKind::Block: {
             Ast::Block* pBlock = (Ast::Block*)pStmt;
             if (ImGui::TreeNodeEx(pBlock, nodeFlags, "Block Statement")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pStmt->line-1; }
@@ -448,21 +445,19 @@ void DrawExprProperties(Ast::Expression* pExpr) {
     if (pExpr->pType) {
         nodeTypeStr = pExpr->pType->name;
     }
-    ImGui::Text("Type: %s", nodeTypeStr.pData);
-    
-    ImGui::Text("Constant: %s", pExpr->isConstant ? "true" : "false");
-
     if (pExpr->isConstant) {
         if (CheckTypesIdentical(pExpr->pType, GetF32Type()))
-            ImGui::Text("Constant Value: %f", pExpr->constantValue.f32Value);
+            ImGui::Text("Type: %s Constant: %s Constant Value: %f", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.f32Value);
         else if (CheckTypesIdentical(pExpr->pType, GetI32Type()))
-            ImGui::Text("Constant Value: %i", pExpr->constantValue.i32Value);
+            ImGui::Text("Type: %s Constant: %s Constant Value: %i", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.i32Value);
         else if (CheckTypesIdentical(pExpr->pType, GetBoolType()))
-            ImGui::Text("Constant Value: %s", pExpr->constantValue.boolValue ? "true" : "false");
+            ImGui::Text("Type: %s Constant: %s Constant Value: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.boolValue ? "true" : "false");
         else if (CheckTypesIdentical(pExpr->pType, GetTypeType()) && pExpr->constantValue.pTypeInfo)
-            ImGui::Text("Constant Value: %s", pExpr->constantValue.pTypeInfo->name.pData);
+            ImGui::Text("Type: %s Constant: %s Constant Value: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.pTypeInfo->name.pData);
+        else
+            ImGui::Text("Type: %s Constant: %s Constant Value: unable to print", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false");
     } else {
-        ImGui::Text("Constant Value: none");
+        ImGui::Text("Type: %s Constant: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false");
     }
 }
 
@@ -486,7 +481,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
     // Then draw a rect start to end, covering the whole area
 
     switch (pExpr->nodeKind) {
-        case Ast::NodeType::Identifier: {
+        case Ast::NodeKind::Identifier: {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
             if (ImGui::TreeNodeEx(pIdentifier, nodeFlags, "Identifier - %s", pIdentifier->identifier.pData)) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
@@ -495,34 +490,39 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
             break;
         }
-        case Ast::NodeType::FnType: 
-        case Ast::NodeType::Type: {
+        case Ast::NodeKind::FunctionType: {
+            Ast::FunctionType* pFuncType = (Ast::FunctionType*)pExpr;
+            if (ImGui::TreeNodeEx(pFuncType, nodeFlags, "Function Type")) {
+                if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                DrawExprProperties(pExpr);
+                for (Ast::Declaration* pParam : pFuncType->params) {
+                   DrawAstStatement(pParam);
+                }
+                DrawAstExpression(pFuncType->pReturnType);
+                ImGui::TreePop();
+            }
+        } 
+        case Ast::NodeKind::Type: {
             Ast::Type* pType = (Ast::Type*)pExpr;
             if (ImGui::TreeNodeEx(pType, nodeFlags, "Type Literal")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                // TODO: Leaving this for now, but once the type node refactor is done, this can draw like any other expr
-                // DrawExprProperties(pExpr);
-                
-                if (pType->pType && pType->pResolvedType) {
-                    ImGui::Text("Type: %s", pType->pType->name.pData);
-                    ImGui::Text("Resolved Type: %s", pType->pResolvedType->name.pData);
-                }
-                ImGui::Text("Constant: %s", pType->isConstant ? "true" : "false");
+                DrawExprProperties(pExpr);
                 ImGui::TreePop();
             }
             break;
         }
-        case Ast::NodeType::VariableAssignment: {
+        case Ast::NodeKind::VariableAssignment: {
             Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pExpr;
-            if (ImGui::TreeNodeEx(pAssignment, nodeFlags, "Variable Assignment - %s", pAssignment->identifier.pData)) {
+            if (ImGui::TreeNodeEx(pAssignment, nodeFlags, "Variable Assignment")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
+                DrawAstExpression(pAssignment->pIdentifier);
                 DrawAstExpression(pAssignment->pAssignment);
                 ImGui::TreePop();
             }
             break;
         }
-        case Ast::NodeType::Literal: {
+        case Ast::NodeKind::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
             if (ImGui::TreeNodeEx(pLiteral, nodeFlags, "Literal")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
@@ -531,49 +531,28 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
             break;
         }
-        case Ast::NodeType::Function: {
+        case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             if (ImGui::TreeNodeEx(pFunction, nodeFlags, "Function")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
-
-                // TODO: Should probably draw these as just normal nodes
-                for (Ast::Declaration* pParam : pFunction->params) {
-                    String typeStr = "none";
-                    if (pParam->pResolvedType) {
-                        typeStr = pParam->pResolvedType->name;
-                    }
-
-                    ImGui::Text("Param (%s:%s)", pParam->identifier.pData, typeStr.pData);
-                }
+                DrawAstExpression(pFunction->pFuncType);
                 DrawAstStatement(pFunction->pBody);
                 ImGui::TreePop();
             }
             break;
         }
-		case Ast::NodeType::Structure: {
+		case Ast::NodeKind::Structure: {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
             if (ImGui::TreeNodeEx(pStruct, nodeFlags, "Struct")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
-                // Draw these as normal nodes
-                for (Ast::Statement* pMemberStmt : pStruct->members) {
-                    Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
-                    String typeStr = "none";
-                    if (pMember->pResolvedType) {
-                        typeStr = pMember->pResolvedType->name;
-                    }
-
-                    ImGui::Text("Member (%s:%s)", pMember->identifier.pData, typeStr.pData);
-
-                    if (pMember->pInitializerExpr)
-					    DrawAstExpression(pMember->pInitializerExpr);
-                }
+                DrawAstStatements(pStruct->members);
                 ImGui::TreePop();
             }
 			break;
 		}
-        case Ast::NodeType::Grouping: {
+        case Ast::NodeKind::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
             if (ImGui::TreeNodeEx(pGroup, nodeFlags, "Grouping")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
@@ -583,7 +562,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
             break;
         }
-        case Ast::NodeType::Binary: {
+        case Ast::NodeKind::Binary: {
             Ast::Binary* pBinary = (Ast::Binary*)pExpr;
             if (ImGui::TreeNodeEx(pBinary, nodeFlags, "Binary")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
@@ -634,7 +613,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
             break;
         }
-        case Ast::NodeType::Unary: {
+        case Ast::NodeKind::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             if (ImGui::TreeNodeEx(pUnary, nodeFlags, "Unary")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
@@ -654,18 +633,18 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
             break;
         }
-		case Ast::NodeType::Cast: {
+		case Ast::NodeKind::Cast: {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
             if (ImGui::TreeNodeEx(pCast, nodeFlags, "Cast")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
-                DrawAstExpression(pCast->pTargetType);
+                DrawAstExpression(pCast->pTypeExpr);
                 DrawAstExpression(pCast->pExprToCast);
                 ImGui::TreePop();
             }
 			break;
 		}
-        case Ast::NodeType::Call: {
+        case Ast::NodeKind::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             if (ImGui::TreeNodeEx(pCall, nodeFlags, "Call")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
@@ -678,7 +657,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
             break;
         }
-		case Ast::NodeType::GetField: {
+		case Ast::NodeKind::GetField: {
 			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
             if (ImGui::TreeNodeEx(pGetField, nodeFlags, "Get Field - %s", pGetField->fieldName.pData)) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
@@ -688,7 +667,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
 			break;
 		}
-		case Ast::NodeType::SetField: {
+		case Ast::NodeKind::SetField: {
 			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
             if (ImGui::TreeNodeEx(pSetField, nodeFlags, "Set Field - %s", pSetField->fieldName.pData)) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
@@ -786,9 +765,8 @@ void DrawScopes(Scope* pScope) {
         // TODO: Should really make a hashmap iterator
         for (size_t i = 0; i < pScope->entities.tableSize; i++) { 
             HashNode<String, Entity*>& node = pScope->entities.pTable[i];
-            ImGuiTreeNodeFlags entityNodeFlags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-
             if (node.hash != UNUSED_HASH) {
+                ImGuiTreeNodeFlags entityNodeFlags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
                 Entity* pEntity = node.value;
 
                 if (selectedLine+1 == pEntity->pDeclaration->line)
@@ -911,8 +889,7 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
     ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Scopes")) {
-        if (compiler.errorState.errors.count == 0)
-            DrawScopes(compiler.pGlobalScope);
+        DrawScopes(compiler.pGlobalScope);
     }
     ImGui::End();
 

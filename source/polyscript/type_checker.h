@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "value.h"
+
 #include <light_string.h>
 #include <hashmap.h>
 #include <resizable_array.h>
@@ -18,12 +20,13 @@ enum Enum {
     // data scope
     Global,
     Struct,
+    Function,
+    FunctionType,
 
     // imperative scope
-    Function,
     Block
 };
-static const char* stringNames[] = { "Invalid", "Global", "Struct", "Function", "Block"};
+static const char* stringNames[] = { "Invalid", "Global", "Struct", "Function", "FunctionType", "Block"};
 static const char* ToString(Enum kind) {
     return stringNames[kind];
 }
@@ -67,6 +70,9 @@ struct Entity {
     TypeInfo* pType{ nullptr };
     Ast::Declaration* pDeclaration{ nullptr };
     bool isLive{ false }; // used for non const variables. Means that it's in memory and usable
+
+    // Set only for constant entities, I may change this to be a union for variables etc
+    Value constantValue;
 };
 
 // ***********************************************************************

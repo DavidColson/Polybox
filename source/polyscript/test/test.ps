@@ -1,3 +1,45 @@
+add :: func (num: i32, float: f32, boolean: bool) -> i32 {
+    print(num);
+    print(float);
+    print(boolean);
+    
+    result := 0;
+    result = 5+2;
+    return result;
+};
+
+print(add(5, 55.2, true));
+
+BabysFirstStruct :: struct {
+	boolMember: bool;
+	floatMember: f32;
+	intMember: i32;
+};
+
+// TODO: Create various scope types
+// TODO: Gradually start increasing complexity of our example stuff
+// function type variables
+// Constant functions
+// REcursive functions
+// Recursive functions that are not constant
+// Literal basic type variables
+// Use constants out of order
+// Constant loads eliminated (i.e. not a local at runtime)
+// Use things in incorrect scope
+// Variable assignments in expressions
+// Non const struct declarations
+// Cast nodes with different types
+// Save this all for tests!!!!
+// When finished, activate real tests and fix remaining issues
+
+/*
+print(2 < 5);
+constant :: 3*12.3/8+1;
+print(constant);
+
+// test the following
+// i32 = f32; should tell you you can't assign to a constant named type
+
 // Blocks
 {
     // Basic expressions
@@ -27,7 +69,7 @@
     myTypeType := Type;
     print(myTypeType);
 
-    funcType := fn (i32, f32) -> i32;
+    funcType := func (i32, f32) -> i32;
     print(funcType);
 
 	// Type casting
@@ -97,4 +139,4 @@ n := 0;
 while n < nTerms {
     print(fibonacci(n));
     n = n+1;
-}
+}*/

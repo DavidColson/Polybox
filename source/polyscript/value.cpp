@@ -197,7 +197,7 @@ void InitTypeTable() {
     TypeInfo* pTypeType = (TypeInfo*)typeTableMemory.Allocate(sizeof(TypeInfo));
     pTypeType->tag = TypeInfo::TypeTag::Type;
     pTypeType->size = 8;
-    pTypeType->name = "Type";
+    pTypeType->name = "type";
     typeTable.PushBack(pTypeType);
 
 }

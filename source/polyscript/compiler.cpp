@@ -23,17 +23,15 @@ void CompileCode(Compiler& compilerState) {
 
     if (compilerState.bPrintAst) {
         Log::Debug("---- AST -----");
-        DebugStatements(compilerState.program);
+        DebugStatements(compilerState.syntaxTree);
     }
 
     // Compile to bytecode
     if (compilerState.errorState.errors.count == 0) {
-        ResizableArray<Ast::Declaration*> emptyParams;
-        compilerState.pTopLevelFunction = CodeGen(compilerState.program, emptyParams, "<script>", &compilerState.errorState, &compilerState.compilerMemory);
-
+        CodeGenProgram(compilerState);
         if (compilerState.bPrintByteCode) {
             Log::Debug("---- Disassembly -----");
-            Disassemble(compilerState.pTopLevelFunction, compilerState.code);
+            DisassembleProgram(compilerState);
         }
     }
 }

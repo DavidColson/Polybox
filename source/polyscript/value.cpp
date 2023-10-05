@@ -15,20 +15,6 @@ ResizableArray<TypeInfo*> typeTable;
 
 // ***********************************************************************
 
-void FreeFunction(Function* pFunc) {
-    if (pFunc) {
-        pFunc->constants.Free();
-        pFunc->code.Free();
-        pFunc->dbgLineInfo.Free();
-        pFunc->dbgConstantsTypes.Free();
-        pFunc->functionConstants.Free([](Function* pFunc) {
-            FreeFunction(pFunc);
-        });
-    }
-}
-
-// ***********************************************************************
-
 Operator::Enum TokenToOperator(TokenType::Enum tokenType) {
     return tokenToOperatorMap[tokenType];
 }

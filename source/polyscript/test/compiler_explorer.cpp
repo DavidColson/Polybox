@@ -3,6 +3,7 @@
 #include "compiler.h"
 #include "virtual_machine.h"
 #include "type_checker.h"
+#include "code_gen.h"
 
 #include <resizable_array.inl>
 #include <light_string.h>
@@ -351,7 +352,8 @@ void DrawAstStatement(Ast::Statement* pStmt) {
     switch (pStmt->nodeKind) {
         case Ast::NodeKind::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
-            if (ImGui::TreeNodeEx(pDecl, nodeFlags, "Declaration - %s", pDecl->identifier.pData)) {
+
+            if (ImGui::TreeNodeEx(pDecl, nodeFlags, "%sDeclaration - %s", pDecl->isConstantDeclaration ? "Const" : "",  pDecl->identifier.pData)) {
                 if (ImGui::IsItemClicked()) { selectedLine = pStmt->line-1; }
 
 
@@ -360,11 +362,6 @@ void DrawAstStatement(Ast::Statement* pStmt) {
                 }
                 else if (pDecl->pInitializerExpr)
                     ImGui::Text("Type: inferred as %s", pDecl->pInitializerExpr->pType ? pDecl->pInitializerExpr->pType->name.pData : "none");
-
-                if (pDecl->isConstantDeclaration)
-                    ImGui::Text("Constant: true");
-                else
-                    ImGui::Text("Constant: false");
 
                 if (pDecl->pInitializerExpr) {
                     DrawAstExpression(pDecl->pInitializerExpr);
@@ -447,15 +444,15 @@ void DrawExprProperties(Ast::Expression* pExpr) {
     }
     if (pExpr->isConstant) {
         if (CheckTypesIdentical(pExpr->pType, GetF32Type()))
-            ImGui::Text("Type: %s Constant: %s Constant Value: %f", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.f32Value);
+            ImGui::Text("Type: %s Constant: %s Value: %f", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.f32Value);
         else if (CheckTypesIdentical(pExpr->pType, GetI32Type()))
-            ImGui::Text("Type: %s Constant: %s Constant Value: %i", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.i32Value);
+            ImGui::Text("Type: %s Constant: %s Value: %i", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.i32Value);
         else if (CheckTypesIdentical(pExpr->pType, GetBoolType()))
-            ImGui::Text("Type: %s Constant: %s Constant Value: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.boolValue ? "true" : "false");
+            ImGui::Text("Type: %s Constant: %s Value: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.boolValue ? "true" : "false");
         else if (CheckTypesIdentical(pExpr->pType, GetTypeType()) && pExpr->constantValue.pTypeInfo)
-            ImGui::Text("Type: %s Constant: %s Constant Value: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.pTypeInfo->name.pData);
+            ImGui::Text("Type: %s Constant: %s Value: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.pTypeInfo->name.pData);
         else
-            ImGui::Text("Type: %s Constant: %s Constant Value: unable to print", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false");
+            ImGui::Text("Type: %s Constant: %s Value: unable to print", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false");
     } else {
         ImGui::Text("Type: %s Constant: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false");
     }
@@ -501,6 +498,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                 DrawAstExpression(pFuncType->pReturnType);
                 ImGui::TreePop();
             }
+            break;
         } 
         case Ast::NodeKind::Type: {
             Ast::Type* pType = (Ast::Type*)pExpr;
@@ -694,18 +692,9 @@ void DrawAstStatements(ResizableArray<Ast::Statement*>& statements) {
 
 // ***********************************************************************
 
-void DrawByteCode(Function* pFunc) {
+void DrawByteCodeForFunction(Program* pProgram, Function* pFunc) {
     ImDrawList* pDrawList = ImGui::GetWindowDrawList();
     uint8_t* pInstructionPointer = pFunc->code.pData;
-
-    // Recurse into sub functions
-    for (uint32_t i = 0; i < pFunc->constants.count; i++) {
-		TypeInfo* pType = pFunc->dbgConstantsTypes[i];
-        if (pType->tag == TypeInfo::TypeTag::Function) {
-            if (pFunc->constants[i].pFunction)
-			    DrawByteCode(pFunc->constants[i].pFunction);
-        }
-    }
 
     ImGui::Text("\n");
     ImGui::Text("---- Function %s", pFunc->name.pData);
@@ -719,7 +708,7 @@ void DrawByteCode(Function* pFunc) {
         }
 
         uint8_t offset;
-        String output = DisassembleInstruction(*pFunc, pInstructionPointer, offset);
+        String output = DisassembleInstruction(pProgram, pInstructionPointer, offset);
 
         ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
 
@@ -874,15 +863,24 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("AST")) {
         // Draw AST
-        DrawAstStatements(compiler.program);
+        DrawAstStatements(compiler.syntaxTree);
     }
     ImGui::End();
 
     ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Code Gen")) {
-        if (compiler.errorState.errors.count == 0)
-            DrawByteCode(compiler.pTopLevelFunction);
+        if (compiler.errorState.errors.count == 0) {         
+            DrawByteCodeForFunction(compiler.pProgram, compiler.pProgram->pMainModuleFunction);
+
+            for (uint32_t i = 0; i < compiler.pProgram->constantTable.count; i++) {
+                TypeInfo* pType = compiler.pProgram->dbgConstantsTypes[i];
+                if (pType->tag == TypeInfo::TypeTag::Function) {
+                    if (compiler.pProgram->constantTable[i].pFunction)
+                        DrawByteCodeForFunction(compiler.pProgram, compiler.pProgram->constantTable[i].pFunction);
+                }
+            }
+        }
     }
     ImGui::End();
 

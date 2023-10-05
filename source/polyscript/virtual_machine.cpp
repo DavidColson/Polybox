@@ -3,6 +3,7 @@
 #include "virtual_machine.h"
 
 #include "compiler.h"
+#include "code_gen.h"
 
 #include <resizable_array.inl>
 #include <light_string.h>
@@ -47,7 +48,7 @@ struct VirtualMachine {
 
 // ***********************************************************************
 
-String DisassembleInstruction(Function& function, uint8_t* pInstruction, uint8_t& outOffset) {
+String DisassembleInstruction(Program* pProgram, uint8_t* pInstruction, uint8_t& outOffset) {
     StringBuilder builder;
 	uint8_t* pInstructionStart = pInstruction;
     switch (*pInstruction++) {
@@ -55,8 +56,8 @@ String DisassembleInstruction(Function& function, uint8_t* pInstruction, uint8_t
             builder.Append("LoadConstant ");
 			uint8_t constIndex = GetOperand1Byte(pInstruction);
 
-			Value& v = function.constants[constIndex];
-			TypeInfo* pType = function.dbgConstantsTypes[constIndex];
+			Value& v = pProgram->constantTable[constIndex];
+			TypeInfo* pType = pProgram->dbgConstantsTypes[constIndex];
             if (pType->tag == TypeInfo::TypeTag::Void)
                 builder.AppendFormat("%i (void)", constIndex);
             else if (pType->tag == TypeInfo::TypeTag::F32)
@@ -246,24 +247,17 @@ String DisassembleInstruction(Function& function, uint8_t* pInstruction, uint8_t
 
 // ***********************************************************************
 
-void Disassemble(Function* pFunc, String codeText) {
-	uint8_t* pInstructionPointer = pFunc->code.pData;
-
-	for (uint32_t i = 0; i < pFunc->constants.count; i++) {
-		TypeInfo* pType = pFunc->dbgConstantsTypes[i];
-        if (pType->tag == TypeInfo::TypeTag::Function) {
-            if (pFunc->constants[i].pFunction)
-			    Disassemble(pFunc->constants[i].pFunction, codeText);
-        }
-    }
-
-    Log::Debug("----------------");
+void DisassembleFunction(Compiler& compilerState, Function* pFunc) {
+	
+	Log::Debug("----------------");
     Log::Debug("-- Function (%s)", pFunc->name.pData);
 
+	// Split the program into lines
+	// TODO: A few places do this now, maybe do this in the compiler file and store for reuse
     ResizableArray<String> lines;
-    char* pCurrent = codeText.pData;
-    char* pLineStart = codeText.pData;
-    while (pCurrent < (codeText.pData + codeText.length)) {
+    char* pCurrent = compilerState.code.pData;
+    char* pLineStart = compilerState.code.pData;
+    while (pCurrent < (compilerState.code.pData + compilerState.code.length)) {
         if (*pCurrent == '\n') {
             String line = CopyCStringRange(pLineStart, pCurrent);
             lines.PushBack(line);
@@ -277,6 +271,9 @@ void Disassemble(Function* pFunc, String codeText) {
     uint32_t lineCounter = 0;
     uint32_t currentLine = -1;
 
+
+	// Run through the code printing instructions
+	uint8_t* pInstructionPointer = pFunc->code.pData;
     while (pInstructionPointer < pFunc->code.end()) {
         if (currentLine != pFunc->dbgLineInfo[lineCounter]) {
             currentLine = pFunc->dbgLineInfo[lineCounter];
@@ -285,7 +282,7 @@ void Disassemble(Function* pFunc, String codeText) {
         }
 
         uint8_t offset;
-		String output = DisassembleInstruction(*pFunc, pInstructionPointer, offset);
+		String output = DisassembleInstruction(compilerState.pProgram, pInstructionPointer, offset);
 		Log::Debug("%s", output.pData);
     	FreeString(output);
 
@@ -296,6 +293,22 @@ void Disassemble(Function* pFunc, String codeText) {
     lines.Free([](String& str) {
         FreeString(str);
     });
+}
+
+// ***********************************************************************
+
+void DisassembleProgram(Compiler& compilerState) {
+	// Disassemble main module function
+	DisassembleFunction(compilerState, compilerState.pProgram->pMainModuleFunction);
+
+	// Search through the constant table looking for functions to disassemble
+	for (uint32_t i = 0; i < compilerState.pProgram->constantTable.count; i++) {
+		TypeInfo* pType = compilerState.pProgram->dbgConstantsTypes[i];
+        if (pType->tag == TypeInfo::TypeTag::Function) {
+            if (compilerState.pProgram->constantTable[i].pFunction)
+			    DisassembleFunction(compilerState, compilerState.pProgram->constantTable[i].pFunction);
+        }
+    }
 }
 
 // ***********************************************************************
@@ -330,8 +343,8 @@ void DebugStack(VirtualMachine& vm) {
 // But this actually is quite difficult, since we lack the context of exactly what the instructions are doing with the types
 
 
-void Run(Function* pFuncToRun) {
-	if (pFuncToRun == nullptr)
+void Run(Program* pProgramToRun) {
+	if (pProgramToRun == nullptr)
 		return;
 
     VirtualMachine vm;
@@ -342,12 +355,12 @@ void Run(Function* pFuncToRun) {
 	defer(vm.stack.Free());
 
     Value fv;
-    fv.pFunction = pFuncToRun;
+    fv.pFunction = pProgramToRun->pMainModuleFunction;
 	vm.stack.Push(fv);
 
     CallFrame frame;
-    frame.pFunc = pFuncToRun;
-    frame.pInstructionPointer = pFuncToRun->code.pData;
+    frame.pFunc = pProgramToRun->pMainModuleFunction;
+    frame.pInstructionPointer = pProgramToRun->pMainModuleFunction->code.pData;
     frame.stackBaseIndex = 0;
     vm.callStack.Push(frame);
 
@@ -363,7 +376,7 @@ void Run(Function* pFuncToRun) {
 		switch (*pFrame->pInstructionPointer++) {
 			case OpCode::LoadConstant: {
 				uint8_t index = GetOperand1Byte(pFrame->pInstructionPointer);
-				Value constant = pFrame->pFunc->constants[index];
+				Value constant = pProgramToRun->constantTable[index];
 				vm.stack.Push(constant);
 				break;
 			}

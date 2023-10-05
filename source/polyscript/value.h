@@ -138,20 +138,11 @@ inline Value MakeValue(TypeInfo* value) {
     return v;
 }
 
-struct Function {
-	String name;
-    
-	// Code
-	ResizableArray<Value> constants;
-	ResizableArray<uint8_t> code;
-    ResizableArray<Function*> functionConstants;
-
-	// Debug Info
-	ResizableArray<TypeInfo*> dbgConstantsTypes;
-	ResizableArray<uint32_t> dbgLineInfo;
-};
-
-void FreeFunction(Function* pFunc);
+inline Value MakeValue(Function* value) {
+    Value v;
+    v.pFunction = value;
+    return v;
+}
 
 void InitTokenToOperatorMap();
 

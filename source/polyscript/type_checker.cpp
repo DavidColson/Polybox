@@ -251,7 +251,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			pStructTypeInfo->name = pStruct->pDeclaration->identifier;
 
 			pStruct->pType = GetTypeType();
-            pStruct->constantValue.pTypeInfo = pStructTypeInfo;
+            pStruct->constantValue = MakeValue(pStructTypeInfo);
 			return pStruct;
 		}
         case Ast::NodeKind::Identifier: {
@@ -329,8 +329,6 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
             // Pop function scope (where the params live)
             state.pCurrentScope = pFunction->pScope->pParent;
-
-            // TODO: Check maximum number of arguments (255 uint8) and error if above
             return pFunction;
         }
         case Ast::NodeKind::VariableAssignment: {
@@ -1045,13 +1043,13 @@ void TypeCheckProgram(Compiler& compilerState) {
         state.pCurrentScope = state.pGlobalScope;
 
         // stage 1, collect all entities, tracking scope
-        CollectEntities(state, compilerState.program);
+        CollectEntities(state, compilerState.syntaxTree);
 
         // stage 1.5 add core types to global scope
         AddCoreTypeEntities(state);
 
         // stage 2, actually typecheck program
-        TypeCheckStatements(state, compilerState.program);
+        TypeCheckStatements(state, compilerState.syntaxTree);
 
         compilerState.pGlobalScope = state.pGlobalScope;
     }

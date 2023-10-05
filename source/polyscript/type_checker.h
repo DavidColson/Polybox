@@ -73,6 +73,7 @@ struct Entity {
 
     // Set only for constant entities, I may change this to be a union for variables etc
     Value constantValue;
+    uint32_t codeGenConstIndex;
 };
 
 // ***********************************************************************

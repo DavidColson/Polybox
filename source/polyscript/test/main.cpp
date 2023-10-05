@@ -43,7 +43,7 @@ void RunTestPlayground() {
 	CompileCode(compiler);
 
 	if (compiler.errorState.errors.count == 0) {
-		Run(compiler.pTopLevelFunction);
+		Run(compiler.pProgram);
 	} else {
 		compiler.errorState.ReportCompilationResult();
 	}

@@ -37,10 +37,7 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 	if (errorExpectations.count == 0) compiler.errorState.ReportCompilationResult();
 
 	if (compiler.errorState.errors.count == 0) {
-		Run(compiler.pTopLevelFunction);
-
-		// TODO: Some of this function is using compiler memory and some isn't (debug info and constants) - should probably be consistent
-		FreeFunction(compiler.pTopLevelFunction);
+		Run(compiler.pProgram);
 	}
 
 	// Reset Log

@@ -4,6 +4,7 @@
 
 #include "parser.h"
 
+struct Program;
 struct Function;
 struct Scope;
 
@@ -13,15 +14,18 @@ struct Compiler {
     bool bPrintAst = false;
     bool bPrintByteCode = false;
 
-    // Output
+    // Compilation Byproducts
     ResizableArray<Token> tokens;
-    ResizableArray<Ast::Statement*> program;
+    ResizableArray<Ast::Statement*> syntaxTree;
     Scope* pGlobalScope;
-    Function* pTopLevelFunction;
+    
+    // Output
+    Program* pProgram;
     ErrorState errorState;
 
     // State
-    LinearAllocator compilerMemory;
+    LinearAllocator compilerMemory; // working memory for the compiler
+    LinearAllocator outputMemory; // memory for the output bytecode and program
 };
 
 void CompileCode(Compiler& compilerState);

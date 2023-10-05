@@ -1,3 +1,7 @@
+
+// Constant function test (out of order declaration and call)
+print(add(5, 55.2, true));
+
 add :: func (num: i32, float: f32, boolean: bool) -> i32 {
     print(num);
     print(float);
@@ -8,8 +12,6 @@ add :: func (num: i32, float: f32, boolean: bool) -> i32 {
     return result;
 };
 
-print(add(5, 55.2, true));
-
 BabysFirstStruct :: struct {
 	boolMember: bool;
 	floatMember: f32;
@@ -18,19 +20,23 @@ BabysFirstStruct :: struct {
 
 // TODO: Create various scope types
 // TODO: Gradually start increasing complexity of our example stuff
-// function type variables
-// Constant functions
-// REcursive functions
-// Recursive functions that are not constant
-// Literal basic type variables
-// Use constants out of order
-// Constant loads eliminated (i.e. not a local at runtime)
-// Use things in incorrect scope
-// Variable assignments in expressions
-// Non const struct declarations
-// Cast nodes with different types
-// Save this all for tests!!!!
-// When finished, activate real tests and fix remaining issues
+    // Constant functions
+    // Non const function (function pointers)
+    // function type variables (without names and so on)
+    // Functions without names on params (is this an error? Warning?)
+    // anonymous functions
+    // Recursive functions
+    // Recursive functions that are not constant (should give an error)
+    // Const function parameters (should error)
+    // Literal basic type variables
+    // Use constant simple values out of order
+    // Constant loads eliminated (i.e. not a local at runtime)
+    // Use things in incorrect scope (should give error)
+    // Variable assignments in expressions
+    // Use of structs out of order 
+    // Non const struct declarations
+    // Cast nodes with different types
+    // When finished, activate real tests and fix remaining issues
 
 /*
 print(2 < 5);

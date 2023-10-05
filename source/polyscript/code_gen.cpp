@@ -4,6 +4,8 @@
 
 #include "parser.h"
 #include "virtual_machine.h"
+#include "type_checker.h"
+#include "compiler.h"
 
 #include <resizable_array.inl>
 #include <hashmap.inl>
@@ -11,30 +13,66 @@
 namespace {
 struct Local {
     String name;
-    int depth;
 };
 
 struct State {
     ResizableArray<Local> locals;
-    int currentScopeDepth { 0 };
+    Scope* pCurrentScope;
     ErrorState* pErrors;
     Function* pFunc;
 	IAllocator* pAlloc;
+};
+
+struct CodeGenState {
+    IAllocator* pOutputAllocator;
+    IAllocator* pCompilerAllocator;
+    
+	Scope* pGlobalScope;
+	Scope* pCurrentScope;
+    ResizableArray<String> localsStack;
+    uint32_t currentScopeLocalsBase{ 0 }; // Size of the locals stack when we first entered the current scope
+    
+    ErrorState* pErrors;
+    Program* pCurrentlyCompilingProgram;
+    Function* pCurrentlyCompilingFunction;
+
 };
 }
 
 // ***********************************************************************
 
-Function* CurrentFunction(State& state) {
-    return state.pFunc;
+void EnterScope(CodeGenState& state, Scope* pNewScope) {
+    state.pCurrentScope = pNewScope;
+    state.currentScopeLocalsBase = state.localsStack.count;
 }
 
 // ***********************************************************************
 
-int ResolveLocal(State& state, String name) {
-    for (int i = state.locals.count - 1; i >= 0; i--) {
-        Local& local = state.locals[i];
-        if (name == local.name) {
+void ExitScope(CodeGenState& state, Scope* pOldScope) {
+    state.pCurrentScope = pOldScope;
+    while (state.localsStack.count > state.currentScopeLocalsBase) {
+        state.localsStack.PopBack();
+    }
+}
+
+// ***********************************************************************
+
+Function* CurrentFunction(CodeGenState& state) {
+    return state.pCurrentlyCompilingFunction;
+}
+
+// ***********************************************************************
+
+Program* CurrentProgram(CodeGenState& state) {
+    return state.pCurrentlyCompilingProgram;
+}
+
+// ***********************************************************************
+
+int ResolveLocal(CodeGenState& state, String name) {
+    for (int i = state.localsStack.count - 1; i >= 0; i--) {
+        String& local = state.localsStack[i];
+        if (name == local) {
             return i;
         }
     }
@@ -43,7 +81,16 @@ int ResolveLocal(State& state, String name) {
 
 // ***********************************************************************
 
-void PushCode4Byte(State& state, uint32_t code, uint32_t line) {
+uint8_t CreateConstant(CodeGenState& state, Value constant, TypeInfo* pType) {
+    CurrentProgram(state)->constantTable.PushBack(constant);
+    CurrentProgram(state)->dbgConstantsTypes.PushBack(pType);
+    // TODO: When you refactor instructions, allow space for bigger constant indices
+    return (uint8_t)CurrentProgram(state)->constantTable.count - 1;
+}
+
+// ***********************************************************************
+
+void PushCode4Byte(CodeGenState& state, uint32_t code, uint32_t line) {
 	CurrentFunction(state)->code.PushBack((code >> 24) & 0xff);
 	CurrentFunction(state)->code.PushBack((code >> 16) & 0xff);
 	CurrentFunction(state)->code.PushBack((code >> 8) & 0xff);
@@ -58,7 +105,7 @@ void PushCode4Byte(State& state, uint32_t code, uint32_t line) {
 
 // ***********************************************************************
 
-void PushCode(State& state, uint8_t code, uint32_t line) {
+void PushCode(CodeGenState& state, uint8_t code, uint32_t line) {
     CurrentFunction(state)->code.PushBack(code);
     CurrentFunction(state)->dbgLineInfo.PushBack(line);
 	Assert(line != 0);
@@ -66,7 +113,7 @@ void PushCode(State& state, uint8_t code, uint32_t line) {
 
 // ***********************************************************************
 
-int PushJump(State& state, OpCode::Enum jumpCode, uint32_t line) {
+int PushJump(CodeGenState& state, OpCode::Enum jumpCode, uint32_t line) {
     PushCode(state, jumpCode, line);
     PushCode(state, 0xff, line);
     PushCode(state, 0xff, line);
@@ -75,7 +122,7 @@ int PushJump(State& state, OpCode::Enum jumpCode, uint32_t line) {
 
 // ***********************************************************************
 
-void PushLoop(State& state, uint32_t loopTarget, uint32_t line) {
+void PushLoop(CodeGenState& state, uint32_t loopTarget, uint32_t line) {
     PushCode(state, OpCode::Loop, line);
 
     int offset = CurrentFunction(state)->code.count - loopTarget + 2;
@@ -85,7 +132,7 @@ void PushLoop(State& state, uint32_t loopTarget, uint32_t line) {
 
 // ***********************************************************************
 
-void PatchJump(State& state, int jumpCodeLocation) {
+void PatchJump(CodeGenState& state, int jumpCodeLocation) {
     int jumpOffset = CurrentFunction(state)->code.count - jumpCodeLocation - 2;
     CurrentFunction(state)->code[jumpCodeLocation] = (jumpOffset >> 8) & 0xff;
     CurrentFunction(state)->code[jumpCodeLocation + 1] = jumpOffset & 0xff;
@@ -93,15 +140,40 @@ void PatchJump(State& state, int jumpCodeLocation) {
 
 // ***********************************************************************
 
-void CodeGenExpression(State& state, Ast::Expression* pExpr) {
+void CodeGenStatements(CodeGenState& state, ResizableArray<Ast::Statement*>& statements);
+
+void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFunction) {
+    state.pCurrentlyCompilingFunction->name = CopyString(identifier, state.pOutputAllocator);
+
+    // Push local for this function
+    state.localsStack.PushBack(identifier);
+
+    // Put input params in locals stack
+    for (Ast::Declaration* pDecl : pFunction->pFuncType->params) {
+        state.localsStack.PushBack(pDecl->identifier);
+    }
+
+    // Codegen the statements in the body
+    CodeGenStatements(state, pFunction->pBody->declarations);
+
+    // Put a return instruction at the end of the function
+    uint8_t constIndex = CreateConstant(state, Value(), GetVoidType());
+
+    PushCode(state, OpCode::LoadConstant, pFunction->pBody->endToken.line);
+    PushCode(state, constIndex, pFunction->pBody->endToken.line);
+    PushCode(state, OpCode::Return, pFunction->pBody->endToken.line);
+}
+
+// ***********************************************************************
+
+void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
     // Constant folding
-    // If this expression is a constant (and not a function, since they must be codegen'd), there's no need to generate any bytecode, just emit the constant literal
-    if (pExpr->isConstant && (pExpr->nodeKind != Ast::NodeKind::Function)) {
-        CurrentFunction(state)->constants.PushBack(pExpr->constantValue);
-        CurrentFunction(state)->dbgConstantsTypes.PushBack(pExpr->pType);
-        uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
-
+    // If this expression is a constant, there's no need to generate any bytecode, just emit the constant literal
+    // Functions need their bodies codegen'd so we let them through
+    // Identifiers are already in the constant table, so we let them through and they'll be looked up and reused
+    if (pExpr->isConstant && (pExpr->nodeKind != Ast::NodeKind::Function && pExpr->nodeKind != Ast::NodeKind::Identifier)) {
+        uint8_t constIndex = CreateConstant(state, pExpr->constantValue, pExpr->pType);
         PushCode(state, OpCode::LoadConstant, pExpr->line);
         PushCode(state, constIndex, pExpr->line);
         return;
@@ -111,8 +183,21 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
         case Ast::NodeKind::Identifier: {
             Ast::Identifier* pVariable = (Ast::Identifier*)pExpr;
             if (pVariable->isConstant) {
-                // Do a load from constant table
-                // how do we know it's constant index?
+                // Load from the constant table (it's already been put there)
+                // TODO: We've written this "find entity" bit of code a few times now, refactor it out
+                Entity* pEntity = nullptr;
+                Scope* pSearchScope = state.pGlobalScope;
+                while(pEntity == nullptr && pSearchScope != nullptr) {
+                    Entity** pEntry = pSearchScope->entities.Get(pVariable->identifier);
+                    if (pEntry == nullptr) {
+                        pSearchScope = pSearchScope->pParent;
+                    } else {
+                        pEntity = *pEntry;
+                    }
+                }
+
+                PushCode(state, OpCode::LoadConstant, pVariable->line);
+                PushCode(state, pEntity->codeGenConstIndex, pVariable->line);
             } else {
                 // do a load from locals memory
                 int localIndex = ResolveLocal(state, pVariable->identifier);
@@ -185,28 +270,31 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 		}
         case Ast::NodeKind::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-
-            CurrentFunction(state)->constants.PushBack(pLiteral->constantValue);
-			CurrentFunction(state)->dbgConstantsTypes.PushBack(pLiteral->pType);
-            uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
-
+            uint8_t constIndex = CreateConstant(state, pLiteral->constantValue, pLiteral->pType);
             PushCode(state, OpCode::LoadConstant, pLiteral->line);
             PushCode(state, constIndex, pLiteral->line);
             break;
         }
         case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            Function* pFunc = CodeGen(pFunction->pBody->declarations, pFunction->pFuncType->params, pFunction->pDeclaration->identifier, state.pErrors, state.pAlloc);
+            
+            Function* pNewFunction = (Function*)state.pOutputAllocator->Allocate(sizeof(Function));
+            SYS_P_NEW(pNewFunction) Function();
+            pNewFunction->code.pAlloc = state.pOutputAllocator;
+            pNewFunction->dbgLineInfo.pAlloc = state.pOutputAllocator;
+            
+            Scope* pPreviousScope = state.pCurrentScope;
+            Function* pParentFunction = CurrentFunction(state);
+            state.pCurrentlyCompilingFunction = pNewFunction;
+            EnterScope(state, pFunction->pScope);
+            CodeGenFunction(state, pFunction->pType->name, pFunction);
+            ExitScope(state, pPreviousScope);
+            state.pCurrentlyCompilingFunction = pParentFunction;
 
-            Value value;
-            value.pFunction = pFunc;
-			CurrentFunction(state)->constants.PushBack(value);
-            CurrentFunction(state)->functionConstants.PushBack(pFunc);
-			CurrentFunction(state)->dbgConstantsTypes.PushBack(pFunction->pType);
-            uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
-
+            uint8_t constIndex = CreateConstant(state, MakeValue(pNewFunction), pFunction->pType);
             PushCode(state, OpCode::LoadConstant, pFunction->line);
             PushCode(state, constIndex, pFunction->line);
+        
             break;
         }
         case Ast::NodeKind::Grouping: {
@@ -337,33 +425,38 @@ void CodeGenExpression(State& state, Ast::Expression* pExpr) {
 
 // ***********************************************************************
 
-void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements);
-
-void CodeGenStatement(State& state, Ast::Statement* pStmt) {
+void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
     switch (pStmt->nodeKind) {
         case Ast::NodeKind::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
 
             if (pDecl->isConstantDeclaration) {
-                // The initializer expression will put something into the constant table
+                // Codegen the bodies of functions, but otherwise do nothing here
+                if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::Function) {
+                    Ast::Function* pFunction = (Ast::Function*)pDecl->pInitializerExpr;
 
-                // BUT, it will not load it, we must do that as part of the declaration 
-                // TODO: I.E. Refactor Literals codegen to not push a load constant opcode that should be done by the declaration 
+                    Entity* pEntity = nullptr;
+                    Scope* pSearchScope = state.pCurrentScope;
+                    while(pEntity == nullptr && pSearchScope != nullptr) {
+                        Entity** pEntry = pSearchScope->entities.Get(pDecl->identifier);
+                        if (pEntry == nullptr) {
+                            pSearchScope = pSearchScope->pParent;
+                        } else {
+                            pEntity = *pEntry;
+                        }
+                    }
 
-                // We need to expose the entity table to codegen.
-                // During typechecking, functions objects will be allocated and put in the entity table as their const value
-                // First pass codegen will go through all constant entities, and put their constant values in the constant table, storing the index in the entity
-                // Second pass is what we have now. Identifiers can look up the entity, grab the constant index and push that if need be.
-                // declarations will codegen their initializers (if they are literals they will not emit anything, functions will codegen their bodies)
-                // Non const declarations will push a constant, const ones won't
-                
+                    if (pEntity) {
+                        Function* pParentFunction = CurrentFunction(state);
+                        state.pCurrentlyCompilingFunction = pEntity->constantValue.pFunction;
+                        CodeGenFunction(state, pEntity->name, pFunction);
+                        state.pCurrentlyCompilingFunction = pParentFunction;
+                    }
+                }
                 break;
             }
 
-            Local local;
-            local.depth = state.currentScopeDepth;
-            local.name = pDecl->identifier;
-            state.locals.PushBack(local);
+            state.localsStack.PushBack(pDecl->identifier);
 
             if (pDecl->pInitializerExpr)
                 CodeGenExpression(state, pDecl->pInitializerExpr);
@@ -377,9 +470,7 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
 				} else { // For all non struct values we just push a new value on the operand stack that is zero
 					Value v;
 					v.pPtr = 0;
-					CurrentFunction(state)->constants.PushBack(v);
-					CurrentFunction(state)->dbgConstantsTypes.PushBack(pDecl->pType);
-					uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
+                    uint8_t constIndex = CreateConstant(state, v, pDecl->pType);
 
 					PushCode(state, OpCode::LoadConstant, pDecl->line);
 					PushCode(state, constIndex, pDecl->line);
@@ -447,13 +538,10 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
         }
         case Ast::NodeKind::Block: {
             Ast::Block* pBlock = (Ast::Block*)pStmt;
-            state.currentScopeDepth++;
+            Scope* pPreviousScope = state.pCurrentScope;
+            EnterScope(state, pBlock->pScope);
             CodeGenStatements(state, pBlock->declarations);
-            state.currentScopeDepth--;
-            while (state.locals.count > 0 && state.locals[state.locals.count - 1].depth > state.currentScopeDepth) {
-                state.locals.PopBack();
-                PushCode(state, OpCode::Pop, pBlock->endToken.line);
-            }
+            ExitScope(state, pPreviousScope);
             break;
         }
         default:
@@ -463,7 +551,7 @@ void CodeGenStatement(State& state, Ast::Statement* pStmt) {
 
 // ***********************************************************************
 
-void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements) {
+void CodeGenStatements(CodeGenState& state, ResizableArray<Ast::Statement*>& statements) {
     for (size_t i = 0; i < statements.count; i++) {
         Ast::Statement* pStmt = statements[i];
         CodeGenStatement(state, pStmt);
@@ -472,42 +560,69 @@ void CodeGenStatements(State& state, ResizableArray<Ast::Statement*>& statements
 
 // ***********************************************************************
 
-Function* CodeGen(ResizableArray<Ast::Statement*>& program, ResizableArray<Ast::Declaration*>& params, String name, ErrorState* pErrorState, IAllocator* pAlloc) {
-    if (program.count == 0)
-		return nullptr;
-	
-	State state;
-	state.pAlloc = pAlloc;
-	state.locals.pAlloc = pAlloc;
+void GenerateConstantTable(CodeGenState& state, Scope* pScope) {
+    for (size_t i = 0; i < pScope->entities.tableSize; i++) { 
+            HashNode<String, Entity*>& node = pScope->entities.pTable[i];
+            if (node.hash != UNUSED_HASH) {
+                Entity* pEntity = node.value;
+                if (pEntity->kind == EntityKind::Constant && pEntity->pDeclaration->pInitializerExpr) {
+                    if (pEntity->pDeclaration->pInitializerExpr->nodeKind == Ast::NodeKind::Function) {
+                        Function* pFunctionLiteral = (Function*)state.pOutputAllocator->Allocate(sizeof(Function));
+                        SYS_P_NEW(pFunctionLiteral) Function();
+                        pFunctionLiteral->code.pAlloc = state.pOutputAllocator;
+                        pFunctionLiteral->dbgLineInfo.pAlloc = state.pOutputAllocator;
 
-    Local local;
-    local.depth = 0;
-    local.name = name;
-    state.locals.PushBack(local); // This is the local representing this function, allows it to call itself
-
-    state.pFunc = (Function*)pAlloc->Allocate(sizeof(Function));
-    SYS_P_NEW(state.pFunc) Function();
-    state.pFunc->name = name;
-    
-    // Create locals for the params that have been passed in from the caller
-    for (Ast::Declaration* pDecl : params) {
-        Local local;
-        local.depth = state.currentScopeDepth;
-        local.name = pDecl->identifier;
-        state.locals.PushBack(local);
+                        pEntity->constantValue.pFunction = pFunctionLiteral;
+                        pEntity->codeGenConstIndex = CreateConstant(state, MakeValue(pFunctionLiteral), pEntity->pType);
+                    } else {
+                        pEntity->codeGenConstIndex = CreateConstant(state, pEntity->constantValue, pEntity->pType);
+                    }
+                }
+            }
     }
 
-    CodeGenStatements(state, program);
+    for (Scope* pChildScope : pScope->children) {
+        GenerateConstantTable(state, pChildScope);
+    }
+}
 
-    // return void
-    // TODO: If there is a return in the function body you don't need to emit this 
-    Ast::Statement* pEnd = program[program.count - 1];
-	CurrentFunction(state)->constants.PushBack(Value());
-	CurrentFunction(state)->dbgConstantsTypes.PushBack(GetVoidType());
-    uint8_t constIndex = (uint8_t)CurrentFunction(state)->constants.count - 1;
-    PushCode(state, OpCode::LoadConstant, pEnd->line);
-    PushCode(state, constIndex, pEnd->line);
-    PushCode(state, OpCode::Return, pEnd->line);
+void CodeGenProgram(Compiler& compilerState) {
+    if (compilerState.errorState.errors.count == 0) {
+        
+        // Set up state
+        CodeGenState state;
+        state.pOutputAllocator = &compilerState.outputMemory;
+        state.pCompilerAllocator = &compilerState.compilerMemory;
+        state.pErrors = &compilerState.errorState;
+        state.pGlobalScope = compilerState.pGlobalScope;
+        state.pCurrentScope = state.pGlobalScope;
+        state.pCurrentlyCompilingProgram = (Program*)state.pOutputAllocator->Allocate(sizeof(Program));
 
-    return state.pFunc;
+        // Create a program to output to
+        SYS_P_NEW(state.pCurrentlyCompilingProgram) Program();
+        state.pCurrentlyCompilingProgram->constantTable.pAlloc = state.pOutputAllocator;
+        state.pCurrentlyCompilingProgram->dbgConstantsTypes.pAlloc = state.pOutputAllocator;
+
+        GenerateConstantTable(state, state.pGlobalScope);
+
+        // Create the top level script function (corresponding to the primary script file)
+        state.pCurrentlyCompilingFunction = (Function*)state.pOutputAllocator->Allocate(sizeof(Function));
+        SYS_P_NEW(state.pCurrentlyCompilingFunction) Function();
+        state.pCurrentlyCompilingFunction->name = "<main>";
+        state.pCurrentlyCompilingFunction->code.pAlloc = state.pOutputAllocator;
+        state.pCurrentlyCompilingFunction->dbgLineInfo.pAlloc = state.pOutputAllocator;
+        state.pCurrentlyCompilingProgram->pMainModuleFunction = state.pCurrentlyCompilingFunction;
+
+        // Set off actual codegen of the main file, will recursively codegen all functions inside it
+        CodeGenStatements(state, compilerState.syntaxTree);
+
+        // Put a return instruction at the end of the program
+        Token endToken = compilerState.tokens[compilerState.tokens.count - 1];
+        uint8_t constIndex = CreateConstant(state, Value(), GetVoidType());
+        PushCode(state, OpCode::LoadConstant, endToken.line);
+        PushCode(state, constIndex, endToken.line);
+        PushCode(state, OpCode::Return, endToken.line);
+
+        compilerState.pProgram = state.pCurrentlyCompilingProgram;
+    }
 }

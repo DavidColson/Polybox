@@ -919,12 +919,12 @@ void Parse(Compiler& compilerState) {
 	state.pAllocator = &compilerState.compilerMemory;
 	state.pErrorState = &compilerState.errorState;
 
-    compilerState.program = ResizableArray<Ast::Statement*>(&compilerState.compilerMemory);
+    compilerState.syntaxTree = ResizableArray<Ast::Statement*>(&compilerState.compilerMemory);
 
 	while (!IsAtEnd(state)) {
 		Ast::Statement* pStmt = ParseDeclaration(state);
         if (pStmt)
-            compilerState.program.PushBack(pStmt);
+            compilerState.syntaxTree.PushBack(pStmt);
     }
 }
 

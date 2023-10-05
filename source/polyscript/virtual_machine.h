@@ -6,6 +6,7 @@
 
 struct String;
 struct Compiler;
+struct Program;
 
 namespace OpCode {
 enum Enum : uint8_t {
@@ -51,8 +52,10 @@ enum Enum : uint8_t {
 };
 }
 
-String DisassembleInstruction(Function& function, uint8_t* pInstruction, uint8_t& outOffset);
+String DisassembleInstruction(Program* pProgram, uint8_t* pInstruction, uint8_t& outOffset);
 
-void Disassemble(Function* pFunc, String codeText);
+void DisassembleFunction(Compiler& compilerState, Function* pFunc);
 
-void Run(Function* pFuncToRun);
+void DisassembleProgram(Compiler& compilerState);
+
+void Run(Program* pProgramToRun);

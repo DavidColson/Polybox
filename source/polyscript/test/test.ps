@@ -1,7 +1,75 @@
+// ***************************************************************
+// [TEST] Basic expressions
 
-// Constant function test (out of order declaration and call)
-print(add(5, 55.2, true));
+dave := 3*12.3/8+1;
+print(dave);
+dave = 2.0;
+print(dave);
 
+print(2 < 5);
+
+// ***************************************************************
+// [TEST] Basic type variables
+
+// print(myType); // Error
+myType := i32;
+print(myType); // i32
+
+print(myConstType); // f32
+myConstType :: f32;
+
+// ***************************************************************
+// [TEST] Basic constant values
+
+print(myInt); // 5
+print(inferredConst); // true
+myInt:i32 : 5;
+inferredConst :: true;
+
+// myvar := 5.0;
+// myconst :: myvar; // Error: Can't initialize with non const value
+// notInitConst:f32 : ; // Error, can't have no initializer for a const
+// inferredConst = false; // Error, can't assign to a const
+
+// ***************************************************************
+// [TEST] Basic variables
+
+// print(myFloat); // Error not defined
+myFloat: f32 = 6.0;
+print(myFloat + 2.0); // 8.0
+
+myBool: bool;
+print(myBool); // false (uninitialized things are 0)
+myBool = true;
+print(myBool); // true
+
+// ***************************************************************
+// [TEST] Control flow
+
+tester:= 7;
+lucy:= 0;
+// If statements
+if tester < 5 && lucy == 0 {
+    lucy = 10;
+} else if tester == 5 {
+    lucy = 27;
+} else {
+    lucy = 20;
+}
+print(lucy);
+
+// Loops
+nTerms := 4;
+n := 0;
+while n < nTerms {
+    print(n);
+    n = n+1;
+}
+
+// ***************************************************************
+// [TEST] Constant function test (out of order declaration and call)
+
+print(add(5, 5.0, true)); // 5\n5.0\ntrue\n7
 add :: func (num: i32, float: f32, boolean: bool) -> i32 {
     print(num);
     print(float);
@@ -11,6 +79,103 @@ add :: func (num: i32, float: f32, boolean: bool) -> i32 {
     result = 5+2;
     return result;
 };
+print(add(3, 3.0, false)); // 3\n3.0\nfalse\n7
+
+// ***************************************************************
+// [TEST] Function variables
+
+addSomething := func (num: i32) -> i32 {
+    return num+1;
+};
+print(addSomething(2)); // 3
+addSomething = func (num: i32) -> i32 {
+    return num+2;
+};
+print(addSomething(2)); // 4
+constAddThree :: func (num: i32) -> i32 {
+    return num+3;
+};
+addSomething = constAddThree;
+print(addSomething(2)); // 5
+
+// Gives error
+// addSomething = func (num: i32, second: f32) -> i32 {
+//     return num+second;
+// };
+
+// ***************************************************************
+// [TEST] Function type variables (in different forms)
+
+funcType := func (i32, f32) -> i32;
+print(funcType); // func (i32, f32) -> i32
+
+funcTypeNamedParams := func (num: i32, num2: f32) -> i32;
+print(funcTypeNamedParams); // func (i32, f32) -> i32
+
+// Should compile fine, but can't refer to params anymore
+// funcWithUnnamedParams :: func (i32, f32) -> i32 { 
+//     return 0;
+// };
+
+funcTypeNoReturn := func (i32, f32);
+print(funcTypeNoReturn); // func (i32, f32)
+
+funcTypeNoParams := func () -> i32;
+print(funcTypeNoParams); // func () -> i32
+
+funcTypeNoParamsNoReturn := func ();
+print(funcTypeNoParamsNoReturn); // func ()
+
+// ***************************************************************
+// [TEST] Recursive Functions
+
+fibonacci :: func (n: i32) -> i32 {
+    if (n <= 1)
+        return n;
+    else
+        return fibonacci(n-1) + fibonacci(n-2);
+};
+print(fibonacci(7)); // 13
+
+// Won't compile, can't resolve function name at compile time
+// nonConstFibonacci := func (n: i32) -> i32 {
+//     if (n <= 1)
+//         return n;
+//     else
+//         return nonConstFibonacci(n-1) + nonConstFibonacci(n-2);
+// };
+// print(nonConstFibonacci(7)); // 13
+
+// ***************************************************************
+// [TEST] Scopes
+
+myTopLevelVar := 21;
+{
+    print(myTopLevelVar); // 21
+    print(myTopLevelConst); // 3
+    // print(myScopedConst); // Error: not defined in valid scope
+    // print(myScopedVar); // Error: not defined in valid scope
+}
+print(myTopLevelVar); // 21
+
+myTopLevelConst :: 3;
+{
+    myScopedConst :: 5;
+    myScopedVar := 25;
+}
+
+// ***************************************************************
+// [TEST] Variable assignment expressions
+
+myExampleVar := 10;
+print(myExampleVar = 12); // 12
+
+// ***************************************************************
+// [TEST] Structs
+
+instanceOfStruct : BabysFirstStruct;
+instanceOfStruct.floatMember = 1337.0;
+print(instanceOfStruct.floatMember); // 1337.0
 
 BabysFirstStruct :: struct {
 	boolMember: bool;
@@ -18,93 +183,8 @@ BabysFirstStruct :: struct {
 	intMember: i32;
 };
 
-// TODO: Create various scope types
-// TODO: Gradually start increasing complexity of our example stuff
-    // Constant functions
-    // Non const function (function pointers)
-    // function type variables (without names and so on)
-    // Functions without names on params (is this an error? Warning?)
-    // anonymous functions
-    // Recursive functions
-    // Recursive functions that are not constant (should give an error)
-    // Const function parameters (should error)
-    // Literal basic type variables
-    // Use constant simple values out of order
-    // Constant loads eliminated (i.e. not a local at runtime)
-    // Use things in incorrect scope (should give error)
-    // Variable assignments in expressions
-    // Use of structs out of order 
-    // Non const struct declarations
-    // Cast nodes with different types
-    // When finished, activate real tests and fix remaining issues
-
-/*
-print(2 < 5);
-constant :: 3*12.3/8+1;
-print(constant);
-
-// test the following
-// i32 = f32; should tell you you can't assign to a constant named type
-
-// Blocks
-{
-    // Basic expressions
-    dave := 3*12.3/8+1;
-
-    dave = 2.0;
-    print(dave);
-    testBool: bool;
-    testBool = true;
-    print(testBool);
-    // If statements
-    tester:= 7;
-    lucy:= 0;
-    if tester < 5 && lucy == 0 {
-        lucy = 10;
-    } else if tester == 5 {
-        lucy = 27;
-    } else {
-        lucy = 20;
-    }
-    print(lucy);
-
-    // Types as first class values
-    myType:Type = i32;
-    print(myType);
-
-    myTypeType := Type;
-    print(myTypeType);
-
-    funcType := func (i32, f32) -> i32;
-    print(funcType);
-
-	// Type casting
-	castValue := as(i32) 5.0 * 12 + 4;
-	print(castValue);
-}
-
-
-// What should codegen do when it encounters a struct definition expression?
-// Push a type instance onto the stack?
-// For a non const yes, but for a const absolutely not
-// Ugh we need constants
-BabysFirstStruct := struct {
-	boolMember: bool;
-	floatMember: f32;
-	intMember: i32;
-};
-
-firstInstance : BabysFirstStruct;
-
-firstInstance.boolMember = false;
-firstInstance.floatMember = 1337.0;
-firstInstance.intMember = 5;
-
-print(firstInstance.boolMember);
-print(firstInstance.floatMember);
-print(firstInstance.intMember);
-
-SecondStruct := struct {
+// Struct with another struct as a member
+SecondStruct :: struct {
 	floatMember: f32;
 	intMember: i32;
 	innerStruct: BabysFirstStruct;
@@ -113,36 +193,26 @@ SecondStruct := struct {
 secondInstance : SecondStruct;
 secondInstance.floatMember = 420.0;
 secondInstance.intMember = 22;
-secondInstance.innerStruct = firstInstance;
+secondInstance.innerStruct = instanceOfStruct;
 
-print(secondInstance.floatMember);
-print(secondInstance.innerStruct.floatMember);
+print(secondInstance.floatMember); // 420.0
+print(secondInstance.innerStruct.floatMember); // 1337.0
 
-// Functions
-add := func (num: i32, float: f32, boolean: bool) -> i32 {
-    print(num);
-    print(float);
-    print(boolean);
-    
-    result := 0;
-    result = 5+2;
-    return result;
+NonConstStruct := struct {
+    member: i32;
 };
+// instanceOfNonConstStruct : NonConstStruct; // Error: Type annotation for declaration must be a constant
 
-print(add(5, 55.2, true));
+constFloat :: 6.0;
+floatVariable := 5.0;
+StructWithImperativeCode :: struct {
+    boolMember: bool;
+    constFloat; // Fine, constant code, nothing to execute
+    initializedMember:i32 : 5; // Fine, constant code, nothing to execute
 
-// Recursion
-fibonacci := func (n: i32) -> i32 {
-    if (n <= 1)
-        return n;
-    else
-        return fibonacci(n-1) + fibonacci(n-2);
+    // add(5, 5.0, true); // Error: Can't run imperative code in struct scope
+    // floatMember:f32 = floatVariable; // Error: Can't have non const initializers in data scope
+    // {} // Error, can't have imperative code block inside struct scope
+    // if (true) {} // Error, can't have if statements in struct scope
+    // return 5; // Error, can't have return statements in struct scope
 };
-
-// Loops
-nTerms := 4;
-n := 0;
-while n < nTerms {
-    print(fibonacci(n));
-    n = n+1;
-}*/

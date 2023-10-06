@@ -492,8 +492,12 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             if (ImGui::TreeNodeEx(pFuncType, nodeFlags, "Function Type")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
-                for (Ast::Declaration* pParam : pFuncType->params) {
-                   DrawAstStatement(pParam);
+                for (Ast::Node* pParam : pFuncType->params) {
+                    if (pParam->nodeKind == Ast::NodeKind::Identifier) {
+                        DrawAstExpression((Ast::Expression*)pParam);
+                    } else if (pParam->nodeKind == Ast::NodeKind::Declaration) {
+                        DrawAstStatement((Ast::Declaration*)pParam);
+                    }
                 }
                 DrawAstExpression(pFuncType->pReturnType);
                 ImGui::TreePop();
@@ -761,7 +765,12 @@ void DrawScopes(Scope* pScope) {
                 if (selectedLine+1 == pEntity->pDeclaration->line)
                     entityNodeFlags |= ImGuiTreeNodeFlags_Selected;      
 
-                ImGui::TreeNodeEx(pEntity, entityNodeFlags, "Entity - Name: %s Type: N/A", pEntity->name.pData);
+                String entityTypeStr = "unresolved";
+                if (pEntity->pType && pEntity->status == EntityStatus::Resolved) {
+                    entityTypeStr = pEntity->pType->name;
+                }
+
+                ImGui::TreeNodeEx(pEntity, entityNodeFlags, "Entity - Name: %s Type: %s Kind: %s", pEntity->name.pData, entityTypeStr.pData, EntityKind::ToString(pEntity->kind));
 
                 if (ImGui::IsItemClicked())
                     selectedLine = pEntity->pDeclaration->line-1; 
@@ -887,7 +896,9 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
     ImGui::SetNextWindowDockID(ImGui::GetID("MainDockspace"), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Scopes")) {
-        DrawScopes(compiler.pGlobalScope);
+        if (compiler.pGlobalScope) {
+            DrawScopes(compiler.pGlobalScope);
+        }
     }
     ImGui::End();
 
@@ -1009,7 +1020,7 @@ void RunCompilerExplorer() {
 
     // Load a code file and compile it for analysis
     FILE* pFile;
-    fopen_s(&pFile, "test.ps", "r");
+    fopen_s(&pFile, "test.ps", "rb");
     if (pFile == NULL) {
         return;
     }
@@ -1028,6 +1039,10 @@ void RunCompilerExplorer() {
 	compiler.bPrintAst = false;
 	compiler.bPrintByteCode = false;
 	CompileCode(compiler);
+
+    // if (compiler.errorState.errors.count > 0) {
+	// 	compiler.errorState.ReportCompilationResult();
+	// }
 
     ResizableArray<String> lines;
     defer(lines.Free());

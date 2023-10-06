@@ -247,18 +247,27 @@ Ast::Expression* ParseType(ParsingState& state) {
         if (Peek(state).type != TokenType::RightParen) {
 			// Parse parameter list
 			do {
-				Token arg = Consume(state, TokenType::Identifier, "Expected argument identifier after comma");
-				Consume(state, TokenType::Colon, "Expected colon after argument identifier");
+                // First item could be identifier for a declaration, or a type
+                Ast::Node* pParam = (Ast::Type*)ParseType(state);
+                Token arg = Previous(state);
 
-				Ast::Declaration* pParamDecl = (Ast::Declaration*)state.pAllocator->Allocate(sizeof(Ast::Declaration));
-				pParamDecl->nodeKind = Ast::NodeKind::Declaration;
-				pParamDecl->identifier = CopyCStringRange(arg.pLocation, arg.pLocation + arg.length, state.pAllocator);
-				pParamDecl->pTypeAnnotation = (Ast::Type*)ParseType(state);
-				pParamDecl->pLocation = arg.pLocation;
-				pParamDecl->line = arg.line;
-				pParamDecl->pLineStart = arg.pLineStart;
-
-				pFuncType->params.PushBack(pParamDecl);
+                if (Match(state, 1, TokenType::Colon)) {
+                    if (pParam->nodeKind == Ast::NodeKind::Identifier) {
+                        // The first item was a declaration, so convert it to one
+                        Ast::Declaration* pParamDecl = (Ast::Declaration*)state.pAllocator->Allocate(sizeof(Ast::Declaration));
+                        pParamDecl->nodeKind = Ast::NodeKind::Declaration;
+                        pParamDecl->identifier = CopyCStringRange(arg.pLocation, arg.pLocation + arg.length, state.pAllocator);
+                        pParamDecl->pTypeAnnotation = (Ast::Type*)ParseType(state);
+                        pParamDecl->pLocation = arg.pLocation;
+                        pParamDecl->line = arg.line;
+                        pParamDecl->pLineStart = arg.pLineStart;
+				        pFuncType->params.PushBack(pParamDecl);
+                    } else {
+                        PushError(state, "Expected an identifier on the left side of this declaration");
+                    }
+                } else {
+				        pFuncType->params.PushBack(pParam);
+                }
 			} while (Match(state, 1, TokenType::Comma));
 		}
 		Consume(state, TokenType::RightParen, "Expected right parenthesis to close argument list");
@@ -308,16 +317,19 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 		pStruct->members.pAlloc = state.pAllocator;
 
 		Consume(state, TokenType::LeftBrace, "Expected '{' after struct to start member declarations");
+        pStruct->startToken = Previous(state);
 
 		while (!Check(state, TokenType::RightBrace) && !IsAtEnd(state)) {
-			pStruct->members.PushBack(ParseDeclaration(state, true));
+            Ast::Statement* pMember = ParseDeclaration(state);
+			pStruct->members.PushBack(pMember);
 		}
 
 		Consume(state, TokenType::RightBrace, "Expected '}' to end member declarations of struct");
 		Token token = Previous(state);
 		pStruct->pLocation = token.pLocation;
 		pStruct->pLineStart = token.pLineStart;
-		pStruct->line = token.line;
+		pStruct->line = pStruct->startToken.line;
+		pStruct->endToken = token;
 		return pStruct;
 	}
 
@@ -1017,7 +1029,7 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
             Log::Debug("%*s- Identifier (%s:%s)", indentationLevel, "", pIdentifier->identifier.pData, nodeTypeStr.pData);
             break;
         }
-        case Ast::NodeKind::FunctionType: 
+        case Ast::NodeKind::FunctionType: {}
         case Ast::NodeKind::Type: {
             Ast::Type* pType = (Ast::Type*)pExpr;
             if (pType->pType && pType->constantValue.pTypeInfo)
@@ -1060,18 +1072,7 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
 		case Ast::NodeKind::Structure: {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
 			Log::Debug("%*s- Struct", indentationLevel, "");
-			for (Ast::Statement* pMemberStmt : pStruct->members) {
-				Ast::Declaration* pMember = (Ast::Declaration*)pMemberStmt;
-				String typeStr = "none";
-				if (pMember->pType) {
-					typeStr = pMember->pType->name;
-				}
-
-				Log::Debug("%*s+ Member (%s:%s)", indentationLevel + 2, "", pMember->identifier.pData, typeStr.pData);
-				
-				if (pMember->pInitializerExpr)
-					DebugExpression(pMember->pInitializerExpr, indentationLevel + 4);
-			}
+			DebugStatements(pStruct->members, indentationLevel + 2);
 			break;
 		}
         case Ast::NodeKind::Grouping: {

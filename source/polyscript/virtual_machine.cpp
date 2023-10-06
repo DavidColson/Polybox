@@ -74,7 +74,7 @@ String DisassembleInstruction(Program* pProgram, uint8_t* pInstruction, uint8_t&
             }
             else if (pType->tag == TypeInfo::TypeTag::Function) {
                 if (v.pFunction)
-                    builder.AppendFormat("%i (<func %s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");
+                    builder.AppendFormat("%i (<%s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");
                 else
                     builder.AppendFormat("%i (none)", constIndex);
             }
@@ -371,7 +371,10 @@ void Run(Program* pProgramToRun) {
 	uint8_t* pEndInstruction = pFrame->pFunc->code.end();
     while (pFrame->pInstructionPointer < pEndInstruction) {
 #ifdef DEBUG_TRACE
-        DisassembleInstruction(*pFrame->pFunc, pFrame->pInstructionPointer);
+        uint8_t offset;
+		String output = DisassembleInstruction(pProgramToRun, pFrame->pInstructionPointer, offset);
+		Log::Debug("%s", output.pData);
+    	FreeString(output);
 #endif
 		switch (*pFrame->pInstructionPointer++) {
 			case OpCode::LoadConstant: {
@@ -536,7 +539,7 @@ void Run(Program* pProgramToRun) {
 				else if (typeId == TypeInfo::TypeTag::Bool)
 					Log::Info("%s", v.boolValue ? "true" : "false");
 				else if (typeId == TypeInfo::TypeTag::Function)
-					Log::Info("<func %s>", v.pFunction->name.pData ? v.pFunction->name.pData : "");  // TODO Should probably show the type sig?
+					Log::Info("<%s>", v.pFunction->name.pData ? v.pFunction->name.pData : "");  // TODO Should probably show the type sig?
 				break;
 			}
 			case OpCode::Pop:

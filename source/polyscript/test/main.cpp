@@ -22,7 +22,7 @@
 
 void RunTestPlayground() {
     FILE* pFile;
-    fopen_s(&pFile, "test.ps", "r");
+    fopen_s(&pFile, "test.ps", "rb");
     if (pFile == NULL) {
         return;
     }
@@ -34,12 +34,16 @@ void RunTestPlayground() {
         size = ftell(pFile);
         fseek(pFile, 0, SEEK_SET);
 
-        compiler.code = AllocString(size, &compiler.compilerMemory);
+        compiler.code = AllocString(size + 1, &g_Allocator);
         fread(compiler.code.pData, size, 1, pFile);
+		size_t len = strlen(compiler.code.pData);
         fclose(pFile);
-    }
-	compiler.bPrintAst = true;
-	compiler.bPrintByteCode = true;
+		compiler.code.pData[len] = '\0';
+		compiler.code.length = len;
+		
+	}
+	compiler.bPrintAst = false;
+	compiler.bPrintByteCode = false;
 	CompileCode(compiler);
 
 	if (compiler.errorState.errors.count == 0) {
@@ -68,7 +72,7 @@ void Values() {
 		errorCount += RunCompilerOnTestCase(basicLiteralValues, expectation, ResizableArray<String>());
 
 		const char* typeLiterals = 
-			"print(Type);\n"
+			"print(type);\n"
 			"print(i32);\n"
 			"print(f32);\n"
 			"print(bool);\n"
@@ -78,7 +82,7 @@ void Values() {
 			"print(func (i32, f32, bool) -> i32);";
 
 		expectation =
-			"Type\n"
+			"type\n"
 			"i32\n"
 			"f32\n"
 			"bool\n"
@@ -149,7 +153,7 @@ void ArithmeticOperators() {
 				"print(-true);";
 			ResizableArray<String> expectedErrors;
 			defer(expectedErrors.Free());
-			expectedErrors.PushBack("Invalid types (i32, Type) used with op \"+\"");
+			expectedErrors.PushBack("Invalid types (i32, type) used with op \"+\"");
 			expectedErrors.PushBack("Invalid types (bool, f32) used with op \"*\"");
 			expectedErrors.PushBack("Invalid type (bool) used with op \"-\"");
 			errorCount += RunCompilerOnTestCase(invalidTypes, "", expectedErrors);
@@ -394,7 +398,7 @@ void Declarations() {
 			"print(a);\n"
 			"b:f32 = 2.5;\n"
 			"print(b);\n"
-			"t:Type = i32;\n"
+			"t:type = i32;\n"
 			"print(t);\n";
 		const char* expectation =
 			"5\n"
@@ -454,7 +458,7 @@ void VariableAssignment() {
 		ResizableArray<String> expectedErrors;
 		defer(expectedErrors.Free());
 		expectedErrors.PushBack("Type mismatch on assignment, 'i' has type 'i32', but is being assigned a value with type 'bool'");
-		expectedErrors.PushBack("Assigning to undeclared variable \'j\', missing a declaration somewhere before?");
+		expectedErrors.PushBack("Undeclared identifier 'j', not found in any available scope");
 		errorCount += RunCompilerOnTestCase(invalidAssignment, "", expectedErrors);
 	}
 	errorCount += ReportMemoryLeaks();
@@ -465,19 +469,19 @@ void Scopes() {
 	StartTest("Scopes");
 	int errorCount = 0;
 	{
-		// test that scopes work correctly
-		const char* scopes = 
-			"i := 5;\n"
-			"{} // testing empty scope\n"
+		const char* scopes2 = 
+			"myTopLevelVar := 21;\n"
 			"{\n"
-			"	j := 10;\n"
-			"	print(j);\n"
+			"	print(myTopLevelVar); // 21\n"
+			"	print(myTopLevelConst); // 3\n"
 			"}\n"
-			"print(i);\n";
+			"print(myTopLevelVar); // 21\n"
+			"myTopLevelConst :: 3;\n";
 		const char* expectation =
-			"10\n"
-			"5\n";
-		errorCount += RunCompilerOnTestCase(scopes, expectation, ResizableArray<String>());
+			"21\n"
+			"3\n"
+			"21\n";
+		errorCount += RunCompilerOnTestCase(scopes2, expectation, ResizableArray<String>());
 
 		// test for variables being out of scope
 		const char* invalidScopes = 
@@ -490,8 +494,8 @@ void Scopes() {
 		ResizableArray<String> expectedErrors;
 		defer(expectedErrors.Free());
 		expectedErrors.PushBack("Redefinition of variable 'i'");
-		expectedErrors.PushBack("Assigning to undeclared variable 'j', missing a declaration somewhere before?");
-		expectedErrors.PushBack("Undeclared variable 'j', missing a declaration somewhere before?");
+		expectedErrors.PushBack("Undeclared identifier 'j', not found in any available scope");
+		expectedErrors.PushBack("Undeclared identifier 'j', not found in any available scope");
 		errorCount += RunCompilerOnTestCase(invalidScopes, "", expectedErrors);
 	}
 	errorCount += ReportMemoryLeaks();
@@ -535,11 +539,13 @@ void Casting() {
 		const char* invalidCasting = 
 			"i:i32 = 5;\n"
 			"print(as(i32) i);\n"
-			"print(as(Type) i);\n";
+			"print(as(type) i);\n"
+			"print(as(badName) i);\n";
 		ResizableArray<String> expectedErrors;
 		defer(expectedErrors.Free());
 		expectedErrors.PushBack("Cast from \"i32\" to \"i32\" is pointless");
-		expectedErrors.PushBack("Not possible to cast from type \"i32\" to \"Type\"");
+		expectedErrors.PushBack("Not possible to cast from type \"i32\" to \"type\"");
+		expectedErrors.PushBack("Undeclared identifier 'badName', not found in any available scope");
 		errorCount += RunCompilerOnTestCase(invalidCasting, "", expectedErrors);
 	}
 	errorCount += ReportMemoryLeaks();
@@ -550,52 +556,20 @@ void Functions() {
 	StartTest("Functions");
 	int errorCount = 0;
 	{
-		// Test function type literals
-		const char* functionTypeLiterals = 
-			"print(fn ());\n"
-			"print(fn (i32));\n"
-			"print(fn () -> f32);\n"
-			"print(fn (i32, f32, bool) -> i32);\n";
-		const char* expectation =
-			"fn () -> void\n"
-			"fn (i32) -> void\n"
-			"fn () -> f32\n"
-			"fn (i32, f32, bool) -> i32\n";
-		errorCount += RunCompilerOnTestCase(functionTypeLiterals, expectation, ResizableArray<String>());
-
-		// Test function declarations
-		const char* functionDeclarations = 
-			"test := func() { print(1); };\n"
-			"test2 := func(i:i32) { print(i); };\n"
-			"test3 := func() -> f32 { return 1.0; };\n"
-			"test4 := func(i:i32, f:f32, b:bool) -> i32 { return i; };\n"
-			"test5 := func(i:i32) -> i32 { return test5(i); };\n"
-			"print(test);\n"
-			"print(test2);\n"
-			"print(test3);\n"
-			"print(test4);\n"
-			"print(test5);\n";
-		expectation =	
-			"<fn test>\n"
-			"<fn test2>\n"
-			"<fn test3>\n"
-			"<fn test4>\n"
-			"<fn test5>\n";
-		errorCount += RunCompilerOnTestCase(functionDeclarations, expectation, ResizableArray<String>());
-
 		// Test function calling
+		// Note constant functions can be called out of order from their declaration
 		const char* functionCalling = 
-			"test := func() { print(1); };\n"
-			"test2 := func(i:i32) { print(i); };\n"
-			"test3 := func() -> f32 { return 1.0; };\n"
-			"test4 := func(i:i32, f:f32, b:bool) -> i32 { return i; };\n"
-			"test5 := func(i:i32) -> bool { return i > 5; };\n"
 			"test();\n"
 			"test2(5);\n"
 			"print(test3());\n"
 			"print(test4(5, 2.0, true));\n"
-			"print(test5(10));\n";
-		expectation =
+			"print(test5(10));\n"
+			"test :: func() { print(1); };\n"
+			"test2 :: func(i:i32) { print(i); };\n"
+			"test3 :: func() -> f32 { return 1.0; };\n"
+			"test4 :: func(i:i32, f:f32, b:bool) -> i32 { return i; };\n"
+			"test5 :: func(i:i32) -> bool { return i > 5; };\n";
+		const char* expectation =
 			"1\n"
 			"5\n"
 			"1\n"
@@ -603,19 +577,80 @@ void Functions() {
 			"true\n";
 		errorCount += RunCompilerOnTestCase(functionCalling, expectation, ResizableArray<String>());
 
-		// function pointer changing
-		const char* functionPointerChanging = 
-			"test := func(i: i32) { print(i); };\n"
-			"test2 := func(i: i32) { print(i*2); };\n"
-			"test(5);\n"
-			"test = test2;\n"
-			"test(5);\n";
+		// Test function type literals
+		const char* functionTypeLiterals = 
+			"funcType := func (i32, f32) -> i32;\n"
+			"print(funcType);\n"
+			"funcTypeNamedParams := func (num: i32, num2: f32) -> i32;\n"
+			"print(funcTypeNamedParams);\n"
+			"funcWithUnnamedParams :: func (i32, f32) -> i32 { return 0; };\n" // Testing a function with unnammed parameters, should compile fine
+			"funcTypeNoReturn := func (i32, f32);\n"
+			"print(funcTypeNoReturn);\n"
+			"funcTypeNoParams := func () -> i32;\n"
+			"print(funcTypeNoParams);\n"
+			"funcTypeNoParamsNoReturn := func ();\n"
+			"print(funcTypeNoParamsNoReturn);\n";
 		expectation =
-			"5\n"
-			"10\n";
-		errorCount += RunCompilerOnTestCase(functionPointerChanging, expectation, ResizableArray<String>());
+			"func (i32, f32) -> i32\n"
+			"func (i32, f32) -> i32\n"
+			"func (i32, f32)\n"
+			"func () -> i32\n"
+			"func ()\n";
+		errorCount += RunCompilerOnTestCase(functionTypeLiterals, expectation, ResizableArray<String>());
 
-		// TODO: Functions don't have any typechecking errors, but test for parse errors
+		// Test functions as variables
+		const char* functionVariables = 
+			"addSomething := func (num: i32) -> i32 { return num+1; };\n"
+			"print(addSomething(2));\n"
+			"addSomething = func (num: i32) -> i32 { return num+2; };\n"
+			"print(addSomething(2));\n"
+			"constAddThree :: func (num: i32) -> i32 { return num+3; };\n"
+			"addSomething = constAddThree;\n"
+			"print(addSomething(2));\n";
+		expectation =	
+			"3\n"
+			"4\n"
+			"5\n";
+		errorCount += RunCompilerOnTestCase(functionVariables, expectation, ResizableArray<String>());
+
+		// Test recursive functions 
+		const char* recursiveFunctions = 
+			"fibonacci :: func (n: i32) -> i32 {\n"
+			"	if (n <= 1)\n"
+			"		return n;\n"
+			"	else\n"
+			"		return fibonacci(n-1) + fibonacci(n-2);\n"
+			"};\n"
+			"print(fibonacci(7));\n";
+		expectation =	
+			"13\n";
+		errorCount += RunCompilerOnTestCase(recursiveFunctions, expectation, ResizableArray<String>());
+
+		// Test invalid (non-const) recursive functions 
+		const char* nonConstRecursiveFunctions = 
+			"nonConstFibonacci := func (n: i32) -> i32 {\n"
+			"	if (n <= 1)\n"
+			"		return n;\n"
+			"	else\n"
+			"		return nonConstFibonacci(n-1) + nonConstFibonacci(n-2);\n"
+			"};\n"
+			"print(nonConstFibonacci(7));\n";
+		ResizableArray<String> expectedErrors;
+		defer(expectedErrors.Free());
+		expectedErrors.PushBack("Can't use variable 'nonConstFibonacci', it's not defined yet");
+		expectedErrors.PushBack("Can't use variable 'nonConstFibonacci', it's not defined yet");
+		errorCount += RunCompilerOnTestCase(nonConstRecursiveFunctions, "", expectedErrors);
+		
+		// Test mismatched function variable assignment
+		const char* functionVariableMismatch = 
+			"addSomething := func (num: i32) -> i32 { return num+1; };\n"
+			"print(addSomething(2));\n"
+			"addSomething = func (num: i32, second: f32) -> i32 {\n"
+			"    return num+second;\n"
+			"};\n";
+		expectedErrors.Resize(0);
+		expectedErrors.PushBack("Type mismatch on assignment, 'addSomething' has type 'func (i32) -> i32', but is being assigned a value with type 'func (i32, f32) -> i32'");
+		errorCount += RunCompilerOnTestCase(functionVariableMismatch, "", expectedErrors);
 	}
 	errorCount += ReportMemoryLeaks();
 	EndTest(errorCount);
@@ -627,9 +662,9 @@ void Structs() {
 	{
 		// Test struct declarations
 		const char* structDeclarations = 
-			"test := struct { i:i32 = 2; f:f32 = 2.0; b:bool = true; };\n"
+			"test :: struct { i:i32 = 2; f:f32 = 2.0; b:bool = true; };\n"
 			"print(test);\n"
-			"test2 := struct { i:i32 = 3; f:f32 = 2.0; b:bool = false; };\n"
+			"test2 :: struct { i:i32 = 3; f:f32 = 2.0; b:bool = false; };\n"
 			"print(test2);\n";
 		const char* expectation =	
 			"test\n"
@@ -638,7 +673,7 @@ void Structs() {
 
 		// Test struct member access
 		const char* structMemberAccess = 
-			"TestStruct := struct { i:i32; f:f32; b:bool; };\n"
+			"TestStruct :: struct { i:i32; f:f32; b:bool; };\n"
 			"instance:TestStruct;"
 			"instance.i = 2;\n"
 			"instance.f = 4.0;\n"
@@ -654,8 +689,8 @@ void Structs() {
 
 		// test struct member being another struct
 		const char* structMemberStruct = 
-			"TestStruct := struct { i:i32; f:f32; b:bool; };\n"
-			"TestStruct2 := struct { s:TestStruct; };\n"
+			"TestStruct :: struct { i:i32; f:f32; b:bool; };\n"
+			"TestStruct2 :: struct { s:TestStruct; };\n"
 			"instance:TestStruct;\n"
 			"instance.i = 2;\n"
 			"instance.f = 4.0;\n"
@@ -671,7 +706,40 @@ void Structs() {
 			"true\n";
 		errorCount += RunCompilerOnTestCase(structMemberStruct, expectation, ResizableArray<String>());
 
-		// TODO: Test struct type check and compile error messages
+		// Test imperative code in struct scopes
+		const char* nonImperativeScope = 
+			"add :: func (num: i32, float: f32, boolean: bool) -> i32 { return num; };\n"
+			"constFloat :: 6.0;\n"
+			"floatVariable := 5.0;\n"
+			"StructWithImperativeCode :: struct {\n"
+			"	boolMember: bool;\n"
+			"	constFloat; \n"
+			"	initializedMember:i32 : 5;\n"
+			"	add(5, 5.0, true);\n"
+			"	floatMember:f32 = floatVariable;\n"
+			"	{} \n"
+			"	if (true) {}\n"
+			"	return 5;\n"
+			"};\n";
+		ResizableArray<String> expectedErrors;
+		defer(expectedErrors.Free());
+		expectedErrors.PushBack("Cannot execute imperative code in data scope");
+		expectedErrors.PushBack("Cannot execute non-constant initializers in data scope");
+		expectedErrors.PushBack("Cannot execute imperative code in data scope");
+		expectedErrors.PushBack("Cannot execute imperative code in data scope");
+		expectedErrors.PushBack("Cannot execute imperative code in data scope");
+		expectedErrors.PushBack("Cannot execute imperative code in data scope");
+		errorCount += RunCompilerOnTestCase(nonImperativeScope, "", expectedErrors);
+
+		// Test creating a struct from a non const declared type
+		const char* nonConstStructInstance = 
+			"NonConstStruct := struct {\n"
+			"	member: i32;\n"
+			"};\n"
+			"instanceOfNonConstStruct : NonConstStruct;\n";
+		expectedErrors.Resize(0);
+		expectedErrors.PushBack("Type annotation for declaration must be a constant");
+		errorCount += RunCompilerOnTestCase(nonConstStructInstance, "", expectedErrors);
 	}
 	errorCount += ReportMemoryLeaks();
 	EndTest(errorCount);
@@ -681,14 +749,14 @@ void Constants() {
 	StartTest("Constants");
 	int errorCount = 0;
 	{
-		// Test struct declarations
+		// Test constant values (can be referred to out of order)
 		const char* structDeclarations = 
+			"print(constant);\n"
+			"print(constantWithType);\n"
 			"variable := 3*12.3/8+1;\n"
 			"print(variable);\n"
 			"constant :: 3*12.3/8+1;\n"
-			"print(constant);\n"
-			"constantWithType:f32 : 3*12.3/8+1;\n"
-			"print(constantWithType);\n";
+			"constantWithType:f32 : 3*12.3/8+1;\n";
 		const char* expectation =	
 			"5.6125\n"
 			"5.6125\n"
@@ -721,23 +789,23 @@ int main(int argc, char *argv[]) {
     InitTypeTable();
 	InitTokenToOperatorMap();
 
-	// Values();
-	// ArithmeticOperators();
-	// LogicalOperators();
-	// Expressions();
-	// ControlFlow();
-	// Declarations();
-	// VariableAssignment();
-	// Scopes();
-	// Casting();
-	// Functions();
-	// Structs();
-	// Constants();
+	Values();
+	ArithmeticOperators();
+	LogicalOperators();
+	Expressions();
+	ControlFlow();
+	Declarations();
+	VariableAssignment();
+	Scopes();
+	Casting();
+	Functions();
+	Structs();
+	Constants();
 
 	RunTestPlayground();
 
 	RunCompilerExplorer();
 
-    //__debugbreak();
+    __debugbreak();
     return 0;
 }

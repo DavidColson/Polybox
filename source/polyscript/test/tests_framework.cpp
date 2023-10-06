@@ -84,5 +84,6 @@ int RunCompilerOnTestCase(const char* testCode, const char* outputExpectation, R
 
 	// Yeet memory
 	compiler.compilerMemory.Finished();
+	compiler.outputMemory.Finished();
 	return errorCount;
 }

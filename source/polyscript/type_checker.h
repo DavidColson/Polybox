@@ -18,19 +18,21 @@ namespace ScopeKind {
 enum Enum {
     Invalid,
     // data scope
-    Global,
     Struct,
     Function,
     FunctionType,
 
     // imperative scope
+    Global,
     Block
 };
-static const char* stringNames[] = { "Invalid", "Global", "Struct", "Function", "FunctionType", "Block"};
+static const char* stringNames[] = { "Invalid", "Struct", "Function", "FunctionType", "Global", "Block"};
 static const char* ToString(Enum kind) {
     return stringNames[kind];
 }
 }
+
+bool CheckIsDataScope(ScopeKind::Enum scopeKind);
 
 struct Entity;
 struct Scope {
@@ -38,6 +40,11 @@ struct Scope {
     ScopeKind::Enum kind{ ScopeKind::Invalid };
     HashMap<String, Entity*> entities;
     ResizableArray<Scope*> children;
+
+    // The stack size when we entered the scope, used for popping locals as we leave
+    uint32_t codeGenStackAtEntry{ 0 }; 
+    // Used for tracking the base of the stack frame for the function we're in, relevant only for function scopes
+    uint32_t codeGenStackFrameBase{ 0 }; 
 
     uint32_t startLine { 0 };
     uint32_t endLine { 0 };
@@ -51,6 +58,10 @@ enum Enum {
     Variable,
     Constant
 };
+static const char* stringNames[] = { "Invalid", "Variable", "Constant"};
+static const char* ToString(Enum kind) {
+    return stringNames[kind];
+}
 }
 
 namespace EntityStatus {
@@ -75,6 +86,8 @@ struct Entity {
     Value constantValue;
     uint32_t codeGenConstIndex;
 };
+
+Entity* FindEntity(Scope* pLowestSearchScope, String name);
 
 // ***********************************************************************
 

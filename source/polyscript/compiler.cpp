@@ -11,6 +11,8 @@
 
 void CompileCode(Compiler& compilerState) {
     compilerState.errorState.Init(&compilerState.compilerMemory);
+    compilerState.pGlobalScope = nullptr;
+    compilerState.pProgram = nullptr;
 
     // Tokenize
     Tokenize(compilerState);

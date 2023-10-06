@@ -137,9 +137,9 @@ struct Type : public Expression {
 };
 
 struct FunctionType : public Type {
-	// func (param1:type1, param2:type2, ...) -> returnType
+	// func (param1, param2, ...) -> returnType
     Scope* pScope;
-    ResizableArray<Declaration*> params;
+    ResizableArray<Node*> params;
     Expression* pReturnType;
 };
 

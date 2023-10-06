@@ -30,12 +30,10 @@ struct CodeGenState {
 	Scope* pGlobalScope;
 	Scope* pCurrentScope;
     ResizableArray<String> localsStack;
-    uint32_t currentScopeLocalsBase{ 0 }; // Size of the locals stack when we first entered the current scope
     
     ErrorState* pErrors;
     Program* pCurrentlyCompilingProgram;
     Function* pCurrentlyCompilingFunction;
-
 };
 }
 
@@ -43,16 +41,25 @@ struct CodeGenState {
 
 void EnterScope(CodeGenState& state, Scope* pNewScope) {
     state.pCurrentScope = pNewScope;
-    state.currentScopeLocalsBase = state.localsStack.count;
+    if (pNewScope->kind == ScopeKind::Function) {
+        state.pCurrentScope->codeGenStackFrameBase = state.localsStack.count;
+    }
+    state.pCurrentScope->codeGenStackAtEntry = state.localsStack.count;
 }
 
 // ***********************************************************************
 
-void ExitScope(CodeGenState& state, Scope* pOldScope) {
-    state.pCurrentScope = pOldScope;
-    while (state.localsStack.count > state.currentScopeLocalsBase) {
+void PushCode(CodeGenState& state, uint8_t code, uint32_t line);
+
+void ExitScope(CodeGenState& state, Scope* pOldScope, Token popToken) {
+    while (state.localsStack.count > state.pCurrentScope->codeGenStackAtEntry) {
         state.localsStack.PopBack();
+
+        if (state.pCurrentScope->kind == ScopeKind::Block) {
+            PushCode(state, OpCode::Pop, popToken.line);
+        }
     }
+    state.pCurrentScope = pOldScope;
 }
 
 // ***********************************************************************
@@ -149,8 +156,14 @@ void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFun
     state.localsStack.PushBack(identifier);
 
     // Put input params in locals stack
-    for (Ast::Declaration* pDecl : pFunction->pFuncType->params) {
-        state.localsStack.PushBack(pDecl->identifier);
+    for (Ast::Node* pParam : pFunction->pFuncType->params) {
+        if (pParam->nodeKind == Ast::NodeKind::Identifier) {
+            Ast::Identifier* pIdentifier = (Ast::Identifier*)pParam;
+            state.localsStack.PushBack(pIdentifier->identifier);
+        } else if (pParam->nodeKind == Ast::NodeKind::Declaration) {
+            Ast::Declaration* pDecl = (Ast::Declaration*)pParam;
+            state.localsStack.PushBack(pDecl->identifier);
+        }
     }
 
     // Codegen the statements in the body
@@ -184,17 +197,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             Ast::Identifier* pVariable = (Ast::Identifier*)pExpr;
             if (pVariable->isConstant) {
                 // Load from the constant table (it's already been put there)
-                // TODO: We've written this "find entity" bit of code a few times now, refactor it out
-                Entity* pEntity = nullptr;
-                Scope* pSearchScope = state.pGlobalScope;
-                while(pEntity == nullptr && pSearchScope != nullptr) {
-                    Entity** pEntry = pSearchScope->entities.Get(pVariable->identifier);
-                    if (pEntry == nullptr) {
-                        pSearchScope = pSearchScope->pParent;
-                    } else {
-                        pEntity = *pEntry;
-                    }
-                }
+                Entity* pEntity = FindEntity(state.pCurrentScope, pVariable->identifier);
 
                 PushCode(state, OpCode::LoadConstant, pVariable->line);
                 PushCode(state, pEntity->codeGenConstIndex, pVariable->line);
@@ -203,7 +206,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
                 int localIndex = ResolveLocal(state, pVariable->identifier);
                 if (localIndex != -1) {
                     PushCode(state, OpCode::GetLocal, pVariable->line);
-                    PushCode(state, localIndex, pVariable->line);
+                    PushCode(state, localIndex - state.pCurrentScope->codeGenStackFrameBase, pVariable->line);
                 }
             }
             break;
@@ -214,7 +217,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             int localIndex = ResolveLocal(state, pVarAssignment->pIdentifier->identifier);
             if (localIndex != -1) {
                 PushCode(state, OpCode::SetLocal, pVarAssignment->line);
-                PushCode(state, localIndex, pVarAssignment->line);
+                PushCode(state, localIndex - state.pCurrentScope->codeGenStackFrameBase, pVarAssignment->line);
             }
             break;
         }
@@ -288,7 +291,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             state.pCurrentlyCompilingFunction = pNewFunction;
             EnterScope(state, pFunction->pScope);
             CodeGenFunction(state, pFunction->pType->name, pFunction);
-            ExitScope(state, pPreviousScope);
+            ExitScope(state, pPreviousScope, pFunction->pBody->endToken);
             state.pCurrentlyCompilingFunction = pParentFunction;
 
             uint8_t constIndex = CreateConstant(state, MakeValue(pNewFunction), pFunction->pType);
@@ -434,29 +437,22 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                 // Codegen the bodies of functions, but otherwise do nothing here
                 if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::Function) {
                     Ast::Function* pFunction = (Ast::Function*)pDecl->pInitializerExpr;
-
-                    Entity* pEntity = nullptr;
-                    Scope* pSearchScope = state.pCurrentScope;
-                    while(pEntity == nullptr && pSearchScope != nullptr) {
-                        Entity** pEntry = pSearchScope->entities.Get(pDecl->identifier);
-                        if (pEntry == nullptr) {
-                            pSearchScope = pSearchScope->pParent;
-                        } else {
-                            pEntity = *pEntry;
-                        }
-                    }
+                    Entity* pEntity = FindEntity(state.pCurrentScope, pDecl->identifier);
 
                     if (pEntity) {
+                        Scope* pPreviousScope = state.pCurrentScope;
                         Function* pParentFunction = CurrentFunction(state);
                         state.pCurrentlyCompilingFunction = pEntity->constantValue.pFunction;
+                        EnterScope(state, pFunction->pScope);
                         CodeGenFunction(state, pEntity->name, pFunction);
+                        ExitScope(state, pPreviousScope, pFunction->pBody->endToken);
                         state.pCurrentlyCompilingFunction = pParentFunction;
                     }
                 }
                 break;
             }
 
-            state.localsStack.PushBack(pDecl->identifier);
+            state.localsStack.PushBack(pDecl->identifier); // Is this incorrect? Has the function node already done this?
 
             if (pDecl->pInitializerExpr)
                 CodeGenExpression(state, pDecl->pInitializerExpr);
@@ -541,7 +537,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
             Scope* pPreviousScope = state.pCurrentScope;
             EnterScope(state, pBlock->pScope);
             CodeGenStatements(state, pBlock->declarations);
-            ExitScope(state, pPreviousScope);
+            ExitScope(state, pPreviousScope, pBlock->endToken);
             break;
         }
         default:
@@ -565,8 +561,8 @@ void GenerateConstantTable(CodeGenState& state, Scope* pScope) {
             HashNode<String, Entity*>& node = pScope->entities.pTable[i];
             if (node.hash != UNUSED_HASH) {
                 Entity* pEntity = node.value;
-                if (pEntity->kind == EntityKind::Constant && pEntity->pDeclaration->pInitializerExpr) {
-                    if (pEntity->pDeclaration->pInitializerExpr->nodeKind == Ast::NodeKind::Function) {
+                if (pEntity->kind == EntityKind::Constant) {
+                    if (pEntity->pDeclaration->pInitializerExpr && pEntity->pDeclaration->pInitializerExpr->nodeKind == Ast::NodeKind::Function) {
                         Function* pFunctionLiteral = (Function*)state.pOutputAllocator->Allocate(sizeof(Function));
                         SYS_P_NEW(pFunctionLiteral) Function();
                         pFunctionLiteral->code.pAlloc = state.pOutputAllocator;
@@ -575,7 +571,8 @@ void GenerateConstantTable(CodeGenState& state, Scope* pScope) {
                         pEntity->constantValue.pFunction = pFunctionLiteral;
                         pEntity->codeGenConstIndex = CreateConstant(state, MakeValue(pFunctionLiteral), pEntity->pType);
                     } else {
-                        pEntity->codeGenConstIndex = CreateConstant(state, pEntity->constantValue, pEntity->pType);
+                        uint8_t constIndex = CreateConstant(state, pEntity->constantValue, pEntity->pType);
+                        pEntity->codeGenConstIndex = constIndex;
                     }
                 }
             }
@@ -596,6 +593,7 @@ void CodeGenProgram(Compiler& compilerState) {
         state.pErrors = &compilerState.errorState;
         state.pGlobalScope = compilerState.pGlobalScope;
         state.pCurrentScope = state.pGlobalScope;
+        state.localsStack.pAlloc = state.pCompilerAllocator;
         state.pCurrentlyCompilingProgram = (Program*)state.pOutputAllocator->Allocate(sizeof(Program));
 
         // Create a program to output to
@@ -614,6 +612,7 @@ void CodeGenProgram(Compiler& compilerState) {
         state.pCurrentlyCompilingProgram->pMainModuleFunction = state.pCurrentlyCompilingFunction;
 
         // Set off actual codegen of the main file, will recursively codegen all functions inside it
+        state.localsStack.PushBack("<main>");
         CodeGenStatements(state, compilerState.syntaxTree);
 
         // Put a return instruction at the end of the program

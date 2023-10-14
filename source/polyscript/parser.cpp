@@ -375,10 +375,9 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
         pLiteralExpr->pLineStart = token.pLineStart;
         pLiteralExpr->line = token.line;
 
-        char* endPtr = token.pLocation + token.length;
-        if (strncmp("true", token.pLocation, 4) == 0)
+        if (strncmp("true", token.pLocation, token.length) == 0)
             pLiteralExpr->constantValue = MakeValue(true);
-        else if (strncmp("false", token.pLocation, 4) == 0)
+        else if (strncmp("false", token.pLocation, token.length) == 0)
             pLiteralExpr->constantValue = MakeValue(false);
 		pLiteralExpr->pType = GetBoolType();
 		return pLiteralExpr;
@@ -718,7 +717,7 @@ Ast::Statement* ParseStatement(ParsingState& state) {
 
     Ast::Statement* pStmt = nullptr;
     if (Match(state, 1, TokenType::Identifier)) {
-        if (strncmp("print", Previous(state).pLocation, 5) == 0) {
+        if (strncmp("print", Previous(state).pLocation, Previous(state).length) == 0) {
 			pStmt = ParsePrint(state);
         } else {
             state.pCurrent--;

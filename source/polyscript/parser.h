@@ -22,6 +22,7 @@ enum class NodeKind {
     Invalid,
 
     // Expressions
+    BadExpression,
     Binary,
     Unary,
 	Call,
@@ -40,6 +41,7 @@ enum class NodeKind {
     FunctionType,
 
     // Statements
+    BadStatement,
     ExpressionStmt,
     If,
     While,
@@ -63,6 +65,9 @@ struct Expression : public Node {
     TypeInfo* pType;
     bool isConstant { false };
     Value constantValue;
+};
+
+struct BadExpression : public Expression {
 };
 
 struct Binary : public Expression {
@@ -158,6 +163,9 @@ struct Structure : public Type {
 
 // Statement type nodes
 struct Statement : public Node {
+};
+
+struct BadStatement : public Statement {
 };
 
 struct ExpressionStmt : public Statement {

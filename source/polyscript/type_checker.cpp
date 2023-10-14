@@ -546,11 +546,14 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
 			if (pCall->pCallee->nodeKind == Ast::NodeKind::GetField) {
 				state.pErrors->PushError(pCall, "Calling fields not currently supported");
+                pCall->pType = GetVoidType(); // TODO: Invalid Type
 				return pCall;
 			}
 
             if (pCall->pCallee->pType->tag != TypeInfo::TypeTag::Function) {
                 state.pErrors->PushError(pCall, "Attempt to call a value which is not a function");
+                pCall->pType = GetVoidType(); // TODO: Invalid Type
+                return pCall;
             }
 
             for (int i = 0; i < (int)pCall->args.count; i++) {
@@ -644,6 +647,12 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			pSetField->pType = pTargetField->pType;
 			return pSetField;
 		}
+        case Ast::NodeKind::BadExpression: {
+            Ast::BadExpression* pBad = (Ast::BadExpression*)pExpr;
+            pBad->isConstant = false;
+            pBad->pType = GetVoidType(); // TODO: Invalid type
+            return pBad;
+        }
         default:
             return pExpr;
     }
@@ -700,10 +709,12 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             // No initializer, must have type annotation
             } else {
                 pDecl->pTypeAnnotation = TypeCheckExpression(state, pDecl->pTypeAnnotation);
-                if (!pDecl->pTypeAnnotation->isConstant) {
-                    state.pErrors->PushError(pDecl->pTypeAnnotation, "Type annotation for declaration must be a constant");
-                } else {
-                    pDecl->pType = pDecl->pTypeAnnotation->constantValue.pTypeInfo;
+                if (pDecl->pTypeAnnotation->nodeKind != Ast::NodeKind::BadExpression) {
+                    if (!pDecl->pTypeAnnotation->isConstant) {
+                        state.pErrors->PushError(pDecl->pTypeAnnotation, "Type annotation for declaration must be a constant");
+                    } else {
+                        pDecl->pType = pDecl->pTypeAnnotation->constantValue.pTypeInfo;
+                    }
                 }
             }
 
@@ -822,6 +833,10 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 }
             }
 
+            break;
+        }
+        case Ast::NodeKind::BadStatement: {
+            Ast::BadStatement* pBad = (Ast::BadStatement*)pStmt;
             break;
         }
         default:
@@ -1163,23 +1178,21 @@ void AddCoreTypeEntities(TypeCheckerState& state) {
 // ***********************************************************************
 
 void TypeCheckProgram(Compiler& compilerState) {
-    if (compilerState.errorState.errors.count == 0) {
-        TypeCheckerState state;
+    TypeCheckerState state;
 
-        state.pErrors = &compilerState.errorState;
-        state.pAllocator = &compilerState.compilerMemory;
-        state.pGlobalScope = CreateScope(ScopeKind::Global, nullptr, &compilerState.compilerMemory);
-        state.pCurrentScope = state.pGlobalScope;
+    state.pErrors = &compilerState.errorState;
+    state.pAllocator = &compilerState.compilerMemory;
+    state.pGlobalScope = CreateScope(ScopeKind::Global, nullptr, &compilerState.compilerMemory);
+    state.pCurrentScope = state.pGlobalScope;
 
-        // stage 1, collect all entities, tracking scope
-        CollectEntities(state, compilerState.syntaxTree);
+    // stage 1, collect all entities, tracking scope
+    CollectEntities(state, compilerState.syntaxTree);
 
-        // stage 1.5 add core types to global scope
-        AddCoreTypeEntities(state);
+    // stage 1.5 add core types to global scope
+    AddCoreTypeEntities(state);
 
-        // stage 2, actually typecheck program
-        TypeCheckStatements(state, compilerState.syntaxTree);
+    // stage 2, actually typecheck program
+    TypeCheckStatements(state, compilerState.syntaxTree);
 
-        compilerState.pGlobalScope = state.pGlobalScope;
-    }
+    compilerState.pGlobalScope = state.pGlobalScope;
 }

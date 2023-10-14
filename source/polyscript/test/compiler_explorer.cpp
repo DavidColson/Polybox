@@ -430,6 +430,14 @@ void DrawAstStatement(Ast::Statement* pStmt) {
             }
             break;
         }
+        case Ast::NodeKind::BadStatement: {
+            Ast::BadStatement* pBad = (Ast::BadStatement*)pStmt;
+            if (ImGui::TreeNodeEx(pBad, nodeFlags, "Bad Statement")) {
+                if (ImGui::IsItemClicked()) { selectedLine = pStmt->line-1; }
+                ImGui::TreePop();
+            }
+            break;
+        }
         default:
             break;
     }
@@ -461,11 +469,6 @@ void DrawExprProperties(Ast::Expression* pExpr) {
 // ***********************************************************************
 
 void DrawAstExpression(Ast::Expression* pExpr) {
-    if (pExpr == nullptr) {
-        ImGui::Text("nullptr");
-        return;
-    }
-
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     ImGuiTreeNodeFlags nodeFlags = ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth;
     if (selectedLine+1 == pExpr->line)
@@ -499,7 +502,8 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                         DrawAstStatement((Ast::Declaration*)pParam);
                     }
                 }
-                DrawAstExpression(pFuncType->pReturnType);
+                if (pFuncType->pReturnType)
+                    DrawAstExpression(pFuncType->pReturnType);
                 ImGui::TreePop();
             }
             break;
@@ -676,6 +680,15 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                 DrawExprProperties(pExpr);
                 DrawAstExpression(pSetField->pTarget);
                 DrawAstExpression(pSetField->pAssignment);
+                ImGui::TreePop();
+            }
+			break;
+		}
+        case Ast::NodeKind::BadExpression: {
+			Ast::BadExpression* pBad = (Ast::BadExpression*)pExpr;
+            if (ImGui::TreeNodeEx(pBad, nodeFlags, "Bad Expression")) {
+                if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                DrawExprProperties(pExpr);
                 ImGui::TreePop();
             }
 			break;

@@ -283,8 +283,12 @@ Ast::Expression* ParseType(ParsingState& state) {
         return pFuncType;
     }
 
-    // TODO: return BadExpr
-    return nullptr;
+    Ast::BadExpression* pBad = (Ast::BadExpression*)state.pAllocator->Allocate(sizeof(Ast::BadExpression));
+    pBad->nodeKind = Ast::NodeKind::BadExpression;
+    pBad->pLocation = state.pCurrent->pLocation;
+    pBad->pLineStart = state.pCurrent->pLineStart;
+    pBad->line = state.pCurrent->line;
+    return pBad;
 }
 
 // ***********************************************************************
@@ -400,7 +404,13 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
             return pGroupExpr;
         }
         PushError(state, "Expected valid expression inside parenthesis, but found nothing");
-        return nullptr;
+        
+        Ast::BadExpression* pBad = (Ast::BadExpression*)state.pAllocator->Allocate(sizeof(Ast::BadExpression));
+        pBad->nodeKind = Ast::NodeKind::BadExpression;
+        pBad->pLocation = startToken.pLocation;
+        pBad->pLineStart = startToken.pLineStart;
+        pBad->line = startToken.line;
+        return pBad;
     }
 
     if (Match(state, 1, TokenType::Identifier)) { // Note this could now be a primitive type, need to account for this in the parser structure and typechecker
@@ -422,7 +432,12 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
         return pType;
     }
 
-    return nullptr;
+    Ast::BadExpression* pBad = (Ast::BadExpression*)state.pAllocator->Allocate(sizeof(Ast::BadExpression));
+    pBad->nodeKind = Ast::NodeKind::BadExpression;
+    pBad->pLocation = state.pCurrent->pLocation;
+    pBad->pLineStart = state.pCurrent->pLineStart;
+    pBad->line = state.pCurrent->line;
+    return pBad;
 }
 
 // ***********************************************************************
@@ -436,6 +451,7 @@ Ast::Expression* ParseCall(ParsingState& state) {
 			pCall->nodeKind = Ast::NodeKind::Call;
 			pCall->pCallee = pExpr;
 			pCall->args.pAlloc = state.pAllocator;
+            Token openParen = Previous(state);
 
 			if (!Check(state, TokenType::RightParen)) {
 				do {
@@ -445,9 +461,9 @@ Ast::Expression* ParseCall(ParsingState& state) {
 
 			Token closeParen = Consume(state, TokenType::RightParen, "Expected right parenthesis to end function call");
         
-			pCall->pLocation = closeParen.pLocation;
-			pCall->pLineStart = closeParen.pLineStart;
-			pCall->line = closeParen.line;
+			pCall->pLocation = openParen.pLocation;
+			pCall->pLineStart = openParen.pLineStart;
+			pCall->line = openParen.line;
 
 			pExpr = pCall;
 		} else if (Match(state, 1, TokenType::Dot)) {
@@ -730,7 +746,12 @@ Ast::Statement* ParseStatement(ParsingState& state) {
 			pStmt = ParseExpressionStmt(state);
         }
         else if (Match(state, 1, TokenType::Semicolon)) {
-            return nullptr;
+            Ast::BadStatement* pBad = (Ast::BadStatement*)state.pAllocator->Allocate(sizeof(Ast::BadStatement));
+            pBad->nodeKind = Ast::NodeKind::BadStatement;
+            pBad->pLocation = Previous(state).pLocation;
+            pBad->pLineStart = Previous(state).pLineStart;
+            pBad->line = Previous(state).line;
+            return pBad;
         }
         else {
             PushError(state, "Unable to parse statement");
@@ -869,7 +890,7 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
             if (Peek(state).type != TokenType::Equal && Peek(state).type != TokenType::Colon) {
 				pDecl->pTypeAnnotation = (Ast::Type*)ParseType(state);
 
-                if (pDecl->pTypeAnnotation == nullptr)
+                if (pDecl->pTypeAnnotation->nodeKind == Ast::NodeKind::BadExpression)
                     PushError(state, "Expected a type here, potentially missing an equal sign before an initializer?");
             } else {
                 pDecl->pTypeAnnotation = nullptr;
@@ -879,7 +900,7 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
             if (Match(state, 1, TokenType::Colon)) {
                 pDecl->isConstantDeclaration = true;
                 pDecl->pInitializerExpr = ParseExpression(state);
-                if (pDecl->pInitializerExpr == nullptr)
+                if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::BadExpression)
                     PushError(state, "Need an expression to initialize this constant declaration");
             }
 
@@ -888,7 +909,7 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
                 pDecl->isConstantDeclaration = false;
 				pDecl->pInitializerExpr = ParseExpression(state);
 
-                if (pDecl->pInitializerExpr == nullptr)
+                if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::BadExpression)
                     PushError(state, "Need an expression to initialize this declaration. If you want it uninitialized, leave out the '=' sign");
             }
 
@@ -995,6 +1016,11 @@ void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
             DebugStatements(pBlock->declarations, indentationLevel + 2);
             break;
         }
+        case Ast::NodeKind::BadStatement: {
+            Ast::BadStatement* pBad = (Ast::BadStatement*)pStmt;
+            Log::Debug("%*s> Bad Statement", indentationLevel, "");
+            break;
+        }
         default:
             break;
     }
@@ -1012,11 +1038,6 @@ void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentatio
 // ***********************************************************************
 
 void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
-    if (pExpr == nullptr) {
-        Log::Debug("%*s- NULL", indentationLevel, "");
-        return;
-    }
-
     switch (pExpr->nodeKind) {
         case Ast::NodeKind::Identifier: {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
@@ -1195,6 +1216,11 @@ void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
 			DebugExpression(pSetField->pAssignment, indentationLevel + 2);
 			break;
 		}
+        case Ast::NodeKind::BadExpression: {
+            Ast::BadExpression* pBad = (Ast::BadExpression*)pExpr;
+            Log::Debug("%*s> Bad Expression", indentationLevel, "");
+            break;
+        }
         default:
             break;
     }

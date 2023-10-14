@@ -297,13 +297,13 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
             if (pEntity == nullptr) {
                 state.pErrors->PushError(pIdentifier, "Undeclared identifier \'%s\', not found in any available scope", pIdentifier->identifier.pData);
-                pIdentifier->pType = GetVoidType();
+                pIdentifier->pType = GetInvalidType();
                 return pIdentifier;
             }
 
             if (pEntity->status == EntityStatus::InProgress) {
                 state.pErrors->PushError(pIdentifier, "Circular dependency detected on identifier \'%s\'", pIdentifier->identifier.pData);
-                pIdentifier->pType = GetVoidType();
+                pIdentifier->pType = GetInvalidType();
                 return pIdentifier;
             }
 
@@ -355,8 +355,8 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             pVarAssignment->pAssignment = TypeCheckExpression(state, pVarAssignment->pAssignment);
 
             // Typechecking failed on the identifier, don't report any more errors
-            if (CheckTypesIdentical(pVarAssignment->pIdentifier->pType, GetVoidType())) {
-                pVarAssignment->pType = GetVoidType();
+            if (CheckTypesIdentical(pVarAssignment->pIdentifier->pType, GetInvalidType())) {
+                pVarAssignment->pType = GetInvalidType();
                 return pVarAssignment;
             }
 
@@ -508,7 +508,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			TypeInfo* pTo = pCast->pTypeExpr->constantValue.pTypeInfo;
 
             if (pTo == nullptr || pFrom == nullptr) {
-			    pCast->pType = GetVoidType();
+			    pCast->pType = GetInvalidType();
                 return pCast;
             }
 
@@ -541,18 +541,16 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             Ast::Call* pCall = (Ast::Call*)pExpr;
             pCall->isConstant = false;
             pCall->pCallee = TypeCheckExpression(state, pCall->pCallee);
-            // 1. How do we cope with typechecking failing to produce a type? We need to be able to continue, and not crash
-            // 2. Technically, function typechecking should produce a type _before_ the body gets typechecked.
 
 			if (pCall->pCallee->nodeKind == Ast::NodeKind::GetField) {
 				state.pErrors->PushError(pCall, "Calling fields not currently supported");
-                pCall->pType = GetVoidType(); // TODO: Invalid Type
+                pCall->pType = GetInvalidType();
 				return pCall;
 			}
 
             if (pCall->pCallee->pType->tag != TypeInfo::TypeTag::Function) {
                 state.pErrors->PushError(pCall, "Attempt to call a value which is not a function");
-                pCall->pType = GetVoidType(); // TODO: Invalid Type
+                pCall->pType = GetInvalidType();
                 return pCall;
             }
 
@@ -650,7 +648,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
         case Ast::NodeKind::BadExpression: {
             Ast::BadExpression* pBad = (Ast::BadExpression*)pExpr;
             pBad->isConstant = false;
-            pBad->pType = GetVoidType(); // TODO: Invalid type
+            pBad->pType = GetInvalidType();
             return pBad;
         }
         default:
@@ -674,9 +672,8 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             // Has initializer
             if (pDecl->pInitializerExpr) {
                 pDecl->pInitializerExpr = TypeCheckExpression(state, pDecl->pInitializerExpr);
-                if (CheckTypesIdentical(pDecl->pInitializerExpr->pType, GetVoidType())) {
-                    // Typechecking failed
-                    pDecl->pType = GetVoidType();
+                if (CheckTypesIdentical(pDecl->pInitializerExpr->pType, GetInvalidType())) {
+                    pDecl->pType = GetInvalidType();
                     break;
                 }
 
@@ -691,7 +688,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                         pEntity->constantValue = pDecl->pInitializerExpr->constantValue;
                 }
 
-                TypeInfo* pTypeAnnotationTypeInfo = GetVoidType();
+                TypeInfo* pTypeAnnotationTypeInfo = GetInvalidType();
                 if (pDecl->pTypeAnnotation) {
                     pDecl->pTypeAnnotation = TypeCheckExpression(state, pDecl->pTypeAnnotation);
                     if (pDecl->pTypeAnnotation->constantValue.pTypeInfo)
@@ -1013,7 +1010,7 @@ void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) 
                 bool doesntExistInSameScope = state.pCurrentScope->entities.Get(pDecl->identifier) == nullptr;
                 if (!(isFunctionParam && doesntExistInSameScope && pExistingEntity->kind == EntityKind::Variable)) {
                     state.pErrors->PushError(pDecl, "Redefinition of variable '%s'", pDecl->identifier.pData);
-                    pDecl->pType = GetVoidType(); // invalid type technically
+                    pDecl->pType = GetInvalidType();
                     break;
                 }
             }

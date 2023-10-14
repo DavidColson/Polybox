@@ -38,6 +38,7 @@ static const char* ToString(Operator::Enum type) {
 
 struct TypeInfo {
     enum TypeTag : uint8_t {
+        Invalid,
         Void,
         F32,
         I32,
@@ -48,7 +49,7 @@ struct TypeInfo {
         Count
     };
 	static const char* TagToString(TypeTag tag) {
-		static const char* stringNames[] = { "Void", "f32", "i32", "bool", "function", "Type" };
+		static const char* stringNames[] = { "Invalid", "Void", "f32", "i32", "bool", "function", "Type" };
 		return stringNames[tag];
 	}
 
@@ -78,6 +79,8 @@ bool CheckTypesIdentical(TypeInfo* pType1, TypeInfo* pType2);
 void AddTypeForRuntime(TypeInfo* pNewType);
 
 TypeInfo* FindTypeByName(String identifier);
+
+TypeInfo* GetInvalidType();
 
 TypeInfo* GetVoidType();
 

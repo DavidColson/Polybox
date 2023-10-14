@@ -154,6 +154,12 @@ TypeInfo* FindTypeByName(String identifier) {
 void InitTypeTable() {
     typeTable = ResizableArray<TypeInfo*>(&typeTableMemory);
 
+    TypeInfo* pInvalidType = (TypeInfo*)typeTableMemory.Allocate(sizeof(TypeInfo));
+    pInvalidType->tag = TypeInfo::TypeTag::Void;
+    pInvalidType->size = 0;
+    pInvalidType->name = "invalid";
+    typeTable.PushBack(pInvalidType);
+
     TypeInfo* pVoidType = (TypeInfo*)typeTableMemory.Allocate(sizeof(TypeInfo));
     pVoidType->tag = TypeInfo::TypeTag::Void;
     pVoidType->size = 0;
@@ -190,38 +196,44 @@ void InitTypeTable() {
 
 // ***********************************************************************
 
-TypeInfo* GetVoidType() {
+TypeInfo* GetInvalidType() {
     return typeTable[0];
 }
 
 // ***********************************************************************
 
-TypeInfo* GetI32Type() {
+TypeInfo* GetVoidType() {
     return typeTable[1];
 }
 
 // ***********************************************************************
 
-TypeInfo* GetF32Type() {
+TypeInfo* GetI32Type() {
     return typeTable[2];
 }
 
 // ***********************************************************************
 
-TypeInfo* GetBoolType() {
+TypeInfo* GetF32Type() {
     return typeTable[3];
 }
 
 // ***********************************************************************
 
-TypeInfo* GetTypeType() {
+TypeInfo* GetBoolType() {
     return typeTable[4];
 }
 
 // ***********************************************************************
 
-TypeInfo* GetEmptyFuncType() {
+TypeInfo* GetTypeType() {
     return typeTable[5];
+}
+
+// ***********************************************************************
+
+TypeInfo* GetEmptyFuncType() {
+    return typeTable[6];
 }
 
 // ***********************************************************************

@@ -361,7 +361,7 @@ void DrawAstStatement(Ast::Statement* pStmt) {
                     DrawAstExpression(pDecl->pTypeAnnotation);
                 }
                 else if (pDecl->pInitializerExpr)
-                    ImGui::Text("Type: inferred as %s", pDecl->pInitializerExpr->pType ? pDecl->pInitializerExpr->pType->name.pData : "none");
+                    ImGui::Text("Type: inferred as %s", pDecl->pInitializerExpr->pType->name.pData);
 
                 if (pDecl->pInitializerExpr) {
                     DrawAstExpression(pDecl->pInitializerExpr);
@@ -446,7 +446,7 @@ void DrawAstStatement(Ast::Statement* pStmt) {
 // ***********************************************************************
 
 void DrawExprProperties(Ast::Expression* pExpr) {
-    String nodeTypeStr = "none";
+    String nodeTypeStr = "unresolved";
     if (pExpr->pType) {
         nodeTypeStr = pExpr->pType->name;
     }

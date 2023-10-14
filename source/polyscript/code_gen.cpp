@@ -43,6 +43,13 @@ void EnterScope(CodeGenState& state, Scope* pNewScope) {
     state.pCurrentScope = pNewScope;
     if (pNewScope->kind == ScopeKind::Function) {
         state.pCurrentScope->codeGenStackFrameBase = state.localsStack.count;
+    } else {
+        // If we're not a function scope, then presumably some scope above us is a function scope
+        Scope* pParentFunctionScope = pNewScope;
+        while (pParentFunctionScope != nullptr && pParentFunctionScope->kind != ScopeKind::Global && pParentFunctionScope->kind != ScopeKind::Function) {
+            pParentFunctionScope = pParentFunctionScope->pParent;
+        }
+        state.pCurrentScope->codeGenStackFrameBase = pParentFunctionScope->codeGenStackFrameBase;
     }
     state.pCurrentScope->codeGenStackAtEntry = state.localsStack.count;
 }

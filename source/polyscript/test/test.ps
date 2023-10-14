@@ -70,7 +70,7 @@ while n < nTerms {
 // [TEST] Constant function test (out of order declaration and call)
 
 print(add(5, 5.0, true)); // 5\n5.0\ntrue\n7
-add :: func (num: i32, float: f32, boolean: bool) -> i32 {
+add :: func (num: i32, float: f32, boolean: bool) -> f32 {
     print(num);
     print(float);
     print(boolean);

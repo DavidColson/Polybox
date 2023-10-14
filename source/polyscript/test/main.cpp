@@ -516,6 +516,14 @@ void Casting() {
 			"10\n"
 			"10\n";
 		errorCount += RunCompilerOnTestCase(implicitCasting, expectation, ResizableArray<String>());
+		
+		// test implicit casting of function return parameters
+		const char* implicitCastingOnReturn = 
+			"returnFloat :: func () -> f32 { intVal:i32 = 2; return intVal; };\n"
+			"print(returnFloat());\n";
+		expectation =
+			"2\n";
+		errorCount += RunCompilerOnTestCase(implicitCastingOnReturn, expectation, ResizableArray<String>());
 
 		// test explicit typecasting which should cover f32 to i32 and bool to f32 and i32
 		const char* explicitCasting = 
@@ -641,7 +649,7 @@ void Functions() {
 		expectedErrors.PushBack("Can't use variable 'nonConstFibonacci', it's not defined yet");
 		errorCount += RunCompilerOnTestCase(nonConstRecursiveFunctions, "", expectedErrors);
 		
-		// Test mismatched function variable assignment
+		// Test mismatched function variable assignment and mismatched return types
 		const char* functionVariableMismatch = 
 			"addSomething := func (num: i32) -> i32 { return num+1; };\n"
 			"print(addSomething(2));\n"
@@ -649,6 +657,7 @@ void Functions() {
 			"    return num+second;\n"
 			"};\n";
 		expectedErrors.Resize(0);
+		expectedErrors.PushBack("Type mismatch in return, function has type i32, but return expression is type f32");
 		expectedErrors.PushBack("Type mismatch on assignment, 'addSomething' has type 'func (i32) -> i32', but is being assigned a value with type 'func (i32, f32) -> i32'");
 		errorCount += RunCompilerOnTestCase(functionVariableMismatch, "", expectedErrors);
 	}

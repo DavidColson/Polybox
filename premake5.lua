@@ -33,6 +33,7 @@ solution "polybox"
     startproject "polybox"
     configurations { "Release", "Debug" }
     platforms "x86_64"
+    justmycode "Off"
     architecture "x86_64"
         filter "configurations:Release"
         defines "NDEBUG"
@@ -64,7 +65,6 @@ solution "polybox"
         exceptionhandling "Off"
         rtti "Off"
         debugdir ""
-        justmycode "Off"
         files 
         {
             "source/*.cpp",

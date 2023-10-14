@@ -41,6 +41,9 @@ struct Scope {
     HashMap<String, Entity*> entities;
     ResizableArray<Scope*> children;
 
+    // If the kind is a function or function type, find the typeinfo here
+    TypeInfoFunction* pFunctionType{ nullptr };
+
     // The stack size when we entered the scope, used for popping locals as we leave
     uint32_t codeGenStackAtEntry{ 0 }; 
     // Used for tracking the base of the stack frame for the function we're in, relevant only for function scopes

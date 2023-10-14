@@ -329,6 +329,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
             state.pCurrentScope = pFunction->pScope;
             TypeCheckFunctionType(state, pFunction->pFuncType);
+            state.pCurrentScope->pFunctionType = (TypeInfoFunction*)pFunction->pFuncType->constantValue.pTypeInfo;
 
             // For recursion to work, we have to resolve the function's type before typechecking it's body
             // If it has a declaration (it may not), we'll go get the entity, and resolve it so we can move on.
@@ -724,11 +725,46 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
         }
         case Ast::NodeKind::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
+            pReturn->pExpr = TypeCheckExpression(state, pReturn->pExpr);
+
             if (CheckIsDataScope(state.pCurrentScope->kind))
                 state.pErrors->PushError(pReturn, "Cannot execute imperative code in data scope");
+            else {
+                Scope* pFuncScope = state.pCurrentScope;
+                while (pFuncScope != nullptr && pFuncScope->kind != ScopeKind::Function) {
+                    pFuncScope = pFuncScope->pParent;
+                }
 
-            pReturn->pExpr = TypeCheckExpression(state, pReturn->pExpr);
-            // TODO: Typecheck against the expected return type of the owning function
+                // Implicitly cast the return expression if possible, otherwise error that the return type mismatches
+                if (pReturn->pExpr) {
+                    TypeInfo* pFuncRetType = pFuncScope->pFunctionType->pReturnType;
+                    if (!CheckTypesIdentical(pFuncRetType, pReturn->pExpr->pType)) {
+                        if (IsImplicitlyCastable(pReturn->pExpr->pType, pFuncRetType)) {
+                            Ast::Cast* pCastExpr = (Ast::Cast*)state.pAllocator->Allocate(sizeof(Ast::Cast));
+                            pCastExpr->nodeKind = Ast::NodeKind::Cast;
+                            pCastExpr->pExprToCast = pReturn->pExpr;
+
+                            Ast::Type* pType = (Ast::Type*)state.pAllocator->Allocate(sizeof(Ast::Type));
+                            pType->nodeKind = Ast::NodeKind::Type;
+                            pType->isConstant = true;
+                            pType->constantValue = MakeValue(pFuncRetType);
+                            pType->pLocation = pReturn->pExpr->pLocation;
+                            pType->pLineStart = pReturn->pExpr->pLineStart;
+                            pType->line = pReturn->pExpr->line;
+                            pCastExpr->pTypeExpr = TypeCheckExpression(state, pType);
+
+                            pCastExpr->pLocation = pReturn->pExpr->pLocation;
+                            pCastExpr->pLineStart = pReturn->pExpr->pLineStart;
+                            pCastExpr->line = pReturn->pExpr->line;
+
+                            pReturn->pExpr = TypeCheckExpression(state, pCastExpr);
+
+                        } else {
+                            state.pErrors->PushError(pReturn, "Type mismatch in return, function has type %s, but return expression is type %s", pFuncRetType->name.pData, pReturn->pExpr->pType->name.pData);
+                        }
+                    }
+                }
+            }
             break;
         }
         case Ast::NodeKind::ExpressionStmt: {

@@ -331,7 +331,7 @@ void Expressions() {
 		expectedErrors.PushBack("Expected \")\" to close print expression");
 		expectedErrors.PushBack("Expected \";\" at the end of this statement");
 		expectedErrors.PushBack("Expected \";\" at the end of this statement");
-		expectedErrors.PushBack("Invalid types (i32, void) used with op \"+\"");
+		expectedErrors.PushBack("Invalid types (i32, invalid) used with op \"+\"");
 		errorCount += RunCompilerOnTestCase(invalidGrouping, "", expectedErrors);
 
 		// test mismatched types in and/or expressions

@@ -725,6 +725,9 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
         }
         case Ast::NodeKind::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
+            if (pReturn->pExpr == nullptr)
+                break;
+                
             pReturn->pExpr = TypeCheckExpression(state, pReturn->pExpr);
 
             if (CheckIsDataScope(state.pCurrentScope->kind))
@@ -981,7 +984,8 @@ void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) 
         }
         case Ast::NodeKind::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
-            CollectEntitiesInExpression(state, pReturn->pExpr);
+            if (pReturn->pExpr)
+                CollectEntitiesInExpression(state, pReturn->pExpr);
             break;
         }
         case Ast::NodeKind::Declaration: {

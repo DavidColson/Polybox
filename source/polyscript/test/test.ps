@@ -82,6 +82,21 @@ add :: func (num: i32, float: f32, boolean: bool) -> f32 {
 print(add(3, 3.0, false)); // 3\n3.0\nfalse\n7
 
 // ***************************************************************
+// [TEST] Function return test
+
+printNumbers :: func (n: i32) {
+    if (n > 0) {
+        print(n);
+        return;
+    } else {
+        print(n + 10);
+        return;
+    }
+};
+printNumbers(88); // 88
+printNumbers(-1); // 9
+
+// ***************************************************************
 // [TEST] Function variables
 
 addSomething := func (num: i32) -> i32 {

@@ -39,6 +39,20 @@ struct CodeGenState {
 
 // ***********************************************************************
 
+Function* CurrentFunction(CodeGenState& state) {
+    return state.pCurrentlyCompilingFunction;
+}
+
+// ***********************************************************************
+
+int PushInstruction(CodeGenState& state, uint32_t line, Instruction instruction) {
+    CurrentFunction(state)->code2.PushBack(instruction);
+    CurrentFunction(state)->dbgLineInfo.PushBack(line);
+    return CurrentFunction(state)->code2.count - 1;
+}
+
+// ***********************************************************************
+
 void EnterScope(CodeGenState& state, Scope* pNewScope) {
     state.pCurrentScope = pNewScope;
     if (pNewScope->kind == ScopeKind::Function) {
@@ -56,23 +70,15 @@ void EnterScope(CodeGenState& state, Scope* pNewScope) {
 
 // ***********************************************************************
 
-void PushCode(CodeGenState& state, uint8_t code, uint32_t line);
-
 void ExitScope(CodeGenState& state, Scope* pOldScope, Token popToken) {
     while (state.localsStack.count > state.pCurrentScope->codeGenStackAtEntry) {
         state.localsStack.PopBack();
 
         if (state.pCurrentScope->kind == ScopeKind::Block) {
-            PushCode(state, OpCode::Pop, popToken.line);
+            PushInstruction(state, popToken.line, { .opcode = OpCode::Pop });
         }
     }
     state.pCurrentScope = pOldScope;
-}
-
-// ***********************************************************************
-
-Function* CurrentFunction(CodeGenState& state) {
-    return state.pCurrentlyCompilingFunction;
 }
 
 // ***********************************************************************
@@ -95,6 +101,7 @@ int ResolveLocal(CodeGenState& state, String name) {
 
 // ***********************************************************************
 
+// TODO: Yeet
 uint8_t CreateConstant(CodeGenState& state, Value constant, TypeInfo* pType) {
     CurrentProgram(state)->constantTable.PushBack(constant);
     CurrentProgram(state)->dbgConstantsTypes.PushBack(pType);
@@ -104,52 +111,10 @@ uint8_t CreateConstant(CodeGenState& state, Value constant, TypeInfo* pType) {
 
 // ***********************************************************************
 
-void PushCode4Byte(CodeGenState& state, uint32_t code, uint32_t line) {
-	CurrentFunction(state)->code.PushBack((code >> 24) & 0xff);
-	CurrentFunction(state)->code.PushBack((code >> 16) & 0xff);
-	CurrentFunction(state)->code.PushBack((code >> 8) & 0xff);
-	CurrentFunction(state)->code.PushBack(code & 0xff);
-
-	CurrentFunction(state)->dbgLineInfo.PushBack(line);
-	CurrentFunction(state)->dbgLineInfo.PushBack(line);
-	CurrentFunction(state)->dbgLineInfo.PushBack(line);
-	CurrentFunction(state)->dbgLineInfo.PushBack(line);
-	Assert(line != 0);
-}
-
-// ***********************************************************************
-
-void PushCode(CodeGenState& state, uint8_t code, uint32_t line) {
-    CurrentFunction(state)->code.PushBack(code);
-    CurrentFunction(state)->dbgLineInfo.PushBack(line);
-	Assert(line != 0);
-}
-
-// ***********************************************************************
-
-int PushJump(CodeGenState& state, OpCode::Enum jumpCode, uint32_t line) {
-    PushCode(state, jumpCode, line);
-    PushCode(state, 0xff, line);
-    PushCode(state, 0xff, line);
-    return CurrentFunction(state)->code.count - 2;
-}
-
-// ***********************************************************************
-
-void PushLoop(CodeGenState& state, uint32_t loopTarget, uint32_t line) {
-    PushCode(state, OpCode::Loop, line);
-
-    int offset = CurrentFunction(state)->code.count - loopTarget + 2;
-    PushCode(state, (offset >> 8) & 0xff, line);
-    PushCode(state, offset & 0xff, line);
-}
-
-// ***********************************************************************
-
-void PatchJump(CodeGenState& state, int jumpCodeLocation) {
-    int jumpOffset = CurrentFunction(state)->code.count - jumpCodeLocation - 2;
-    CurrentFunction(state)->code[jumpCodeLocation] = (jumpOffset >> 8) & 0xff;
-    CurrentFunction(state)->code[jumpCodeLocation + 1] = jumpOffset & 0xff;
+void PatchJump(CodeGenState& state, int jumpInstructionIndex) {
+    // Not sure if this is right, should we skip over the instruction at the end of the list? 
+    // I think it will increment on next loop, so this should be fine. The next instruction executed will be the one after this index
+    CurrentFunction(state)->code2[jumpInstructionIndex].ipOffset = CurrentFunction(state)->code2.count - 1; 
 }
 
 // ***********************************************************************
@@ -177,11 +142,10 @@ void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFun
     CodeGenStatements(state, pFunction->pBody->declarations);
 
     // Put a return instruction at the end of the function
-    uint8_t constIndex = CreateConstant(state, Value(), GetVoidType());
-
-    PushCode(state, OpCode::LoadConstant, pFunction->pBody->endToken.line);
-    PushCode(state, constIndex, pFunction->pBody->endToken.line);
-    PushCode(state, OpCode::Return, pFunction->pBody->endToken.line);
+    PushInstruction(state, pFunction->pBody->endToken.line, {
+                .opcode     = OpCode::PushConstant,
+                .constant   = Value() });
+    PushInstruction(state, pFunction->pBody->endToken.line, { .opcode = OpCode::Return });
 }
 
 // ***********************************************************************
@@ -193,9 +157,9 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
     // Functions need their bodies codegen'd so we let them through
     // Identifiers are already in the constant table, so we let them through and they'll be looked up and reused
     if (pExpr->isConstant && (pExpr->nodeKind != Ast::NodeKind::Function && pExpr->nodeKind != Ast::NodeKind::Identifier)) {
-        uint8_t constIndex = CreateConstant(state, pExpr->constantValue, pExpr->pType);
-        PushCode(state, OpCode::LoadConstant, pExpr->line);
-        PushCode(state, constIndex, pExpr->line);
+        PushInstruction(state, pExpr->line, {
+                    .opcode     = OpCode::PushConstant,
+                    .constant   = pExpr->constantValue });
         return;
     }
 
@@ -206,14 +170,16 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
                 // Load from the constant table (it's already been put there)
                 Entity* pEntity = FindEntity(state.pCurrentScope, pVariable->identifier);
 
-                PushCode(state, OpCode::LoadConstant, pVariable->line);
-                PushCode(state, pEntity->codeGenConstIndex, pVariable->line);
+                PushInstruction(state, pVariable->line, {
+                    .opcode     = OpCode::PushConstant,
+                    .constant   = CurrentProgram(state)->constantTable[pEntity->codeGenConstIndex] });
             } else {
                 // do a load from locals memory
                 int localIndex = ResolveLocal(state, pVariable->identifier);
                 if (localIndex != -1) {
-                    PushCode(state, OpCode::GetLocal, pVariable->line);
-                    PushCode(state, localIndex - state.pCurrentScope->codeGenStackFrameBase, pVariable->line);
+                    PushInstruction(state, pVariable->line, {
+                        .opcode     = OpCode::PushLocal,
+                        .stackIndex = localIndex - state.pCurrentScope->codeGenStackFrameBase });
                 }
             }
             break;
@@ -223,8 +189,9 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             CodeGenExpression(state, pVarAssignment->pAssignment);
             int localIndex = ResolveLocal(state, pVarAssignment->pIdentifier->identifier);
             if (localIndex != -1) {
-                PushCode(state, OpCode::SetLocal, pVarAssignment->line);
-                PushCode(state, localIndex - state.pCurrentScope->codeGenStackFrameBase, pVarAssignment->line);
+                PushInstruction(state, pVarAssignment->line, {
+                    .opcode     = OpCode::SetLocal,
+                    .stackIndex = localIndex - state.pCurrentScope->codeGenStackFrameBase });
             }
             break;
         }
@@ -245,12 +212,16 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			}
 
 			if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
-				PushCode(state, OpCode::SetFieldStruct, pSetField->line);
+                PushInstruction(state, pSetField->line, {
+                    .opcode          = OpCode::SetFieldPtr,
+                    .fieldSize       = (uint32_t)pTargetField->pType->size,
+                    .fieldOffset     = (uint32_t)pTargetField->offset });
 			} else {
-				PushCode(state, OpCode::SetField, pSetField->line);
+                PushInstruction(state, pSetField->line, {
+                    .opcode          = OpCode::SetField,
+                    .fieldSize       = (uint32_t)pTargetField->pType->size,
+                    .fieldOffset     = (uint32_t)pTargetField->offset });
 			}
-			PushCode4Byte(state, (uint32_t)pTargetField->offset, pSetField->line);
-			PushCode4Byte(state, (uint32_t)pTargetField->pType->size, pSetField->line);
 			break;
 		}
 		case Ast::NodeKind::GetField: {
@@ -269,20 +240,23 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			}
 
 			if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
-				PushCode(state, OpCode::GetFieldStruct, pGetField->line);
+				PushInstruction(state, pGetField->line, {
+                    .opcode          = OpCode::PushFieldPtr,
+                    .fieldSize       = (uint32_t)pTargetField->pType->size,
+                    .fieldOffset     = (uint32_t)pTargetField->offset });
 			} else {
-				PushCode(state, OpCode::GetField, pGetField->line);
+				PushInstruction(state, pGetField->line, {
+                    .opcode          = OpCode::PushField,
+                    .fieldSize       = (uint32_t)pTargetField->pType->size,
+                    .fieldOffset     = (uint32_t)pTargetField->offset });
 			}
-
-			PushCode4Byte(state, (uint32_t)pTargetField->offset, pGetField->line);
-			PushCode4Byte(state, (uint32_t)pTargetField->pType->size, pGetField->line);
 			break;
 		}
         case Ast::NodeKind::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
-            uint8_t constIndex = CreateConstant(state, pLiteral->constantValue, pLiteral->pType);
-            PushCode(state, OpCode::LoadConstant, pLiteral->line);
-            PushCode(state, constIndex, pLiteral->line);
+            PushInstruction(state, pLiteral->line, {
+                    .opcode     = OpCode::PushConstant,
+                    .constant   = pLiteral->constantValue });
             break;
         }
         case Ast::NodeKind::Function: {
@@ -301,9 +275,9 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             ExitScope(state, pPreviousScope, pFunction->pBody->endToken);
             state.pCurrentlyCompilingFunction = pParentFunction;
 
-            uint8_t constIndex = CreateConstant(state, MakeValue(pNewFunction), pFunction->pType);
-            PushCode(state, OpCode::LoadConstant, pFunction->line);
-            PushCode(state, constIndex, pFunction->line);
+            PushInstruction(state, pFunction->line, {
+                    .opcode     = OpCode::PushConstant,
+                    .constant   = MakeValue(pNewFunction) });
         
             break;
         }
@@ -318,8 +292,11 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
             if (pBinary->op == Operator::And) {
                 CodeGenExpression(state, pBinary->pLeft);
-                int andJump = PushJump(state, OpCode::JmpIfFalse, pBinary->line);
-                PushCode(state, OpCode::Pop, pBinary->line);
+
+                int andJump = PushInstruction(state, pBinary->line, {
+                    .opcode = OpCode::JmpIfFalse,
+                    .ipOffset = 0 });
+                PushInstruction(state, pBinary->line, { .opcode = OpCode::Pop });
                 CodeGenExpression(state, pBinary->pRight);
                 PatchJump(state, andJump);
                 break;
@@ -327,8 +304,10 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
             if (pBinary->op == Operator::Or) {
                 CodeGenExpression(state, pBinary->pLeft);
-                int andJump = PushJump(state, OpCode::JmpIfTrue, pBinary->line);
-                PushCode(state, OpCode::Pop, pBinary->line);
+                int andJump = PushInstruction(state, pBinary->line, {
+                    .opcode = OpCode::JmpIfTrue,
+                    .ipOffset = 0 });
+                PushInstruction(state, pBinary->line, { .opcode = OpCode::Pop });
                 CodeGenExpression(state, pBinary->pRight);
                 PatchJump(state, andJump);
                 break;
@@ -338,39 +317,38 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             CodeGenExpression(state, pBinary->pRight);
             switch (pBinary->op) {
                 case Operator::Add:
-					PushCode(state, OpCode::Add, pBinary->line);
+                    PushInstruction(state, pBinary->line, { .opcode = OpCode::Add, .type = pBinary->pLeft->pType->tag});
                     break;
                 case Operator::Subtract:
-                    PushCode(state, OpCode::Subtract, pBinary->line);
+                    PushInstruction(state, pBinary->line, { .opcode = OpCode::Subtract, .type = pBinary->pLeft->pType->tag});
                     break;
                 case Operator::Divide:
-                    PushCode(state, OpCode::Divide, pBinary->line);
+                    PushInstruction(state, pBinary->line, { .opcode = OpCode::Divide, .type = pBinary->pLeft->pType->tag});
                     break;
                 case Operator::Multiply:
-                    PushCode(state, OpCode::Multiply, pBinary->line);
+                    PushInstruction(state, pBinary->line, { .opcode = OpCode::Multiply, .type = pBinary->pLeft->pType->tag});
                     break;
                 case Operator::Greater:
-                    PushCode(state, OpCode::Greater, pBinary->line);
+                    PushInstruction(state, pBinary->line, { .opcode = OpCode::Greater, .type = pBinary->pLeft->pType->tag});
                     break;
                 case Operator::Less:
-                    PushCode(state, OpCode::Less, pBinary->line);
+                    PushInstruction(state, pBinary->line, { .opcode = OpCode::Less, .type = pBinary->pLeft->pType->tag});
                     break;
                 case Operator::GreaterEqual:
-                    PushCode(state, OpCode::GreaterEqual, pBinary->line);
+                    PushInstruction(state, pBinary->line, { .opcode = OpCode::GreaterEqual, .type = pBinary->pLeft->pType->tag});
                     break;
                 case Operator::LessEqual:
-                    PushCode(state, OpCode::LessEqual, pBinary->line);
+                    PushInstruction(state, pBinary->line, { .opcode = OpCode::LessEqual, .type = pBinary->pLeft->pType->tag});
                     break;
                 case Operator::Equal:
-                    PushCode(state, OpCode::Equal, pBinary->line);
+                    PushInstruction(state, pBinary->line, { .opcode = OpCode::Equal, .type = pBinary->pLeft->pType->tag});
                     break;
                 case Operator::NotEqual:
-                    PushCode(state, OpCode::NotEqual, pBinary->line);
+                    PushInstruction(state, pBinary->line, { .opcode = OpCode::NotEqual, .type = pBinary->pLeft->pType->tag});
                     break;
                 default:
                     break;
             }
-			PushCode(state, pBinary->pLeft->pType->tag, pBinary->line);
 			break;
         }
         case Ast::NodeKind::Unary: {
@@ -378,39 +356,39 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             CodeGenExpression(state, pUnary->pRight);
             switch (pUnary->op) {
                 case Operator::UnaryMinus:
-                    PushCode(state, OpCode::Negate, pUnary->line);
+                    PushInstruction(state, pUnary->line, { .opcode = OpCode::Negate, .type = pUnary->pRight->pType->tag});
                     break;
                 case Operator::Not:
-                    PushCode(state, OpCode::Not, pUnary->line);
+                    PushInstruction(state, pUnary->line, { .opcode = OpCode::Not, .type = pUnary->pRight->pType->tag});
                     break;
                 default:
                     break;
             }
-			PushCode(state, pUnary->pRight->pType->tag, pUnary->line);
 			break;
         }
 		case Ast::NodeKind::Cast: {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
 			CodeGenExpression(state, pCast->pExprToCast);
 
-			PushCode(state, OpCode::Cast, pCast->line);
+            int index = PushInstruction(state, pCast->line, { .opcode = OpCode::Cast});
+            Instruction* pCastInstruction = &CurrentFunction(state)->code2[index];
 
 			if (pCast->pExprToCast->pType == GetI32Type()) {
-				PushCode(state, (uint8_t)TypeInfo::I32, pCast->line);
+				pCastInstruction->fromType = TypeInfo::I32;
 			} else if (pCast->pExprToCast->pType == GetF32Type()) {
-				PushCode(state, (uint8_t)TypeInfo::F32, pCast->line);
+				pCastInstruction->fromType = TypeInfo::F32;
 			} else if (pCast->pExprToCast->pType == GetBoolType()) {
-				PushCode(state, (uint8_t)TypeInfo::Bool, pCast->line);
+				pCastInstruction->fromType = TypeInfo::Bool;
 			} else {
 				AssertMsg(false, "Don't know how to cast non base types yet");
 			}
 
 			if (pCast->pTypeExpr->constantValue.pTypeInfo == GetI32Type()) {
-				PushCode(state, (uint8_t)TypeInfo::I32, pCast->line);
+				pCastInstruction->toType = TypeInfo::I32;
 			} else if (pCast->pTypeExpr->constantValue.pTypeInfo == GetF32Type()) {
-				PushCode(state, (uint8_t)TypeInfo::F32, pCast->line);
+				pCastInstruction->toType = TypeInfo::F32;
 			} else if (pCast->pTypeExpr->constantValue.pTypeInfo == GetBoolType()) {
-				PushCode(state, (uint8_t)TypeInfo::Bool, pCast->line);
+				pCastInstruction->toType = TypeInfo::Bool;
 			} else {
 				AssertMsg(false, "Don't know how to cast non base types yet");
 			}
@@ -424,8 +402,9 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
                 CodeGenExpression(state, pExpr);
             }
 
-            PushCode(state, OpCode::Call, pCall->line);
-            PushCode(state, pCall->args.count, pCall->line);  // arg count
+            PushInstruction(state, pCall->line, {
+                    .opcode     = OpCode::Call,
+                    .nArgs   = pCall->args.count });
             break;
         }
         default:
@@ -467,16 +446,15 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 				if (pDecl->pType->tag == TypeInfo::Struct)
 				{
 					// allocate memory for the struct
-					PushCode(state, OpCode::StructAlloc, pDecl->line);
-					PushCode4Byte(state, (uint32_t)pDecl->pType->size, pDecl->line); // TODO: do I support 4gb structs?
-
+                    PushInstruction(state, pDecl->line, {
+                        .opcode     = OpCode::PushStruct,
+                        .size       = pDecl->pType->size });
 				} else { // For all non struct values we just push a new value on the operand stack that is zero
 					Value v;
 					v.pPtr = 0;
-                    uint8_t constIndex = CreateConstant(state, v, pDecl->pType);
-
-					PushCode(state, OpCode::LoadConstant, pDecl->line);
-					PushCode(state, constIndex, pDecl->line);
+                    PushInstruction(state, pDecl->line, {
+                        .opcode     = OpCode::PushConstant,
+                        .constant   = v });
 				}
             }
             break;
@@ -484,36 +462,41 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
         case Ast::NodeKind::Print: {
             Ast::Print* pPrint = (Ast::Print*)pStmt;
             CodeGenExpression(state, pPrint->pExpr);
-            PushCode(state, OpCode::Print, pPrint->line);
-			PushCode(state, pPrint->pExpr->pType->tag, pPrint->line);
+            PushInstruction(state, pPrint->line, {
+                        .opcode     = OpCode::Print,
+                        .type       = pPrint->pExpr->pType->tag });
 			break;
         }
         case Ast::NodeKind::Return: {
             Ast::Return* pReturn = (Ast::Return*)pStmt;
             if (pReturn->pExpr)
                 CodeGenExpression(state, pReturn->pExpr);
-            PushCode(state, OpCode::Return, pReturn->line);
+            PushInstruction(state, pReturn->line, { .opcode = OpCode::Return });
             break;
         }
         case Ast::NodeKind::ExpressionStmt: {
             Ast::ExpressionStmt* pExprStmt = (Ast::ExpressionStmt*)pStmt;
             CodeGenExpression(state, pExprStmt->pExpr);
-            PushCode(state, OpCode::Pop, pExprStmt->line);
+            PushInstruction(state, pExprStmt->line, { .opcode = OpCode::Pop });
             break;
         }
         case Ast::NodeKind::If: {
             Ast::If* pIf = (Ast::If*)pStmt;
             CodeGenExpression(state, pIf->pCondition);
 
-            int ifJump = PushJump(state, OpCode::JmpIfFalse, pIf->line);
-            PushCode(state, OpCode::Pop, pIf->pThenStmt->line);
+            int ifJump = PushInstruction(state, pIf->line, {
+                .opcode = OpCode::JmpIfFalse,
+                .ipOffset = 0 });
+            PushInstruction(state, pIf->pThenStmt->line, { .opcode = OpCode::Pop });
 
             CodeGenStatement(state, pIf->pThenStmt);
             if (pIf->pElseStmt) {
-                int elseJump = PushJump(state, OpCode::Jmp, pIf->pElseStmt->line);
+                int elseJump = PushInstruction(state, pIf->pElseStmt->line, {
+                    .opcode = OpCode::Jmp,
+                    .ipOffset = 0 });
                 PatchJump(state, ifJump);
 
-                PushCode(state, OpCode::Pop, pIf->pElseStmt->line);
+                PushInstruction(state, pIf->pElseStmt->line, { .opcode = OpCode::Pop });
                 if (pIf->pElseStmt) {
                     CodeGenStatement(state, pIf->pElseStmt);
                 }
@@ -526,17 +509,22 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
         }
         case Ast::NodeKind::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
-            uint32_t loopStart = CurrentFunction(state)->code.count;
+            // Potentially wrong, but I think this is right
+            uint32_t loopStart = CurrentFunction(state)->code.count - 1;
             CodeGenExpression(state, pWhile->pCondition);
 
-            int ifJump = PushJump(state, OpCode::JmpIfFalse, pWhile->line);
-            PushCode(state, OpCode::Pop, pWhile->line);
+            int ifJump = PushInstruction(state, pWhile->line, {
+                .opcode = OpCode::JmpIfFalse,
+                .ipOffset = 0 });
+            PushInstruction(state, pWhile->line, { .opcode = OpCode::Pop });
 
             CodeGenStatement(state, pWhile->pBody);
-            PushLoop(state, loopStart, pWhile->pBody->line);
+            PushInstruction(state, pWhile->pBody->line, {
+                .opcode = OpCode::Jmp,
+                .ipOffset = loopStart });
 
             PatchJump(state, ifJump);
-            PushCode(state, OpCode::Pop, pWhile->pBody->line);
+            PushInstruction(state, pWhile->pBody->line, { .opcode = OpCode::Pop });
             break;
         }
         case Ast::NodeKind::Block: {
@@ -625,9 +613,10 @@ void CodeGenProgram(Compiler& compilerState) {
         // Put a return instruction at the end of the program
         Token endToken = compilerState.tokens[compilerState.tokens.count - 1];
         uint8_t constIndex = CreateConstant(state, Value(), GetVoidType());
-        PushCode(state, OpCode::LoadConstant, endToken.line);
-        PushCode(state, constIndex, endToken.line);
-        PushCode(state, OpCode::Return, endToken.line);
+        PushInstruction(state, endToken.line, {
+                    .opcode     = OpCode::PushConstant,
+                    .constant   = Value() });
+        PushInstruction(state, endToken.line, { .opcode = OpCode::Return });
 
         compilerState.pProgram = state.pCurrentlyCompilingProgram;
     }

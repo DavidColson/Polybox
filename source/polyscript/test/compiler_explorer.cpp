@@ -711,7 +711,7 @@ void DrawAstStatements(ResizableArray<Ast::Statement*>& statements) {
 
 void DrawByteCodeForFunction(Program* pProgram, Function* pFunc) {
     ImDrawList* pDrawList = ImGui::GetWindowDrawList();
-    uint8_t* pInstructionPointer = pFunc->code.pData;
+    Instruction* pInstructionPointer = pFunc->code2.pData;
 
     ImGui::Text("\n");
     ImGui::Text("---- Function %s", pFunc->name.pData);
@@ -719,13 +719,14 @@ void DrawByteCodeForFunction(Program* pProgram, Function* pFunc) {
     uint32_t currentLine = -1;
     uint32_t lineCounter = 0;
 
-    while (pInstructionPointer < pFunc->code.end()) {
+    while (pInstructionPointer < pFunc->code2.end()) {
         if (currentLine != pFunc->dbgLineInfo[lineCounter]) {
             currentLine = pFunc->dbgLineInfo[lineCounter];
         }
 
-        uint8_t offset;
-        String output = DisassembleInstruction(pProgram, pInstructionPointer, offset);
+        // TODO: Add some padding so operands are lined up nicely
+        // TODO: Add instruction indices to the side, so we can see where ip offsets go to
+        String output = DisassembleInstruction(pProgram, pInstructionPointer);
 
         ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
 
@@ -751,8 +752,8 @@ void DrawByteCodeForFunction(Program* pProgram, Function* pFunc) {
         ImGui::SetCursorScreenPos(cursorScreenPos);
         FreeString(output);
 
-        pInstructionPointer += offset;
-        lineCounter += offset;
+        pInstructionPointer += 1;
+        lineCounter += 1;
     }
 }
 

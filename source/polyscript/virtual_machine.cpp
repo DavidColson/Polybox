@@ -48,141 +48,120 @@ struct VirtualMachine {
 
 // ***********************************************************************
 
-String DisassembleInstruction(Program* pProgram, uint8_t* pInstruction, uint8_t& outOffset) {
+String DisassembleInstruction(Program* pProgram, Instruction* pInstruction) {
     StringBuilder builder;
-	uint8_t* pInstructionStart = pInstruction;
-    switch (*pInstruction++) {
-        case OpCode::LoadConstant: {
-            builder.Append("LoadConstant ");
-			uint8_t constIndex = GetOperand1Byte(pInstruction);
+    switch (pInstruction->opcode) {
+        case OpCode::PushConstant: {
+            builder.Append("PushConstant ");
 
-			Value& v = pProgram->constantTable[constIndex];
-			TypeInfo* pType = pProgram->dbgConstantsTypes[constIndex];
-            if (pType->tag == TypeInfo::TypeTag::Void)
-                builder.AppendFormat("%i (void)", constIndex);
-            else if (pType->tag == TypeInfo::TypeTag::F32)
-                builder.AppendFormat("%i (%f)", constIndex, v.f32Value);
-            else if (pType->tag == TypeInfo::TypeTag::Bool)
-                builder.AppendFormat("%i (%s)", constIndex, v.boolValue ? "true" : "false");
-            else if (pType->tag == TypeInfo::TypeTag::I32)
-                builder.AppendFormat("%i (%i)", constIndex, v.i32Value);
-            else if (pType->tag == TypeInfo::TypeTag::Type) {
-                if (v.pTypeInfo)
-                    builder.AppendFormat("%i (%s)", constIndex, v.pTypeInfo->name.pData);
-                else
-                    builder.AppendFormat("%i (none)", constIndex);
-            }
-            else if (pType->tag == TypeInfo::TypeTag::Function) {
-                if (v.pFunction)
-                    builder.AppendFormat("%i (<%s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");
-                else
-                    builder.AppendFormat("%i (none)", constIndex);
-            }
+			Value& v = pInstruction->constant;
+			// TODO: No longer know how to track constant types? Will just wing it for now
+			// The debug list can still work, probably need to do a hashmap, from instruction index to type, so there's one type for every pushconstant
+			//
+			// TypeInfo* pType = pProgram->dbgConstantsTypes[constIndex];
+            // if (pType->tag == TypeInfo::TypeTag::Void)
+            //     builder.AppendFormat("%i (void)", constIndex);
+            // else if (pType->tag == TypeInfo::TypeTag::F32)
+            //     builder.AppendFormat("%i (%f)", constIndex, v.f32Value);
+            // else if (pType->tag == TypeInfo::TypeTag::Bool)
+            //     builder.AppendFormat("%i (%s)", constIndex, v.boolValue ? "true" : "false");
+            // else if (pType->tag == TypeInfo::TypeTag::I32)
+            //     builder.AppendFormat("%i (%i)", constIndex, v.i32Value);
+            // else if (pType->tag == TypeInfo::TypeTag::Type) {
+            //     if (v.pTypeInfo)
+            //         builder.AppendFormat("%i (%s)", constIndex, v.pTypeInfo->name.pData);
+            //     else
+            //         builder.AppendFormat("%i (none)", constIndex);
+            // }
+            // else if (pType->tag == TypeInfo::TypeTag::Function) {
+            //     if (v.pFunction)
+            //         builder.AppendFormat("%i (<%s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");
+            //     else
+            //         builder.AppendFormat("%i (none)", constIndex);
+            // }
+			builder.AppendFormat("%i", v.i32Value);
             break;
         }
         case OpCode::SetLocal: {
             builder.Append("SetLocal ");
-			uint8_t index = GetOperand1Byte(pInstruction);
-            builder.AppendFormat("%i", index);
+            builder.AppendFormat("%i", pInstruction->stackIndex);
             break;
         }
-        case OpCode::GetLocal: {
-            builder.Append("GetLocal ");
-			uint8_t index = GetOperand1Byte(pInstruction);
-            builder.AppendFormat("%i", index);
+        case OpCode::PushLocal: {
+            builder.Append("PushLocal ");
+            builder.AppendFormat("%i", pInstruction->stackIndex);
             break;
         }
 		case OpCode::SetField: {
 			builder.Append("SetField ");
-			uint32_t offset = GetOperand4Byte(pInstruction);
-			uint32_t size = GetOperand4Byte(pInstruction);
-			builder.AppendFormat("off: %i s: %i", offset, size);
+			builder.AppendFormat("off: %i s: %i", pInstruction->fieldOffset, pInstruction->fieldSize);
 			break;
 		}
-		case OpCode::SetFieldStruct: {
-			builder.Append("SetFieldDeref ");
-			uint32_t offset = GetOperand4Byte(pInstruction);
-			uint32_t size = GetOperand4Byte(pInstruction);
-			builder.AppendFormat("off: %i s: %i", offset, size);
+		case OpCode::SetFieldPtr: {
+			builder.Append("SetFieldPtr ");
+			builder.AppendFormat("off: %i s: %i", pInstruction->fieldOffset, pInstruction->fieldSize);
 			break;
 		}
-		case OpCode::GetField: {
+		case OpCode::PushField: {
 			builder.Append("GetField ");
-			uint32_t offset = GetOperand4Byte(pInstruction);
-			uint32_t size = GetOperand4Byte(pInstruction);
-			builder.AppendFormat("off: %i s: %i", offset, size);
+			builder.AppendFormat("off: %i s: %i", pInstruction->fieldOffset, pInstruction->fieldSize);
 			break;
 		}
-		case OpCode::GetFieldStruct: {
-			builder.Append("GetFieldStruct ");
-			uint32_t offset = GetOperand4Byte(pInstruction);
-			uint32_t size = GetOperand4Byte(pInstruction);
-			builder.AppendFormat("off: %i s: %i", offset, size);
+		case OpCode::PushFieldPtr: {
+			builder.Append("GetFieldPtr ");
+			builder.AppendFormat("off: %i s: %i", pInstruction->fieldOffset, pInstruction->fieldSize);
 			break;
 		}
         case OpCode::Negate: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("Negate %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("Negate %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::Not: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("Not %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("Not %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::Add: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("Add %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("Add %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::Subtract: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("Subtract %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("Subtract %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::Multiply: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("Multiply %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("Multiply %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::Divide: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("Divide %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("Divide %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::Greater: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("Greater %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("Greater %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::Less: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("Less %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("Less %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::GreaterEqual: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("GreaterEqual %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("GreaterEqual %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::LessEqual: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("LessEqual %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("LessEqual %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::Equal: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("Equal %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("Equal %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::NotEqual: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("NotEqual %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("NotEqual %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::Print: {
-			TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("Print %s", TypeInfo::TagToString(typeId));
+			builder.AppendFormat("Print %s", TypeInfo::TagToString(pInstruction->type));
             break;
         }
         case OpCode::Return: {
@@ -195,45 +174,37 @@ String DisassembleInstruction(Program* pProgram, uint8_t* pInstruction, uint8_t&
         }
         case OpCode::JmpIfFalse: {
             builder.Append("JmpIfFalse");
-			uint16_t jmp = (uint16_t)GetOperand2Byte(pInstruction);
-            builder.AppendFormat(" %i", jmp);
+            builder.AppendFormat(" %i", pInstruction->ipOffset);
             break;
         }
         case OpCode::JmpIfTrue: {
             builder.Append("JmpIfTrue");
-			uint16_t jmp = (uint16_t)GetOperand2Byte(pInstruction);
-            builder.AppendFormat(" %i", jmp);
+            builder.AppendFormat(" %i", pInstruction->ipOffset);
             break;
         }
         case OpCode::Jmp: {
             builder.Append("Jmp");
-			uint16_t jmp = (uint16_t)GetOperand2Byte(pInstruction);
-            builder.AppendFormat(" %i", jmp);
+            builder.AppendFormat(" %i", pInstruction->ipOffset);
             break;
         }
         case OpCode::Loop: {
             builder.Append("Loop");
-			uint16_t jmp = (uint16_t)GetOperand2Byte(pInstruction);
-            builder.AppendFormat(" %i", -jmp);
+            builder.AppendFormat(" %i", pInstruction->ipOffset);
             break;
         }
-		case OpCode::StructAlloc: {
-			builder.Append("StructAlloc");
-			uint32_t size = (uint32_t)GetOperand4Byte(pInstruction);
-			builder.AppendFormat(" %i", size);
+		case OpCode::PushStruct: {
+			builder.Append("PushStruct");
+			builder.AppendFormat(" %i", pInstruction->ipOffset);
 			break;
 		}
 		case OpCode::Cast: {
 			builder.Append("Cast ");
-			TypeInfo::TypeTag fromTypeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			TypeInfo::TypeTag toTypeId = (TypeInfo::TypeTag)GetOperand1Byte(pInstruction);
-			builder.AppendFormat("%s %s", TypeInfo::TagToString(fromTypeId), TypeInfo::TagToString(toTypeId));
+			builder.AppendFormat("%s %s", TypeInfo::TagToString(pInstruction->fromType), TypeInfo::TagToString(pInstruction->toType));
 			break;
 		}
         case OpCode::Call: {
             builder.Append("Call ");
-			uint8_t argCount = GetOperand1Byte(pInstruction);
-            builder.AppendFormat("%i", argCount);
+            builder.AppendFormat("%i", pInstruction->nArgs);
             break;
         }
         default:
@@ -241,7 +212,6 @@ String DisassembleInstruction(Program* pProgram, uint8_t* pInstruction, uint8_t&
             break;
     }
 
-    outOffset = (uint8_t)(pInstruction - pInstructionStart);
     return builder.CreateString();
 }
 
@@ -273,21 +243,20 @@ void DisassembleFunction(Compiler& compilerState, Function* pFunc) {
 
 
 	// Run through the code printing instructions
-	uint8_t* pInstructionPointer = pFunc->code.pData;
-    while (pInstructionPointer < pFunc->code.end()) {
+	Instruction* pInstructionPointer = pFunc->code2.pData;
+    while (pInstructionPointer < pFunc->code2.end()) {
         if (currentLine != pFunc->dbgLineInfo[lineCounter]) {
             currentLine = pFunc->dbgLineInfo[lineCounter];
             Log::Debug("");
             Log::Debug("  %i:%s", currentLine, lines[currentLine - 1].pData);
         }
 
-        uint8_t offset;
-		String output = DisassembleInstruction(compilerState.pProgram, pInstructionPointer, offset);
+		String output = DisassembleInstruction(compilerState.pProgram, pInstructionPointer);
 		Log::Debug("%s", output.pData);
     	FreeString(output);
 
-        pInstructionPointer += offset;
-        lineCounter += offset;
+        pInstructionPointer += 1;
+        lineCounter += 1;
     }
 
     lines.Free([](String& str) {
@@ -377,7 +346,7 @@ void Run(Program* pProgramToRun) {
     	FreeString(output);
 #endif
 		switch (*pFrame->pInstructionPointer++) {
-			case OpCode::LoadConstant: {
+			case OpCode::PushConstant: {
 				uint8_t index = GetOperand1Byte(pFrame->pInstructionPointer);
 				Value constant = pProgramToRun->constantTable[index];
 				vm.stack.Push(constant);
@@ -551,7 +520,7 @@ void Run(Program* pProgramToRun) {
 				vm.stack[pFrame->stackBaseIndex + opIndex] = vm.stack.Top();
 				break;
 			}
-			case OpCode::GetLocal: {
+			case OpCode::PushLocal: {
 				uint8_t opIndex = GetOperand1Byte(pFrame->pInstructionPointer);
 				Value v = vm.stack[pFrame->stackBaseIndex + opIndex];
 				vm.stack.Push(v);
@@ -568,7 +537,7 @@ void Run(Program* pProgramToRun) {
 				vm.stack.Push(v);
 				break;
 			}
-			case OpCode::SetFieldStruct: {
+			case OpCode::SetFieldPtr: {
 				uint32_t offset = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
 				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
 				
@@ -579,7 +548,7 @@ void Run(Program* pProgramToRun) {
 				vm.stack.Push(v);
 				break;
 			}
-			case OpCode::GetField: {
+			case OpCode::PushField: {
 				uint32_t offset = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
 				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
 				
@@ -590,7 +559,7 @@ void Run(Program* pProgramToRun) {
 				vm.stack.Push(v);
 				break;
 			}
-			case OpCode::GetFieldStruct: {
+			case OpCode::PushFieldPtr: {
 				uint32_t offset = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
 				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
 				
@@ -643,7 +612,7 @@ void Run(Program* pProgramToRun) {
 				pEndInstruction = pFrame->pFunc->code.end();
                 break;
             }
-			case OpCode::StructAlloc: {
+			case OpCode::PushStruct: {
 				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
 				
 				Value v;

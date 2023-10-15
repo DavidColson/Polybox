@@ -10,49 +10,77 @@ struct Program;
 
 namespace OpCode {
 enum Enum : uint8_t {
-    LoadConstant,
 
+    // Opcode          |   Instructions
+    // ---------------------------------
     // Arithmetic
-    Negate,
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
+    Negate,             // type
+    Add,                // type
+    Subtract,           // type
+    Multiply,           // type
+    Divide,             // type
 
     // Logical
-    Not,
+    Not,                // ---
 
     // Comparison
-    Greater,
-    Less,
-    Equal,
-    NotEqual,
-    GreaterEqual,
-    LessEqual,
+    Greater,            // type
+    Less,               // type
+    Equal,              // type
+    NotEqual,           // type
+    GreaterEqual,       // type
+    LessEqual,          // type
 
     // Flow control
-    JmpIfFalse,
-    JmpIfTrue,
-    Jmp,
-    Loop,
+    JmpIfFalse,         // ipOffset
+    JmpIfTrue,          // ipOffset
+    Jmp,                // ipOffset
+    Loop,               // ipOffset
+    Return,             // ---
+    Call,               // nArgs (number of stack values to pass as arguments)
+
+    // Stack manipulation
+    PushConstant,       // value (to push)
+	PushStruct,         // size
+    SetLocal,           // stackIndex
+    PushLocal,          // stackIndex
+	SetField,           // fieldSize, fieldOffset
+	SetFieldPtr,        // fieldSize, fieldOffset
+	PushField,          // fieldSize, fieldOffset
+	PushFieldPtr,       // fieldSize, fieldOffset
+    Pop,                // ---
 
     // Misc
-	StructAlloc,
-    SetLocal,
-    GetLocal,
-	SetField,
-	SetFieldStruct,
-	GetField,
-	GetFieldStruct,
-    Call,
-	Cast,
-    Print,
-    Return,
-    Pop
+	Cast,               // toType, fromType
+    Print               // type
 };
 }
 
-String DisassembleInstruction(Program* pProgram, uint8_t* pInstruction, uint8_t& outOffset);
+// instruction is 9 bytes, will end up as 16 due to alignment, so there is some wasted
+// space, decided that this probably isn't worth worrying about for now
+struct Instruction {
+    OpCode::Enum opcode;
+    union {
+        // All possible arguments to the above instructions are packed in here
+        // Mostly for convenience and readability of the VM code.
+        Value constant;
+        TypeInfo::TypeTag type;
+        uint64_t ipOffset;
+        uint64_t nArgs;
+        uint64_t stackIndex;
+        uint64_t size;
+        struct {
+            uint32_t fieldSize;
+            uint32_t fieldOffset;
+        };
+        struct {
+            TypeInfo::TypeTag toType;
+            TypeInfo::TypeTag fromType;
+        };
+    };
+};
+
+String DisassembleInstruction(Program* pProgram, Instruction* pInstruction);
 
 void DisassembleFunction(Compiler& compilerState, Function* pFunc);
 

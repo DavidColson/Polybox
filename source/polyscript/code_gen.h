@@ -3,6 +3,7 @@
 #pragma once
 
 #include "value.h"
+#include "virtual_machine.h"
 
 #include <light_string.h>
 #include <resizable_array.h>
@@ -22,6 +23,7 @@ struct IAllocator;
 struct Function {
 	String name;
 	ResizableArray<uint8_t> code;
+    ResizableArray<Instruction> code2;
 	ResizableArray<uint32_t> dbgLineInfo;
 };
 

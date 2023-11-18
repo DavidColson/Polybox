@@ -711,7 +711,7 @@ void DrawAstStatements(ResizableArray<Ast::Statement*>& statements) {
 
 void DrawByteCodeForFunction(Program* pProgram, Function* pFunc) {
     ImDrawList* pDrawList = ImGui::GetWindowDrawList();
-    Instruction* pInstructionPointer = pFunc->code2.pData;
+    Instruction* pInstructionPointer = pFunc->code.pData;
 
     ImGui::Text("\n");
     ImGui::Text("---- Function %s", pFunc->name.pData);
@@ -719,7 +719,7 @@ void DrawByteCodeForFunction(Program* pProgram, Function* pFunc) {
     uint32_t currentLine = -1;
     uint32_t lineCounter = 0;
 
-    while (pInstructionPointer < pFunc->code2.end()) {
+    while (pInstructionPointer < pFunc->code.end()) {
         if (currentLine != pFunc->dbgLineInfo[lineCounter]) {
             currentLine = pFunc->dbgLineInfo[lineCounter];
         }

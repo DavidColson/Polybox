@@ -22,8 +22,7 @@ struct IAllocator;
 
 struct Function {
 	String name;
-	ResizableArray<uint8_t> code;
-    ResizableArray<Instruction> code2;
+    ResizableArray<Instruction> code;
 	ResizableArray<uint32_t> dbgLineInfo;
 };
 

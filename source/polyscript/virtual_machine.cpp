@@ -11,33 +11,11 @@
 #include <stack.inl>
 #include <defer.h>
 
-//#define DEBUG_TRACE
-
-#define GetOperand1Byte(ptr) *(ptr++)
-
-#define GetOperand2Byte(ptr) ((ptr[0] << 8) |\
-	ptr[1]);\
-	ptr += 2;
-
-#define GetOperand4Byte(ptr) ((ptr[0] << 24) |\
-	(ptr[1] << 16) |\
-	(ptr[2] << 8) |\
-	ptr[3]);\
-	ptr += 4;
-
-#define GetOperand8Byte(ptr) ((ptr[0] << 56) |\
-	(ptr[1] << 48) |\
-	(ptr[2] << 40) |\
-	(ptr[3] << 32) |\
-	(ptr[4] << 24) |\
-	(ptr[5] << 16) |\
-	(ptr[6] << 8) |\
-	ptr[7]);\
-	ptr += 8;
+// #define DEBUG_TRACE
 
 struct CallFrame {
     Function* pFunc { nullptr };
-    uint8_t* pInstructionPointer { nullptr };
+    Instruction* pInstructionPointer { nullptr };
     int32_t stackBaseIndex{ 0 };
 };
 
@@ -57,7 +35,7 @@ String DisassembleInstruction(Program* pProgram, Instruction* pInstruction) {
 			Value& v = pInstruction->constant;
 			// TODO: No longer know how to track constant types? Will just wing it for now
 			// The debug list can still work, probably need to do a hashmap, from instruction index to type, so there's one type for every pushconstant
-			//
+			
 			// TypeInfo* pType = pProgram->dbgConstantsTypes[constIndex];
             // if (pType->tag == TypeInfo::TypeTag::Void)
             //     builder.AppendFormat("%i (void)", constIndex);
@@ -243,8 +221,8 @@ void DisassembleFunction(Compiler& compilerState, Function* pFunc) {
 
 
 	// Run through the code printing instructions
-	Instruction* pInstructionPointer = pFunc->code2.pData;
-    while (pInstructionPointer < pFunc->code2.end()) {
+	Instruction* pInstructionPointer = pFunc->code.pData;
+    while (pInstructionPointer < pFunc->code.end()) {
         if (currentLine != pFunc->dbgLineInfo[lineCounter]) {
             currentLine = pFunc->dbgLineInfo[lineCounter];
             Log::Debug("");
@@ -332,28 +310,25 @@ void Run(Program* pProgramToRun) {
     frame.pInstructionPointer = pProgramToRun->pMainModuleFunction->code.pData;
     frame.stackBaseIndex = 0;
     vm.callStack.Push(frame);
-
+    
 	bool debug = true;
 
     // VM run
     CallFrame* pFrame = &vm.callStack.Top();
-	uint8_t* pEndInstruction = pFrame->pFunc->code.end();
+	Instruction* pEndInstruction = pFrame->pFunc->code.end();
     while (pFrame->pInstructionPointer < pEndInstruction) {
 #ifdef DEBUG_TRACE
-        uint8_t offset;
-		String output = DisassembleInstruction(pProgramToRun, pFrame->pInstructionPointer, offset);
+		String output = DisassembleInstruction(pProgramToRun, pFrame->pInstructionPointer);
 		Log::Debug("%s", output.pData);
     	FreeString(output);
 #endif
-		switch (*pFrame->pInstructionPointer++) {
+		switch (pFrame->pInstructionPointer->opcode) {
 			case OpCode::PushConstant: {
-				uint8_t index = GetOperand1Byte(pFrame->pInstructionPointer);
-				Value constant = pProgramToRun->constantTable[index];
-				vm.stack.Push(constant);
+				vm.stack.Push(pFrame->pInstructionPointer->constant);
 				break;
 			}
 			case OpCode::Negate: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value v = vm.stack.Pop();
 
 				if (typeId == TypeInfo::F32) {
@@ -364,7 +339,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::Not: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value v = vm.stack.Pop();
 
 				if (typeId == TypeInfo::Bool) {
@@ -373,7 +348,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::Add: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -385,7 +360,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::Subtract: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -397,7 +372,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::Multiply: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -409,7 +384,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::Divide: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -421,7 +396,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::Greater: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -433,7 +408,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::Less: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -445,7 +420,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::GreaterEqual: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -457,7 +432,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::LessEqual: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -469,7 +444,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::Equal: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -483,7 +458,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::NotEqual: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value b = vm.stack.Pop();
 				Value a = vm.stack.Pop();
 
@@ -497,7 +472,7 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::Print: {
-				TypeInfo::TypeTag typeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
 				Value v = vm.stack.Pop();
 				if (typeId == TypeInfo::TypeTag::Type)
 					Log::Info("%s", v.pTypeInfo->name.pData);
@@ -516,19 +491,17 @@ void Run(Program* pProgramToRun) {
 				break;
 
 			case OpCode::SetLocal: {
-				uint8_t opIndex = GetOperand1Byte(pFrame->pInstructionPointer);
-				vm.stack[pFrame->stackBaseIndex + opIndex] = vm.stack.Top();
+				vm.stack[pFrame->stackBaseIndex + pFrame->pInstructionPointer->stackIndex] = vm.stack.Top();
 				break;
 			}
 			case OpCode::PushLocal: {
-				uint8_t opIndex = GetOperand1Byte(pFrame->pInstructionPointer);
-				Value v = vm.stack[pFrame->stackBaseIndex + opIndex];
+				Value v = vm.stack[pFrame->stackBaseIndex + pFrame->pInstructionPointer->stackIndex];
 				vm.stack.Push(v);
 				break;
 			}
 			case OpCode::SetField: {
-				uint32_t offset = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
-				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
+				uint32_t offset = pFrame->pInstructionPointer->fieldOffset;
+				uint32_t size = pFrame->pInstructionPointer->fieldSize;
 				
 				Value v = vm.stack.Pop();
 				Value structValue = vm.stack.Pop();
@@ -538,8 +511,8 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::SetFieldPtr: {
-				uint32_t offset = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
-				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
+				uint32_t offset = pFrame->pInstructionPointer->fieldOffset;
+				uint32_t size = pFrame->pInstructionPointer->fieldSize;
 				
 				Value v = vm.stack.Pop();
 				Value structValue = vm.stack.Pop();
@@ -549,8 +522,8 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::PushField: {
-				uint32_t offset = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
-				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
+				uint32_t offset = pFrame->pInstructionPointer->fieldOffset;
+				uint32_t size = pFrame->pInstructionPointer->fieldSize;
 				
 				Value structValue = vm.stack.Pop();
 				Value v;
@@ -560,8 +533,8 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::PushFieldPtr: {
-				uint32_t offset = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
-				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
+				uint32_t offset = pFrame->pInstructionPointer->fieldOffset;
+				uint32_t size = pFrame->pInstructionPointer->fieldSize;
 				
 				Value structValue = vm.stack.Pop();
 				Value v;
@@ -571,29 +544,21 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
             case OpCode::JmpIfFalse: {
-				uint16_t jmp = (uint16_t)GetOperand2Byte(pFrame->pInstructionPointer);
                 if (!vm.stack.Top().boolValue)
-                    pFrame->pInstructionPointer += jmp;
+                    pFrame->pInstructionPointer = pFrame->pFunc->code.pData + (pFrame->pInstructionPointer->ipOffset);
                 break;
             }
             case OpCode::JmpIfTrue: {
-				uint16_t jmp = (uint16_t)GetOperand2Byte(pFrame->pInstructionPointer);
                 if (vm.stack.Top().boolValue)
-                    pFrame->pInstructionPointer += jmp;
+                    pFrame->pInstructionPointer = pFrame->pFunc->code.pData + (pFrame->pInstructionPointer->ipOffset);
                 break;
             }
             case OpCode::Jmp: {
-				uint16_t jmp = (uint16_t)GetOperand2Byte(pFrame->pInstructionPointer);
-                pFrame->pInstructionPointer += jmp;
-                break;
-            }
-            case OpCode::Loop: {
-				uint16_t jmp = (uint16_t)GetOperand2Byte(pFrame->pInstructionPointer);
-                pFrame->pInstructionPointer -= jmp;
+                pFrame->pInstructionPointer = pFrame->pFunc->code.pData + (pFrame->pInstructionPointer->ipOffset);
                 break;
             }
             case OpCode::Call: {
-				uint8_t argCount = GetOperand1Byte(pFrame->pInstructionPointer);
+				uint64_t argCount = pFrame->pInstructionPointer->nArgs;
                 
                 Value funcValue = vm.stack[-1 - argCount];
 
@@ -604,7 +569,7 @@ void Run(Program* pProgramToRun) {
 
                 CallFrame frame;
                 frame.pFunc = funcValue.pFunction;
-                frame.pInstructionPointer = funcValue.pFunction->code.pData;
+                frame.pInstructionPointer = funcValue.pFunction->code.pData - 1;
                 frame.stackBaseIndex = vm.stack.array.count - argCount - 1;
                 vm.callStack.Push(frame);
 
@@ -613,7 +578,7 @@ void Run(Program* pProgramToRun) {
                 break;
             }
 			case OpCode::PushStruct: {
-				uint32_t size = (uint32_t)GetOperand4Byte(pFrame->pInstructionPointer);
+				uint64_t size = pFrame->pInstructionPointer->size;
 				
 				Value v;
 				v.pPtr = g_Allocator.Allocate(size_t(size)); // TODO: Stack memory, not heap
@@ -626,8 +591,8 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::Cast: {
-				TypeInfo::TypeTag fromTypeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
-				TypeInfo::TypeTag toTypeId = (TypeInfo::TypeTag)GetOperand1Byte(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag fromTypeId = pFrame->pInstructionPointer->fromType;
+				TypeInfo::TypeTag toTypeId = pFrame->pInstructionPointer->toType;
 	
 				Value copy = vm.stack.Pop();
 				if (toTypeId == TypeInfo::I32 && fromTypeId == TypeInfo::F32) {
@@ -645,7 +610,7 @@ void Run(Program* pProgramToRun) {
 				}
 				break;
 			}
-            case (uint8_t)OpCode::Return: {
+            case OpCode::Return: {
                 Value returnVal = vm.stack.Pop();
 
 				vm.callStack.Pop();
@@ -664,6 +629,7 @@ void Run(Program* pProgramToRun) {
             default:
                 break;
         }
+        pFrame->pInstructionPointer += 1;
 #ifdef DEBUG_TRACE
         DebugStack(vm);
 #endif

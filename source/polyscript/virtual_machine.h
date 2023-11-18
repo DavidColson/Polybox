@@ -21,7 +21,7 @@ enum Enum : uint8_t {
     Divide,             // type
 
     // Logical
-    Not,                // ---
+    Not,                // type
 
     // Comparison
     Greater,            // type
@@ -57,7 +57,9 @@ enum Enum : uint8_t {
 }
 
 // instruction is 9 bytes, will end up as 16 due to alignment, so there is some wasted
-// space, decided that this probably isn't worth worrying about for now
+// space, decided that this probably isn't worth worrying about for now. 
+// Could reduce it with pragma pack, worth investigating if that's better or not at some point
+// But for now this is simple and easily understood.
 struct Instruction {
     OpCode::Enum opcode;
     union {

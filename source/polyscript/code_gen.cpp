@@ -46,9 +46,9 @@ Function* CurrentFunction(CodeGenState& state) {
 // ***********************************************************************
 
 int PushInstruction(CodeGenState& state, uint32_t line, Instruction instruction) {
-    CurrentFunction(state)->code2.PushBack(instruction);
+    CurrentFunction(state)->code.PushBack(instruction);
     CurrentFunction(state)->dbgLineInfo.PushBack(line);
-    return CurrentFunction(state)->code2.count - 1;
+    return CurrentFunction(state)->code.count - 1;
 }
 
 // ***********************************************************************
@@ -114,7 +114,7 @@ uint8_t CreateConstant(CodeGenState& state, Value constant, TypeInfo* pType) {
 void PatchJump(CodeGenState& state, int jumpInstructionIndex) {
     // Not sure if this is right, should we skip over the instruction at the end of the list? 
     // I think it will increment on next loop, so this should be fine. The next instruction executed will be the one after this index
-    CurrentFunction(state)->code2[jumpInstructionIndex].ipOffset = CurrentFunction(state)->code2.count - 1; 
+    CurrentFunction(state)->code[jumpInstructionIndex].ipOffset = CurrentFunction(state)->code.count - 1; 
 }
 
 // ***********************************************************************
@@ -169,7 +169,11 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             if (pVariable->isConstant) {
                 // Load from the constant table (it's already been put there)
                 Entity* pEntity = FindEntity(state.pCurrentScope, pVariable->identifier);
-
+                
+                // Why are we not able to use the entity's constant value?
+                // Ahh it's because of functions, which have had their constant index calculated already
+                // We probably won't need this in future when functions are just instruction pointer offsets?
+                // revisit!
                 PushInstruction(state, pVariable->line, {
                     .opcode     = OpCode::PushConstant,
                     .constant   = CurrentProgram(state)->constantTable[pEntity->codeGenConstIndex] });
@@ -371,7 +375,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			CodeGenExpression(state, pCast->pExprToCast);
 
             int index = PushInstruction(state, pCast->line, { .opcode = OpCode::Cast});
-            Instruction* pCastInstruction = &CurrentFunction(state)->code2[index];
+            Instruction* pCastInstruction = &CurrentFunction(state)->code[index];
 
 			if (pCast->pExprToCast->pType == GetI32Type()) {
 				pCastInstruction->fromType = TypeInfo::I32;

@@ -33,22 +33,15 @@ struct CodeGenState {
     
     ErrorState* pErrors;
     Program* pCurrentlyCompilingProgram;
-    Function* pCurrentlyCompilingFunction;
 };
 }
 
 // ***********************************************************************
 
-Function* CurrentFunction(CodeGenState& state) {
-    return state.pCurrentlyCompilingFunction;
-}
-
-// ***********************************************************************
-
 int PushInstruction(CodeGenState& state, uint32_t line, Instruction instruction) {
-    CurrentFunction(state)->code.PushBack(instruction);
-    CurrentFunction(state)->dbgLineInfo.PushBack(line);
-    return CurrentFunction(state)->code.count - 1;
+    state.pCurrentlyCompilingProgram->code.PushBack(instruction);
+    state.pCurrentlyCompilingProgram->dbgLineInfo.PushBack(line);
+    return state.pCurrentlyCompilingProgram->code.count - 1;
 }
 
 // ***********************************************************************
@@ -101,20 +94,8 @@ int ResolveLocal(CodeGenState& state, String name) {
 
 // ***********************************************************************
 
-// TODO: Yeet
-uint8_t CreateConstant(CodeGenState& state, Value constant, TypeInfo* pType) {
-    CurrentProgram(state)->constantTable.PushBack(constant);
-    CurrentProgram(state)->dbgConstantsTypes.PushBack(pType);
-    // TODO: When you refactor instructions, allow space for bigger constant indices
-    return (uint8_t)CurrentProgram(state)->constantTable.count - 1;
-}
-
-// ***********************************************************************
-
 void PatchJump(CodeGenState& state, int jumpInstructionIndex) {
-    // Not sure if this is right, should we skip over the instruction at the end of the list? 
-    // I think it will increment on next loop, so this should be fine. The next instruction executed will be the one after this index
-    CurrentFunction(state)->code[jumpInstructionIndex].ipOffset = CurrentFunction(state)->code.count - 1; 
+    state.pCurrentlyCompilingProgram->code[jumpInstructionIndex].ipOffset = state.pCurrentlyCompilingProgram->code.count - 1; 
 }
 
 // ***********************************************************************
@@ -122,8 +103,6 @@ void PatchJump(CodeGenState& state, int jumpInstructionIndex) {
 void CodeGenStatements(CodeGenState& state, ResizableArray<Ast::Statement*>& statements);
 
 void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFunction) {
-    state.pCurrentlyCompilingFunction->name = CopyString(identifier, state.pOutputAllocator);
-
     // Push local for this function
     state.localsStack.PushBack(identifier);
 
@@ -170,13 +149,16 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
                 // Load from the constant table (it's already been put there)
                 Entity* pEntity = FindEntity(state.pCurrentScope, pVariable->identifier);
                 
-                // Why are we not able to use the entity's constant value?
-                // Ahh it's because of functions, which have had their constant index calculated already
-                // We probably won't need this in future when functions are just instruction pointer offsets?
-                // revisit!
-                PushInstruction(state, pVariable->line, {
-                    .opcode     = OpCode::PushConstant,
-                    .constant   = CurrentProgram(state)->constantTable[pEntity->codeGenConstIndex] });
+                if (pEntity->kind == EntityKind::Function && pEntity->bFunctionHasBeenGenerated == false) {
+                    PushInstruction(state, pVariable->line, {
+                        .opcode     = OpCode::PushConstant,
+                        .constant   = 0 });
+                    pEntity->pendingFunctionConstants.PushBack(state.pCurrentlyCompilingProgram->code.count-1);
+                } else {
+                    PushInstruction(state, pVariable->line, {
+                        .opcode     = OpCode::PushConstant,
+                        .constant   = pEntity->constantValue });
+                }
             } else {
                 // do a load from locals memory
                 int localIndex = ResolveLocal(state, pVariable->identifier);
@@ -265,23 +247,32 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
         }
         case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
-            
-            Function* pNewFunction = (Function*)state.pOutputAllocator->Allocate(sizeof(Function));
-            SYS_P_NEW(pNewFunction) Function();
-            pNewFunction->code.pAlloc = state.pOutputAllocator;
-            pNewFunction->dbgLineInfo.pAlloc = state.pOutputAllocator;
-            
+
+            // Push jump to skip over function code
+            int jump = PushInstruction(state, pFunction->pBody->startToken.line, {
+                .opcode = OpCode::Jmp,
+                .ipOffset = 0 });
+                
+            // Enter scope
             Scope* pPreviousScope = state.pCurrentScope;
-            Function* pParentFunction = CurrentFunction(state);
-            state.pCurrentlyCompilingFunction = pNewFunction;
             EnterScope(state, pFunction->pScope);
+            
+            // Store function start IP in entity
+            // Next instruction will be the start of the function
+            int initialIPOffset = state.pCurrentlyCompilingProgram->code.count;
+            
+            // codegen the function
             CodeGenFunction(state, pFunction->pType->name, pFunction);
+            
+            // Exit scope
             ExitScope(state, pPreviousScope, pFunction->pBody->endToken);
-            state.pCurrentlyCompilingFunction = pParentFunction;
+            
+            // Patch jump
+            PatchJump(state, jump);
 
             PushInstruction(state, pFunction->line, {
                     .opcode     = OpCode::PushConstant,
-                    .constant   = MakeValue(pNewFunction) });
+                    .constant   = MakeFunctionValue(initialIPOffset) });
         
             break;
         }
@@ -375,7 +366,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			CodeGenExpression(state, pCast->pExprToCast);
 
             int index = PushInstruction(state, pCast->line, { .opcode = OpCode::Cast});
-            Instruction* pCastInstruction = &CurrentFunction(state)->code[index];
+            Instruction* pCastInstruction = &state.pCurrentlyCompilingProgram->code[index];
 
 			if (pCast->pExprToCast->pType == GetI32Type()) {
 				pCastInstruction->fromType = TypeInfo::I32;
@@ -427,22 +418,49 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                 // Codegen the bodies of functions, but otherwise do nothing here
                 if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::Function) {
                     Ast::Function* pFunction = (Ast::Function*)pDecl->pInitializerExpr;
+                    
+                    // Grab function entity
                     Entity* pEntity = FindEntity(state.pCurrentScope, pDecl->identifier);
-
                     if (pEntity) {
+                        
+                        // Push jump to skip over function code
+                        int jump = PushInstruction(state, pFunction->pBody->startToken.line, {
+                            .opcode = OpCode::Jmp,
+                            .ipOffset = 0 });
+                            
+                        // Enter scope
                         Scope* pPreviousScope = state.pCurrentScope;
-                        Function* pParentFunction = CurrentFunction(state);
-                        state.pCurrentlyCompilingFunction = pEntity->constantValue.pFunction;
                         EnterScope(state, pFunction->pScope);
+                        
+                        // Store function start IP in entity
+                        // Next instruction will be the start of the function
+                        int initialIPOffset = state.pCurrentlyCompilingProgram->code.count;
+                        
+                        // codegen the function
                         CodeGenFunction(state, pEntity->name, pFunction);
+                        
+                        // Exit scope
                         ExitScope(state, pPreviousScope, pFunction->pBody->endToken);
-                        state.pCurrentlyCompilingFunction = pParentFunction;
+    
+                        // Update function IP constants in entity
+                        pEntity->constantValue = MakeFunctionValue(initialIPOffset);
+                        
+                        // Loop through pending function constants and correct them
+                        for (int i=0; i < pEntity->pendingFunctionConstants.count; i++) {
+                            uint32_t instructionIndex = pEntity->pendingFunctionConstants[i];
+                            Instruction& ins = state.pCurrentlyCompilingProgram->code[instructionIndex];
+                            ins.constant = pEntity->constantValue;
+                        }
+                        pEntity->bFunctionHasBeenGenerated = true;
+                        
+                        // Patch jump
+                        PatchJump(state, jump);
                     }
                 }
                 break;
             }
 
-            state.localsStack.PushBack(pDecl->identifier); // Is this incorrect? Has the function node already done this?
+            state.localsStack.PushBack(pDecl->identifier);
 
             if (pDecl->pInitializerExpr)
                 CodeGenExpression(state, pDecl->pInitializerExpr);
@@ -514,7 +532,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
         case Ast::NodeKind::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             // Potentially wrong, but I think this is right
-            uint32_t loopStart = CurrentFunction(state)->code.count - 1;
+            uint32_t loopStart = state.pCurrentlyCompilingProgram->code.count - 1;
             CodeGenExpression(state, pWhile->pCondition);
 
             int ifJump = PushInstruction(state, pWhile->line, {
@@ -555,33 +573,6 @@ void CodeGenStatements(CodeGenState& state, ResizableArray<Ast::Statement*>& sta
 
 // ***********************************************************************
 
-void GenerateConstantTable(CodeGenState& state, Scope* pScope) {
-    for (size_t i = 0; i < pScope->entities.tableSize; i++) { 
-            HashNode<String, Entity*>& node = pScope->entities.pTable[i];
-            if (node.hash != UNUSED_HASH) {
-                Entity* pEntity = node.value;
-                if (pEntity->kind == EntityKind::Constant) {
-                    if (pEntity->pDeclaration->pInitializerExpr && pEntity->pDeclaration->pInitializerExpr->nodeKind == Ast::NodeKind::Function) {
-                        Function* pFunctionLiteral = (Function*)state.pOutputAllocator->Allocate(sizeof(Function));
-                        SYS_P_NEW(pFunctionLiteral) Function();
-                        pFunctionLiteral->code.pAlloc = state.pOutputAllocator;
-                        pFunctionLiteral->dbgLineInfo.pAlloc = state.pOutputAllocator;
-
-                        pEntity->constantValue.pFunction = pFunctionLiteral;
-                        pEntity->codeGenConstIndex = CreateConstant(state, MakeValue(pFunctionLiteral), pEntity->pType);
-                    } else {
-                        uint8_t constIndex = CreateConstant(state, pEntity->constantValue, pEntity->pType);
-                        pEntity->codeGenConstIndex = constIndex;
-                    }
-                }
-            }
-    }
-
-    for (Scope* pChildScope : pScope->children) {
-        GenerateConstantTable(state, pChildScope);
-    }
-}
-
 void CodeGenProgram(Compiler& compilerState) {
     if (compilerState.errorState.errors.count == 0) {
         
@@ -597,18 +588,9 @@ void CodeGenProgram(Compiler& compilerState) {
 
         // Create a program to output to
         SYS_P_NEW(state.pCurrentlyCompilingProgram) Program();
-        state.pCurrentlyCompilingProgram->constantTable.pAlloc = state.pOutputAllocator;
         state.pCurrentlyCompilingProgram->dbgConstantsTypes.pAlloc = state.pOutputAllocator;
-
-        GenerateConstantTable(state, state.pGlobalScope);
-
-        // Create the top level script function (corresponding to the primary script file)
-        state.pCurrentlyCompilingFunction = (Function*)state.pOutputAllocator->Allocate(sizeof(Function));
-        SYS_P_NEW(state.pCurrentlyCompilingFunction) Function();
-        state.pCurrentlyCompilingFunction->name = "<main>";
-        state.pCurrentlyCompilingFunction->code.pAlloc = state.pOutputAllocator;
-        state.pCurrentlyCompilingFunction->dbgLineInfo.pAlloc = state.pOutputAllocator;
-        state.pCurrentlyCompilingProgram->pMainModuleFunction = state.pCurrentlyCompilingFunction;
+        state.pCurrentlyCompilingProgram->code.pAlloc = state.pOutputAllocator;
+        state.pCurrentlyCompilingProgram->dbgLineInfo.pAlloc = state.pOutputAllocator;
 
         // Set off actual codegen of the main file, will recursively codegen all functions inside it
         state.localsStack.PushBack("<main>");
@@ -616,7 +598,6 @@ void CodeGenProgram(Compiler& compilerState) {
 
         // Put a return instruction at the end of the program
         Token endToken = compilerState.tokens[compilerState.tokens.count - 1];
-        uint8_t constIndex = CreateConstant(state, Value(), GetVoidType());
         PushInstruction(state, endToken.line, {
                     .opcode     = OpCode::PushConstant,
                     .constant   = Value() });

@@ -14,7 +14,6 @@
 // #define DEBUG_TRACE
 
 struct CallFrame {
-    Function* pFunc { nullptr };
     Instruction* pInstructionPointer { nullptr };
     int32_t stackBaseIndex{ 0 };
 };
@@ -195,10 +194,9 @@ String DisassembleInstruction(Program* pProgram, Instruction* pInstruction) {
 
 // ***********************************************************************
 
-void DisassembleFunction(Compiler& compilerState, Function* pFunc) {
-	
-	Log::Debug("----------------");
-    Log::Debug("-- Function (%s)", pFunc->name.pData);
+void DisassembleProgram(Compiler& compilerState) {
+    // TODO: Some way to tell what instructions are from what functions
+    // Log::Debug("-- Function (%s)", pFunc->name.pData);
 
 	// Split the program into lines
 	// TODO: A few places do this now, maybe do this in the compiler file and store for reuse
@@ -221,10 +219,10 @@ void DisassembleFunction(Compiler& compilerState, Function* pFunc) {
 
 
 	// Run through the code printing instructions
-	Instruction* pInstructionPointer = pFunc->code.pData;
-    while (pInstructionPointer < pFunc->code.end()) {
-        if (currentLine != pFunc->dbgLineInfo[lineCounter]) {
-            currentLine = pFunc->dbgLineInfo[lineCounter];
+	Instruction* pInstructionPointer = compilerState.pProgram->code.pData;
+    while (pInstructionPointer < compilerState.pProgram->code.end()) {
+        if (currentLine != compilerState.pProgram->dbgLineInfo[lineCounter]) {
+            currentLine = compilerState.pProgram->dbgLineInfo[lineCounter];
             Log::Debug("");
             Log::Debug("  %i:%s", currentLine, lines[currentLine - 1].pData);
         }
@@ -244,22 +242,6 @@ void DisassembleFunction(Compiler& compilerState, Function* pFunc) {
 
 // ***********************************************************************
 
-void DisassembleProgram(Compiler& compilerState) {
-	// Disassemble main module function
-	DisassembleFunction(compilerState, compilerState.pProgram->pMainModuleFunction);
-
-	// Search through the constant table looking for functions to disassemble
-	for (uint32_t i = 0; i < compilerState.pProgram->constantTable.count; i++) {
-		TypeInfo* pType = compilerState.pProgram->dbgConstantsTypes[i];
-        if (pType->tag == TypeInfo::TypeTag::Function) {
-            if (compilerState.pProgram->constantTable[i].pFunction)
-			    DisassembleFunction(compilerState, compilerState.pProgram->constantTable[i].pFunction);
-        }
-    }
-}
-
-// ***********************************************************************
-
 void DebugStack(VirtualMachine& vm) {
 	StringBuilder builder;
 
@@ -269,7 +251,7 @@ void DebugStack(VirtualMachine& vm) {
 	for (uint32_t i = 1; i < vm.stack.array.count; i++) {
 		Value& v = vm.stack[vm.stack.array.count - i];
 
-		builder.AppendFormat("[%i: %#X|%g|%i]\n", vm.stack.array.count - i, (uint64_t)v.pFunction, v.f32Value, v.i32Value);
+		builder.AppendFormat("[%i: %#X|%g|%i]\n", vm.stack.array.count - i, (uint64_t)v.pPtr, v.f32Value, v.i32Value);
 	}
 	String s = builder.CreateString();
 	Log::Debug("->%s", s.pData);
@@ -302,12 +284,11 @@ void Run(Program* pProgramToRun) {
 	defer(vm.stack.Free());
 
     Value fv;
-    fv.pFunction = pProgramToRun->pMainModuleFunction;
+    fv.functionPointer = 0; // start IP of main level function
 	vm.stack.Push(fv);
 
     CallFrame frame;
-    frame.pFunc = pProgramToRun->pMainModuleFunction;
-    frame.pInstructionPointer = pProgramToRun->pMainModuleFunction->code.pData;
+    frame.pInstructionPointer = pProgramToRun->code.pData;
     frame.stackBaseIndex = 0;
     vm.callStack.Push(frame);
     
@@ -315,7 +296,7 @@ void Run(Program* pProgramToRun) {
 
     // VM run
     CallFrame* pFrame = &vm.callStack.Top();
-	Instruction* pEndInstruction = pFrame->pFunc->code.end();
+	Instruction* pEndInstruction = pProgramToRun->code.end();
     while (pFrame->pInstructionPointer < pEndInstruction) {
 #ifdef DEBUG_TRACE
 		String output = DisassembleInstruction(pProgramToRun, pFrame->pInstructionPointer);
@@ -483,7 +464,8 @@ void Run(Program* pProgramToRun) {
 				else if (typeId == TypeInfo::TypeTag::Bool)
 					Log::Info("%s", v.boolValue ? "true" : "false");
 				else if (typeId == TypeInfo::TypeTag::Function)
-					Log::Info("<%s>", v.pFunction->name.pData ? v.pFunction->name.pData : "");  // TODO Should probably show the type sig?
+				    // TODO: Don't know the function name or type?
+					Log::Info("<todo funcPtr %i>", v.functionPointer);
 				break;
 			}
 			case OpCode::Pop:
@@ -545,16 +527,16 @@ void Run(Program* pProgramToRun) {
 			}
             case OpCode::JmpIfFalse: {
                 if (!vm.stack.Top().boolValue)
-                    pFrame->pInstructionPointer = pFrame->pFunc->code.pData + (pFrame->pInstructionPointer->ipOffset);
+                    pFrame->pInstructionPointer = pProgramToRun->code.pData + (pFrame->pInstructionPointer->ipOffset);
                 break;
             }
             case OpCode::JmpIfTrue: {
                 if (vm.stack.Top().boolValue)
-                    pFrame->pInstructionPointer = pFrame->pFunc->code.pData + (pFrame->pInstructionPointer->ipOffset);
+                    pFrame->pInstructionPointer = pProgramToRun->code.pData + (pFrame->pInstructionPointer->ipOffset);
                 break;
             }
             case OpCode::Jmp: {
-                pFrame->pInstructionPointer = pFrame->pFunc->code.pData + (pFrame->pInstructionPointer->ipOffset);
+                pFrame->pInstructionPointer = pProgramToRun->code.pData + (pFrame->pInstructionPointer->ipOffset);
                 break;
             }
             case OpCode::Call: {
@@ -562,19 +544,12 @@ void Run(Program* pProgramToRun) {
                 
                 Value funcValue = vm.stack[-1 - argCount];
 
-                if (funcValue.pFunction == nullptr) {
-                    Log::Info("Runtime Exception: Function pointer is not set to a function");
-                    return;
-                }
-
                 CallFrame frame;
-                frame.pFunc = funcValue.pFunction;
-                frame.pInstructionPointer = funcValue.pFunction->code.pData - 1;
+                frame.pInstructionPointer =  pProgramToRun->code.pData + (funcValue.functionPointer - 1);
                 frame.stackBaseIndex = vm.stack.array.count - argCount - 1;
                 vm.callStack.Push(frame);
 
                 pFrame = &vm.callStack.Top();
-				pEndInstruction = pFrame->pFunc->code.end();
                 break;
             }
 			case OpCode::PushStruct: {
@@ -622,7 +597,6 @@ void Run(Program* pProgramToRun) {
                     return;
                 } else {
                     pFrame = &vm.callStack.Top();
-					pEndInstruction = pFrame->pFunc->code.end();
 				}
                 break;
             }

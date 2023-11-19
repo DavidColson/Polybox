@@ -99,13 +99,12 @@ TypeInfo* GetEmptyFuncType();
 
 
 
-struct Function;
 struct Value {
     union {
         bool boolValue;
         float f32Value;
         int32_t i32Value;
-        Function* pFunction;
+        int64_t functionPointer; // this number is the IP offset of the start of the function
         TypeInfo* pTypeInfo;
 		void* pPtr;
     };
@@ -141,9 +140,9 @@ inline Value MakeValue(TypeInfo* value) {
     return v;
 }
 
-inline Value MakeValue(Function* value) {
+inline Value MakeFunctionValue(int64_t ipOffset) {
     Value v;
-    v.pFunction = value;
+    v.functionPointer = ipOffset;
     return v;
 }
 

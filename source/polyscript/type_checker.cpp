@@ -306,8 +306,8 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
                 pIdentifier->pType = GetInvalidType();
                 return pIdentifier;
             }
-
-            if (pEntity->kind == EntityKind::Constant) {
+            
+            if (pEntity->kind == EntityKind::Constant || pEntity->kind == EntityKind::Function) {
                 if (pEntity->status == EntityStatus::Unresolved) {
                     TypeCheckStatement(state, pEntity->pDeclaration);
                 }
@@ -1016,6 +1016,7 @@ void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) 
             }
 
             Entity* pEntity = (Entity*)state.pAllocator->Allocate(sizeof(Entity));
+            pEntity->pendingFunctionConstants.pAlloc = state.pAllocator;
             pEntity->pDeclaration = pDecl;
             pEntity->isLive = false;
             pEntity->status = EntityStatus::Unresolved;
@@ -1038,6 +1039,8 @@ void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) 
                 if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::Function) {
                     Ast::Function* pFunc = (Ast::Function*)pDecl->pInitializerExpr;
                     pFunc->pDeclaration = pDecl;
+                    if (pDecl->isConstantDeclaration)
+                        pEntity->kind = EntityKind::Function;
                 }
                 if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::Structure) {
                     Ast::Structure* pStruct = (Ast::Structure*)pDecl->pInitializerExpr;

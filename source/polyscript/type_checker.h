@@ -59,9 +59,10 @@ namespace EntityKind {
 enum Enum {
     Invalid,
     Variable,
-    Constant
+    Constant,
+    Function
 };
-static const char* stringNames[] = { "Invalid", "Variable", "Constant"};
+static const char* stringNames[] = { "Invalid", "Variable", "Constant", "Function"};
 static const char* ToString(Enum kind) {
     return stringNames[kind];
 }
@@ -88,6 +89,11 @@ struct Entity {
     // Set only for constant entities, I may change this to be a union for variables etc
     Value constantValue;
     uint32_t codeGenConstIndex;
+    
+    // These are instruction indices that await knowing the function pointer value when generated
+    // Once the function has been generated, it's pointer is in constantValue
+    bool bFunctionHasBeenGenerated{ false };
+    ResizableArray<uint32_t> pendingFunctionConstants;
 };
 
 Entity* FindEntity(Scope* pLowestSearchScope, String name);

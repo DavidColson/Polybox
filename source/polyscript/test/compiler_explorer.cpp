@@ -709,29 +709,34 @@ void DrawAstStatements(ResizableArray<Ast::Statement*>& statements) {
 
 // ***********************************************************************
 
-void DrawByteCodeForFunction(Program* pProgram, Function* pFunc) {
+void DrawByteCodeForProgram(Program* pProgram) {
     ImDrawList* pDrawList = ImGui::GetWindowDrawList();
-    Instruction* pInstructionPointer = pFunc->code.pData;
+    Instruction* pInstructionPointer = pProgram->code.pData;
 
     ImGui::Text("\n");
-    ImGui::Text("---- Function %s", pFunc->name.pData);
+    // TODO: Don't know function name
+    //ImGui::Text("---- Function %s", pFunc->name.pData);
 
     uint32_t currentLine = -1;
     uint32_t lineCounter = 0;
+    StringBuilder builder;
 
-    while (pInstructionPointer < pFunc->code.end()) {
-        if (currentLine != pFunc->dbgLineInfo[lineCounter]) {
-            currentLine = pFunc->dbgLineInfo[lineCounter];
+    while (pInstructionPointer < pProgram->code.end()) {
+        if (currentLine != pProgram->dbgLineInfo[lineCounter]) {
+            currentLine = pProgram->dbgLineInfo[lineCounter];
         }
 
         // TODO: Add some padding so operands are lined up nicely
-        // TODO: Add instruction indices to the side, so we can see where ip offsets go to
-        String output = DisassembleInstruction(pProgram, pInstructionPointer);
+        
+        builder.AppendFormat("%*d  ", (int)floor(log10(pProgram->code.count)), lineCounter);
+        String instruction = DisassembleInstruction(pProgram, pInstructionPointer);
+        defer(FreeString(instruction));
+        builder.Append(instruction);
 
         ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
 
         ImVec2 lineStartPos = ImVec2(cursorScreenPos.x, cursorScreenPos.y);
-        ImVec2 size = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, output.pData, output.pData + output.length);
+        ImVec2 size = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, builder.pData, builder.pData + builder.length);
         ImVec2 lineEndPos = ImVec2(lineStartPos.x + ImGui::GetContentRegionAvail().x, lineStartPos.y + size.y);
 
         if (selectedLine+1 == currentLine) {
@@ -746,15 +751,16 @@ void DrawByteCodeForFunction(Program* pProgram, Function* pFunc) {
             }
         }
 
-        pDrawList->AddText(lineStartPos, 0xffffffff, output.pData, output.pData + output.length);
+        pDrawList->AddText(lineStartPos, 0xffffffff, builder.pData, builder.pData + builder.length);
+        builder.length = 0;
         cursorScreenPos.y += size.y;
         
         ImGui::SetCursorScreenPos(cursorScreenPos);
-        FreeString(output);
 
         pInstructionPointer += 1;
         lineCounter += 1;
     }
+    builder.Reset();
 }
 
 // ***********************************************************************
@@ -894,15 +900,7 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
     ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x / 2, ImGui::GetIO().DisplaySize.y), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Code Gen")) {
         if (compiler.errorState.errors.count == 0) {         
-            DrawByteCodeForFunction(compiler.pProgram, compiler.pProgram->pMainModuleFunction);
-
-            for (uint32_t i = 0; i < compiler.pProgram->constantTable.count; i++) {
-                TypeInfo* pType = compiler.pProgram->dbgConstantsTypes[i];
-                if (pType->tag == TypeInfo::TypeTag::Function) {
-                    if (compiler.pProgram->constantTable[i].pFunction)
-                        DrawByteCodeForFunction(compiler.pProgram, compiler.pProgram->constantTable[i].pFunction);
-                }
-            }
+            DrawByteCodeForProgram(compiler.pProgram);
         }
     }
     ImGui::End();

@@ -84,8 +84,6 @@ struct Instruction {
 
 String DisassembleInstruction(Program* pProgram, Instruction* pInstruction);
 
-void DisassembleFunction(Compiler& compilerState, Function* pFunc);
-
 void DisassembleProgram(Compiler& compilerState);
 
 void Run(Program* pProgramToRun);

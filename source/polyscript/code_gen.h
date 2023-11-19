@@ -20,18 +20,15 @@ struct Scope;
 struct Compiler;
 struct IAllocator;
 
-struct Function {
-	String name;
+struct Program {
     ResizableArray<Instruction> code;
 	ResizableArray<uint32_t> dbgLineInfo;
-};
-
-struct Program {
-    // This is a file level function corresponding to the primary script file
-    Function* pMainModuleFunction;
-    
-    ResizableArray<Value> constantTable;
+	
+	// TODO: Update
 	ResizableArray<TypeInfo*> dbgConstantsTypes;
+	
+	// TODO: Some way to track function names if available
+	
     
     IAllocator* pMemory;
 };

@@ -51,20 +51,18 @@ String DisassembleInstruction(Program* pProgram, Instruction* pInstruction) {
 						break;
 					case TypeInfo::TypeTag::Type:
 						if (v.pTypeInfo)
-							// builder.AppendFormat("type");
 							builder.AppendFormat("%s", v.pTypeInfo->name.pData);
 						else
 							builder.AppendFormat("invalidType");
-						break;
+					break;
 					case TypeInfo::TypeTag::Function:
-						builder.AppendFormat("function");
-						// There is no function pointer in value now, it's just an index. 
-						// Come back to this when we have function header debug info as well as constants
-						// if (v.pFunction)
-						// 	builder.AppendFormat("<%s>", v.pFunction->name.pData ? v.pFunction->name.pData : "");
-						// else
-						// 	builder.AppendFormat("invalidFunction");
+					{
+						FunctionDbgInfo* pDbgInfo = pProgram->dbgFunctionInfo.Get(v.functionPointer);
+						if (pDbgInfo != nullptr) {
+							builder.AppendFormat("%s <%s>", pDbgInfo->name.pData, pDbgInfo->pType->name.pData);
+						}
 						break;
+					}
 					default:
 						builder.AppendFormat("%i", v.i32Value);
 						break;
@@ -476,9 +474,12 @@ void Run(Program* pProgramToRun) {
 					Log::Info("%i", v.i32Value);
 				else if (typeId == TypeInfo::TypeTag::Bool)
 					Log::Info("%s", v.boolValue ? "true" : "false");
-				else if (typeId == TypeInfo::TypeTag::Function)
-				    // TODO: Don't know the function name or type?
-					Log::Info("<todo funcPtr %i>", v.functionPointer);
+				else if (typeId == TypeInfo::TypeTag::Function) {
+					FunctionDbgInfo* pDbgInfo = pProgramToRun->dbgFunctionInfo.Get(v.functionPointer);
+					if (pDbgInfo != nullptr) {
+						Log::Info("%s <%s>", pDbgInfo->name.pData, pDbgInfo->pType->name.pData);
+					}
+				}
 				break;
 			}
 			case OpCode::Pop:

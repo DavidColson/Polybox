@@ -36,6 +36,10 @@ struct CodeGenState {
 };
 }
 
+void PushFunctionDbgInfo(CodeGenState& state, int functionEntryIndex, String name, TypeInfo* pType) {
+	state.pCurrentlyCompilingProgram->dbgFunctionInfo.Add(functionEntryIndex, {name, pType});
+}
+
 // ***********************************************************************
 
 int PushInstruction(CodeGenState& state, uint32_t line, Instruction instruction, TypeInfo::TypeTag tag = TypeInfo::TypeTag::Invalid) {
@@ -276,6 +280,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             PushInstruction(state, pFunction->line, {
                     .opcode     = OpCode::PushConstant,
                     .constant   = MakeFunctionValue(initialIPOffset) }, TypeInfo::TypeTag::Function);
+			PushFunctionDbgInfo(state, initialIPOffset, pFunction->pType->name, pFunction->pType);
         
             break;
         }
@@ -454,6 +459,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                             Instruction& ins = state.pCurrentlyCompilingProgram->code[instructionIndex];
                             ins.constant = pEntity->constantValue;
                         }
+						PushFunctionDbgInfo(state, initialIPOffset, pEntity->name, pEntity->pType);
                         pEntity->bFunctionHasBeenGenerated = true;
                         
                         // Patch jump
@@ -592,6 +598,7 @@ void CodeGenProgram(Compiler& compilerState) {
         // Create a program to output to
         SYS_P_NEW(state.pCurrentlyCompilingProgram) Program();
         state.pCurrentlyCompilingProgram->dbgConstantsTypes.pAlloc = state.pOutputAllocator;
+        state.pCurrentlyCompilingProgram->dbgFunctionInfo.pAlloc = state.pOutputAllocator;
         state.pCurrentlyCompilingProgram->code.pAlloc = state.pOutputAllocator;
         state.pCurrentlyCompilingProgram->dbgLineInfo.pAlloc = state.pOutputAllocator;
 

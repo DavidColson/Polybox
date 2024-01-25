@@ -21,17 +21,21 @@ struct Scope;
 struct Compiler;
 struct IAllocator;
 
+struct FunctionDbgInfo {
+	String name;
+	TypeInfo* pType;
+};
+
 struct Program {
     ResizableArray<Instruction> code;
 	ResizableArray<uint32_t> dbgLineInfo;
 	
-	// Maps instruction index to a type tag. If the hashmap has a value for the index, that instruction
-	// is a PushConstant and will have type information associated
+	// This maps the instruction index of the function's entry point to the debug info
+	// Such that the function pointer constant values can be used to look up the debug info
+	HashMap<size_t, FunctionDbgInfo> dbgFunctionInfo;
+
+	// This maps PushConstant instruction indices to constant type information
 	HashMap<size_t, TypeInfo::TypeTag> dbgConstantsTypes;
-	
-	// TODO: Some way to track function names if available
-	
-    
     IAllocator* pMemory;
 };
 

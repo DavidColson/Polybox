@@ -38,9 +38,12 @@ struct CodeGenState {
 
 // ***********************************************************************
 
-int PushInstruction(CodeGenState& state, uint32_t line, Instruction instruction) {
+int PushInstruction(CodeGenState& state, uint32_t line, Instruction instruction, TypeInfo::TypeTag tag = TypeInfo::TypeTag::Invalid) {
     state.pCurrentlyCompilingProgram->code.PushBack(instruction);
     state.pCurrentlyCompilingProgram->dbgLineInfo.PushBack(line);
+	if (tag != TypeInfo::TypeTag::Invalid) {
+		state.pCurrentlyCompilingProgram->dbgConstantsTypes.Add(state.pCurrentlyCompilingProgram->code.count - 1, tag);
+	}
     return state.pCurrentlyCompilingProgram->code.count - 1;
 }
 
@@ -123,7 +126,7 @@ void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFun
     // Put a return instruction at the end of the function
     PushInstruction(state, pFunction->pBody->endToken.line, {
                 .opcode     = OpCode::PushConstant,
-                .constant   = Value() });
+                .constant   = Value() }, TypeInfo::TypeTag::Void);
     PushInstruction(state, pFunction->pBody->endToken.line, { .opcode = OpCode::Return });
 }
 
@@ -138,7 +141,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
     if (pExpr->isConstant && (pExpr->nodeKind != Ast::NodeKind::Function && pExpr->nodeKind != Ast::NodeKind::Identifier)) {
         PushInstruction(state, pExpr->line, {
                     .opcode     = OpCode::PushConstant,
-                    .constant   = pExpr->constantValue });
+                    .constant   = pExpr->constantValue }, pExpr->pType->tag);
         return;
     }
 
@@ -152,12 +155,12 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
                 if (pEntity->kind == EntityKind::Function && pEntity->bFunctionHasBeenGenerated == false) {
                     PushInstruction(state, pVariable->line, {
                         .opcode     = OpCode::PushConstant,
-                        .constant   = 0 });
+                        .constant   = 0 }, pEntity->pType->tag);
                     pEntity->pendingFunctionConstants.PushBack(state.pCurrentlyCompilingProgram->code.count-1);
                 } else {
                     PushInstruction(state, pVariable->line, {
                         .opcode     = OpCode::PushConstant,
-                        .constant   = pEntity->constantValue });
+                        .constant   = pEntity->constantValue }, pEntity->pType->tag);
                 }
             } else {
                 // do a load from locals memory
@@ -242,7 +245,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
             PushInstruction(state, pLiteral->line, {
                     .opcode     = OpCode::PushConstant,
-                    .constant   = pLiteral->constantValue });
+                    .constant   = pLiteral->constantValue }, pLiteral->pType->tag);
             break;
         }
         case Ast::NodeKind::Function: {
@@ -272,7 +275,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
             PushInstruction(state, pFunction->line, {
                     .opcode     = OpCode::PushConstant,
-                    .constant   = MakeFunctionValue(initialIPOffset) });
+                    .constant   = MakeFunctionValue(initialIPOffset) }, TypeInfo::TypeTag::Function);
         
             break;
         }
@@ -476,7 +479,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 					v.pPtr = 0;
                     PushInstruction(state, pDecl->line, {
                         .opcode     = OpCode::PushConstant,
-                        .constant   = v });
+                        .constant   = v }, pDecl->pType->tag);
 				}
             }
             break;
@@ -600,7 +603,7 @@ void CodeGenProgram(Compiler& compilerState) {
         Token endToken = compilerState.tokens[compilerState.tokens.count - 1];
         PushInstruction(state, endToken.line, {
                     .opcode     = OpCode::PushConstant,
-                    .constant   = Value() });
+                    .constant   = Value() }, TypeInfo::TypeTag::Void);
         PushInstruction(state, endToken.line, { .opcode = OpCode::Return });
 
         compilerState.pProgram = state.pCurrentlyCompilingProgram;

@@ -5,6 +5,7 @@
 #include "compiler.h"
 #include "code_gen.h"
 
+#include <hashmap.inl>
 #include <resizable_array.inl>
 #include <light_string.h>
 #include <string_builder.h>
@@ -32,31 +33,43 @@ String DisassembleInstruction(Program* pProgram, Instruction* pInstruction) {
             builder.Append("PushConstant ");
 
 			Value& v = pInstruction->constant;
-			// TODO: No longer know how to track constant types? Will just wing it for now
-			// The debug list can still work, probably need to do a hashmap, from instruction index to type, so there's one type for every pushconstant
-			
-			// TypeInfo* pType = pProgram->dbgConstantsTypes[constIndex];
-            // if (pType->tag == TypeInfo::TypeTag::Void)
-            //     builder.AppendFormat("%i (void)", constIndex);
-            // else if (pType->tag == TypeInfo::TypeTag::F32)
-            //     builder.AppendFormat("%i (%f)", constIndex, v.f32Value);
-            // else if (pType->tag == TypeInfo::TypeTag::Bool)
-            //     builder.AppendFormat("%i (%s)", constIndex, v.boolValue ? "true" : "false");
-            // else if (pType->tag == TypeInfo::TypeTag::I32)
-            //     builder.AppendFormat("%i (%i)", constIndex, v.i32Value);
-            // else if (pType->tag == TypeInfo::TypeTag::Type) {
-            //     if (v.pTypeInfo)
-            //         builder.AppendFormat("%i (%s)", constIndex, v.pTypeInfo->name.pData);
-            //     else
-            //         builder.AppendFormat("%i (none)", constIndex);
-            // }
-            // else if (pType->tag == TypeInfo::TypeTag::Function) {
-            //     if (v.pFunction)
-            //         builder.AppendFormat("%i (<%s>)", constIndex, v.pFunction->name.pData ? v.pFunction->name.pData : "");
-            //     else
-            //         builder.AppendFormat("%i (none)", constIndex);
-            // }
-			builder.AppendFormat("%i", v.i32Value);
+			size_t index = pProgram->code.IndexFromPointer(pInstruction);
+			TypeInfo::TypeTag* tag = pProgram->dbgConstantsTypes.Get(index);
+			if (tag != nullptr) {
+				switch (*tag) {
+					case TypeInfo::TypeTag::Void:
+						builder.AppendFormat("(void)", v.i32Value);
+						break;
+					case TypeInfo::TypeTag::F32:
+						builder.AppendFormat("%f", v.f32Value);
+						break;
+					case TypeInfo::TypeTag::Bool:
+						builder.AppendFormat("%s", v.boolValue ? "true" : "false");
+						break;
+					case TypeInfo::TypeTag::I32:
+						builder.AppendFormat("%i", v.i32Value);
+						break;
+					case TypeInfo::TypeTag::Type:
+						if (v.pTypeInfo)
+							// builder.AppendFormat("type");
+							builder.AppendFormat("%s", v.pTypeInfo->name.pData);
+						else
+							builder.AppendFormat("invalidType");
+						break;
+					case TypeInfo::TypeTag::Function:
+						builder.AppendFormat("function");
+						// There is no function pointer in value now, it's just an index. 
+						// Come back to this when we have function header debug info as well as constants
+						// if (v.pFunction)
+						// 	builder.AppendFormat("<%s>", v.pFunction->name.pData ? v.pFunction->name.pData : "");
+						// else
+						// 	builder.AppendFormat("invalidFunction");
+						break;
+					default:
+						builder.AppendFormat("%i", v.i32Value);
+						break;
+				}
+			}
             break;
         }
         case OpCode::SetLocal: {

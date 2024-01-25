@@ -7,6 +7,7 @@
 
 #include <light_string.h>
 #include <resizable_array.h>
+#include <hashmap.h>
 
 namespace Ast {
 struct Statement;
@@ -24,8 +25,9 @@ struct Program {
     ResizableArray<Instruction> code;
 	ResizableArray<uint32_t> dbgLineInfo;
 	
-	// TODO: Update
-	ResizableArray<TypeInfo*> dbgConstantsTypes;
+	// Maps instruction index to a type tag. If the hashmap has a value for the index, that instruction
+	// is a PushConstant and will have type information associated
+	HashMap<size_t, TypeInfo::TypeTag> dbgConstantsTypes;
 	
 	// TODO: Some way to track function names if available
 	

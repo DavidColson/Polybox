@@ -5,19 +5,19 @@ typedef uint32_t VMPtr;
 
 namespace OpCode {
 enum Enum : uint8_t {
-	Load,
-	Store,
+	Push,
+	Pop, // Pop can have no addressing mode, in which case the value is discarded!
 	Add,
-	Print,
-	Pop
+	Print
 };
 }
 
 namespace AddressingMode {
 enum Enum : uint8_t {
+	None,
 	Immediate,
 	Absolute,
-	StackOffset
+	Indexed
 };
 }
 
@@ -40,6 +40,15 @@ struct VirtualMachine {
 	// Stack is going to be the back 1kb of memory
 };
 
+inline void PushInstruction(ResizableArray<uint32_t>& code, InstructionHeader header) {
+	code.PushBack(uint32_t(0));
+	memcpy(&code.pData[code.count-1], &header, sizeof(InstructionHeader)); 
+}
+
+inline void PushParam(ResizableArray<uint32_t>& code, uint32_t param) {
+	code.PushBack(param);
+}
+
 void Start() {
 	// Initialize virtual machine memory
 	
@@ -53,47 +62,99 @@ void Start() {
 	// Make some program by shoving manually created instructions into a list
 	ResizableArray<uint32_t> code;
 	defer(code.Free());
-
-	// Load 1337 as an immediate value onto the stack
-	code.PushBack(uint32_t(0));
-	InstructionHeader inst = InstructionHeader{.opcode = OpCode::Load, .addrMode = AddressingMode::Immediate };
-	memcpy(&code.pData[code.count-1], &inst, sizeof(InstructionHeader)); 
-	code.PushBack(uint32_t(1337));
-
-	// Need some utility for pushing an instruction header, currently have to push a dummy and then memcpy it
-	code.PushBack(uint32_t(0));
-	InstructionHeader inst2 = InstructionHeader{.opcode = OpCode::Load, .addrMode = AddressingMode::Immediate };
-	memcpy(&code.pData[code.count-1], &inst2, sizeof(InstructionHeader)); 
-	code.PushBack(uint32_t(1337));
-
-	code.PushBack(uint32_t(0));
-	InstructionHeader inst3 = InstructionHeader{.opcode = OpCode::Add };
-	memcpy(&code.pData[code.count-1], &inst3, sizeof(InstructionHeader)); 
-
-	code.PushBack(uint32_t(0));
-	InstructionHeader inst4 = InstructionHeader{.opcode = OpCode::Print };
-	memcpy(&code.pData[code.count-1], &inst4, sizeof(InstructionHeader)); 
 	
+	// Next example program must create a struct with some size larger than a stack slot
+	// Then set all the members
+	// Then read a member and print it 
+
+	if (1) {
+		// Example program 2: This emulates local variable setting and loading
+
+		// Stack starts at 0x001ff000
+		// This must be a constant at compile time, users can otherwise set the stack size at compile time.
+		
+		// var := 5;
+		// var = var + 2;
+		// print(var);
+		PushInstruction(code, {.opcode = OpCode::Push, .addrMode = AddressingMode::Immediate });
+		PushParam(code, uint32_t(5));
+
+		PushInstruction(code, {.opcode = OpCode::Push, .addrMode = AddressingMode::Absolute });
+		PushParam(code, uint32_t(0x001ff000 + 0)); // 0 being the local index here 
+
+		PushInstruction(code, {.opcode = OpCode::Push, .addrMode = AddressingMode::Immediate });
+		PushParam(code, uint32_t(2));
+
+		PushInstruction(code, {.opcode = OpCode::Add });
+
+		PushInstruction(code, {.opcode = OpCode::Pop, .addrMode = AddressingMode::Absolute });
+		PushParam(code, uint32_t(0x001ff000 + 0));
+
+		PushInstruction(code, {.opcode = OpCode::Push, .addrMode = AddressingMode::Absolute });
+		PushParam(code, uint32_t(0x001ff000 + 0)); // 0 being the local index here 
+
+		PushInstruction(code, {.opcode = OpCode::Print });
+	}
+
+	if (0) {
+		// Example program 1; Pushes two constants to the stack adds them and prints them
+
+		// Push 1337 as an immediate value onto the stack
+		PushInstruction(code, {.opcode = OpCode::Push, .addrMode = AddressingMode::Immediate });
+		PushParam(code, uint32_t(1337));
+
+		PushInstruction(code, {.opcode = OpCode::Push, .addrMode = AddressingMode::Immediate });
+		PushParam(code, uint32_t(1337));
+
+		PushInstruction(code, {.opcode = OpCode::Add });
+
+		PushInstruction(code, {.opcode = OpCode::Print });
+	}
 	// Create a little VM loop
 	uint32_t* pEndInstruction = code.end();
 	uint32_t* pInstruction = code.pData;
 	while(pInstruction < pEndInstruction) {
 		InstructionHeader* pHeader = (InstructionHeader*)pInstruction;
 		switch(pHeader->opcode) {
-			case OpCode::Load: {
-				// Take the immediate value from instruction stream, put on stack
-				int immediateValue = *(++pInstruction);
+			case OpCode::Push: {
+				if (pHeader->addrMode == AddressingMode::Immediate) {
+					// Take the immediate value from instruction stream, put on stack
+					int immediateValue = *(++pInstruction);
 
-				// Get address of stack slot and cast to appropriate type
-				int* targetStackSlot = (int*)(vm.pMemory + vm.stackAddress);
-				*targetStackSlot = immediateValue;
+					// This is the first part of "push" (loads the value into the right slot)
+					// Get address of stack slot and cast to appropriate type
+					int* targetStackSlot = (int*)(vm.pMemory + vm.stackAddress);
+					*targetStackSlot = immediateValue;
 
-				// increment 1 slot
-				vm.stackAddress += 4; 
+					// Second part, increment stack pointer
+					// increment 1 slot
+					vm.stackAddress += 4; 
+				} else if (pHeader->addrMode == AddressingMode::Absolute) {
+					VMPtr targetAddress = *(++pInstruction);
+					int* realTargetAddress = (int*)(vm.pMemory + targetAddress);
+
+					int* targetStackSlot = (int*)(vm.pMemory + vm.stackAddress);
+					*targetStackSlot = *realTargetAddress;
+					
+					vm.stackAddress += 4;
+				}
 				break;
 			}
-			case OpCode::Store: {
-				// Take value from top of stack and put it at some given address, offset, absolute etc
+			case OpCode::Pop: {
+				if (pHeader->addrMode == AddressingMode::None) {
+					// Take value from top of stack and put it at some given address, offset, absolute etc, or not at all, discarding it
+					vm.stackAddress -= 4;
+				} else if (pHeader->addrMode == AddressingMode::Absolute) {
+					vm.stackAddress -= 4;
+
+					int* targetStackSlot = (int*)(vm.pMemory + vm.stackAddress);
+
+					VMPtr targetAddress = *(++pInstruction);
+					int* realTargetAddress = (int*)(vm.pMemory + targetAddress);
+
+					// Put value that was in stack slot, at realTargetAddress (where asked)
+					*realTargetAddress = *targetStackSlot;
+				}
 				break;
 			}
 			case OpCode::Add: {
@@ -119,11 +180,6 @@ void Start() {
 				int* targetStackSlot = (int*)(vm.pMemory + vm.stackAddress);
 				int v = *targetStackSlot;
 				Log::Info("%d", v);
-				break;
-			}
-			case OpCode::Pop: {
-				// remove top stack slot element, moving back stack pointer by 1 slot
-				vm.stackAddress -= 4;
 				break;
 			}
 			default:

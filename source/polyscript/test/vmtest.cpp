@@ -15,23 +15,14 @@ enum Enum : uint8_t {
 };
 }
 
-namespace AddressingMode {
-enum Enum : uint8_t {
-	None,
-	Immediate,
-	Absolute,
-	Indexed
-};
-}
-
 // Instructions can be 4 bytes or any multiple of 4 bytes depending on what they carry
 // Format is basically an instruction header which includes the opcode, any addressing mode information, and two optional type tags
 // Then n number of other arguments, which are 4 bytes each
 
+// TODO FOR DAVE: You could actually reduce this to 16 bits you know, header is opcode + type, then params for many things would 32 bit or 16 bit, very little wasted space
 // 32 bits, maximum!
 struct InstructionHeader {
 	OpCode::Enum opcode;
-	AddressingMode::Enum addrMode;
 	TypeInfo::TypeTag type;
 	TypeInfo::TypeTag type2; // Used for cast operations when you need a to and a from type
 };
@@ -66,106 +57,35 @@ void Start() {
 	ResizableArray<uint32_t> code;
 	defer(code.Free());
 	
-	// Next example program must create a struct with some size larger than a stack slot
-	// Then set all the members
-	// Then read a member and print it 
-
-	// First step will be to push a struct instance into the stack of size 12 bytes, essentially want to round to nearest multiple of 4, then push stack pointer that amount of slots (multiple push 0)
-	// Usually the next steps are push the stack reference to the top of the stack, push a constant, then set field on the stack
-	// But now?????? wtf do I do????
-	// What we really want to do is just Push immediate, then Pop $(StackPtr + StructOffset + MemberOffset)
-	// This does somewhat fuck with our codegenning system, where the expression before a set field would be codegenned and leave it's value on the stack, i.e. the struct reference
-
-	// Push a struct pointer onto the stack, then push a member in it
-	// --------------------------------------------------------------
-	// Push 0x000ffff // Push pointer to struct location in the stack
-	// Push 1337 // Push the thing we wanna set in the struct
-	// Copy 4 [%-2 + 4] %-1 // Copy the literal value at the top of the stack to the address stored at location 0 on the stack with size 4, two referenced stack items are popped
-	// Push 1337 // Leave the stack with the result item there
-		
-	// How about getting a struct member variable and putting on the stack?
-	// --------------------------------------------------------------------
-	// Push 0x000ffff // Push pointer to struct location in the stack
-	// Push [%0+0x04] // offset addressing again, push onto the stack the value found at the computed address, where %0 is the value currently on top of the stack
-
-	// Example 4 should be a struct within a struct, so we can test out Set/GetFieldPtr
-	// I guess I'm gonna work this one out again aren't I
-	// What were we even trying to solve? It was basically, what happens if the member value we want to set is itself a struct larger than a slot size
-	// SetFieldPtr is kind of a misnomer, it's actually deep memcpying the struct to it's new location	
-	// From what we've learned from compiler explorer, the game here is literally to do as many pops as you need for the size of the struct
-	// Would be easier to read/faster/simpler to have one more instruction which is memory to memory move, where a size can be specified?
-
-	// So...
-	// Push 0x000ffff // Push pointer to the struct we want to set a member of
-	// Push 0x000ffaa // Push pointer to the struct we wanna copy
-	// Copy 12 [%-2] [%-1] // Copy from pointer at top of stack to pointer 1 below with size 12 (this will pop the last two elements off the stack)
-	// Push 0x00ffcc // Push the newly copied value onto the stack to finish
-
-
-
-
-
-
-
-	// WASM has memory addresses for load and store as stack operands too
-	// for example
-
-	// Push (immediate 0)
-	// Push (immediate 5)
-	// Pop 			-- Store the value 5 (top of stack) at offset 0 in memory
-
-	// it appears load and store in WASM have an immediate operand, which is an offset added to the actual address operand (which is already on the stack)
-
-	// WASM load and store are like so:
-
-	// Push constant address onto stack
-	// Load (const off)  -- Puts onto stack the value found at "constant address + const off"
-
-	// Push constant address
-	// Push value
-	// Store (const off) -- Stores at "constant address + const off" the value, popping both off the stack
-	
-	// Necessitates us having a different instruction for pushing constant values onto the stack, since how do we differentiate between Push Constant Address and Push Constant Offset
-
-	// WASM Has local instructions, do we need those too? It's basically just pushing onto the stack a value at some address relative to the stack
-	// We could implement that as a store above where constant address is the stack base + local offset, and the constant offset is 0
-
-	// If we want the WASM route, this is what we'd be left with:
-	// Const Value 			-- no stack operands, leaves value on stack
-	// Load Offset			-- Previous stack operand used as address, leaves result on stack
-	// Store Offset			-- Previous stack operand used as value, next previous used as address, leaves nothing on stack
-	// Copy Size			-- Previous stack operand used as destination address, next previous used as src address, leaves nothing on stack
-	// Fill Size			-- Previous stack operand used as destination address, leaves nothing on stack
-
-	// Does this copy work for us? If we were moving a struct to the member of another struct it'd go like this:
-	// Constant 0x000ffaa // Push pointer to the struct we wanna copy (again known at compile time, stack base + struct location)
-	// Constant 0x000ffff // Push pointer to the struct member we wanna set (known at compile time, stack base + struct location + member offset)
-	// Copy 12 		  // Copy 12 bytes from -2 to -1
-	// Constant 0x00ffff // Push the dest address onto the stack
-	// Note you can also calculate the offset at runtime, by doing Constant structOffset, Constant memOffset, Add, Constant destination, then Copy.
-	
-	// If pushing a value already on the stack directly to a member:
-	// Constant 1337	 // Push a value we wanna set as the member
-	// Constant 0x000ffff // Push pointer to the struct we wanna set (known at compile time, stack base + struct location)
-	// Store 0x04		 // Store value at top of stack at address + offset
-	// Constant 0x00ffff // Push the dest address onto the stack
-	// Note you can alternatively have store with no offset, and do a constant member offset
-
-	// Benefits of this, no need for 6(?) ish addressing modes for Push and Pull. The _effective_ number of non branching instructions is literally 4. Previously we had just Push/Pop/Copy, but the addressing modes meant we
-	// had push immediate, push address, push stack, push stack+offset, same for pull and copy, which is 8+ unique instructions
-	
-	// Okay I am satisfied that this is MUCH simpler than what I did last night, and should cover all the same functionality. It's flexible in that you can do your mem offset
-	// Calculations at runtime, OR at compile time, you can do large copies in one go. Copy and Fill are actually something you can implement just with load and store as does WASM. So we don't technically need them either.
-
-
 	if (1) {
 		// Example Program 5: Can we implement pointers with this instruction set?
-
+		
 	}
 
 	if (0) {
 		// Example Program 4: Store two structs on the stack, set one as the member of another, and read some value in it
 		
+		// TestStruct :: struct {
+		// 	intMember: i32;
+		// 	intMember2: i32;
+		// 	intMember3: i32;
+		// };
+		//
+		// LargeStruct :: struct {
+		// 	intMember: i32;
+		// 	inner: TestStruct;
+		// 	intMember2: i32;
+		// };
+		//
+		// instance : TestStruct;
+		// instance.intMember = 1337;
+		// instance.intMember2 = 321;
+		//
+		// largeInstance : LargeStruct;
+		// largeInstance.inner = instance;
+		//
+		// print(largeInstance.inner.intMember2); // 321
+
 		// Size is 12, so must do 3 loads of zero
 		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
 		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
@@ -233,24 +153,6 @@ void Start() {
 
 		PushInstruction(code, {.opcode = OpCode::Print });											// Push what's left on the stack (the value 321)
 	}
-
-	// A new idea, what if we embrace stack address mode?
-	// So we'll have these addressing modes
-	// Push 17 		-- immediate decimal
-	// Push 0x3c	-- immediate hex
-	// Push %0		-- Stack (i.e. push value at location 0 of stack onto top of stack) (this is a bit like register addressing in x86)
-	// Push %-1		-- Stack Inverse (i.e. push value at top of stack to top of stack)
-	// Push [0xff] 	-- Immediate Address (i.e. push value at this address onto the stack)
-	// Push [%1] 	-- Stack address (i.e. push the value found at the address which is at location 1 in the stack)
-	// Push [%1+4]	-- Offset Address Similar to absolute, but you can offset with a constant (such as a member variable offset) 
-
-	// TODO FOR DAVE:
-	// The copy instruction is good, I think it will greatly reduce the need for needless moves in and out of the stack, 
-	// However above I have not accounted for member offsets, so you need to do that, and codify all the various addressing modes we've made above
-	// We're just walking perilously close to implementing x86 assembler here
-
-	// There's two parts to this addressing, first the actual value, which might be a stack value to grab, or an immediate, or some addition to do
-	// Then we decide if it's a memory address or an immediate value. Will need to be done at runtime, esp for stack values 
 
 	if (0) {
 		// Example program 2: This emulates local variable setting and loading

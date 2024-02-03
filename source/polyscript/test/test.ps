@@ -1,6 +1,23 @@
-var := 5;
-var = var + 2;
-print(var);
+TestStruct :: struct {
+	intMember: i32;
+	intMember2: i32;
+	intMember3: i32;
+};
+
+LargeStruct :: struct {
+	intMember: i32;
+	inner: TestStruct;
+	intMember2: i32;
+};
+
+instance : TestStruct;
+instance.intMember = 1337;
+instance.intMember2 = 321;
+
+largeInstance : LargeStruct;
+largeInstance.inner = instance;
+
+print(largeInstance.inner.intMember2); // 321
 
 /*
 

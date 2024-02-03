@@ -815,7 +815,7 @@ int main(int argc, char *argv[]) {
     // Structs();
     // Constants();
     // 
-    // RunTestPlayground();
+    RunTestPlayground();
     //
     RunCompilerExplorer();
 

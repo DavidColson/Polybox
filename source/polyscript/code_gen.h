@@ -28,14 +28,14 @@ struct FunctionDbgInfo {
 
 struct Program {
     ResizableArray<Instruction> code;
-	ResizableArray<u32> dbgLineInfo;
+	ResizableArray<size> dbgLineInfo;
 	
 	// This maps the instruction index of the function's entry point to the debug info
 	// Such that the function pointer constant values can be used to look up the debug info
-	HashMap<usize, FunctionDbgInfo> dbgFunctionInfo;
+	HashMap<size, FunctionDbgInfo> dbgFunctionInfo;
 
 	// This maps PushConstant instruction indices to constant type information
-	HashMap<usize, TypeInfo::TypeTag> dbgConstantsTypes;
+	HashMap<size, TypeInfo::TypeTag> dbgConstantsTypes;
     IAllocator* pMemory;
 };
 

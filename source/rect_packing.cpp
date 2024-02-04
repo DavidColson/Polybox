@@ -27,7 +27,7 @@ struct SortToOriginalOrder {
 // ***********************************************************************
 
 void Packing::RowPackRects(ResizableArray<Rect>& rects, i32 width, i32 height) {
-    for (usize i = 0; i < rects.count; i++) {
+    for (size i = 0; i < rects.count; i++) {
         rects[i].ordering = (int)i;
     }
 
@@ -106,7 +106,7 @@ i32 CanRectFit(ResizableArray<SkylineNode>& nodes, i32 atNode, i32 rectWidth, i3
 // ***********************************************************************
 
 void Packing::SkylinePackRects(ResizableArray<Rect>& rects, i32 width, i32 height) {
-    for (usize i = 0; i < rects.count; i++) {
+    for (size i = 0; i < rects.count; i++) {
         rects[i].ordering = (int)i;
     }
 
@@ -128,7 +128,7 @@ void Packing::SkylinePackRects(ResizableArray<Rect>& rects, i32 width, i32 heigh
         i32 bestNode = -1;
         i32 bestX, bestY;
         // We're going to search for the best location for this rect along the skyline
-        for (usize i = 0; i < nodes.count; i++) {
+        for (size i = 0; i < nodes.count; i++) {
             SkylineNode& node = nodes[i];
             i32 highestY = CanRectFit(nodes, (i32)i, rect.w, rect.h, width, height);
             if (highestY != -1) {

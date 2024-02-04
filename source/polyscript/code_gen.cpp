@@ -36,19 +36,19 @@ struct CodeGenState {
 };
 }
 
-void PushFunctionDbgInfo(CodeGenState& state, i32 functionEntryIndex, String name, TypeInfo* pType) {
+void PushFunctionDbgInfo(CodeGenState& state, size functionEntryIndex, String name, TypeInfo* pType) {
 	state.pCurrentlyCompilingProgram->dbgFunctionInfo.Add(functionEntryIndex, {name, pType});
 }
 
 // ***********************************************************************
 
-int PushInstruction(CodeGenState& state, u32 line, Instruction instruction, TypeInfo::TypeTag tag = TypeInfo::TypeTag::Invalid) {
+i32 PushInstruction(CodeGenState& state, u32 line, Instruction instruction, TypeInfo::TypeTag tag = TypeInfo::TypeTag::Invalid) {
     state.pCurrentlyCompilingProgram->code.PushBack(instruction);
     state.pCurrentlyCompilingProgram->dbgLineInfo.PushBack(line);
 	if (tag != TypeInfo::TypeTag::Invalid) {
 		state.pCurrentlyCompilingProgram->dbgConstantsTypes.Add(state.pCurrentlyCompilingProgram->code.count - 1, tag);
 	}
-    return state.pCurrentlyCompilingProgram->code.count - 1;
+    return (i32)state.pCurrentlyCompilingProgram->code.count - 1;
 }
 
 // ***********************************************************************
@@ -89,11 +89,11 @@ Program* CurrentProgram(CodeGenState& state) {
 
 // ***********************************************************************
 
-int ResolveLocal(CodeGenState& state, String name) {
-    for (int i = state.localsStack.count - 1; i >= 0; i--) {
+i32 ResolveLocal(CodeGenState& state, String name) {
+    for (size i = state.localsStack.count - 1; i >= 0; i--) {
         String& local = state.localsStack[i];
         if (name == local) {
-            return i;
+            return (i32)i;
         }
     }
     return -1;
@@ -196,7 +196,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSetField->pTarget->pType;
 			TypeInfoStruct::Member* pTargetField = nullptr;
-			for (usize i = 0; i < pTargetType->members.count; i++) {
+			for (size i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
 				if (mem.identifier == pSetField->fieldName) {
 					pTargetField = &pTargetType->members[i];
@@ -224,7 +224,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pGetField->pTarget->pType;
 			TypeInfoStruct::Member* pTargetField = nullptr;
-			for (usize i = 0; i < pTargetType->members.count; i++) {
+			for (size i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
 				if (mem.identifier == pGetField->fieldName) {
 					pTargetField = &pTargetType->members[i];
@@ -266,7 +266,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             
             // Store function start IP in entity
             // Next instruction will be the start of the function
-            i32 initialIPOffset = state.pCurrentlyCompilingProgram->code.count;
+            size initialIPOffset = state.pCurrentlyCompilingProgram->code.count;
             
             // codegen the function
             CodeGenFunction(state, pFunction->pType->name, pFunction);
@@ -442,7 +442,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                         
                         // Store function start IP in entity
                         // Next instruction will be the start of the function
-                        i32 initialIPOffset = state.pCurrentlyCompilingProgram->code.count;
+                        size initialIPOffset = state.pCurrentlyCompilingProgram->code.count;
                         
                         // codegen the function
                         CodeGenFunction(state, pEntity->name, pFunction);
@@ -455,7 +455,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                         
                         // Loop through pending function constants and correct them
                         for (int i=0; i < pEntity->pendingFunctionConstants.count; i++) {
-                            u32 instructionIndex = pEntity->pendingFunctionConstants[i];
+                            size instructionIndex = pEntity->pendingFunctionConstants[i];
                             Instruction& ins = state.pCurrentlyCompilingProgram->code[instructionIndex];
                             ins.constant = pEntity->constantValue;
                         }
@@ -541,7 +541,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
         case Ast::NodeKind::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             // Potentially wrong, but I think this is right
-            u32 loopStart = state.pCurrentlyCompilingProgram->code.count - 1;
+            size loopStart = state.pCurrentlyCompilingProgram->code.count - 1;
             CodeGenExpression(state, pWhile->pCondition);
 
             i32 ifJump = PushInstruction(state, pWhile->line, {
@@ -574,7 +574,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 // ***********************************************************************
 
 void CodeGenStatements(CodeGenState& state, ResizableArray<Ast::Statement*>& statements) {
-    for (usize i = 0; i < statements.count; i++) {
+    for (size i = 0; i < statements.count; i++) {
         Ast::Statement* pStmt = statements[i];
         CodeGenStatement(state, pStmt);
     }

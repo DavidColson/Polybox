@@ -96,7 +96,7 @@ bool ErrorState::ReportCompilationResult() {
 
         StringBuilder builder;
 
-        for (usize i = 0; i < errors.count; i++) {
+        for (size i = 0; i < errors.count; i++) {
             Error& err = errors[i];
             builder.AppendFormat("Error At: filename:%i:%i\n", err.line, err.pLocation - err.pLineStart);
 
@@ -863,7 +863,7 @@ void DebugStatement(Ast::Statement* pStmt, i32 indentationLevel) {
 // ***********************************************************************
 
 void DebugStatements(ResizableArray<Ast::Statement*>& statements, i32 indentationLevel) {
-    for (usize i = 0; i < statements.count; i++) {
+    for (size i = 0; i < statements.count; i++) {
         Ast::Statement* pStmt = statements[i];
         DebugStatement(pStmt, indentationLevel);
     }

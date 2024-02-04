@@ -1,8 +1,6 @@
 
 namespace Test {
 
-typedef u32 VMPtr;
-
 namespace OpCode {
 enum Enum : u8 {
 	Const,
@@ -29,8 +27,8 @@ struct InstructionHeader {
 
 struct VirtualMachine {
 	u8* pMemory; 
-	VMPtr stackBaseAddress; // This is an offset pointer from pMemory, stack works in 4 byte slots
-	VMPtr stackAddress; // This is an offset pointer from pMemory, stack works in 4 byte slots
+	u32 stackBaseAddress; // This is an offset pointer from pMemory, stack works in 4 byte slots
+	u32 stackAddress; // This is an offset pointer from pMemory, stack works in 4 byte slots
 	// Stack is going to be the back 1kb of memory
 };
 
@@ -46,11 +44,11 @@ inline void PushParam(ResizableArray<u32>& code, u32 param) {
 void Start() {
 	// Initialize virtual machine memory
 	
-	usize memorySize = 2 * 1024 * 1024; // Two megabytes
+	size memorySize = 2 * 1024 * 1024; // Two megabytes
 	VirtualMachine vm;
 	vm.pMemory = (u8*)g_Allocator.Allocate(memorySize);
 	defer(g_Allocator.Free(vm.pMemory));
-	vm.stackBaseAddress = memorySize - 1024 * 4; // Stack has 1024, 4 byte slots (must be kept to 4 byte alignment)
+	vm.stackBaseAddress = (u32)memorySize - 1024 * 4; // Stack has 1024, 4 byte slots (must be kept to 4 byte alignment)
 	vm.stackAddress = vm.stackBaseAddress; 
 
 	// Make some program by shoving manually created instructions i32o a list

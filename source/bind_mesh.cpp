@@ -123,7 +123,7 @@ int LoadMeshes(lua_State* pLua) {
     // Create a table, and put all these mesh userdatas in there.
     lua_createtable(pLua, (int)meshes.count, 0);
 
-    for (usize i = 0; i < meshes.count; i++) {
+    for (size i = 0; i < meshes.count; i++) {
         // Create a new userdata for our object
         Mesh** ppMesh = (Mesh**)lua_newuserdata(pLua, sizeof(Mesh*));
         *ppMesh = meshes[i];
@@ -150,7 +150,7 @@ int LoadTextures(lua_State* pLua) {
     // Create a table, and put all these mesh userdatas in there.
     lua_createtable(pLua, (int)images.count, 0);
 
-    for (usize i = 0; i < images.count; i++) {
+    for (size i = 0; i < images.count; i++) {
         // Create a new userdata for our object
         Image** ppImage = (Image**)lua_newuserdata(pLua, sizeof(Image*));
         *ppImage = images[i];

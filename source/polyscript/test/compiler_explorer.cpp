@@ -32,7 +32,7 @@ namespace SDL {
 
 
 namespace {
-    i32 selectedLine = 12;
+    size selectedLine = 12;
 }
 
 #define IMGUI_FLAGS_NONE        UINT8_C(0x00)
@@ -701,7 +701,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
 // ***********************************************************************
 
 void DrawAstStatements(ResizableArray<Ast::Statement*>& statements) {
-    for (usize i = 0; i < statements.count; i++) {
+    for (size i = 0; i < statements.count; i++) {
         Ast::Statement* pStmt = statements[i];
         DrawAstStatement(pStmt);
     }
@@ -717,8 +717,8 @@ void DrawByteCodeForProgram(Program* pProgram) {
     // TODO: Don't know function name
     //ImGui::Text("---- Function %s", pFunc->name.pData);
 
-    u32 currentLine = -1;
-    u32 lineCounter = 0;
+    size currentLine = -1;
+    size lineCounter = 0;
     StringBuilder builder;
 
     while (pInstructionPointer < pProgram->code.end()) {
@@ -728,7 +728,7 @@ void DrawByteCodeForProgram(Program* pProgram) {
 
         // TODO: Add some padding so operands are lined up nicely
         
-        builder.AppendFormat("%*d  ", (int)floor(log10(pProgram->code.count)), lineCounter);
+        builder.AppendFormat("%*d  ", (i64)floor(log10((f64)pProgram->code.count)), lineCounter);
         String instruction = DisassembleInstruction(pProgram, pInstructionPointer);
         defer(FreeString(instruction));
         builder.Append(instruction);
@@ -776,7 +776,7 @@ void DrawScopes(Scope* pScope) {
         if (ImGui::IsItemClicked()) { selectedLine = pScope->startLine-1; }
 
         // TODO: Should really make a hashmap iterator
-        for (usize i = 0; i < pScope->entities.tableSize; i++) { 
+        for (size i = 0; i < pScope->entities.tableSize; i++) { 
             HashNode<String, Entity*>& node = pScope->entities.pTable[i];
             if (node.hash != UNUSED_HASH) {
                 ImGuiTreeNodeFlags entityNodeFlags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
@@ -837,7 +837,7 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
         char* pCodeCurrent = compiler.code.pData;
         char* pCodeEnd = pCodeCurrent + compiler.code.length; 
 
-        i32 nLines = lines.count;
+        i64 nLines = lines.count;
 
         StringBuilder builder;
         char* pBuilderBasePtr = builder.pData;
@@ -869,7 +869,7 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
 
             // Draw line number
             builder.length = 0;
-            builder.AppendFormat("%*d  ", (int)floor(log10(nLines) + 1), i + 1);
+            builder.AppendFormat("%*d  ", (i64)floor(log10((f64)nLines) + 1), i + 1);
             lineNumberString = builder.ToExistingString(false, lineNumberString);
             pDrawList->AddText(cursorScreenPos, 0xffffffff, lineNumberString.pData, lineNumberString.pData + lineNumberString.length);
 

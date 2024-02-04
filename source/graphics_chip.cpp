@@ -4,6 +4,7 @@
 
 #include "image.h"
 
+#include <types.h>
 #include <matrix.inl>
 #include <vec2.inl>
 #include <vec3.inl>
@@ -339,7 +340,7 @@ void GraphicsChip::EndObject3D() {
             break;
         case EPrimitiveType::Triangles: {
             if (normalsModeState == ENormalsMode::Flat) {
-                for (usize i = 0; i < vertexState.count; i += 3) {
+                for (size i = 0; i < vertexState.count; i += 3) {
                     Vec3f v1 = vertexState[i + 1].pos - vertexState[i].pos;
                     Vec3f v2 = vertexState[i + 2].pos - vertexState[i].pos;
                     Vec3f faceNormal = Vec3f::Cross(v1, v2).GetNormalized();
@@ -362,7 +363,7 @@ void GraphicsChip::EndObject3D() {
                 defer(uniqueVerts.Free());
                 ResizableArray<u16> indices;
                 defer(indices.Free());
-                for (usize i = 0; i < vertexState.count; i++) {
+                for (size i = 0; i < vertexState.count; i++) {
                     VertexData* pVertData = uniqueVerts.Find(vertexState[i]);
                     if (pVertData == uniqueVerts.end()) {
                         // New vertex
@@ -374,7 +375,7 @@ void GraphicsChip::EndObject3D() {
                 }
 
                 // Then run your flat shading algo on the list of vertices looping through index list. If you have a new normal for a vert, then average with the existing one
-                for (usize i = 0; i < indices.count; i += 3) {
+                for (size i = 0; i < indices.count; i += 3) {
                     Vec3f v1 = uniqueVerts[indices[i + 1]].pos - uniqueVerts[indices[i]].pos;
                     Vec3f v2 = uniqueVerts[indices[i + 2]].pos - uniqueVerts[indices[i]].pos;
                     Vec3f faceNormal = Vec3f::Cross(v1, v2);
@@ -384,7 +385,7 @@ void GraphicsChip::EndObject3D() {
                     uniqueVerts[indices[i + 2]].norm += faceNormal;
                 }
 
-                for (usize i = 0; i < uniqueVerts.count; i++) {
+                for (size i = 0; i < uniqueVerts.count; i++) {
                     uniqueVerts[i].norm = uniqueVerts[i].norm.GetNormalized();
                 }
 
@@ -654,16 +655,16 @@ void GraphicsChip::DrawText(const char* text, Vec2f position, f32 size) {
 
 // ***********************************************************************
 
-void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, f32 size) {
+void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, f32 fontSize) {
     constexpr f32 baseSize = 32.0f;
 
     f32 textWidth = 0.0f;
     f32 x = position.x;
     f32 y = position.y;
-    Vec2f scale = Vec2f(size / baseSize, size / baseSize);
+    Vec2f scale = Vec2f(fontSize / baseSize, fontSize / baseSize);
 
     String stringText(text);
-    for (usize i = 0; i < stringText.length; i++) {
+    for (size i = 0; i < stringText.length; i++) {
         char c = *(stringText.pData + i);
         Character ch = pFont->characters[c];
         textWidth += ch.advance * scale.x;
@@ -671,7 +672,7 @@ void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Fon
 
     BindTexture(&pFont->fontTexture);
     BeginObject2D(EPrimitiveType::Triangles);
-    for (usize i = 0; i < stringText.length; i++) {
+    for (size i = 0; i < stringText.length; i++) {
         char c = *(stringText.pData + i);
         Character ch = pFont->characters[c];
 

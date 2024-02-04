@@ -49,7 +49,7 @@ bool CheckTypesIdentical(TypeInfo* pType1, TypeInfo* pType2) {
                 return false;
             }
         
-            for (usize i = 0; i < pFunc1->params.count; i++) {
+            for (size i = 0; i < pFunc1->params.count; i++) {
                 if (!CheckTypesIdentical(pFunc1->params[i], pFunc2->params[i])) {
                     return false;
                 }
@@ -95,7 +95,7 @@ TypeInfo* CopyTypeDeep(TypeInfo* pTypeInfo, IAllocator* pAlloc = &g_Allocator) {
             pNewFuncType->pReturnType = CopyTypeDeep(pFuncType->pReturnType, pAlloc);
 
             pNewFuncType->params = ResizableArray<TypeInfo*>(pAlloc);
-            for (usize i = 0; i < pFuncType->params.count; i++) {
+            for (size i = 0; i < pFuncType->params.count; i++) {
                 pNewFuncType->params.PushBack(CopyTypeDeep(pFuncType->params[i], pAlloc));
             }
             return pNewFuncType;
@@ -109,7 +109,7 @@ TypeInfo* CopyTypeDeep(TypeInfo* pTypeInfo, IAllocator* pAlloc = &g_Allocator) {
             pNewStructType->name = CopyString(pTypeInfo->name, pAlloc);
 
             pNewStructType->members = ResizableArray<TypeInfoStruct::Member>(pAlloc);
-            for (usize i = 0; i < pStructType->members.count; i++) {
+            for (size i = 0; i < pStructType->members.count; i++) {
                 TypeInfoStruct::Member newMember;
                 newMember.identifier = CopyString(pStructType->members[i].identifier, pAlloc);
                 newMember.pType = CopyTypeDeep(pStructType->members[i].pType, pAlloc);

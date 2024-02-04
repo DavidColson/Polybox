@@ -54,7 +54,7 @@ struct TypeInfo {
 	}
 
     TypeTag tag = TypeTag::Void;
-    usize size = 0;
+    size size = 0;
     String name;
 };
 

@@ -67,10 +67,10 @@ struct Instruction {
         // Mostly for convenience and readability of the VM code.
         Value constant;
         TypeInfo::TypeTag type;
-        u64 ipOffset;
-        u64 nArgs;
-        u64 stackIndex;
-        u64 size;
+        size ipOffset;
+        size nArgs;
+        size stackIndex;
+        size size;
         struct {
             u32 fieldSize;
             u32 fieldOffset;

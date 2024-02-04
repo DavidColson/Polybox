@@ -7,6 +7,7 @@ project "polyscript"
 	cppdialect "C++20"
 	exceptionhandling "Off"
 	rtti "Off"
+	flags { "FatalWarnings" }
 	files 
 	{
 		"*.cpp",
@@ -37,6 +38,7 @@ project "polyscript_tests"
 	exceptionhandling "Off"
 	rtti "Off"
 	debugdir "test"
+	flags { "FatalWarnings" }
 	files 
 	{
 		"test/main.cpp",

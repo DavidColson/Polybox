@@ -65,6 +65,7 @@ solution "polybox"
         exceptionhandling "Off"
         rtti "Off"
         debugdir ""
+		flags { "FatalWarnings" }
         files 
         {
             "source/*.cpp",

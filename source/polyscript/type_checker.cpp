@@ -193,7 +193,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
     pFunctionTypeInfo->size = 8;
     pFunctionTypeInfo->params = ResizableArray<TypeInfo*>(state.pAllocator);
 
-    for (usize i = 0; i < pFuncType->params.count; i++) {
+    for (size i = 0; i < pFuncType->params.count; i++) {
         TypeInfo* pParamType = nullptr;
         if (pFuncType->params[i]->nodeKind == Ast::NodeKind::Identifier) {
             Ast::Identifier* pParam = (Ast::Identifier*)pFuncType->params[i];
@@ -559,15 +559,15 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             }
             
             TypeInfoFunction* pFunctionType = (TypeInfoFunction*)pCall->pCallee->pType;
-            i32 argsCount = pCall->args.count;
-            i32 paramsCount = pFunctionType->tag == TypeInfo::TypeTag::Void ? 0 : pFunctionType->params.count;
+            size argsCount = pCall->args.count;
+            size paramsCount = pFunctionType->tag == TypeInfo::TypeTag::Void ? 0 : pFunctionType->params.count;
             if (pCall->args.count != pFunctionType->params.count) {
                 Ast::Identifier* pVar = (Ast::Identifier*)pCall->pCallee;
                 state.pErrors->PushError(pCall, "Mismatched number of arguments in call to function '%s', expected %i, got %i", pVar->identifier.pData, paramsCount, argsCount);
             }
 
-            i32 minArgs = argsCount > paramsCount ? paramsCount : argsCount;
-            for (usize i = 0; i < minArgs; i++) {
+            size minArgs = argsCount > paramsCount ? paramsCount : argsCount;
+            for (size i = 0; i < minArgs; i++) {
                 Ast::Expression* arg = pCall->args[i];
                 TypeInfo* pArgType = pFunctionType->params[i];
                 if (!CheckTypesIdentical(arg->pType, pArgType)) {
@@ -595,7 +595,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pTargetTypeInfo;
 
-			for (usize i = 0; i < pTargetType->members.count; i++) {
+			for (size i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
 				if (mem.identifier == pGetField->fieldName) {
 					pGetField->pType = mem.pType;
@@ -625,7 +625,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pTargetTypeInfo;
 			TypeInfoStruct::Member* pTargetField = nullptr;
-			for (usize i = 0; i < pTargetType->members.count; i++) {
+			for (size i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
 				if (mem.identifier == pSetField->fieldName) {
 					pTargetField = &pTargetType->members[i];
@@ -821,7 +821,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             TypeCheckStatements(state, pBlock->declarations);
             state.pCurrentScope = pBlock->pScope->pParent;
 
-            for (usize i = 0; i < pBlock->pScope->entities.tableSize; i++) { 
+            for (size i = 0; i < pBlock->pScope->entities.tableSize; i++) { 
                 HashNode<String, Entity*>& node = pBlock->pScope->entities.pTable[i];
                 if (node.hash != UNUSED_HASH) {
                     Entity* pEntity = node.value;
@@ -844,7 +844,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
 // ***********************************************************************
 
 void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program) {
-    for (usize i = 0; i < program.count; i++) {
+    for (size i = 0; i < program.count; i++) {
         Ast::Statement* pStmt = program[i];
         TypeCheckStatement(state, pStmt);
     }
@@ -871,7 +871,7 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
         case Ast::NodeKind::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             CollectEntitiesInExpression(state, pCall->pCallee);
-            for (usize i = 0; i < pCall->args.count; i++) {
+            for (size i = 0; i < pCall->args.count; i++) {
                 CollectEntitiesInExpression(state, pCall->args[i]);
             }
             break;
@@ -910,7 +910,7 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             pFuncType->pScope->endLine = pFuncType->line;
 
             state.pCurrentScope = pFuncType->pScope;
-            for (usize i = 0; i < pFuncType->params.count; i++) {
+            for (size i = 0; i < pFuncType->params.count; i++) {
                 if (pFuncType->params[i]->nodeKind == Ast::NodeKind::Identifier) {
                     CollectEntitiesInExpression(state, (Ast::Expression*)pFuncType->params[i]);
                 } else if (pFuncType->params[i]->nodeKind == Ast::NodeKind::Declaration) {
@@ -929,7 +929,7 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             pStruct->pScope->endLine = pStruct->endToken.line;
 
             state.pCurrentScope = pStruct->pScope;
-            for (usize i = 0; i < pStruct->members.count; i++) {
+            for (size i = 0; i < pStruct->members.count; i++) {
                 CollectEntitiesInStatement(state, pStruct->members[i]);
             }
             state.pCurrentScope = pStruct->pScope->pParent;
@@ -942,7 +942,7 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             pFunction->pScope->endLine = pFunction->line;
 
             state.pCurrentScope = pFunction->pScope;
-            for (usize i = 0; i < pFunction->pFuncType->params.count; i++) {
+            for (size i = 0; i < pFunction->pFuncType->params.count; i++) {
                 if (pFunction->pFuncType->params[i]->nodeKind == Ast::NodeKind::Identifier) {
                     CollectEntitiesInExpression(state, (Ast::Expression*)pFunction->pFuncType->params[i]);
                 } else if (pFunction->pFuncType->params[i]->nodeKind == Ast::NodeKind::Declaration) {
@@ -1069,7 +1069,7 @@ void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) 
 // ***********************************************************************
 
 void CollectEntities(TypeCheckerState& state, ResizableArray<Ast::Statement*>& statements) {
-    for (usize i = 0; i < statements.count; i++) {
+    for (size i = 0; i < statements.count; i++) {
         Ast::Statement* pStmt = statements[i];
         CollectEntitiesInStatement(state, pStmt);
     }

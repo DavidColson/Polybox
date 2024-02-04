@@ -16,7 +16,7 @@
 
 struct CallFrame {
     Instruction* pInstructionPointer { nullptr };
-    i32 stackBaseIndex{ 0 };
+    size stackBaseIndex{ 0 };
 };
 
 struct VirtualMachine {
@@ -225,8 +225,8 @@ void DisassembleProgram(Compiler& compilerState) {
     String line = CopyCStringRange(pLineStart, pCurrent);
     lines.PushBack(line);
 
-    u32 lineCounter = 0;
-    u32 currentLine = -1;
+    size lineCounter = 0;
+    size currentLine = -1;
 
 
 	// Run through the code printing instructions

@@ -3,13 +3,14 @@ namespace Test {
 
 namespace OpCode {
 enum Enum : u8 {
-	Const,
-	Load,
-	Store,
-	Drop,
-	Copy,
-	Add,
-	Print
+	// OpCode 	 | Followed By 						| Stack (right is top of stack)					
+	Const,		// 32bit value 						| [] -> [value] 
+	Load,		// 16bit offset						| [address] -> [value]
+	Store,		// 16bit offset						| [value][address] -> []
+	Drop,		// --								| [value] -> []
+	Copy,		// 16bit dest off, 16bit src off 	| [srcAddress][destAddress][size] -> []
+	Add,		// --								| [value][value] -> [value]
+	Print		// --								| [value] -> []
 };
 }
 
@@ -18,11 +19,10 @@ enum Enum : u8 {
 // Then n number of other arguments, which are 4 bytes each
 
 // TODO FOR DAVE: You could actually reduce this to 16 bits you know, header is opcode + type, then params for many things would 32 bit or 16 bit, very little wasted space
-// 32 bits, maximum!
+// 16 bits, maximum!
 struct InstructionHeader {
 	OpCode::Enum opcode;
 	TypeInfo::TypeTag type;
-	TypeInfo::TypeTag type2; // Used for cast operations when you need a to and a from type
 };
 
 struct VirtualMachine {
@@ -32,13 +32,20 @@ struct VirtualMachine {
 	// Stack is going to be the back 1kb of memory
 };
 
-inline void PushInstruction(ResizableArray<u32>& code, InstructionHeader header) {
-	code.PushBack(u32(0));
+#define GetOperand32bit(ptr) ((ptr[1] << 16) | ptr[2]); ptr += 2;
+
+inline void PushInstruction(ResizableArray<u16>& code, InstructionHeader header) {
+	code.PushBack(u16(0));
 	memcpy(&code.pData[code.count-1], &header, sizeof(InstructionHeader)); 
 }
 
-inline void PushParam(ResizableArray<u32>& code, u32 param) {
+inline void PushParam16bit(ResizableArray<u16>& code, u16 param) {
 	code.PushBack(param);
+}
+
+inline void PushParam32bit(ResizableArray<u16>& code, u32 param) {
+	code.PushBack(u16(param >> 16));
+	code.PushBack(u16(param));
 }
 
 void Start() {
@@ -52,15 +59,10 @@ void Start() {
 	vm.stackAddress = vm.stackBaseAddress; 
 
 	// Make some program by shoving manually created instructions i32o a list
-	ResizableArray<u32> code;
+	ResizableArray<u16> code;
 	defer(code.Free());
 	
 	if (1) {
-		// Example Program 5: Can we implement pointers with this instruction set?
-		
-	}
-
-	if (0) {
 		// Example Program 4: Store two structs on the stack, set one as the member of another, and read some value in it
 		
 		// TestStruct :: struct {
@@ -85,38 +87,38 @@ void Start() {
 		// print(largeInstance.inner.intMember2); // 321
 
 		// Size is 12, so must do 3 loads of zero
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
 
 		// Set the first member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(1337)); 		// Push the value we want to set in the struct member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000)); 	// Push target struct address
-		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, u32(0));			// Store the value at effective address struct + offset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 1337); 		// Push the value we want to set in the struct member
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff000); 	// Push target struct address
+		PushInstruction(code, {.opcode = OpCode::Store }); PushParam16bit(code, 0);			// Store the value at effective address struct + offset
 
 		// Set the second member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(321)); 			// Push the value we want to set in the struct member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000)); 	// Push target struct (from traversing the codegen for the target) 
-		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, u32(4));			// Store the value at the effective address struct + offset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 321); 			// Push the value we want to set in the struct member
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff000); 	// Push target struct (from traversing the codegen for the target) 
+		PushInstruction(code, {.opcode = OpCode::Store }); PushParam16bit(code, 4);			// Store the value at the effective address struct + offset
 
 		// Next struct is size is 20, so must do 5 loads of zero
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
 
 		// Push the two structs onto the stack, and then copy one to the other
 		// CODEGEN CHANGE: If the target field is a struct, then you must do this copy instead of a store
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000)); 	// Push the source struct to be copied in
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff00c)); 	// Push the destination (target struct)
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(12)); 			// Push the size of the copy
-		PushInstruction(code, {.opcode = OpCode::Copy }); PushParam(code, (u32(4) << 16) | u32(0)); // Copy, params are destOffset, srcOffset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff000); 	// Push the source struct to be copied in
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff00c); 	// Push the destination (target struct)
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 12); 			// Push the size of the copy
+		PushInstruction(code, {.opcode = OpCode::Copy }); PushParam16bit(code, 4); PushParam16bit(code, 0); // Copy, params are destOffset, srcOffset
 
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff00c));		// From a identifier node, knowing the local is a struct
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(4));			// From a GetField node which knows that it's target field is a struct (the GetFieldPtr codepath) so it can't do a load here, and will do this offset add instead 		
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff00c);		// From a identifier node, knowing the local is a struct
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 4);			// From a GetField node which knows that it's target field is a struct (the GetFieldPtr codepath) so it can't do a load here, and will do this offset add instead 		
 		PushInstruction(code, {.opcode = OpCode::Add });											// Second part of the above GetField node, should leave an address on the stack to the inner field struct
-		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, u32(4));				// The second, inner GetField node has a targetfield which is a value, so it will do a load as normal
+		PushInstruction(code, {.opcode = OpCode::Load }); PushParam16bit(code, 4);				// The second, inner GetField node has a targetfield which is a value, so it will do a load as normal
 
 		PushInstruction(code, {.opcode = OpCode::Print });											// Push what's left on the stack (the value 321)
 	}
@@ -126,9 +128,9 @@ void Start() {
 		// Example Program 3: Store a struct on the stack, set and get members in it
 
 		// Size is 12, so must do 3 loads of zero
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0);
 
 		// Question: When we're doing codegen to get the local of the struct, how do we know to do just the address and not load the actual value?
 		// CODEGEN CHANGE: The variable ast node can be used to acquire the entity which will have this information, so probably easiest to store it in locals tracking
@@ -136,18 +138,18 @@ void Start() {
 
 		// CODEGEN CHANGE: Note for codegen you also need to swap the order in which target and assignment are generated in the assignment generator node
 		// Set the first member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(1337)); 		// Push the value we want to set in the struct member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000)); 	// Push target struct member address
-		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, u32(0));			// Store the value at effective address struct + offset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 1337); 		// Push the value we want to set in the struct member
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff000); 	// Push target struct member address
+		PushInstruction(code, {.opcode = OpCode::Store }); PushParam16bit(code, 0);			// Store the value at effective address struct + offset
 
 		// Set the second member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(321)); 			// Push the value we want to set in the struct member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000)); 	// Push target struct (from traversing the codegen for the target) 
-		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, u32(4));			// Store the value at the effective address struct + offset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 321); 			// Push the value we want to set in the struct member
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff000); 	// Push target struct (from traversing the codegen for the target) 
+		PushInstruction(code, {.opcode = OpCode::Store }); PushParam16bit(code, 4);			// Store the value at the effective address struct + offset
 		
 		// Get the second member and print
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000));		// Push the struct pointer (from codegen it's target field) 
-		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, u32(4));				// Load the member at given offset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff000);		// Push the struct pointer (from codegen it's target field) 
+		PushInstruction(code, {.opcode = OpCode::Load }); PushParam16bit(code, 4);				// Load the member at given offset
 
 		PushInstruction(code, {.opcode = OpCode::Print });											// Push what's left on the stack (the value 321)
 	}
@@ -161,94 +163,94 @@ void Start() {
 		// var := 5;
 		// var = var + 2;
 		// print(var);
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(5));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 5);
 		
 		// Push address for next load
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000));
-		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff000);
+		PushInstruction(code, {.opcode = OpCode::Load }); PushParam16bit(code, 0);
 
-		PushInstruction(code, {.opcode = OpCode::Const}); PushParam(code, u32(2));
+		PushInstruction(code, {.opcode = OpCode::Const}); PushParam32bit(code, 2);
 
 		PushInstruction(code, {.opcode = OpCode::Add });
 		
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000));
-		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff000);
+		PushInstruction(code, {.opcode = OpCode::Store }); PushParam16bit(code, 0);
 		
 		// Not done here, but usually the setting a local will leave the local on the stack, so you'd have to do a const + load here, then the expression statement will put in a "drop"
 
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000));
-		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 0x1ff000);
+		PushInstruction(code, {.opcode = OpCode::Load }); PushParam16bit(code, 0);
 
 		PushInstruction(code, {.opcode = OpCode::Print });
 	}
 
 	if (0) {
 		// Example program 1; Pushes two constants to the stack adds them and prints them
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(1337));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 1337);
 
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(1337));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam32bit(code, 1337);
 
 		PushInstruction(code, {.opcode = OpCode::Add });
 
 		PushInstruction(code, {.opcode = OpCode::Print });
 	}
 	// Create a little VM loop
-	u32* pEndInstruction = code.end();
-	u32* pInstruction = code.pData;
+	u16* pEndInstruction = code.end();
+	u16* pInstruction = code.pData;
 	while(pInstruction < pEndInstruction) {
 		InstructionHeader* pHeader = (InstructionHeader*)pInstruction;
 		switch(pHeader->opcode) {
 			case OpCode::Const: {
 				// Push immediate value ontop of stack
-				u32 value = *(++pInstruction);
+				u32 value = GetOperand32bit(pInstruction);
+
+				// TODO: Macro for push value onto stack which will calculate the slot, write it and increment
 
 				// This is the first part of "push" (loads the value i32o the right slot)
 				// Get address of stack slot and cast to appropriate type
 				u32* targetStackSlot = (u32*)(vm.pMemory + vm.stackAddress);
 				*targetStackSlot = value;
-
-				// Second part, increment stack pointer
-				// increment 1 slot
 				vm.stackAddress += 4; 
 				break;
 			}
 			case OpCode::Load: {
 				// Instruction arg is a memory offset
-				u32 offset = *(++pInstruction);
+				u16 offset = *(++pInstruction);
+
+				// TODO: Macro to pop address item off stack and decrement, this will get the item, and then do the address and offset calculation in one go
 
 				// Pop the source address operand off the stack
 				vm.stackAddress -= 4;
 				u32* pSourceAddress = (u32*)(vm.pMemory + vm.stackAddress);
-
 				int* pSource = (int*)(vm.pMemory + *pSourceAddress + offset);
-
+				
+				// TODO: Macro to push value onto stack here (value being *pSource)
 				int* pStackTop = (int*)(vm.pMemory + vm.stackAddress);
 				*pStackTop = *pSource;
-				
 				vm.stackAddress += 4;
 				break;
 			}
 			case OpCode::Store: {
+				// TODO: Macro to get 16 bit param
 				// Instruction arg is a memory offset
-				u32 offset = *(++pInstruction);
+				u16 offset = *(++pInstruction);
 
 				// Pop the target memory address off the stack
 				vm.stackAddress -= 4;
 				u32* pDestAddress = (u32*)(vm.pMemory + vm.stackAddress);
+				int* pDest = (int*)(vm.pMemory + *pDestAddress + offset);
 
+				// TODO: Macro to pop a value off the stack, with deref
 				// Pop the value to store off top of stack 
 				vm.stackAddress -= 4;
 				int* pValue = (int*)(vm.pMemory + vm.stackAddress);
-
-				int* pDest = (int*)(vm.pMemory + *pDestAddress + offset);
 
 				*pDest = *pValue;
 				break;
 			}
 			case OpCode::Copy: {
-				u32 params = *(++pInstruction);
-				u16 srcOffset = (u16)params;
-				u16 desOffset = params >> 16;
+				u16 desOffset = *(++pInstruction);
+				u16 srcOffset = *(++pInstruction);
 				
 				// Pop the size off the stack
 				vm.stackAddress -= 4;
@@ -257,12 +259,12 @@ void Start() {
 				// Pop the destination address off the stack
 				vm.stackAddress -= 4;
 				u32* pDestAddress = (u32*)(vm.pMemory + vm.stackAddress);
-				int* pDest = (int*)(vm.pMemory + *pDestAddress + desOffset);
+				int* pDest = (int*)(vm.pMemory + (*pDestAddress) + desOffset);
 
 				// Pop the source address off the stack
 				vm.stackAddress -= 4;
 				u32* pSrcAddress = (u32*)(vm.pMemory + vm.stackAddress);
-				int* pSrc = (int*)(vm.pMemory + *pSrcAddress + srcOffset);
+				int* pSrc = (int*)(vm.pMemory + (*pSrcAddress) + srcOffset);
 
 				memcpy(pDest, pSrc, *pSize);
 				break;

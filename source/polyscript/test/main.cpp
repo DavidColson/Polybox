@@ -795,8 +795,8 @@ void Constants() {
 }
 
 int main(int argc, char *argv[]) {
-	// Test::Start();
-	// return 0;
+	Test::Start();
+	return 0;
 
 	// TODO: Move to program structure
     InitTypeTable();

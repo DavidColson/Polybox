@@ -13,7 +13,7 @@
 #include <SDL_rwops.h>
 #include <resizable_array.inl>
 
-uint64_t Node::s_nodeIdCounter = 0;
+u64 Node::s_nodeIdCounter = 0;
 
 // ***********************************************************************
 
@@ -139,7 +139,7 @@ Node* Scene::GetNode(int index) {
 
 void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& outNodes, JsonValue& nodeToParse, JsonValue& nodesData) {
     for (int i = 0; i < nodeToParse.Count(); i++) {
-        int nodeId = nodeToParse[i].ToInt();
+        i32 nodeId = nodeToParse[i].ToInt();
         JsonValue& jsonNode = nodesData[nodeId];
 
         // extract the nodes
@@ -162,10 +162,10 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& o
 
         if (jsonNode.HasKey("rotation")) {
             Quatf rotation;
-            rotation.x = float(jsonNode["rotation"][0].ToFloat());
-            rotation.y = float(jsonNode["rotation"][1].ToFloat());
-            rotation.z = float(jsonNode["rotation"][2].ToFloat());
-            rotation.w = float(jsonNode["rotation"][3].ToFloat());
+            rotation.x = f32(jsonNode["rotation"][0].ToFloat());
+            rotation.y = f32(jsonNode["rotation"][1].ToFloat());
+            rotation.z = f32(jsonNode["rotation"][2].ToFloat());
+            rotation.w = f32(jsonNode["rotation"][3].ToFloat());
             node.SetLocalRotation(rotation);
         } else {
             node.SetLocalRotation(Quatf::Identity());
@@ -173,9 +173,9 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& o
 
         if (jsonNode.HasKey("translation")) {
             Vec3f translation;
-            translation.x = float(jsonNode["translation"][0].ToFloat());
-            translation.y = float(jsonNode["translation"][1].ToFloat());
-            translation.z = float(jsonNode["translation"][2].ToFloat());
+            translation.x = f32(jsonNode["translation"][0].ToFloat());
+            translation.y = f32(jsonNode["translation"][1].ToFloat());
+            translation.z = f32(jsonNode["translation"][2].ToFloat());
             node.SetLocalPosition(translation);
         } else {
             node.SetLocalPosition(Vec3f(0.0f));
@@ -183,9 +183,9 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& o
 
         if (jsonNode.HasKey("scale")) {
             Vec3f scale;
-            scale.x = float(jsonNode["scale"][0].ToFloat());
-            scale.y = float(jsonNode["scale"][1].ToFloat());
-            scale.z = float(jsonNode["scale"][2].ToFloat());
+            scale.x = f32(jsonNode["scale"][0].ToFloat());
+            scale.y = f32(jsonNode["scale"][1].ToFloat());
+            scale.z = f32(jsonNode["scale"][2].ToFloat());
             node.SetLocalScale(scale);
         } else {
             node.SetLocalScale(Vec3f(1.0f));
@@ -204,7 +204,7 @@ Scene* Scene::LoadScene(const char* filePath) {
 
     Scene* pScene = new Scene();  // TODO: Use our allocators
 
-    uint64_t size = SDL_RWsize(pFileRead);
+    u64 size = SDL_RWsize(pFileRead);
     char* pData = (char*)g_Allocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);

@@ -36,13 +36,13 @@ struct CodeGenState {
 };
 }
 
-void PushFunctionDbgInfo(CodeGenState& state, int functionEntryIndex, String name, TypeInfo* pType) {
+void PushFunctionDbgInfo(CodeGenState& state, i32 functionEntryIndex, String name, TypeInfo* pType) {
 	state.pCurrentlyCompilingProgram->dbgFunctionInfo.Add(functionEntryIndex, {name, pType});
 }
 
 // ***********************************************************************
 
-int PushInstruction(CodeGenState& state, uint32_t line, Instruction instruction, TypeInfo::TypeTag tag = TypeInfo::TypeTag::Invalid) {
+int PushInstruction(CodeGenState& state, u32 line, Instruction instruction, TypeInfo::TypeTag tag = TypeInfo::TypeTag::Invalid) {
     state.pCurrentlyCompilingProgram->code.PushBack(instruction);
     state.pCurrentlyCompilingProgram->dbgLineInfo.PushBack(line);
 	if (tag != TypeInfo::TypeTag::Invalid) {
@@ -101,7 +101,7 @@ int ResolveLocal(CodeGenState& state, String name) {
 
 // ***********************************************************************
 
-void PatchJump(CodeGenState& state, int jumpInstructionIndex) {
+void PatchJump(CodeGenState& state, i32 jumpInstructionIndex) {
     state.pCurrentlyCompilingProgram->code[jumpInstructionIndex].ipOffset = state.pCurrentlyCompilingProgram->code.count - 1; 
 }
 
@@ -168,7 +168,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
                 }
             } else {
                 // do a load from locals memory
-                int localIndex = ResolveLocal(state, pVariable->identifier);
+                i32 localIndex = ResolveLocal(state, pVariable->identifier);
                 if (localIndex != -1) {
                     PushInstruction(state, pVariable->line, {
                         .opcode     = OpCode::PushLocal,
@@ -180,7 +180,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
         case Ast::NodeKind::VariableAssignment: {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
             CodeGenExpression(state, pVarAssignment->pAssignment);
-            int localIndex = ResolveLocal(state, pVarAssignment->pIdentifier->identifier);
+            i32 localIndex = ResolveLocal(state, pVarAssignment->pIdentifier->identifier);
             if (localIndex != -1) {
                 PushInstruction(state, pVarAssignment->line, {
                     .opcode     = OpCode::SetLocal,
@@ -196,7 +196,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSetField->pTarget->pType;
 			TypeInfoStruct::Member* pTargetField = nullptr;
-			for (size_t i = 0; i < pTargetType->members.count; i++) {
+			for (usize i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
 				if (mem.identifier == pSetField->fieldName) {
 					pTargetField = &pTargetType->members[i];
@@ -207,13 +207,13 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
                 PushInstruction(state, pSetField->line, {
                     .opcode          = OpCode::SetFieldPtr,
-                    .fieldSize       = (uint32_t)pTargetField->pType->size,
-                    .fieldOffset     = (uint32_t)pTargetField->offset });
+                    .fieldSize       = (u32)pTargetField->pType->size,
+                    .fieldOffset     = (u32)pTargetField->offset });
 			} else {
                 PushInstruction(state, pSetField->line, {
                     .opcode          = OpCode::SetField,
-                    .fieldSize       = (uint32_t)pTargetField->pType->size,
-                    .fieldOffset     = (uint32_t)pTargetField->offset });
+                    .fieldSize       = (u32)pTargetField->pType->size,
+                    .fieldOffset     = (u32)pTargetField->offset });
 			}
 			break;
 		}
@@ -224,7 +224,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pGetField->pTarget->pType;
 			TypeInfoStruct::Member* pTargetField = nullptr;
-			for (size_t i = 0; i < pTargetType->members.count; i++) {
+			for (usize i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
 				if (mem.identifier == pGetField->fieldName) {
 					pTargetField = &pTargetType->members[i];
@@ -235,13 +235,13 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
 				PushInstruction(state, pGetField->line, {
                     .opcode          = OpCode::PushFieldPtr,
-                    .fieldSize       = (uint32_t)pTargetField->pType->size,
-                    .fieldOffset     = (uint32_t)pTargetField->offset });
+                    .fieldSize       = (u32)pTargetField->pType->size,
+                    .fieldOffset     = (u32)pTargetField->offset });
 			} else {
 				PushInstruction(state, pGetField->line, {
                     .opcode          = OpCode::PushField,
-                    .fieldSize       = (uint32_t)pTargetField->pType->size,
-                    .fieldOffset     = (uint32_t)pTargetField->offset });
+                    .fieldSize       = (u32)pTargetField->pType->size,
+                    .fieldOffset     = (u32)pTargetField->offset });
 			}
 			break;
 		}
@@ -256,7 +256,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
 
             // Push jump to skip over function code
-            int jump = PushInstruction(state, pFunction->pBody->startToken.line, {
+            i32 jump = PushInstruction(state, pFunction->pBody->startToken.line, {
                 .opcode = OpCode::Jmp,
                 .ipOffset = 0 });
                 
@@ -266,7 +266,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             
             // Store function start IP in entity
             // Next instruction will be the start of the function
-            int initialIPOffset = state.pCurrentlyCompilingProgram->code.count;
+            i32 initialIPOffset = state.pCurrentlyCompilingProgram->code.count;
             
             // codegen the function
             CodeGenFunction(state, pFunction->pType->name, pFunction);
@@ -296,7 +296,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             if (pBinary->op == Operator::And) {
                 CodeGenExpression(state, pBinary->pLeft);
 
-                int andJump = PushInstruction(state, pBinary->line, {
+                i32 andJump = PushInstruction(state, pBinary->line, {
                     .opcode = OpCode::JmpIfFalse,
                     .ipOffset = 0 });
                 PushInstruction(state, pBinary->line, { .opcode = OpCode::Pop });
@@ -307,7 +307,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
             if (pBinary->op == Operator::Or) {
                 CodeGenExpression(state, pBinary->pLeft);
-                int andJump = PushInstruction(state, pBinary->line, {
+                i32 andJump = PushInstruction(state, pBinary->line, {
                     .opcode = OpCode::JmpIfTrue,
                     .ipOffset = 0 });
                 PushInstruction(state, pBinary->line, { .opcode = OpCode::Pop });
@@ -373,7 +373,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
 			CodeGenExpression(state, pCast->pExprToCast);
 
-            int index = PushInstruction(state, pCast->line, { .opcode = OpCode::Cast});
+            i32 index = PushInstruction(state, pCast->line, { .opcode = OpCode::Cast});
             Instruction* pCastInstruction = &state.pCurrentlyCompilingProgram->code[index];
 
 			if (pCast->pExprToCast->pType == GetI32Type()) {
@@ -432,7 +432,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                     if (pEntity) {
                         
                         // Push jump to skip over function code
-                        int jump = PushInstruction(state, pFunction->pBody->startToken.line, {
+                        i32 jump = PushInstruction(state, pFunction->pBody->startToken.line, {
                             .opcode = OpCode::Jmp,
                             .ipOffset = 0 });
                             
@@ -442,7 +442,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                         
                         // Store function start IP in entity
                         // Next instruction will be the start of the function
-                        int initialIPOffset = state.pCurrentlyCompilingProgram->code.count;
+                        i32 initialIPOffset = state.pCurrentlyCompilingProgram->code.count;
                         
                         // codegen the function
                         CodeGenFunction(state, pEntity->name, pFunction);
@@ -455,7 +455,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                         
                         // Loop through pending function constants and correct them
                         for (int i=0; i < pEntity->pendingFunctionConstants.count; i++) {
-                            uint32_t instructionIndex = pEntity->pendingFunctionConstants[i];
+                            u32 instructionIndex = pEntity->pendingFunctionConstants[i];
                             Instruction& ins = state.pCurrentlyCompilingProgram->code[instructionIndex];
                             ins.constant = pEntity->constantValue;
                         }
@@ -515,14 +515,14 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
             Ast::If* pIf = (Ast::If*)pStmt;
             CodeGenExpression(state, pIf->pCondition);
 
-            int ifJump = PushInstruction(state, pIf->line, {
+            i32 ifJump = PushInstruction(state, pIf->line, {
                 .opcode = OpCode::JmpIfFalse,
                 .ipOffset = 0 });
             PushInstruction(state, pIf->pThenStmt->line, { .opcode = OpCode::Pop });
 
             CodeGenStatement(state, pIf->pThenStmt);
             if (pIf->pElseStmt) {
-                int elseJump = PushInstruction(state, pIf->pElseStmt->line, {
+                i32 elseJump = PushInstruction(state, pIf->pElseStmt->line, {
                     .opcode = OpCode::Jmp,
                     .ipOffset = 0 });
                 PatchJump(state, ifJump);
@@ -541,10 +541,10 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
         case Ast::NodeKind::While: {
             Ast::While* pWhile = (Ast::While*)pStmt;
             // Potentially wrong, but I think this is right
-            uint32_t loopStart = state.pCurrentlyCompilingProgram->code.count - 1;
+            u32 loopStart = state.pCurrentlyCompilingProgram->code.count - 1;
             CodeGenExpression(state, pWhile->pCondition);
 
-            int ifJump = PushInstruction(state, pWhile->line, {
+            i32 ifJump = PushInstruction(state, pWhile->line, {
                 .opcode = OpCode::JmpIfFalse,
                 .ipOffset = 0 });
             PushInstruction(state, pWhile->line, { .opcode = OpCode::Pop });
@@ -574,7 +574,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 // ***********************************************************************
 
 void CodeGenStatements(CodeGenState& state, ResizableArray<Ast::Statement*>& statements) {
-    for (size_t i = 0; i < statements.count; i++) {
+    for (usize i = 0; i < statements.count; i++) {
         Ast::Statement* pStmt = statements[i];
         CodeGenStatement(state, pStmt);
     }

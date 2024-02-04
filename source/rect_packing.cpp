@@ -26,22 +26,22 @@ struct SortToOriginalOrder {
 
 // ***********************************************************************
 
-void Packing::RowPackRects(ResizableArray<Rect>& rects, int width, int height) {
-    for (size_t i = 0; i < rects.count; i++) {
+void Packing::RowPackRects(ResizableArray<Rect>& rects, i32 width, i32 height) {
+    for (usize i = 0; i < rects.count; i++) {
         rects[i].ordering = (int)i;
     }
 
     Sort(rects.pData, rects.count, SortByHeight());
 
-    int xPos = 0;
-    int yPos = 0;
+    i32 xPos = 0;
+    i32 yPos = 0;
 
-    int largestHThisRow = 0;
+    i32 largestHThisRow = 0;
 
     // Pack from left to right on a row
-    int maxX = 0;
-    int maxY = 0;
-    int totalArea = 0;
+    i32 maxX = 0;
+    i32 maxY = 0;
+    i32 totalArea = 0;
 
     for (Rect& rect : rects) {
         if ((xPos + rect.w) > width) {
@@ -70,22 +70,22 @@ void Packing::RowPackRects(ResizableArray<Rect>& rects, int width, int height) {
 // ***********************************************************************
 
 struct SkylineNode {
-    int x, y, width;
+    i32 x, y, width;
 };
 
-int CanRectFit(ResizableArray<SkylineNode>& nodes, int atNode, int rectWidth, int rectHeight, int width, int height) {
+i32 CanRectFit(ResizableArray<SkylineNode>& nodes, i32 atNode, i32 rectWidth, i32 rectHeight, i32 width, i32 height) {
     // See if there's space for this rect at node "atNode"
 
-    int x = nodes[atNode].x;
-    int y = nodes[atNode].y;
+    i32 x = nodes[atNode].x;
+    i32 y = nodes[atNode].y;
     if (x + rectWidth > width)  // Check we're not going off the end of the image
         return -1;
 
 
     // We're going to loop over all the nodes from atNode to however many this new rect "covers"
     // We want to find the highest rect underneath this rect to place it at.
-    int remainingSpace = rectWidth;
-    int i = atNode;
+    i32 remainingSpace = rectWidth;
+    i32 i = atNode;
     while (remainingSpace > 0) {
         if (i == nodes.count)
             return -1;
@@ -105,17 +105,17 @@ int CanRectFit(ResizableArray<SkylineNode>& nodes, int atNode, int rectWidth, in
 
 // ***********************************************************************
 
-void Packing::SkylinePackRects(ResizableArray<Rect>& rects, int width, int height) {
-    for (size_t i = 0; i < rects.count; i++) {
+void Packing::SkylinePackRects(ResizableArray<Rect>& rects, i32 width, i32 height) {
+    for (usize i = 0; i < rects.count; i++) {
         rects[i].ordering = (int)i;
     }
 
     // Sort by a heuristic
     Sort(rects.pData, rects.count, SortByHeight());
 
-    int maxX = 0;
-    int maxY = 0;
-    int totalArea = 0;
+    i32 maxX = 0;
+    i32 maxY = 0;
+    i32 totalArea = 0;
 
     ResizableArray<SkylineNode> nodes;
     defer(nodes.Free());
@@ -123,14 +123,14 @@ void Packing::SkylinePackRects(ResizableArray<Rect>& rects, int width, int heigh
     nodes.PushBack({ 0, 0, width });
 
     for (Rect& rect : rects) {
-        int bestHeight = height;
-        int bestWidth = width;
-        int bestNode = -1;
-        int bestX, bestY;
+        i32 bestHeight = height;
+        i32 bestWidth = width;
+        i32 bestNode = -1;
+        i32 bestX, bestY;
         // We're going to search for the best location for this rect along the skyline
-        for (size_t i = 0; i < nodes.count; i++) {
+        for (usize i = 0; i < nodes.count; i++) {
             SkylineNode& node = nodes[i];
-            int highestY = CanRectFit(nodes, (int)i, rect.w, rect.h, width, height);
+            i32 highestY = CanRectFit(nodes, (i32)i, rect.w, rect.h, width, height);
             if (highestY != -1) {
                 // Settling a tie here on best height by checking lowest width we can use up
                 if (highestY + rect.h < bestHeight || (highestY + rect.h == bestHeight && node.width < bestWidth)) {
@@ -163,7 +163,7 @@ void Packing::SkylinePackRects(ResizableArray<Rect>& rects, int width, int heigh
             // Remember that i starts as the first node after we inserted, so the previous node is the one we inserted
             if (node.x < prevNode.x + prevNode.width) {
                 // Draw a picture of this
-                int amountToShrink = (prevNode.x + prevNode.width) - node.x;
+                i32 amountToShrink = (prevNode.x + prevNode.width) - node.x;
                 node.x += amountToShrink;
                 node.width -= amountToShrink;
 

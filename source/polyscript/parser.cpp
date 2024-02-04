@@ -64,7 +64,7 @@ void ErrorState::PushError(Ast::Node* pNode, const char* formatMessage, ...) {
 
 // ***********************************************************************
 
-void ErrorState::PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, ...) {
+void ErrorState::PushError(char* pLocation, char* pLineStart, usize line, const char* formatMessage, ...) {
     va_list args;
     va_start(args, formatMessage);
     PushError(pLocation, pLineStart, line, formatMessage, args);
@@ -73,7 +73,7 @@ void ErrorState::PushError(char* pLocation, char* pLineStart, size_t line, const
 
 // ***********************************************************************
 
-void ErrorState::PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, va_list args) {
+void ErrorState::PushError(char* pLocation, char* pLineStart, usize line, const char* formatMessage, va_list args) {
     StringBuilder builder(pAlloc);
     builder.AppendFormatInternal(formatMessage, args);
 
@@ -96,11 +96,11 @@ bool ErrorState::ReportCompilationResult() {
 
         StringBuilder builder;
 
-        for (size_t i = 0; i < errors.count; i++) {
+        for (usize i = 0; i < errors.count; i++) {
             Error& err = errors[i];
             builder.AppendFormat("Error At: filename:%i:%i\n", err.line, err.pLocation - err.pLineStart);
 
-            uint32_t lineNumberSpacing = uint32_t(log10f((float)err.line) + 1);
+            u32 lineNumberSpacing = u32(log10f((f32)err.line) + 1);
             builder.AppendFormat("%*s|\n", lineNumberSpacing + 2, "");
 
             String line;
@@ -113,7 +113,7 @@ bool ErrorState::ReportCompilationResult() {
             defer(FreeString(line));
             builder.AppendFormat(" %i | %s\n", err.line, line.pData);
 
-            int32_t errorAtColumn = int32_t(err.pLocation - err.pLineStart);
+            i32 errorAtColumn = i32(err.pLocation - err.pLineStart);
             builder.AppendFormat("%*s|%*s^\n", lineNumberSpacing + 2, "", errorAtColumn + 1, "");
             builder.AppendFormat("%s\n", err.message.pData);
 
@@ -184,7 +184,7 @@ Token Consume(ParsingState &state, TokenType::Enum type, String message) {
 
 // ***********************************************************************
 
-bool Match(ParsingState &state, int numTokens, ...) {
+bool Match(ParsingState &state, i32 numTokens, ...) {
     va_list args;
 
     va_start(args, numTokens);
@@ -321,7 +321,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
         pLiteralExpr->isConstant = true;
 
         char* endPtr = token.pLocation + token.length;
-        pLiteralExpr->constantValue = MakeValue((int32_t)strtol(token.pLocation, &endPtr, 10));
+        pLiteralExpr->constantValue = MakeValue((i32)strtol(token.pLocation, &endPtr, 10));
 		pLiteralExpr->pType = GetI32Type();
         return pLiteralExpr;
     }
@@ -332,7 +332,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
         pLiteralExpr->isConstant = true;
 
         char* endPtr = token.pLocation + token.length;
-        pLiteralExpr->constantValue = MakeValue((float)strtod(token.pLocation, &endPtr));
+        pLiteralExpr->constantValue = MakeValue((f32)strtod(token.pLocation, &endPtr));
 		pLiteralExpr->pType = GetF32Type();
 		return pLiteralExpr;
     }
@@ -796,7 +796,7 @@ void Parse(Compiler& compilerState) {
 
 // ***********************************************************************
 
-void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
+void DebugStatement(Ast::Statement* pStmt, i32 indentationLevel) {
     switch (pStmt->nodeKind) {
         case Ast::NodeKind::Declaration: {
             Ast::Declaration* pDecl = (Ast::Declaration*)pStmt;
@@ -862,8 +862,8 @@ void DebugStatement(Ast::Statement* pStmt, int indentationLevel) {
 
 // ***********************************************************************
 
-void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentationLevel) {
-    for (size_t i = 0; i < statements.count; i++) {
+void DebugStatements(ResizableArray<Ast::Statement*>& statements, i32 indentationLevel) {
+    for (usize i = 0; i < statements.count; i++) {
         Ast::Statement* pStmt = statements[i];
         DebugStatement(pStmt, indentationLevel);
     }
@@ -871,7 +871,7 @@ void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentatio
 
 // ***********************************************************************
 
-void DebugExpression(Ast::Expression* pExpr, int indentationLevel) {
+void DebugExpression(Ast::Expression* pExpr, i32 indentationLevel) {
     switch (pExpr->nodeKind) {
         case Ast::NodeKind::Identifier: {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;

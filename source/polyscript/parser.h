@@ -57,7 +57,7 @@ struct Node {
 
     char* pLocation { nullptr };
     char* pLineStart { nullptr };
-    uint32_t line { 0 };
+    u32 line { 0 };
 };
 
 // Expression type nodes
@@ -215,7 +215,7 @@ struct Error {
     String message;
     char* pLocation { nullptr };
     char* pLineStart { nullptr };
-    size_t line { 0 };
+    usize line { 0 };
 };
 
 struct ErrorState {
@@ -225,8 +225,8 @@ struct ErrorState {
     void Init(IAllocator* pAlloc);
 
     void PushError(Ast::Node* pNode, const char* formatMessage, ...);
-    void PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, ...);
-    void PushError(char* pLocation, char* pLineStart, size_t line, const char* formatMessage, va_list args);
+    void PushError(char* pLocation, char* pLineStart, usize line, const char* formatMessage, ...);
+    void PushError(char* pLocation, char* pLineStart, usize line, const char* formatMessage, va_list args);
 
     bool ReportCompilationResult();
 };
@@ -235,7 +235,7 @@ struct Token;
 
 void Parse(Compiler& compilerState);
 
-void DebugStatements(ResizableArray<Ast::Statement*>& statements, int indentationLevel = 0);
+void DebugStatements(ResizableArray<Ast::Statement*>& statements, i32 indentationLevel = 0);
 
-void DebugExpression(Ast::Expression* pExpr, int indentationLevel = 0);
+void DebugExpression(Ast::Expression* pExpr, i32 indentationLevel = 0);
 

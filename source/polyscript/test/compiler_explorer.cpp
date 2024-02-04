@@ -32,7 +32,7 @@ namespace SDL {
 
 
 namespace {
-    int selectedLine = 12;
+    i32 selectedLine = 12;
 }
 
 #define IMGUI_FLAGS_NONE        UINT8_C(0x00)
@@ -91,13 +91,13 @@ struct ViewportData
 {
     bgfx::FrameBufferHandle frameBufferHandle;
     bgfx::ViewId viewId = 0;
-    uint16_t width = 0;
-    uint16_t height = 0;
+    u16 width = 0;
+    u16 height = 0;
 };
 
 // ***********************************************************************
 
-inline bool CheckAvailTransientBuffers(uint32_t _numVertices, const bgfx::VertexLayout& _layout, uint32_t _numIndices)
+inline bool CheckAvailTransientBuffers(u32 _numVertices, const bgfx::VertexLayout& _layout, u32 _numIndices)
 {
     return _numVertices == bgfx::getAvailTransientVertexBuffer(_numVertices, _layout)
         && (0 == _numIndices || _numIndices == bgfx::getAvailTransientIndexBuffer(_numIndices) )
@@ -116,7 +116,7 @@ void* GetNativeWindowHandle(SDL_Window* pWindow) {
 #if ENTRY_CONFIG_USE_WAYLAND
     wl_egl_window* win_impl = (wl_egl_window*)SDL_GetWindowData(pWindow, "wl_egl_window");
     if (!win_impl) {
-        int width, height;
+        i32 width, height;
         SDL_GetWindowSize(pWindow, &width, &height);
         struct wl_surface* surface = wmi.info.wl.surface;
         if (!surface)
@@ -146,10 +146,10 @@ void OnCreateWindow(ImGuiViewport* pViewport)
     pViewport->RendererUserData = pData;
     // Setup view id and size
     pData->viewId = pBackend->AllocateViewId();
-    pData->width = bx::max<uint16_t>((uint16_t)pViewport->Size.x, 1);
-    pData->height = bx::max<uint16_t>((uint16_t)pViewport->Size.y, 1);
+    pData->width = bx::max<u16>((u16)pViewport->Size.x, 1);
+    pData->height = bx::max<u16>((u16)pViewport->Size.y, 1);
     // Create frame buffer
-    pData->frameBufferHandle = bgfx::createFrameBuffer(GetNativeWindowHandle((SDL_Window*)pViewport->PlatformHandle), uint16_t(pData->width * pViewport->DrawData->FramebufferScale.x), uint16_t(pData->height * pViewport->DrawData->FramebufferScale.y));
+    pData->frameBufferHandle = bgfx::createFrameBuffer(GetNativeWindowHandle((SDL_Window*)pViewport->PlatformHandle), u16(pData->width * pViewport->DrawData->FramebufferScale.x), u16(pData->height * pViewport->DrawData->FramebufferScale.y));
     // Set frame buffer
     bgfx::setViewFrameBuffer(pData->viewId, pData->frameBufferHandle);
 }
@@ -180,7 +180,7 @@ void OnSetWindowSize(ImGuiViewport* pViewport, ImVec2 size) {
 
 // ***********************************************************************
 
-void RenderView(const bgfx::ViewId viewId, ImDrawData* pDrawData, uint32_t clearColor)
+void RenderView(const bgfx::ViewId viewId, ImDrawData* pDrawData, u32 clearColor)
 {
     ImGuiIO& io = ImGui::GetIO();
     BackendData* pBackend = (BackendData*)io.BackendRendererUserData;
@@ -198,8 +198,8 @@ void RenderView(const bgfx::ViewId viewId, ImDrawData* pDrawData, uint32_t clear
     bgfx::setViewMode(viewId, bgfx::ViewMode::Sequential);
     
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
-    int fb_width = (int)(pDrawData->DisplaySize.x * pDrawData->FramebufferScale.x);
-    int fb_height = (int)(pDrawData->DisplaySize.y * pDrawData->FramebufferScale.y);
+    i32 fb_width = (i32)(pDrawData->DisplaySize.x * pDrawData->FramebufferScale.x);
+    i32 fb_height = (i32)(pDrawData->DisplaySize.y * pDrawData->FramebufferScale.y);
     if (fb_width <= 0 || fb_height <= 0)
         return;
 
@@ -208,29 +208,29 @@ void RenderView(const bgfx::ViewId viewId, ImDrawData* pDrawData, uint32_t clear
 
     const bgfx::Caps* caps = bgfx::getCaps();
     {
-        float ortho[16];
-        float x = pDrawData->DisplayPos.x;
-        float y = pDrawData->DisplayPos.y;
-        float width = pDrawData->DisplaySize.x;
-        float height = pDrawData->DisplaySize.y;
+        f32 ortho[16];
+        f32 x = pDrawData->DisplayPos.x;
+        f32 y = pDrawData->DisplayPos.y;
+        f32 width = pDrawData->DisplaySize.x;
+        f32 height = pDrawData->DisplaySize.y;
 
         bx::mtxOrtho(ortho, x, x + width, y + height, y, 0.0f, 1000.0f, 0.0f, caps->homogeneousDepth);
         bgfx::setViewTransform(viewId, NULL, ortho);
-        bgfx::setViewRect(viewId, 0, 0, uint16_t(width), uint16_t(height) );
+        bgfx::setViewRect(viewId, 0, 0, u16(width), u16(height) );
     }
 
     const ImVec2 clipPos   = pDrawData->DisplayPos;       // (0,0) unless using multi-viewports
     const ImVec2 clipScale = pDrawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
     // Render command lists
-    for (int32_t ii = 0, num = pDrawData->CmdListsCount; ii < num; ++ii)
+    for (i32 ii = 0, num = pDrawData->CmdListsCount; ii < num; ++ii)
     {
         bgfx::TransientVertexBuffer tvb;
         bgfx::TransientIndexBuffer tib;
 
         const ImDrawList* drawList = pDrawData->CmdLists[ii];
-        uint32_t numVertices = (uint32_t)drawList->VtxBuffer.size();
-        uint32_t numIndices  = (uint32_t)drawList->IdxBuffer.size();
+        u32 numVertices = (u32)drawList->VtxBuffer.size();
+        u32 numIndices  = (u32)drawList->IdxBuffer.size();
 
         if (!CheckAvailTransientBuffers(numVertices, pBackend->m_layout, numIndices) )
         {
@@ -257,7 +257,7 @@ void RenderView(const bgfx::ViewId viewId, ImDrawData* pDrawData, uint32_t clear
             }
             else if (0 != cmd->ElemCount)
             {
-                uint64_t state = 0
+                u64 state = 0
                     | BGFX_STATE_WRITE_RGB
                     | BGFX_STATE_WRITE_A
                     | BGFX_STATE_MSAA
@@ -269,7 +269,7 @@ void RenderView(const bgfx::ViewId viewId, ImDrawData* pDrawData, uint32_t clear
 
                 if (NULL != cmd->TextureId)
                 {
-                    union { ImTextureID ptr; struct { bgfx::TextureHandle handle; uint8_t flags; uint8_t mip; } s; } texture = { cmd->TextureId };
+                    union { ImTextureID ptr; struct { bgfx::TextureHandle handle; u8 flags; u8 mip; } s; } texture = { cmd->TextureId };
                     state |= 0 != (IMGUI_FLAGS_ALPHA_BLEND & texture.s.flags)
                         ? BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA)
                         : BGFX_STATE_NONE
@@ -277,7 +277,7 @@ void RenderView(const bgfx::ViewId viewId, ImDrawData* pDrawData, uint32_t clear
                     th = texture.s.handle;
                     if (0 != texture.s.mip)
                     {
-                        const float lodEnabled[4] = { float(texture.s.mip), 1.0f, 0.0f, 0.0f };
+                        const f32 lodEnabled[4] = { f32(texture.s.mip), 1.0f, 0.0f, 0.0f };
                         bgfx::setUniform(pBackend->u_imageLodEnabled, lodEnabled);
                         program = pBackend->m_imageProgram;
                     }
@@ -287,7 +287,7 @@ void RenderView(const bgfx::ViewId viewId, ImDrawData* pDrawData, uint32_t clear
                     state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA);
                 }
 
-                // Project scissor/clipping rectangles into framebuffer space
+                // Project scissor/clipping rectangles i32o framebuffer space
                 ImVec4 clipRect;
                 clipRect.x = (cmd->ClipRect.x - clipPos.x) * clipScale.x;
                 clipRect.y = (cmd->ClipRect.y - clipPos.y) * clipScale.y;
@@ -299,11 +299,11 @@ void RenderView(const bgfx::ViewId viewId, ImDrawData* pDrawData, uint32_t clear
                 &&  clipRect.z >= 0.0f
                 &&  clipRect.w >= 0.0f)
                 {
-                    const uint16_t xx = uint16_t(bx::max(clipRect.x, 0.0f) );
-                    const uint16_t yy = uint16_t(bx::max(clipRect.y, 0.0f) );
+                    const u16 xx = u16(bx::max(clipRect.x, 0.0f) );
+                    const u16 yy = u16(bx::max(clipRect.y, 0.0f) );
                     encoder->setScissor(xx, yy
-                            , uint16_t(bx::min(clipRect.z, 65535.0f)-xx)
-                            , uint16_t(bx::min(clipRect.w, 65535.0f)-yy)
+                            , u16(bx::min(clipRect.z, 65535.0f)-xx)
+                            , u16(bx::min(clipRect.w, 65535.0f)-yy)
                             );
 
                     encoder->setState(state);
@@ -701,7 +701,7 @@ void DrawAstExpression(Ast::Expression* pExpr) {
 // ***********************************************************************
 
 void DrawAstStatements(ResizableArray<Ast::Statement*>& statements) {
-    for (size_t i = 0; i < statements.count; i++) {
+    for (usize i = 0; i < statements.count; i++) {
         Ast::Statement* pStmt = statements[i];
         DrawAstStatement(pStmt);
     }
@@ -717,8 +717,8 @@ void DrawByteCodeForProgram(Program* pProgram) {
     // TODO: Don't know function name
     //ImGui::Text("---- Function %s", pFunc->name.pData);
 
-    uint32_t currentLine = -1;
-    uint32_t lineCounter = 0;
+    u32 currentLine = -1;
+    u32 lineCounter = 0;
     StringBuilder builder;
 
     while (pInstructionPointer < pProgram->code.end()) {
@@ -776,7 +776,7 @@ void DrawScopes(Scope* pScope) {
         if (ImGui::IsItemClicked()) { selectedLine = pScope->startLine-1; }
 
         // TODO: Should really make a hashmap iterator
-        for (size_t i = 0; i < pScope->entities.tableSize; i++) { 
+        for (usize i = 0; i < pScope->entities.tableSize; i++) { 
             HashNode<String, Entity*>& node = pScope->entities.pTable[i];
             if (node.hash != UNUSED_HASH) {
                 ImGuiTreeNodeFlags entityNodeFlags = ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
@@ -837,7 +837,7 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
         char* pCodeCurrent = compiler.code.pData;
         char* pCodeEnd = pCodeCurrent + compiler.code.length; 
 
-        int nLines = lines.count;
+        i32 nLines = lines.count;
 
         StringBuilder builder;
         char* pBuilderBasePtr = builder.pData;
@@ -845,9 +845,9 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
         String lineNumberString = builder.CreateString(false);
         defer(FreeString(lineNumberString));
         ImVec2 lineNumberMaxSize = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFontSize(), FLT_MAX, -1.0f, lineNumberString.pData, lineNumberString.pData + lineNumberString.length);
-        float widestColumn = 0;
+        f32 widestColumn = 0;
 
-        for (uint32_t i = 0; i < lines.count; i++) {
+        for (u32 i = 0; i < lines.count; i++) {
             String line = lines[i];
             ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
 
@@ -921,8 +921,8 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
 
 void RunCompilerExplorer() {
 	bool appRunning{ true };
-	float deltaTime;
-	uint64_t frameStartTime;
+	f32 deltaTime;
+	u64 frameStartTime;
 	const bgfx::ViewId kClearView{ 255 };
 	int width {2000};
 	int height {1200};
@@ -1007,14 +1007,14 @@ void RunCompilerExplorer() {
     ImFont* pFont = io.Fonts->AddFontFromFileTTF("imgui_data/Consolas.ttf", 15.0f, &config, ranges);
     ImGui::StyleColorsDark();
 
-    uint8_t* data;
-    int32_t imgWidth;
-    int32_t imgHeight;
+    u8* data;
+    i32 imgWidth;
+    i32 imgHeight;
     io.Fonts->GetTexDataAsRGBA32(&data, &imgWidth, &imgHeight);
 
     pBackend->m_texture = bgfx::createTexture2D(
-            (uint16_t)imgWidth
-        , (uint16_t)imgHeight
+            (u16)imgWidth
+        , (u16)imgHeight
         , false
         , 1
         , bgfx::TextureFormat::BGRA8
@@ -1039,7 +1039,7 @@ void RunCompilerExplorer() {
 
 	Compiler compiler;
     {
-        uint32_t size;
+        u32 size;
         fseek(pFile, 0, SEEK_END);
         size = ftell(pFile);
         fseek(pFile, 0, SEEK_SET);
@@ -1059,7 +1059,7 @@ void RunCompilerExplorer() {
     ResizableArray<String> lines;
     defer(lines.Free());
 
-    // Write some code to split compiler.code into lines, putting it into the lines array
+    // Write some code to split compiler.code i32o lines, putting it i32o the lines array
     char* pCodeCurrent = compiler.code.pData;
     char* pCodeEnd = pCodeCurrent + compiler.code.length;
     while (pCodeCurrent < pCodeEnd && *pCodeCurrent != '\0') {
@@ -1115,15 +1115,15 @@ void RunCompilerExplorer() {
 		bgfx::touch(kClearView);
 		bgfx::frame();
 
-		float targetFrameTime = 0.0166f;
-		float realframeTime = float(SDL_GetPerformanceCounter() - frameStartTime) / SDL_GetPerformanceFrequency();
+		f32 targetFrameTime = 0.0166f;
+		f32 realframeTime = f32(SDL_GetPerformanceCounter() - frameStartTime) / SDL_GetPerformanceFrequency();
 		if (realframeTime < targetFrameTime)
 		{
-			unsigned int waitTime = int((targetFrameTime - realframeTime) * 1000.0);
+			i32 waitTime = i32((targetFrameTime - realframeTime) * 1000.0);
 			SDL_Delay(waitTime);
 		}
 
-		deltaTime = float(SDL_GetPerformanceCounter() - frameStartTime) / SDL_GetPerformanceFrequency();
+		deltaTime = f32(SDL_GetPerformanceCounter() - frameStartTime) / SDL_GetPerformanceFrequency();
 	}
 
     bgfx::destroy(pBackend->s_tex);

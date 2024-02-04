@@ -45,12 +45,12 @@ struct Scope {
     TypeInfoFunction* pFunctionType{ nullptr };
 
     // The stack size when we entered the scope, used for popping locals as we leave
-    uint32_t codeGenStackAtEntry{ 0 }; 
+    u32 codeGenStackAtEntry{ 0 }; 
     // Used for tracking the base of the stack frame for the function we're in, relevant only for function scopes
-    uint32_t codeGenStackFrameBase{ 0 }; 
+    u32 codeGenStackFrameBase{ 0 }; 
 
-    uint32_t startLine { 0 };
-    uint32_t endLine { 0 };
+    u32 startLine { 0 };
+    u32 endLine { 0 };
 };
 
 // ***********************************************************************
@@ -88,12 +88,12 @@ struct Entity {
 
     // Set only for constant entities, I may change this to be a union for variables etc
     Value constantValue;
-    uint32_t codeGenConstIndex;
+    u32 codeGenConstIndex;
     
     // These are instruction indices that await knowing the function pointer value when generated
     // Once the function has been generated, it's pointer is in constantValue
     bool bFunctionHasBeenGenerated{ false };
-    ResizableArray<uint32_t> pendingFunctionConstants;
+    ResizableArray<u32> pendingFunctionConstants;
 };
 
 Entity* FindEntity(Scope* pLowestSearchScope, String name);

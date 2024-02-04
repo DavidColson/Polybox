@@ -24,14 +24,14 @@ Image::Image(String path) {
     // Load and cache texture files and upload to bgfx
     SDL_RWops* pFileRead = SDL_RWFromFile(path.pData, "rb");
 
-    uint64_t size = SDL_RWsize(pFileRead);
+    u64 size = SDL_RWsize(pFileRead);
     void* pData = g_Allocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
     static bx::DefaultAllocator allocator;
     bx::Error error;
-    bimg::ImageContainer* pContainer = bimg::imageParse(&allocator, pData, (uint32_t)size, bimg::TextureFormat::Count, &error);
+    bimg::ImageContainer* pContainer = bimg::imageParse(&allocator, pData, (u32)size, bimg::TextureFormat::Count, &error);
 
     const bgfx::Memory* pMem = bgfx::makeRef(pContainer->m_data, pContainer->m_size, ImageFreeCallback, pContainer);
     handle = bgfx::createTexture2D(pContainer->m_width, pContainer->m_height, 1 < pContainer->m_numMips, pContainer->m_numLayers, bgfx::TextureFormat::Enum(pContainer->m_format), BGFX_TEXTURE_NONE | BGFX_SAMPLER_POINT, pMem);

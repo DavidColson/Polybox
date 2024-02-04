@@ -67,9 +67,9 @@ int Node_GetWorldPosition(lua_State* pLua) {
 int Node_SetLocalPosition(lua_State* pLua) {
     Node* pNode = *(Node**)luaL_checkudata(pLua, 1, "Node");
     Vec3f pos;
-    pos.x = (float)luaL_checknumber(pLua, 2);
-    pos.y = (float)luaL_checknumber(pLua, 3);
-    pos.z = (float)luaL_checknumber(pLua, 4);
+    pos.x = (f32)luaL_checknumber(pLua, 2);
+    pos.y = (f32)luaL_checknumber(pLua, 3);
+    pos.z = (f32)luaL_checknumber(pLua, 4);
     pNode->SetLocalPosition(pos);
     return 0;
 }
@@ -103,9 +103,9 @@ int Node_GetWorldRotation(lua_State* pLua) {
 int Node_SetLocalRotation(lua_State* pLua) {
     Node* pNode = *(Node**)luaL_checkudata(pLua, 1, "Node");
     Vec3f rot;
-    rot.x = (float)luaL_checknumber(pLua, 2);
-    rot.y = (float)luaL_checknumber(pLua, 3);
-    rot.z = (float)luaL_checknumber(pLua, 4);
+    rot.x = (f32)luaL_checknumber(pLua, 2);
+    rot.y = (f32)luaL_checknumber(pLua, 3);
+    rot.z = (f32)luaL_checknumber(pLua, 4);
     pNode->SetLocalRotation(rot);
     return 0;
 }
@@ -139,9 +139,9 @@ int Node_GetWorldScale(lua_State* pLua) {
 int Node_SetLocalScale(lua_State* pLua) {
     Node* pNode = *(Node**)luaL_checkudata(pLua, 1, "Node");
     Vec3f sca;
-    sca.x = (float)luaL_checknumber(pLua, 2);
-    sca.y = (float)luaL_checknumber(pLua, 3);
-    sca.z = (float)luaL_checknumber(pLua, 4);
+    sca.x = (f32)luaL_checknumber(pLua, 2);
+    sca.y = (f32)luaL_checknumber(pLua, 3);
+    sca.z = (f32)luaL_checknumber(pLua, 4);
     pNode->SetLocalScale(sca);
     return 0;
 }
@@ -158,7 +158,7 @@ int Node_GetNumChildren(lua_State* pLua) {
 
 int Node_GetChild(lua_State* pLua) {
     Node* pNode = *(Node**)luaL_checkudata(pLua, 1, "Node");
-    int index = (int)luaL_checkinteger(pLua, 2);
+    i32 index = (i32)luaL_checkinteger(pLua, 2);
 
     Node** ppNode = (Node**)lua_newuserdata(pLua, sizeof(Node*));
     *ppNode = pNode->GetChild(index - 1);
@@ -176,7 +176,7 @@ int Node_GetPropertyTable(lua_State* pLua) {
     Node* pNode = *(Node**)luaL_checkudata(pLua, 1, "Node");
     lua_getfield(pLua, LUA_REGISTRYINDEX, "_nodePropTables");
 
-    // node key is an integer (either it's ptr, or eventually a bit merge of scene and node key)
+    // node key is an i32eger (either it's ptr, or eventually a bit merge of scene and node key)
     lua_pushinteger(pLua, pNode->id);
     lua_gettable(pLua, -2);
 
@@ -203,7 +203,7 @@ int Scene_GetNumNodes(lua_State* pLua) {
 
 int Scene_GetNode(lua_State* pLua) {
     Scene* pScene = *(Scene**)luaL_checkudata(pLua, 1, "Scene");
-    int index = (int)luaL_checkinteger(pLua, 2);
+    i32 index = (i32)luaL_checkinteger(pLua, 2);
 
     Node** ppNode = (Node**)lua_newuserdata(pLua, sizeof(Node*));
     *ppNode = pScene->GetNode(index - 1);
@@ -219,7 +219,7 @@ int Scene_GetNode(lua_State* pLua) {
 // ***********************************************************************
 
 int LoadScene(lua_State* pLua) {
-    size_t len;
+    usize len;
     const char* path = luaL_checklstring(pLua, 1, &len);
     Scene* pScene = Scene::LoadScene(path);
 

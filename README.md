@@ -154,7 +154,7 @@ void SetClearColor(Vec3f color);
 
 // Transforms
 void MatrixMode(EMatrixMode mode);
-void Perspective(float screenWidth, float screenHeight, float nearPlane, float farPlane, float fov);
+void Perspective(f32 screenWidth, f32 screenHeight, f32 nearPlane, f32 farPlane, f32 fov);
 void Translate(Vec3f translation);
 void Rotate(Vec3f rotation);
 void Scale(Vec3f scaling);
@@ -173,8 +173,8 @@ void Ambient(Vec3f color);
 
 // Depth Cueing
 void EnableFog(bool enabled);
-void SetFogStart(float start);
-void SetFogEnd(float end);
+void SetFogStart(f32 start);
+void SetFogEnd(f32 end);
 void SetFogColor(Vec3f color);
 ```
 

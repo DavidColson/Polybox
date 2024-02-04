@@ -17,11 +17,11 @@
 
 // ***********************************************************************
 
-uint64_t StringHash(const char* str) {
-    uint64_t offset = 14695981039346656037u;
-    uint64_t prime = 1099511628211u;
+u64 StringHash(const char* str) {
+    u64 offset = 14695981039346656037u;
+    u64 prime = 1099511628211u;
 
-    uint64_t hash = offset;
+    u64 hash = offset;
     while (*str != 0) {
         hash ^= *str++;
         hash *= prime;
@@ -31,29 +31,29 @@ uint64_t StringHash(const char* str) {
 
 // ***********************************************************************
 
-void GraphicsChip::FullScreenQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _depth, float _width, float _height) {
+void GraphicsChip::FullScreenQuad(f32 _textureWidth, f32 _textureHeight, f32 _texelHalf, bool _originBottomLeft, f32 _depth, f32 _width, f32 _height) {
     if (3 == bgfx::getAvailTransientVertexBuffer(3, layout)) {
         bgfx::TransientVertexBuffer vb;
         bgfx::allocTransientVertexBuffer(&vb, 3, layout);
         VertexData* vertex = (VertexData*)vb.data;
 
-        const float minx = -_width;
-        const float maxx = _width;
-        const float miny = 0.0f;
-        const float maxy = _height * 2.0f;
+        const f32 minx = -_width;
+        const f32 maxx = _width;
+        const f32 miny = 0.0f;
+        const f32 maxy = _height * 2.0f;
 
-        const float texelHalfW = _texelHalf / _textureWidth;
-        const float texelHalfH = _texelHalf / _textureHeight;
-        const float minu = -1.0f + texelHalfW;
-        const float maxu = 1.0f + texelHalfH;
+        const f32 texelHalfW = _texelHalf / _textureWidth;
+        const f32 texelHalfH = _texelHalf / _textureHeight;
+        const f32 minu = -1.0f + texelHalfW;
+        const f32 maxu = 1.0f + texelHalfH;
 
-        const float zz = _depth;
+        const f32 zz = _depth;
 
-        float minv = texelHalfH;
-        float maxv = 2.0f + texelHalfH;
+        f32 minv = texelHalfH;
+        f32 maxv = 2.0f + texelHalfH;
 
         if (_originBottomLeft) {
-            float temp = minv;
+            f32 temp = minv;
             minv = maxv;
             maxv = temp;
 
@@ -93,12 +93,12 @@ void ShaderFreeCallback(void* ptr, void* userData) {
 
 bgfx::ShaderHandle LoadShader(const char* path) {
     SDL_RWops* pFileRead = SDL_RWFromFile(path, "rb");
-    uint64_t size = SDL_RWsize(pFileRead);
+    u64 size = SDL_RWsize(pFileRead);
     char* pData = (char*)g_Allocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
-    return bgfx::createShader(bgfx::makeRef(pData, (uint32_t)size, ShaderFreeCallback));
+    return bgfx::createShader(bgfx::makeRef(pData, (u32)size, ShaderFreeCallback));
 }
 
 // ***********************************************************************
@@ -149,11 +149,11 @@ void GraphicsChip::Init() {
         crtProgram = bgfx::createProgram(vsShader, fsShader, true);
     }
 
-    for (size_t i = 0; i < 3; i++) {
+    for (usize i = 0; i < 3; i++) {
         matrixStates[i] = Matrixf::Identity();
     }
 
-    const uint64_t tsFlags = 0
+    const u64 tsFlags = 0
                              | BGFX_TEXTURE_RT
                              | BGFX_SAMPLER_POINT
                              | BGFX_SAMPLER_U_CLAMP
@@ -161,18 +161,18 @@ void GraphicsChip::Init() {
 
     // Frame buffers
     bgfx::TextureHandle gbuffer3dTex[] = {
-        bgfx::createTexture2D(uint16_t(targetResolution.x), uint16_t(targetResolution.y), false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
-        bgfx::createTexture2D(uint16_t(targetResolution.x), uint16_t(targetResolution.y), false, 1, bgfx::TextureFormat::D32F, tsFlags),
+        bgfx::createTexture2D(u16(targetResolution.x), u16(targetResolution.y), false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
+        bgfx::createTexture2D(u16(targetResolution.x), u16(targetResolution.y), false, 1, bgfx::TextureFormat::D32F, tsFlags),
     };
     frameBuffer3D = bgfx::createFrameBuffer(BX_COUNTOF(gbuffer3dTex), gbuffer3dTex, true);
     bgfx::TextureHandle gbuffer2dTex[] = {
-        bgfx::createTexture2D(uint16_t(targetResolution.x), uint16_t(targetResolution.y), false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
-        bgfx::createTexture2D(uint16_t(targetResolution.x), uint16_t(targetResolution.y), false, 1, bgfx::TextureFormat::D32F, tsFlags),
+        bgfx::createTexture2D(u16(targetResolution.x), u16(targetResolution.y), false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
+        bgfx::createTexture2D(u16(targetResolution.x), u16(targetResolution.y), false, 1, bgfx::TextureFormat::D32F, tsFlags),
     };
     frameBuffer2D = bgfx::createFrameBuffer(BX_COUNTOF(gbuffer2dTex), gbuffer2dTex, true);
     bgfx::TextureHandle gbufferCompositeTex[] = {
-        bgfx::createTexture2D(uint16_t(targetResolution.x), uint16_t(targetResolution.y), false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
-        bgfx::createTexture2D(uint16_t(targetResolution.x), uint16_t(targetResolution.y), false, 1, bgfx::TextureFormat::D32F, tsFlags),
+        bgfx::createTexture2D(u16(targetResolution.x), u16(targetResolution.y), false, 1, bgfx::TextureFormat::RGBA32F, tsFlags),
+        bgfx::createTexture2D(u16(targetResolution.x), u16(targetResolution.y), false, 1, bgfx::TextureFormat::D32F, tsFlags),
     };
     frameBufferComposite = bgfx::createFrameBuffer(BX_COUNTOF(gbufferCompositeTex), gbufferCompositeTex, true);
 
@@ -192,10 +192,10 @@ void GraphicsChip::Init() {
 
 // ***********************************************************************
 
-void GraphicsChip::DrawFrame(float w, float h) {
+void GraphicsChip::DrawFrame(f32 w, f32 h) {
     // 3D and 2D framebuffers are drawn to the composite frame buffer, which is then post processed and drawn to the actual back buffer
     bgfx::setViewClear(compositeView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x400040ff, 1.0f, 0);
-    bgfx::setViewRect(compositeView, 0, 0, (uint16_t)w, (uint16_t)h);
+    bgfx::setViewRect(compositeView, 0, 0, (u16)w, (u16)h);
     bgfx::setViewMode(compositeView, bgfx::ViewMode::Sequential);
     bgfx::setViewFrameBuffer(compositeView, frameBufferComposite);
 
@@ -217,10 +217,10 @@ void GraphicsChip::DrawFrame(float w, float h) {
 
     // Now draw composite view onto the real back buffer with the post process shaders
     bgfx::setViewClear(realWindowView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x400040ff, 1.0f, 0);
-    bgfx::setViewRect(realWindowView, 0, 0, (uint16_t)w, (uint16_t)h);
+    bgfx::setViewRect(realWindowView, 0, 0, (u16)w, (u16)h);
     bgfx::setViewMode(realWindowView, bgfx::ViewMode::Sequential);
 
-    Vec4f crtData = Vec4f(w, h, float(SDL_GetTicks()) / 1000.0f, 0.0f);
+    Vec4f crtData = Vec4f(w, h, f32(SDL_GetTicks()) / 1000.0f, 0.0f);
     bgfx::setUniform(crtDataUniform, &crtData);
 
     bgfx::setState(BGFX_STATE_WRITE_RGB);
@@ -229,7 +229,7 @@ void GraphicsChip::DrawFrame(float w, float h) {
     FullScreenQuad(w, h, 0.0f, true, 0.0f);
     bgfx::submit(realWindowView, crtProgram);
 
-    for (size_t i = 0; i < (int)EMatrixMode::Count; i++) {
+    for (usize i = 0; i < (int)EMatrixMode::Count; i++) {
         matrixStates[i] = Matrixf::Identity();
     }
 }
@@ -244,7 +244,7 @@ void GraphicsChip::BeginObject2D(EPrimitiveType type) {
 // ***********************************************************************
 
 void GraphicsChip::EndObject2D() {
-    uint64_t state = 0
+    u64 state = 0
                      | BGFX_STATE_WRITE_RGB
                      | BGFX_STATE_WRITE_A
                      | BGFX_STATE_WRITE_Z
@@ -265,21 +265,21 @@ void GraphicsChip::EndObject2D() {
             break;
     }
 
-    uint32_t clear = (uint8_t(clearColor.w * 255) << 0) + (uint8_t(clearColor.z * 255) << 8) + (uint8_t(clearColor.y * 255) << 16) + (uint8_t(clearColor.x * 255) << 24);
+    u32 clear = (u8(clearColor.w * 255) << 0) + (u8(clearColor.z * 255) << 8) + (u8(clearColor.y * 255) << 16) + (u8(clearColor.x * 255) << 24);
     bgfx::setViewClear(scene2DView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, clear, 1.0f, 0);
-    bgfx::setViewRect(scene2DView, 0, 0, uint16_t(targetResolution.x), uint16_t(targetResolution.y));
+    bgfx::setViewRect(scene2DView, 0, 0, u16(targetResolution.x), u16(targetResolution.y));
     bgfx::setViewFrameBuffer(scene2DView, frameBuffer2D);
 
     // TODO: Consider allowing projection and view matrices on the 2D layer
     Matrixf ortho = Matrixf::Orthographic(0.0f, targetResolution.x, 0.0f, targetResolution.y, -100.0f, 100.0f);
     bgfx::setViewTransform(scene2DView, NULL, &ortho);
 
-    bgfx::setTransform(&matrixStates[(size_t)EMatrixMode::Model]);
+    bgfx::setTransform(&matrixStates[(usize)EMatrixMode::Model]);
     bgfx::setState(state);
 
     // create vertex buffer
     bgfx::TransientVertexBuffer vertexBuffer;
-    uint32_t numVertices = (uint32_t)vertexState.count;
+    u32 numVertices = (u32)vertexState.count;
     if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, layout))
         return;  // TODO: Log some error
     bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, layout);
@@ -315,7 +315,7 @@ void GraphicsChip::EndObject3D() {
     if (mode == ERenderMode::None)  // TODO Call errors when this is incorrect
         return;
 
-    uint64_t state = 0
+    u64 state = 0
                      | BGFX_STATE_WRITE_RGB
                      | BGFX_STATE_WRITE_Z
                      | BGFX_STATE_DEPTH_TEST_LESS
@@ -323,7 +323,7 @@ void GraphicsChip::EndObject3D() {
 
     bgfx::TransientVertexBuffer vertexBuffer;
     bgfx::TransientIndexBuffer indexBuffer;
-    int numIndices;
+    i32 numIndices;
 
     vertexBuffer.data = nullptr;
 
@@ -339,7 +339,7 @@ void GraphicsChip::EndObject3D() {
             break;
         case EPrimitiveType::Triangles: {
             if (normalsModeState == ENormalsMode::Flat) {
-                for (size_t i = 0; i < vertexState.count; i += 3) {
+                for (usize i = 0; i < vertexState.count; i += 3) {
                     Vec3f v1 = vertexState[i + 1].pos - vertexState[i].pos;
                     Vec3f v2 = vertexState[i + 2].pos - vertexState[i].pos;
                     Vec3f faceNormal = Vec3f::Cross(v1, v2).GetNormalized();
@@ -350,31 +350,31 @@ void GraphicsChip::EndObject3D() {
                 }
 
                 // create vertex buffer
-                uint32_t numVertices = (uint32_t)vertexState.count;
+                u32 numVertices = (u32)vertexState.count;
                 if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, layout))
                     return;
                 bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, layout);
                 VertexData* verts = (VertexData*)vertexBuffer.data;
                 bx::memCopy(verts, vertexState.pData, numVertices * sizeof(VertexData));
             } else if (normalsModeState == ENormalsMode::Smooth) {
-                // Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list.
+                // Convert to indexed list, loop through, saving verts i32o vector, each new one you search for in vector, if you find it, save index in index list.
                 ResizableArray<VertexData> uniqueVerts;
                 defer(uniqueVerts.Free());
-                ResizableArray<uint16_t> indices;
+                ResizableArray<u16> indices;
                 defer(indices.Free());
-                for (size_t i = 0; i < vertexState.count; i++) {
+                for (usize i = 0; i < vertexState.count; i++) {
                     VertexData* pVertData = uniqueVerts.Find(vertexState[i]);
                     if (pVertData == uniqueVerts.end()) {
                         // New vertex
                         uniqueVerts.PushBack(vertexState[i]);
-                        indices.PushBack((uint16_t)uniqueVerts.count - 1);
+                        indices.PushBack((u16)uniqueVerts.count - 1);
                     } else {
-                        indices.PushBack((uint16_t)uniqueVerts.IndexFromPointer(pVertData));
+                        indices.PushBack((u16)uniqueVerts.IndexFromPointer(pVertData));
                     }
                 }
 
                 // Then run your flat shading algo on the list of vertices looping through index list. If you have a new normal for a vert, then average with the existing one
-                for (size_t i = 0; i < indices.count; i += 3) {
+                for (usize i = 0; i < indices.count; i += 3) {
                     Vec3f v1 = uniqueVerts[indices[i + 1]].pos - uniqueVerts[indices[i]].pos;
                     Vec3f v2 = uniqueVerts[indices[i + 2]].pos - uniqueVerts[indices[i]].pos;
                     Vec3f faceNormal = Vec3f::Cross(v1, v2);
@@ -384,12 +384,12 @@ void GraphicsChip::EndObject3D() {
                     uniqueVerts[indices[i + 2]].norm += faceNormal;
                 }
 
-                for (size_t i = 0; i < uniqueVerts.count; i++) {
+                for (usize i = 0; i < uniqueVerts.count; i++) {
                     uniqueVerts[i].norm = uniqueVerts[i].norm.GetNormalized();
                 }
 
                 // create vertex buffer
-                uint32_t numVertices = (uint32_t)uniqueVerts.count;
+                u32 numVertices = (u32)uniqueVerts.count;
                 if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, layout))
                     return;
                 bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, layout);
@@ -397,12 +397,12 @@ void GraphicsChip::EndObject3D() {
                 bx::memCopy(pDstVerts, uniqueVerts.pData, numVertices * sizeof(VertexData));
 
                 // Create index buffer
-                numIndices = (uint32_t)indices.count;
+                numIndices = (u32)indices.count;
                 if (numIndices != bgfx::getAvailTransientIndexBuffer(numIndices))
                     return;
                 bgfx::allocTransientIndexBuffer(&indexBuffer, numIndices);
-                uint16_t* pDstIndices = (uint16_t*)indexBuffer.data;
-                bx::memCopy(pDstIndices, indices.pData, numIndices * sizeof(uint16_t));
+                u16* pDstIndices = (u16*)indexBuffer.data;
+                bx::memCopy(pDstIndices, indices.pData, numIndices * sizeof(u16));
             }
         }
         default:
@@ -411,7 +411,7 @@ void GraphicsChip::EndObject3D() {
 
     if (vertexBuffer.data == nullptr) {
         // create vertex buffer
-        uint32_t numVertices = (uint32_t)vertexState.count;
+        u32 numVertices = (u32)vertexState.count;
         if (numVertices != bgfx::getAvailTransientVertexBuffer(numVertices, layout))
             return;
         bgfx::allocTransientVertexBuffer(&vertexBuffer, numVertices, layout);
@@ -421,13 +421,13 @@ void GraphicsChip::EndObject3D() {
 
     // Submit draw call
 
-    uint32_t clear = (uint8_t(clearColor.w * 255) << 0) + (uint8_t(clearColor.z * 255) << 8) + (uint8_t(clearColor.y * 255) << 16) + (uint8_t(clearColor.x * 255) << 24);
+    u32 clear = (u8(clearColor.w * 255) << 0) + (u8(clearColor.z * 255) << 8) + (u8(clearColor.y * 255) << 16) + (u8(clearColor.x * 255) << 24);
     bgfx::setViewClear(scene3DView, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, clear, 1.0f, 0);
-    bgfx::setViewRect(scene3DView, 0, 0, uint16_t(targetResolution.x), uint16_t(targetResolution.y));
+    bgfx::setViewRect(scene3DView, 0, 0, u16(targetResolution.x), u16(targetResolution.y));
     bgfx::setViewFrameBuffer(scene3DView, frameBuffer3D);
 
-    bgfx::setViewTransform(scene3DView, &matrixStates[(size_t)EMatrixMode::View], &matrixStates[(size_t)EMatrixMode::Projection]);
-    bgfx::setTransform(&matrixStates[(size_t)EMatrixMode::Model]);
+    bgfx::setViewTransform(scene3DView, &matrixStates[(usize)EMatrixMode::View], &matrixStates[(usize)EMatrixMode::Projection]);
+    bgfx::setTransform(&matrixStates[(usize)EMatrixMode::Model]);
     bgfx::setState(state);
     bgfx::setVertexBuffer(0, &vertexBuffer);
     if (normalsModeState == ENormalsMode::Smooth)
@@ -435,14 +435,14 @@ void GraphicsChip::EndObject3D() {
 
     Vec4f targetRes = Vec4f(targetResolution.x, targetResolution.y, 0.f, 0.f);
     bgfx::setUniform(targetResolutionUniform, &targetRes);
-    Vec4f lightMode = Vec4f((float)lightingState);
+    Vec4f lightMode = Vec4f((f32)lightingState);
     bgfx::setUniform(lightingStateUniform, &lightMode);
     bgfx::setUniform(lightDirectionUniform, lightDirectionsStates);
     bgfx::setUniform(lightColorUniform, lightColorStates);
     Vec4f ambient = Vec4f::Embed3D(lightAmbientState);
     bgfx::setUniform(lightAmbientUniform, &ambient);
     Vec4f fogDepths4D = Vec4f::Embed2D(fogDepths);
-	fogDepths4D.z = float(fogState);
+	fogDepths4D.z = f32(fogState);
 	bgfx::setUniform(fogDepthsUniform, &fogDepths4D);
     Vec4f fogColor4D = Vec4f::Embed3D(fogColor);
 	bgfx::setUniform(fogColorUniform, &fogColor4D);
@@ -505,32 +505,32 @@ void GraphicsChip::MatrixMode(EMatrixMode mode) {
 
 // ***********************************************************************
 
-void GraphicsChip::Perspective(float screenWidth, float screenHeight, float nearPlane, float farPlane, float fov) {
-    matrixStates[(size_t)matrixModeState] *= Matrixf::Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);
+void GraphicsChip::Perspective(f32 screenWidth, f32 screenHeight, f32 nearPlane, f32 farPlane, f32 fov) {
+    matrixStates[(usize)matrixModeState] *= Matrixf::Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);
 }
 
 // ***********************************************************************
 
 void GraphicsChip::Translate(Vec3f translation) {
-    matrixStates[(size_t)matrixModeState] *= Matrixf::MakeTranslation(translation);
+    matrixStates[(usize)matrixModeState] *= Matrixf::MakeTranslation(translation);
 }
 
 // ***********************************************************************
 
 void GraphicsChip::Rotate(Vec3f rotation) {
-    matrixStates[(size_t)matrixModeState] *= Matrixf::MakeRotation(rotation);
+    matrixStates[(usize)matrixModeState] *= Matrixf::MakeRotation(rotation);
 }
 
 // ***********************************************************************
 
 void GraphicsChip::Scale(Vec3f scaling) {
-    matrixStates[(size_t)matrixModeState] *= Matrixf::MakeScale(scaling);
+    matrixStates[(usize)matrixModeState] *= Matrixf::MakeScale(scaling);
 }
 
 // ***********************************************************************
 
 void GraphicsChip::Identity() {
-    matrixStates[(size_t)matrixModeState] = Matrixf::Identity();
+    matrixStates[(usize)matrixModeState] = Matrixf::Identity();
 }
 
 // ***********************************************************************
@@ -587,13 +587,13 @@ void GraphicsChip::EnableFog(bool enabled) {
 
 // ***********************************************************************
 
-void GraphicsChip::SetFogStart(float start) {
+void GraphicsChip::SetFogStart(f32 start) {
     fogDepths.x = start;
 }
 
 // ***********************************************************************
 
-void GraphicsChip::SetFogEnd(float end) {
+void GraphicsChip::SetFogEnd(f32 end) {
     fogDepths.y = end;
 }
 
@@ -618,8 +618,8 @@ void GraphicsChip::DrawSprite(Image* pImage, Vec2f position) {
 // ***********************************************************************
 
 void GraphicsChip::DrawSpriteRect(Image* pImage, Vec4f rect, Vec2f position) {
-    float w = (float)pImage->width * (rect.z - rect.x);
-    float h = (float)pImage->height * (rect.w - rect.y);
+    f32 w = (f32)pImage->width * (rect.z - rect.x);
+    f32 h = (f32)pImage->height * (rect.w - rect.y);
 
     Translate(Vec3f::Embed2D(position));
 
@@ -648,22 +648,22 @@ void GraphicsChip::DrawSpriteRect(Image* pImage, Vec4f rect, Vec2f position) {
 
 // ***********************************************************************
 
-void GraphicsChip::DrawText(const char* text, Vec2f position, float size) {
+void GraphicsChip::DrawText(const char* text, Vec2f position, f32 size) {
     DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), &defaultFont, size);
 }
 
 // ***********************************************************************
 
-void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, float size) {
-    constexpr float baseSize = 32.0f;
+void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, f32 size) {
+    constexpr f32 baseSize = 32.0f;
 
-    float textWidth = 0.0f;
-    float x = position.x;
-    float y = position.y;
+    f32 textWidth = 0.0f;
+    f32 x = position.x;
+    f32 y = position.y;
     Vec2f scale = Vec2f(size / baseSize, size / baseSize);
 
     String stringText(text);
-    for (size_t i = 0; i < stringText.length; i++) {
+    for (usize i = 0; i < stringText.length; i++) {
         char c = *(stringText.pData + i);
         Character ch = pFont->characters[c];
         textWidth += ch.advance * scale.x;
@@ -671,16 +671,16 @@ void GraphicsChip::DrawTextEx(const char* text, Vec2f position, Vec4f color, Fon
 
     BindTexture(&pFont->fontTexture);
     BeginObject2D(EPrimitiveType::Triangles);
-    for (size_t i = 0; i < stringText.length; i++) {
+    for (usize i = 0; i < stringText.length; i++) {
         char c = *(stringText.pData + i);
         Character ch = pFont->characters[c];
 
         // Center alignment
-        // float xpos = (x + ch.bearing.x * scale.x) - textWidth * 0.5f;
-        float xpos = (x + ch.bearing.x * scale.x);
-        float ypos = y - (ch.size.y - ch.bearing.y) * scale.y;
-        float w = (float)ch.size.x * scale.x;
-        float h = (float)ch.size.y * scale.y;
+        // f32 xpos = (x + ch.bearing.x * scale.x) - textWidth * 0.5f;
+        f32 xpos = (x + ch.bearing.x * scale.x);
+        f32 ypos = y - (ch.size.y - ch.bearing.y) * scale.y;
+        f32 w = (f32)ch.size.x * scale.x;
+        f32 h = (f32)ch.size.y * scale.y;
 
         // 0
         Color(color);
@@ -773,12 +773,12 @@ void GraphicsChip::DrawRectangleOutline(Vec2f bottomLeft, Vec2f topRight, Vec4f 
 
 // ***********************************************************************
 
-void GraphicsChip::DrawCircle(Vec2f center, float radius, Vec4f color) {
+void GraphicsChip::DrawCircle(Vec2f center, f32 radius, Vec4f color) {
     BeginObject2D(EPrimitiveType::Triangles);
-    constexpr float segments = 24;
-    for (size_t i = 0; i < segments; i++) {
-        float x1 = (PI2 / segments) * i;
-        float x2 = (PI2 / segments) * (i + 1);
+    constexpr f32 segments = 24;
+    for (usize i = 0; i < segments; i++) {
+        f32 x1 = (PI2 / segments) * i;
+        f32 x2 = (PI2 / segments) * (i + 1);
         Color(color);
         Vertex(center);
         Vertex(center + Vec2f(sinf(x1), cosf(x1)) * radius);
@@ -789,12 +789,12 @@ void GraphicsChip::DrawCircle(Vec2f center, float radius, Vec4f color) {
 
 // ***********************************************************************
 
-void GraphicsChip::DrawCircleOutline(Vec2f center, float radius, Vec4f color) {
+void GraphicsChip::DrawCircleOutline(Vec2f center, f32 radius, Vec4f color) {
     BeginObject2D(EPrimitiveType::Lines);
-    constexpr float segments = 24;
-    for (size_t i = 0; i < segments; i++) {
-        float x1 = (PI2 / segments) * i;
-        float x2 = (PI2 / segments) * (i + 1);
+    constexpr f32 segments = 24;
+    for (usize i = 0; i < segments; i++) {
+        f32 x1 = (PI2 / segments) * i;
+        f32 x2 = (PI2 / segments) * (i + 1);
         Color(color);
         Vertex(center + Vec2f(sinf(x1), cosf(x1)) * radius);
         Vertex(center + Vec2f(sinf(x2), cosf(x2)) * radius);

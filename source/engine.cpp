@@ -51,7 +51,7 @@ int ShowAssertDialog(String errorMsg) {
     builder.Append("Trace: \n");
 
     void* trace[100];
-    size_t frames = PlatformDebug::CollectStackTrace(trace, 100, 2);
+    usize frames = PlatformDebug::CollectStackTrace(trace, 100, 2);
     String stackTrace = PlatformDebug::PrintStackTraceToString(trace, frames);
     builder.Append(stackTrace);
 
@@ -67,7 +67,7 @@ int ShowAssertDialog(String errorMsg) {
         buttons,
         nullptr
     };
-    int buttonid;
+    i32 buttonid;
     SDL_ShowMessageBox(&messageboxdata, &buttonid);
     return buttonid;
 }
@@ -99,15 +99,15 @@ int main(int argc, char* argv[]) {
         log.customHandler1 = AssertHandler;
         Log::SetConfig(log);
 
-        int winWidth = 1280;
-        int winHeight = 960;
+        i32 winWidth = 1280;
+        i32 winHeight = 960;
 
         SDL_Window* pWindow = SDL_CreateWindow(
             "Polybox",
             SDL_WINDOWPOS_UNDEFINED,
             SDL_WINDOWPOS_UNDEFINED,
-            int(winWidth),
-            int(winHeight),
+            i32(winWidth),
+            i32(winHeight),
             SDL_WINDOW_RESIZABLE);
 
         SDL_SysWMinfo wmInfo;
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
         }
 
         bool gameRunning = true;
-        float deltaTime = 0.016f;
+        f32 deltaTime = 0.016f;
         Vec2i relativeMouseStartLocation { Vec2i(0, 0) };
         bool isCapturingMouse = false;
         while (gameRunning) {
@@ -190,7 +190,7 @@ int main(int argc, char* argv[]) {
                 }
             }
             bgfx::touch(0);
-            game.UpdateInputs(deltaTime, Vec2f(320.0f, 240.0f), Vec2f((float)winWidth, (float)winHeight));
+            game.UpdateInputs(deltaTime, Vec2f(320.0f, 240.0f), Vec2f((f32)winWidth, (f32)winHeight));
 
             // Lua updates
 
@@ -204,12 +204,12 @@ int main(int argc, char* argv[]) {
                 lua_pop(pLua, 1);
             }
 
-            gpu.DrawFrame((float)winWidth, (float)winHeight);
+            gpu.DrawFrame((f32)winWidth, (f32)winHeight);
 
             // bgfx::setDebug(BGFX_DEBUG_STATS);
             bgfx::frame();
 
-            deltaTime = float(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();
+            deltaTime = f32(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();
         }
 
         lua_getglobal(pLua, "End");
@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
         game.Shutdown();
     }
     bgfx::shutdown();
-    int n = ReportMemoryLeaks();
+    i32 n = ReportMemoryLeaks();
     Log::Info("Memory Leak Reports %i leaks", n);
 
     return 0;

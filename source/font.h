@@ -15,12 +15,12 @@ struct Character {
     Vec2i bearing { Vec2i(0, 0) };
     Vec2f UV0 { Vec2f(0.f, 0.f) };
     Vec2f UV1 { Vec2f(1.f, 1.f) };
-    int advance;
+    i32 advance;
 };
 
 struct Font : public LuaObject {
     Font() {}
-    Font(String path, bool antialiasing = true, float weight = 0.0f);
+    Font(String path, bool antialiasing = true, f32 weight = 0.0f);
 
     Image fontTexture;
     ResizableArray<Character> characters;

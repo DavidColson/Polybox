@@ -44,7 +44,7 @@ void LuaObject::Release() {
 
 // ***********************************************************************
 
-static int __garbagecollect(lua_State* pLua) {
+static i32 __garbagecollect(lua_State* pLua) {
     LuaObject* pObject = *(LuaObject**)lua_touserdata(pLua, 1);
     if (pObject) {
         pObject->Release();
@@ -54,7 +54,7 @@ static int __garbagecollect(lua_State* pLua) {
 
 // ***********************************************************************
 
-static int __equality(lua_State* pLua) {
+static i32 __equality(lua_State* pLua) {
     LuaObject* pObject1 = *(LuaObject**)lua_touserdata(pLua, 1);
     LuaObject* pObject2 = *(LuaObject**)lua_touserdata(pLua, 1);
 
@@ -71,7 +71,7 @@ static int __equality(lua_State* pLua) {
 
 // ***********************************************************************
 
-static int __gettype(lua_State* L) {
+static i32 __gettype(lua_State* L) {
     lua_pushvalue(L, lua_upvalueindex(1));
     return 1;
 }
@@ -87,13 +87,13 @@ void luax_printstack(lua_State* pLua) {
 
 // ***********************************************************************
 
-bool luax_toboolean(lua_State* pLua, int idx) {
+bool luax_toboolean(lua_State* pLua, i32 idx) {
     return (lua_toboolean(pLua, idx) != 0);
 }
 
 // ***********************************************************************
 
-bool luax_checkboolean(lua_State* pLua, int idx) {
+bool luax_checkboolean(lua_State* pLua, i32 idx) {
     luaL_checktype(pLua, idx, LUA_TBOOLEAN);
     return luax_toboolean(pLua, idx);
 }
@@ -118,7 +118,7 @@ void luax_registertype(lua_State* pLua, const char* typeName, const luaL_Reg* fu
     lua_setfield(pLua, -2, "GetType");
 
     if (funcs) {
-        // Push all of the type member functions into the metatable
+        // Push all of the type member functions i32o the metatable
         luaL_setfuncs(pLua, funcs, 0);
     }
 

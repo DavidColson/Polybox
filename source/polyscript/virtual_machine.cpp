@@ -16,7 +16,7 @@
 
 struct CallFrame {
     Instruction* pInstructionPointer { nullptr };
-    int32_t stackBaseIndex{ 0 };
+    i32 stackBaseIndex{ 0 };
 };
 
 struct VirtualMachine {
@@ -33,7 +33,7 @@ String DisassembleInstruction(Program* pProgram, Instruction* pInstruction) {
             builder.Append("PushConstant ");
 
 			Value& v = pInstruction->constant;
-			size_t index = pProgram->code.IndexFromPointer(pInstruction);
+			usize index = pProgram->code.IndexFromPointer(pInstruction);
 			TypeInfo::TypeTag* tag = pProgram->dbgConstantsTypes.Get(index);
 			if (tag != nullptr) {
 				switch (*tag) {
@@ -209,7 +209,7 @@ void DisassembleProgram(Compiler& compilerState) {
     // TODO: Some way to tell what instructions are from what functions
     // Log::Debug("-- Function (%s)", pFunc->name.pData);
 
-	// Split the program into lines
+	// Split the program i32o lines
 	// TODO: A few places do this now, maybe do this in the compiler file and store for reuse
     ResizableArray<String> lines;
     char* pCurrent = compilerState.code.pData;
@@ -225,8 +225,8 @@ void DisassembleProgram(Compiler& compilerState) {
     String line = CopyCStringRange(pLineStart, pCurrent);
     lines.PushBack(line);
 
-    uint32_t lineCounter = 0;
-    uint32_t currentLine = -1;
+    u32 lineCounter = 0;
+    u32 currentLine = -1;
 
 
 	// Run through the code printing instructions
@@ -259,10 +259,10 @@ void DebugStack(VirtualMachine& vm) {
 	builder.Append("\n");
 
 	// TODO: When we have locals debugging, draw a stack slot that is a known local as the local rather than a standard stack slot
-	for (uint32_t i = 1; i < vm.stack.array.count; i++) {
+	for (u32 i = 1; i < vm.stack.array.count; i++) {
 		Value& v = vm.stack[vm.stack.array.count - i];
 
-		builder.AppendFormat("[%i: %#X|%g|%i]\n", vm.stack.array.count - i, (uint64_t)v.pPtr, v.f32Value, v.i32Value);
+		builder.AppendFormat("[%i: %#X|%g|%i]\n", vm.stack.array.count - i, (u64)v.pPtr, v.f32Value, v.i32Value);
 	}
 	String s = builder.CreateString();
 	Log::Debug("->%s", s.pData);
@@ -496,46 +496,46 @@ void Run(Program* pProgramToRun) {
 				break;
 			}
 			case OpCode::SetField: {
-				uint32_t offset = pFrame->pInstructionPointer->fieldOffset;
-				uint32_t size = pFrame->pInstructionPointer->fieldSize;
+				u32 offset = pFrame->pInstructionPointer->fieldOffset;
+				u32 size = pFrame->pInstructionPointer->fieldSize;
 				
 				Value v = vm.stack.Pop();
 				Value structValue = vm.stack.Pop();
 
-				memcpy((uint8_t*)structValue.pPtr + offset, &v.pPtr, size);
+				memcpy((u8*)structValue.pPtr + offset, &v.pPtr, size);
 				vm.stack.Push(v);
 				break;
 			}
 			case OpCode::SetFieldPtr: {
-				uint32_t offset = pFrame->pInstructionPointer->fieldOffset;
-				uint32_t size = pFrame->pInstructionPointer->fieldSize;
+				u32 offset = pFrame->pInstructionPointer->fieldOffset;
+				u32 size = pFrame->pInstructionPointer->fieldSize;
 				
 				Value v = vm.stack.Pop();
 				Value structValue = vm.stack.Pop();
 
-				memcpy((uint8_t*)structValue.pPtr + offset, v.pPtr, size);
+				memcpy((u8*)structValue.pPtr + offset, v.pPtr, size);
 				vm.stack.Push(v);
 				break;
 			}
 			case OpCode::PushField: {
-				uint32_t offset = pFrame->pInstructionPointer->fieldOffset;
-				uint32_t size = pFrame->pInstructionPointer->fieldSize;
+				u32 offset = pFrame->pInstructionPointer->fieldOffset;
+				u32 size = pFrame->pInstructionPointer->fieldSize;
 				
 				Value structValue = vm.stack.Pop();
 				Value v;
 
-				memcpy(&v.pPtr, (uint8_t*)structValue.pPtr + offset, size);
+				memcpy(&v.pPtr, (u8*)structValue.pPtr + offset, size);
 				vm.stack.Push(v);
 				break;
 			}
 			case OpCode::PushFieldPtr: {
-				uint32_t offset = pFrame->pInstructionPointer->fieldOffset;
-				uint32_t size = pFrame->pInstructionPointer->fieldSize;
+				u32 offset = pFrame->pInstructionPointer->fieldOffset;
+				u32 size = pFrame->pInstructionPointer->fieldSize;
 				
 				Value structValue = vm.stack.Pop();
 				Value v;
 
-				v.pPtr = (uint8_t*)structValue.pPtr + offset;
+				v.pPtr = (u8*)structValue.pPtr + offset;
 				vm.stack.Push(v);
 				break;
 			}
@@ -554,7 +554,7 @@ void Run(Program* pProgramToRun) {
                 break;
             }
             case OpCode::Call: {
-				uint64_t argCount = pFrame->pInstructionPointer->nArgs;
+				u64 argCount = pFrame->pInstructionPointer->nArgs;
                 
                 Value funcValue = vm.stack[-1 - argCount];
 
@@ -567,11 +567,11 @@ void Run(Program* pProgramToRun) {
                 break;
             }
 			case OpCode::PushStruct: {
-				uint64_t size = pFrame->pInstructionPointer->size;
+				u64 size = pFrame->pInstructionPointer->size;
 				
 				Value v;
-				v.pPtr = g_Allocator.Allocate(size_t(size)); // TODO: Stack memory, not heap
-				// TODO: This actually is a leak that we need to fix, but we'll do so by introducing stack memory
+				v.pPtr = g_Allocator.Allocate(usize(size)); // TODO: Stack memory, not heap
+				// TODO: This actually is a leak that we need to fix, but we'll do so by i32roducing stack memory
 				MarkNotALeak(v.pPtr);
 
 				// All memory will be zero allocated by default
@@ -585,13 +585,13 @@ void Run(Program* pProgramToRun) {
 	
 				Value copy = vm.stack.Pop();
 				if (toTypeId == TypeInfo::I32 && fromTypeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue((int32_t)copy.f32Value));
+					vm.stack.Push(MakeValue((i32)copy.f32Value));
 				} else if (toTypeId == TypeInfo::I32 && fromTypeId == TypeInfo::Bool) {
-					vm.stack.Push(MakeValue((int32_t)copy.boolValue));
+					vm.stack.Push(MakeValue((i32)copy.boolValue));
 				} else if (toTypeId == TypeInfo::F32 && fromTypeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue((float)copy.i32Value));
+					vm.stack.Push(MakeValue((f32)copy.i32Value));
 				} else if (toTypeId == TypeInfo::F32 && fromTypeId == TypeInfo::Bool) {
-					vm.stack.Push(MakeValue((float)copy.boolValue));
+					vm.stack.Push(MakeValue((f32)copy.boolValue));
 				} else if (toTypeId == TypeInfo::Bool && fromTypeId == TypeInfo::I32) {
 					vm.stack.Push(MakeValue((bool)copy.i32Value));
 				} else if (toTypeId == TypeInfo::Bool && fromTypeId == TypeInfo::F32) {

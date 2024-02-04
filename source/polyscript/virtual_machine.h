@@ -9,7 +9,7 @@ struct Compiler;
 struct Program;
 
 namespace OpCode {
-enum Enum : uint8_t {
+enum Enum : u8 {
 
     // Opcode          |   Instructions
     // ---------------------------------
@@ -67,13 +67,13 @@ struct Instruction {
         // Mostly for convenience and readability of the VM code.
         Value constant;
         TypeInfo::TypeTag type;
-        uint64_t ipOffset;
-        uint64_t nArgs;
-        uint64_t stackIndex;
-        uint64_t size;
+        u64 ipOffset;
+        u64 nArgs;
+        u64 stackIndex;
+        u64 size;
         struct {
-            uint32_t fieldSize;
-            uint32_t fieldOffset;
+            u32 fieldSize;
+            u32 fieldOffset;
         };
         struct {
             TypeInfo::TypeTag toType;

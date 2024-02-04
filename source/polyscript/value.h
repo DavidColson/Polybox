@@ -8,11 +8,11 @@
 
 
 namespace TokenType {
-enum Enum : uint32_t;
+enum Enum : u32;
 }
 
 namespace Operator {
-enum Enum : uint32_t {
+enum Enum : u32 {
     Add,
     Subtract,
     Multiply,
@@ -37,7 +37,7 @@ static const char* ToString(Operator::Enum type) {
 }
 
 struct TypeInfo {
-    enum TypeTag : uint8_t {
+    enum TypeTag : u8 {
         Invalid,
         Void,
         F32,
@@ -54,7 +54,7 @@ struct TypeInfo {
 	}
 
     TypeTag tag = TypeTag::Void;
-    size_t size = 0;
+    usize size = 0;
     String name;
 };
 
@@ -67,7 +67,7 @@ struct TypeInfoStruct : public TypeInfo {
 	struct Member {
 		String identifier;
 		TypeInfo* pType;
-		size_t offset;
+		usize offset;
 	};
 	ResizableArray<Member> members;
 };
@@ -102,9 +102,9 @@ TypeInfo* GetEmptyFuncType();
 struct Value {
     union {
         bool boolValue;
-        float f32Value;
-        int32_t i32Value;
-        int64_t functionPointer; // this number is the IP offset of the start of the function
+        f32 f32Value;
+        i32 i32Value;
+        i64 functionPointer; // this number is the IP offset of the start of the function
         TypeInfo* pTypeInfo;
 		void* pPtr;
     };
@@ -122,13 +122,13 @@ inline Value MakeValue(bool value) {
     return v;
 }
 
-inline Value MakeValue(float value) {
+inline Value MakeValue(f32 value) {
     Value v;
     v.f32Value = value;
     return v;
 }
 
-inline Value MakeValue(int32_t value) {
+inline Value MakeValue(i32 value) {
     Value v;
     v.i32Value = value;
     return v;
@@ -140,7 +140,7 @@ inline Value MakeValue(TypeInfo* value) {
     return v;
 }
 
-inline Value MakeFunctionValue(int64_t ipOffset) {
+inline Value MakeFunctionValue(i64 ipOffset) {
     Value v;
     v.functionPointer = ipOffset;
     return v;

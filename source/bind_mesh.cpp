@@ -25,7 +25,7 @@ int Primitive_GetNumVertices(lua_State* pLua) {
 
 int Primitive_GetVertexPosition(lua_State* pLua) {
     Primitive* pPrimitive = *(Primitive**)luaL_checkudata(pLua, 1, "Primitive");
-    int index = (int)luaL_checkinteger(pLua, 2) - 1;
+    i32 index = (i32)luaL_checkinteger(pLua, 2) - 1;
 
     Vec3f pos = pPrimitive->GetVertexPosition(index);
     lua_pushnumber(pLua, pos.x);
@@ -38,7 +38,7 @@ int Primitive_GetVertexPosition(lua_State* pLua) {
 
 int Primitive_GetVertexColor(lua_State* pLua) {
     Primitive* pPrimitive = *(Primitive**)luaL_checkudata(pLua, 1, "Primitive");
-    int index = (int)luaL_checkinteger(pLua, 2) - 1;
+    i32 index = (i32)luaL_checkinteger(pLua, 2) - 1;
 
     Vec4f col = pPrimitive->GetVertexColor(index);
     lua_pushnumber(pLua, col.x);
@@ -52,7 +52,7 @@ int Primitive_GetVertexColor(lua_State* pLua) {
 
 int Primitive_GetVertexTexCoord(lua_State* pLua) {
     Primitive* pPrimitive = *(Primitive**)luaL_checkudata(pLua, 1, "Primitive");
-    int index = (int)luaL_checkinteger(pLua, 2) - 1;
+    i32 index = (i32)luaL_checkinteger(pLua, 2) - 1;
 
     Vec2f tex = pPrimitive->GetVertexTexCoord(index);
     lua_pushnumber(pLua, tex.x);
@@ -64,7 +64,7 @@ int Primitive_GetVertexTexCoord(lua_State* pLua) {
 
 int Primitive_GetVertexNormal(lua_State* pLua) {
     Primitive* pPrimitive = *(Primitive**)luaL_checkudata(pLua, 1, "Primitive");
-    int index = (int)luaL_checkinteger(pLua, 2) - 1;
+    i32 index = (i32)luaL_checkinteger(pLua, 2) - 1;
 
     Vec3f norm = pPrimitive->GetVertexNormal(index);
     lua_pushnumber(pLua, norm.x);
@@ -101,7 +101,7 @@ int Mesh_GetNumPrimitives(lua_State* pLua) {
 
 int Mesh_GetPrimitive(lua_State* pLua) {
     Mesh* pMesh = *(Mesh**)luaL_checkudata(pLua, 1, "Mesh");
-    int index = (int)luaL_checkinteger(pLua, 2);
+    i32 index = (i32)luaL_checkinteger(pLua, 2);
 
     Primitive** ppPrimitive = (Primitive**)lua_newuserdata(pLua, sizeof(Primitive*));
     *ppPrimitive = pMesh->GetPrimitive(index - 1);
@@ -115,7 +115,7 @@ int Mesh_GetPrimitive(lua_State* pLua) {
 // ***********************************************************************
 
 int LoadMeshes(lua_State* pLua) {
-    size_t len;
+    usize len;
     const char* path = luaL_checklstring(pLua, 1, &len);
     ResizableArray<Mesh*> meshes = Mesh::LoadMeshes(path);
     defer(meshes.Free());
@@ -123,7 +123,7 @@ int LoadMeshes(lua_State* pLua) {
     // Create a table, and put all these mesh userdatas in there.
     lua_createtable(pLua, (int)meshes.count, 0);
 
-    for (size_t i = 0; i < meshes.count; i++) {
+    for (usize i = 0; i < meshes.count; i++) {
         // Create a new userdata for our object
         Mesh** ppMesh = (Mesh**)lua_newuserdata(pLua, sizeof(Mesh*));
         *ppMesh = meshes[i];
@@ -142,7 +142,7 @@ int LoadMeshes(lua_State* pLua) {
 // ***********************************************************************
 
 int LoadTextures(lua_State* pLua) {
-    size_t len;
+    usize len;
     const char* path = luaL_checklstring(pLua, 1, &len);
     ResizableArray<Image*> images = Mesh::LoadTextures(path);
     defer(images.Free());
@@ -150,7 +150,7 @@ int LoadTextures(lua_State* pLua) {
     // Create a table, and put all these mesh userdatas in there.
     lua_createtable(pLua, (int)images.count, 0);
 
-    for (size_t i = 0; i < images.count; i++) {
+    for (usize i = 0; i < images.count; i++) {
         // Create a new userdata for our object
         Image** ppImage = (Image**)lua_newuserdata(pLua, sizeof(Image*));
         *ppImage = images[i];

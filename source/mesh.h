@@ -11,15 +11,15 @@
 struct Primitive : public LuaObject {
     ResizableArray<VertexData> vertices;
 
-    uint32_t baseColorTexture { UINT32_MAX };
+    u32 baseColorTexture { UINT32_MAX };
 
-    int GetNumVertices();
+    i32 GetNumVertices();
     Vec3f GetVertexPosition(int index);
     Vec4f GetVertexColor(int index);
     Vec2f GetVertexTexCoord(int index);
     Vec3f GetVertexNormal(int index);
 
-    int GetMaterialTextureId();
+    i32 GetMaterialTextureId();
 
     // TODO: API for modifying vertex data (i.e. allow creating meshes on the fly)
 };
@@ -30,7 +30,7 @@ struct Mesh : public LuaObject {
     String name;
     ResizableArray<Primitive> primitives;
 
-    int GetNumPrimitives();
+    i32 GetNumPrimitives();
     Primitive* GetPrimitive(int index);
 
     static ResizableArray<Mesh*> LoadMeshes(const char* filePath);

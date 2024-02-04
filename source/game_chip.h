@@ -176,7 +176,7 @@ class GameChip {
    public:
     void Init();
     void ProcessEvent(SDL_Event* event);
-    void UpdateInputs(float deltaTime, Vec2f targetRes, Vec2f realWindowRes);
+    void UpdateInputs(f32 deltaTime, Vec2f targetRes, Vec2f realWindowRes);
     void ClearStates();
     void Shutdown();
 
@@ -184,7 +184,7 @@ class GameChip {
     bool GetButton(ControllerButton buttonCode);
     bool GetButtonDown(ControllerButton buttonCode);
     bool GetButtonUp(ControllerButton buttonCode);
-    float GetAxis(ControllerAxis axis);
+    f32 GetAxis(ControllerAxis axis);
 
     Vec2i GetMousePosition();
     void EnableMouseRelativeMode(bool enable);
@@ -206,7 +206,7 @@ class GameChip {
     HashMap<int, ControllerAxis> mouseAxisBindings;
 
     struct Axis {
-        float axisValue { 0.0f };
+        f32 axisValue { 0.0f };
 
         bool ignoreVirtual { false };
         bool isMouseDriver { false };
@@ -218,19 +218,19 @@ class GameChip {
         // Virtual axis mapping
         SDL_Keycode positiveScanCode { SDLK_UNKNOWN };
         SDL_Keycode negativeScanCode { SDLK_UNKNOWN };
-        int positiveMouseButton { 0 };
-        int negativeMouseButton { 0 };
+        i32 positiveMouseButton { 0 };
+        i32 negativeMouseButton { 0 };
     };
 
-    bool keyDowns[(size_t)Key::Count];
-    bool keyUps[(size_t)Key::Count];
-    bool keyStates[(size_t)Key::Count];
+    bool keyDowns[(usize)Key::Count];
+    bool keyUps[(usize)Key::Count];
+    bool keyStates[(usize)Key::Count];
 
-    bool buttonDowns[(size_t)ControllerButton::Count];
-    bool buttonUps[(size_t)ControllerButton::Count];
-    bool buttonStates[(size_t)ControllerButton::Count];
+    bool buttonDowns[(usize)ControllerButton::Count];
+    bool buttonUps[(usize)ControllerButton::Count];
+    bool buttonStates[(usize)ControllerButton::Count];
 
-    Axis axes[(size_t)ControllerAxis::Count];
+    Axis axes[(usize)ControllerAxis::Count];
 
     SDL_GameController* pOpenController { nullptr };
 

@@ -102,7 +102,7 @@ int InputString(lua_State* pLua) {
 
 // ***********************************************************************
 
-void PushEnum(lua_State* pLua, int value, const char* label) {
+void PushEnum(lua_State* pLua, i32 value, const char* label) {
     lua_pushinteger(pLua, value);
     lua_setfield(pLua, -2, label);
 }

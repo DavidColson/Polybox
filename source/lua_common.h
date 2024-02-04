@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "types.h"
+
 struct lua_State;
 struct luaL_Reg;
 
@@ -15,10 +17,10 @@ struct LuaObject {
     void Retain();
     void Release();
 
-    int refCount { 0 };
+    i32 refCount { 0 };
 };
 
 void luax_printstack(lua_State* pLua);
-bool luax_toboolean(lua_State* L, int idx);
-bool luax_checkboolean(lua_State* pLua, int idx);
+bool luax_toboolean(lua_State* L, i32 idx);
+bool luax_checkboolean(lua_State* pLua, i32 idx);
 void luax_registertype(lua_State* pLua, const char* typeName, const luaL_Reg* funcs);

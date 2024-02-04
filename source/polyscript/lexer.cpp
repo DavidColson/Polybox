@@ -14,7 +14,7 @@ Token MakeToken(Scan::ScanningState& scanner, TokenType::Enum type) {
     Token token;
     token.type = type;
     token.pLocation = scanner.pTokenStart;
-    token.length = size_t(scanner.pCurrent - scanner.pTokenStart);
+    token.length = usize(scanner.pCurrent - scanner.pTokenStart);
     token.pLineStart = scanner.pCurrentLineStart;
     token.line = scanner.line;
     return token;

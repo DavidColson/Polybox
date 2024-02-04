@@ -1,10 +1,10 @@
 
 namespace Test {
 
-typedef uint32_t VMPtr;
+typedef u32 VMPtr;
 
 namespace OpCode {
-enum Enum : uint8_t {
+enum Enum : u8 {
 	Const,
 	Load,
 	Store,
@@ -28,33 +28,33 @@ struct InstructionHeader {
 };
 
 struct VirtualMachine {
-	uint8_t* pMemory; 
+	u8* pMemory; 
 	VMPtr stackBaseAddress; // This is an offset pointer from pMemory, stack works in 4 byte slots
 	VMPtr stackAddress; // This is an offset pointer from pMemory, stack works in 4 byte slots
 	// Stack is going to be the back 1kb of memory
 };
 
-inline void PushInstruction(ResizableArray<uint32_t>& code, InstructionHeader header) {
-	code.PushBack(uint32_t(0));
+inline void PushInstruction(ResizableArray<u32>& code, InstructionHeader header) {
+	code.PushBack(u32(0));
 	memcpy(&code.pData[code.count-1], &header, sizeof(InstructionHeader)); 
 }
 
-inline void PushParam(ResizableArray<uint32_t>& code, uint32_t param) {
+inline void PushParam(ResizableArray<u32>& code, u32 param) {
 	code.PushBack(param);
 }
 
 void Start() {
 	// Initialize virtual machine memory
 	
-	size_t memorySize = 2 * 1024 * 1024; // Two megabytes
+	usize memorySize = 2 * 1024 * 1024; // Two megabytes
 	VirtualMachine vm;
-	vm.pMemory = (uint8_t*)g_Allocator.Allocate(memorySize);
+	vm.pMemory = (u8*)g_Allocator.Allocate(memorySize);
 	defer(g_Allocator.Free(vm.pMemory));
 	vm.stackBaseAddress = memorySize - 1024 * 4; // Stack has 1024, 4 byte slots (must be kept to 4 byte alignment)
 	vm.stackAddress = vm.stackBaseAddress; 
 
-	// Make some program by shoving manually created instructions into a list
-	ResizableArray<uint32_t> code;
+	// Make some program by shoving manually created instructions i32o a list
+	ResizableArray<u32> code;
 	defer(code.Free());
 	
 	if (1) {
@@ -87,38 +87,38 @@ void Start() {
 		// print(largeInstance.inner.intMember2); // 321
 
 		// Size is 12, so must do 3 loads of zero
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
 
 		// Set the first member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(1337)); 		// Push the value we want to set in the struct member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff000)); 	// Push target struct address
-		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, uint32_t(0));			// Store the value at effective address struct + offset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(1337)); 		// Push the value we want to set in the struct member
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000)); 	// Push target struct address
+		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, u32(0));			// Store the value at effective address struct + offset
 
 		// Set the second member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(321)); 			// Push the value we want to set in the struct member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff000)); 	// Push target struct (from traversing the codegen for the target) 
-		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, uint32_t(4));			// Store the value at the effective address struct + offset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(321)); 			// Push the value we want to set in the struct member
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000)); 	// Push target struct (from traversing the codegen for the target) 
+		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, u32(4));			// Store the value at the effective address struct + offset
 
 		// Next struct is size is 20, so must do 5 loads of zero
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
 
 		// Push the two structs onto the stack, and then copy one to the other
 		// CODEGEN CHANGE: If the target field is a struct, then you must do this copy instead of a store
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff000)); 	// Push the source struct to be copied in
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff00c)); 	// Push the destination (target struct)
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(12)); 			// Push the size of the copy
-		PushInstruction(code, {.opcode = OpCode::Copy }); PushParam(code, (uint32_t(4) << 16) | uint32_t(0)); // Copy, params are destOffset, srcOffset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000)); 	// Push the source struct to be copied in
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff00c)); 	// Push the destination (target struct)
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(12)); 			// Push the size of the copy
+		PushInstruction(code, {.opcode = OpCode::Copy }); PushParam(code, (u32(4) << 16) | u32(0)); // Copy, params are destOffset, srcOffset
 
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff00c));		// From a identifier node, knowing the local is a struct
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(4));			// From a GetField node which knows that it's target field is a struct (the GetFieldPtr codepath) so it can't do a load here, and will do this offset add instead 		
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff00c));		// From a identifier node, knowing the local is a struct
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(4));			// From a GetField node which knows that it's target field is a struct (the GetFieldPtr codepath) so it can't do a load here, and will do this offset add instead 		
 		PushInstruction(code, {.opcode = OpCode::Add });											// Second part of the above GetField node, should leave an address on the stack to the inner field struct
-		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, uint32_t(4));				// The second, inner GetField node has a targetfield which is a value, so it will do a load as normal
+		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, u32(4));				// The second, inner GetField node has a targetfield which is a value, so it will do a load as normal
 
 		PushInstruction(code, {.opcode = OpCode::Print });											// Push what's left on the stack (the value 321)
 	}
@@ -128,9 +128,9 @@ void Start() {
 		// Example Program 3: Store a struct on the stack, set and get members in it
 
 		// Size is 12, so must do 3 loads of zero
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0));
 
 		// Question: When we're doing codegen to get the local of the struct, how do we know to do just the address and not load the actual value?
 		// CODEGEN CHANGE: The variable ast node can be used to acquire the entity which will have this information, so probably easiest to store it in locals tracking
@@ -138,18 +138,18 @@ void Start() {
 
 		// CODEGEN CHANGE: Note for codegen you also need to swap the order in which target and assignment are generated in the assignment generator node
 		// Set the first member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(1337)); 		// Push the value we want to set in the struct member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff000)); 	// Push target struct member address
-		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, uint32_t(0));			// Store the value at effective address struct + offset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(1337)); 		// Push the value we want to set in the struct member
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000)); 	// Push target struct member address
+		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, u32(0));			// Store the value at effective address struct + offset
 
 		// Set the second member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(321)); 			// Push the value we want to set in the struct member
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff000)); 	// Push target struct (from traversing the codegen for the target) 
-		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, uint32_t(4));			// Store the value at the effective address struct + offset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(321)); 			// Push the value we want to set in the struct member
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000)); 	// Push target struct (from traversing the codegen for the target) 
+		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, u32(4));			// Store the value at the effective address struct + offset
 		
 		// Get the second member and print
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff000));		// Push the struct pointer (from codegen it's target field) 
-		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, uint32_t(4));				// Load the member at given offset
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000));		// Push the struct pointer (from codegen it's target field) 
+		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, u32(4));				// Load the member at given offset
 
 		PushInstruction(code, {.opcode = OpCode::Print });											// Push what's left on the stack (the value 321)
 	}
@@ -163,50 +163,50 @@ void Start() {
 		// var := 5;
 		// var = var + 2;
 		// print(var);
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(5));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(5));
 		
 		// Push address for next load
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff000));
-		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, uint32_t(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000));
+		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, u32(0));
 
-		PushInstruction(code, {.opcode = OpCode::Const}); PushParam(code, uint32_t(2));
+		PushInstruction(code, {.opcode = OpCode::Const}); PushParam(code, u32(2));
 
 		PushInstruction(code, {.opcode = OpCode::Add });
 		
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff000));
-		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, uint32_t(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000));
+		PushInstruction(code, {.opcode = OpCode::Store }); PushParam(code, u32(0));
 		
 		// Not done here, but usually the setting a local will leave the local on the stack, so you'd have to do a const + load here, then the expression statement will put in a "drop"
 
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(0x1ff000));
-		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, uint32_t(0));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(0x1ff000));
+		PushInstruction(code, {.opcode = OpCode::Load }); PushParam(code, u32(0));
 
 		PushInstruction(code, {.opcode = OpCode::Print });
 	}
 
 	if (0) {
 		// Example program 1; Pushes two constants to the stack adds them and prints them
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(1337));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(1337));
 
-		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, uint32_t(1337));
+		PushInstruction(code, {.opcode = OpCode::Const }); PushParam(code, u32(1337));
 
 		PushInstruction(code, {.opcode = OpCode::Add });
 
 		PushInstruction(code, {.opcode = OpCode::Print });
 	}
 	// Create a little VM loop
-	uint32_t* pEndInstruction = code.end();
-	uint32_t* pInstruction = code.pData;
+	u32* pEndInstruction = code.end();
+	u32* pInstruction = code.pData;
 	while(pInstruction < pEndInstruction) {
 		InstructionHeader* pHeader = (InstructionHeader*)pInstruction;
 		switch(pHeader->opcode) {
 			case OpCode::Const: {
 				// Push immediate value ontop of stack
-				uint32_t value = *(++pInstruction);
+				u32 value = *(++pInstruction);
 
-				// This is the first part of "push" (loads the value into the right slot)
+				// This is the first part of "push" (loads the value i32o the right slot)
 				// Get address of stack slot and cast to appropriate type
-				uint32_t* targetStackSlot = (uint32_t*)(vm.pMemory + vm.stackAddress);
+				u32* targetStackSlot = (u32*)(vm.pMemory + vm.stackAddress);
 				*targetStackSlot = value;
 
 				// Second part, increment stack pointer
@@ -216,11 +216,11 @@ void Start() {
 			}
 			case OpCode::Load: {
 				// Instruction arg is a memory offset
-				uint32_t offset = *(++pInstruction);
+				u32 offset = *(++pInstruction);
 
 				// Pop the source address operand off the stack
 				vm.stackAddress -= 4;
-				uint32_t* pSourceAddress = (uint32_t*)(vm.pMemory + vm.stackAddress);
+				u32* pSourceAddress = (u32*)(vm.pMemory + vm.stackAddress);
 
 				int* pSource = (int*)(vm.pMemory + *pSourceAddress + offset);
 
@@ -232,11 +232,11 @@ void Start() {
 			}
 			case OpCode::Store: {
 				// Instruction arg is a memory offset
-				uint32_t offset = *(++pInstruction);
+				u32 offset = *(++pInstruction);
 
 				// Pop the target memory address off the stack
 				vm.stackAddress -= 4;
-				uint32_t* pDestAddress = (uint32_t*)(vm.pMemory + vm.stackAddress);
+				u32* pDestAddress = (u32*)(vm.pMemory + vm.stackAddress);
 
 				// Pop the value to store off top of stack 
 				vm.stackAddress -= 4;
@@ -248,22 +248,22 @@ void Start() {
 				break;
 			}
 			case OpCode::Copy: {
-				uint32_t params = *(++pInstruction);
-				uint16_t srcOffset = (uint16_t)params;
-				uint16_t desOffset = params >> 16;
+				u32 params = *(++pInstruction);
+				u16 srcOffset = (u16)params;
+				u16 desOffset = params >> 16;
 				
 				// Pop the size off the stack
 				vm.stackAddress -= 4;
-				uint32_t* pSize = (uint32_t*)(vm.pMemory + vm.stackAddress);
+				u32* pSize = (u32*)(vm.pMemory + vm.stackAddress);
 
 				// Pop the destination address off the stack
 				vm.stackAddress -= 4;
-				uint32_t* pDestAddress = (uint32_t*)(vm.pMemory + vm.stackAddress);
+				u32* pDestAddress = (u32*)(vm.pMemory + vm.stackAddress);
 				int* pDest = (int*)(vm.pMemory + *pDestAddress + desOffset);
 
 				// Pop the source address off the stack
 				vm.stackAddress -= 4;
-				uint32_t* pSrcAddress = (uint32_t*)(vm.pMemory + vm.stackAddress);
+				u32* pSrcAddress = (u32*)(vm.pMemory + vm.stackAddress);
 				int* pSrc = (int*)(vm.pMemory + *pSrcAddress + srcOffset);
 
 				memcpy(pDest, pSrc, *pSize);

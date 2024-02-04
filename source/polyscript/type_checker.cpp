@@ -54,7 +54,7 @@ struct TypeCheckerState {
     Scope* pCurrentScope{ nullptr };
 
     ErrorState* pErrors { nullptr };
-    int currentScopeLevel { 0 };
+    i32 currentScopeLevel { 0 };
     Ast::Declaration* pCurrentDeclaration{ nullptr }; // nullptr if we are not currently parsing a declaration
 	IAllocator* pAllocator{ nullptr };
 };
@@ -154,22 +154,22 @@ Value ComputeCastConstant(Value value, TypeInfo* pFrom, TypeInfo* pTo) {
         switch (pFrom->tag) {
                 case TypeInfo::TypeTag::I32:
                     switch (pTo->tag) {
-                        case TypeInfo::TypeTag::F32: return MakeValue((float)value.i32Value);
+                        case TypeInfo::TypeTag::F32: return MakeValue((f32)value.i32Value);
                         case TypeInfo::TypeTag::Bool: return MakeValue((bool)value.i32Value);
                         default: return MakeValueNill();
                     }
                     break;
                 case TypeInfo::TypeTag::F32:
                     switch (pTo->tag) {
-                        case TypeInfo::TypeTag::I32: return MakeValue((int32_t)value.f32Value);
+                        case TypeInfo::TypeTag::I32: return MakeValue((i32)value.f32Value);
                         case TypeInfo::TypeTag::Bool: return MakeValue((bool)value.f32Value);
                         default: return MakeValueNill();
                     }
                     break;
                 case TypeInfo::TypeTag::Bool:
                     switch (pTo->tag) {
-                        case TypeInfo::TypeTag::I32: return MakeValue((int32_t)value.boolValue);
-                        case TypeInfo::TypeTag::F32: return MakeValue((float)value.boolValue);
+                        case TypeInfo::TypeTag::I32: return MakeValue((i32)value.boolValue);
+                        case TypeInfo::TypeTag::F32: return MakeValue((f32)value.boolValue);
                         default: return MakeValueNill();
                     }
                     break;
@@ -193,7 +193,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
     pFunctionTypeInfo->size = 8;
     pFunctionTypeInfo->params = ResizableArray<TypeInfo*>(state.pAllocator);
 
-    for (size_t i = 0; i < pFuncType->params.count; i++) {
+    for (usize i = 0; i < pFuncType->params.count; i++) {
         TypeInfo* pParamType = nullptr;
         if (pFuncType->params[i]->nodeKind == Ast::NodeKind::Identifier) {
             Ast::Identifier* pParam = (Ast::Identifier*)pFuncType->params[i];
@@ -280,7 +280,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 				if (member.pType)
 					pStructTypeInfo->size += member.pType->size;
 			}
-            // TODO: Naming the struct is interesting right, cause the way odin does it is that the struct itself and the named struct are two different things
+            // TODO: Naming the struct is i32eresting right, cause the way odin does it is that the struct itself and the named struct are two different things
             // But I don't want to implement named types like that today, so for now we'll store the declaration here and set the name. You wanna come back to this
             // soon though, so anonymous struct types are a thing
 			pStructTypeInfo->name = pStruct->pDeclaration->identifier;
@@ -559,15 +559,15 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             }
             
             TypeInfoFunction* pFunctionType = (TypeInfoFunction*)pCall->pCallee->pType;
-            int argsCount = pCall->args.count;
-            int paramsCount = pFunctionType->tag == TypeInfo::TypeTag::Void ? 0 : pFunctionType->params.count;
+            i32 argsCount = pCall->args.count;
+            i32 paramsCount = pFunctionType->tag == TypeInfo::TypeTag::Void ? 0 : pFunctionType->params.count;
             if (pCall->args.count != pFunctionType->params.count) {
                 Ast::Identifier* pVar = (Ast::Identifier*)pCall->pCallee;
                 state.pErrors->PushError(pCall, "Mismatched number of arguments in call to function '%s', expected %i, got %i", pVar->identifier.pData, paramsCount, argsCount);
             }
 
-            int minArgs = argsCount > paramsCount ? paramsCount : argsCount;
-            for (size_t i = 0; i < minArgs; i++) {
+            i32 minArgs = argsCount > paramsCount ? paramsCount : argsCount;
+            for (usize i = 0; i < minArgs; i++) {
                 Ast::Expression* arg = pCall->args[i];
                 TypeInfo* pArgType = pFunctionType->params[i];
                 if (!CheckTypesIdentical(arg->pType, pArgType)) {
@@ -595,7 +595,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pTargetTypeInfo;
 
-			for (size_t i = 0; i < pTargetType->members.count; i++) {
+			for (usize i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
 				if (mem.identifier == pGetField->fieldName) {
 					pGetField->pType = mem.pType;
@@ -625,7 +625,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pTargetTypeInfo;
 			TypeInfoStruct::Member* pTargetField = nullptr;
-			for (size_t i = 0; i < pTargetType->members.count; i++) {
+			for (usize i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
 				if (mem.identifier == pSetField->fieldName) {
 					pTargetField = &pTargetType->members[i];
@@ -821,7 +821,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
             TypeCheckStatements(state, pBlock->declarations);
             state.pCurrentScope = pBlock->pScope->pParent;
 
-            for (size_t i = 0; i < pBlock->pScope->entities.tableSize; i++) { 
+            for (usize i = 0; i < pBlock->pScope->entities.tableSize; i++) { 
                 HashNode<String, Entity*>& node = pBlock->pScope->entities.pTable[i];
                 if (node.hash != UNUSED_HASH) {
                     Entity* pEntity = node.value;
@@ -844,7 +844,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
 // ***********************************************************************
 
 void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program) {
-    for (size_t i = 0; i < program.count; i++) {
+    for (usize i = 0; i < program.count; i++) {
         Ast::Statement* pStmt = program[i];
         TypeCheckStatement(state, pStmt);
     }
@@ -871,7 +871,7 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
         case Ast::NodeKind::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             CollectEntitiesInExpression(state, pCall->pCallee);
-            for (size_t i = 0; i < pCall->args.count; i++) {
+            for (usize i = 0; i < pCall->args.count; i++) {
                 CollectEntitiesInExpression(state, pCall->args[i]);
             }
             break;
@@ -910,7 +910,7 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             pFuncType->pScope->endLine = pFuncType->line;
 
             state.pCurrentScope = pFuncType->pScope;
-            for (size_t i = 0; i < pFuncType->params.count; i++) {
+            for (usize i = 0; i < pFuncType->params.count; i++) {
                 if (pFuncType->params[i]->nodeKind == Ast::NodeKind::Identifier) {
                     CollectEntitiesInExpression(state, (Ast::Expression*)pFuncType->params[i]);
                 } else if (pFuncType->params[i]->nodeKind == Ast::NodeKind::Declaration) {
@@ -929,7 +929,7 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             pStruct->pScope->endLine = pStruct->endToken.line;
 
             state.pCurrentScope = pStruct->pScope;
-            for (size_t i = 0; i < pStruct->members.count; i++) {
+            for (usize i = 0; i < pStruct->members.count; i++) {
                 CollectEntitiesInStatement(state, pStruct->members[i]);
             }
             state.pCurrentScope = pStruct->pScope->pParent;
@@ -942,7 +942,7 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             pFunction->pScope->endLine = pFunction->line;
 
             state.pCurrentScope = pFunction->pScope;
-            for (size_t i = 0; i < pFunction->pFuncType->params.count; i++) {
+            for (usize i = 0; i < pFunction->pFuncType->params.count; i++) {
                 if (pFunction->pFuncType->params[i]->nodeKind == Ast::NodeKind::Identifier) {
                     CollectEntitiesInExpression(state, (Ast::Expression*)pFunction->pFuncType->params[i]);
                 } else if (pFunction->pFuncType->params[i]->nodeKind == Ast::NodeKind::Declaration) {
@@ -1069,7 +1069,7 @@ void CollectEntitiesInStatement(TypeCheckerState& state, Ast::Statement* pStmt) 
 // ***********************************************************************
 
 void CollectEntities(TypeCheckerState& state, ResizableArray<Ast::Statement*>& statements) {
-    for (size_t i = 0; i < statements.count; i++) {
+    for (usize i = 0; i < statements.count; i++) {
         Ast::Statement* pStmt = statements[i];
         CollectEntitiesInStatement(state, pStmt);
     }

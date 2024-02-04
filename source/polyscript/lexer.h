@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <stdint.h>
+#include "types.h"
 
 template<typename T>
 struct ResizableArray;
@@ -11,7 +11,7 @@ struct IAllocator;
 struct Compiler;
 
 namespace TokenType {
-enum Enum : uint32_t {
+enum Enum : u32 {
     Invalid,
     // Simple one character tokens
     LeftParen,
@@ -67,10 +67,10 @@ struct Token {
     TokenType::Enum type { TokenType::Invalid };
 
     char* pLocation { nullptr };
-    size_t length { 0 };
+    usize length { 0 };
 
     char* pLineStart { nullptr };
-    uint32_t line { 0 };
+    u32 line { 0 };
 };
 
 void Tokenize(Compiler& compilerState);

@@ -46,15 +46,15 @@ int EndObject2D(lua_State* pLua) {
 // ***********************************************************************
 
 int Vertex(lua_State* pLua) {
-    float x = (float)luaL_checknumber(pLua, 1);
-    float y = (float)luaL_checknumber(pLua, 2);
+    f32 x = (f32)luaL_checknumber(pLua, 1);
+    f32 y = (f32)luaL_checknumber(pLua, 2);
 
     if (lua_isnoneornil(pLua, 3)) {
         pGpu->Vertex(Vec2f(x, y));
         return 0;
     }
 
-    float z = (float)luaL_checknumber(pLua, 3);
+    f32 z = (f32)luaL_checknumber(pLua, 3);
     pGpu->Vertex(Vec3f(x, y, z));
     return 0;
 }
@@ -87,10 +87,10 @@ int EndObject3D(lua_State* pLua) {
 // ***********************************************************************
 
 int Color(lua_State* pLua) {
-    float r = (float)luaL_checknumber(pLua, 1);
-    float g = (float)luaL_checknumber(pLua, 2);
-    float b = (float)luaL_checknumber(pLua, 3);
-    float a = (float)luaL_checknumber(pLua, 4);
+    f32 r = (f32)luaL_checknumber(pLua, 1);
+    f32 g = (f32)luaL_checknumber(pLua, 2);
+    f32 b = (f32)luaL_checknumber(pLua, 3);
+    f32 a = (f32)luaL_checknumber(pLua, 4);
     pGpu->Color(Vec4f(r, g, b, a));
     return 0;
 }
@@ -98,8 +98,8 @@ int Color(lua_State* pLua) {
 // ***********************************************************************
 
 int TexCoord(lua_State* pLua) {
-    float u = (float)luaL_checknumber(pLua, 1);
-    float v = (float)luaL_checknumber(pLua, 2);
+    f32 u = (f32)luaL_checknumber(pLua, 1);
+    f32 v = (f32)luaL_checknumber(pLua, 2);
     pGpu->TexCoord(Vec2f(u, v));
     return 0;
 }
@@ -107,9 +107,9 @@ int TexCoord(lua_State* pLua) {
 // ***********************************************************************
 
 int Normal(lua_State* pLua) {
-    float x = (float)luaL_checknumber(pLua, 1);
-    float y = (float)luaL_checknumber(pLua, 2);
-    float z = (float)luaL_checknumber(pLua, 3);
+    f32 x = (f32)luaL_checknumber(pLua, 1);
+    f32 y = (f32)luaL_checknumber(pLua, 2);
+    f32 z = (f32)luaL_checknumber(pLua, 3);
     pGpu->Normal(Vec3f(x, y, z));
     return 0;
 }
@@ -117,10 +117,10 @@ int Normal(lua_State* pLua) {
 // ***********************************************************************
 
 int SetClearColor(lua_State* pLua) {
-    float r = (float)luaL_checknumber(pLua, 1);
-    float g = (float)luaL_checknumber(pLua, 2);
-    float b = (float)luaL_checknumber(pLua, 3);
-    float a = (float)luaL_checknumber(pLua, 4);
+    f32 r = (f32)luaL_checknumber(pLua, 1);
+    f32 g = (f32)luaL_checknumber(pLua, 2);
+    f32 b = (f32)luaL_checknumber(pLua, 3);
+    f32 a = (f32)luaL_checknumber(pLua, 4);
     pGpu->SetClearColor(Vec4f(r, g, b, a));
     return 0;
 }
@@ -144,11 +144,11 @@ int MatrixMode(lua_State* pLua) {
 // ***********************************************************************
 
 int Perspective(lua_State* pLua) {
-    float screenWidth = (float)luaL_checknumber(pLua, 1);
-    float screenHeight = (float)luaL_checknumber(pLua, 2);
-    float nearPlane = (float)luaL_checknumber(pLua, 3);
-    float farPlane = (float)luaL_checknumber(pLua, 4);
-    float fov = (float)luaL_checknumber(pLua, 5);
+    f32 screenWidth = (f32)luaL_checknumber(pLua, 1);
+    f32 screenHeight = (f32)luaL_checknumber(pLua, 2);
+    f32 nearPlane = (f32)luaL_checknumber(pLua, 3);
+    f32 farPlane = (f32)luaL_checknumber(pLua, 4);
+    f32 fov = (f32)luaL_checknumber(pLua, 5);
     pGpu->Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);
     return 0;
 }
@@ -156,9 +156,9 @@ int Perspective(lua_State* pLua) {
 // ***********************************************************************
 
 int Translate(lua_State* pLua) {
-    float x = (float)luaL_checknumber(pLua, 1);
-    float y = (float)luaL_checknumber(pLua, 2);
-    float z = (float)luaL_checknumber(pLua, 3);
+    f32 x = (f32)luaL_checknumber(pLua, 1);
+    f32 y = (f32)luaL_checknumber(pLua, 2);
+    f32 z = (f32)luaL_checknumber(pLua, 3);
     pGpu->Translate(Vec3f(x, y, z));
     return 0;
 }
@@ -166,9 +166,9 @@ int Translate(lua_State* pLua) {
 // ***********************************************************************
 
 int Rotate(lua_State* pLua) {
-    float x = (float)luaL_checknumber(pLua, 1);
-    float y = (float)luaL_checknumber(pLua, 2);
-    float z = (float)luaL_checknumber(pLua, 3);
+    f32 x = (f32)luaL_checknumber(pLua, 1);
+    f32 y = (f32)luaL_checknumber(pLua, 2);
+    f32 z = (f32)luaL_checknumber(pLua, 3);
     pGpu->Rotate(Vec3f(x, y, z));
     return 0;
 }
@@ -176,9 +176,9 @@ int Rotate(lua_State* pLua) {
 // ***********************************************************************
 
 int Scale(lua_State* pLua) {
-    float x = (float)luaL_checknumber(pLua, 1);
-    float y = (float)luaL_checknumber(pLua, 2);
-    float z = (float)luaL_checknumber(pLua, 3);
+    f32 x = (f32)luaL_checknumber(pLua, 1);
+    f32 y = (f32)luaL_checknumber(pLua, 2);
+    f32 z = (f32)luaL_checknumber(pLua, 3);
     pGpu->Scale(Vec3f(x, y, z));
     return 0;
 }
@@ -231,18 +231,18 @@ int EnableLighting(lua_State* pLua) {
 // ***********************************************************************
 
 int Light(lua_State* pLua) {
-    int id = (int)luaL_checkinteger(pLua, 1);
+    i32 id = (i32)luaL_checkinteger(pLua, 1);
 
     Vec3f direction;
-    direction.x = (float)luaL_checknumber(pLua, 2);
-    direction.y = (float)luaL_checknumber(pLua, 3);
-    direction.z = (float)luaL_checknumber(pLua, 4);
+    direction.x = (f32)luaL_checknumber(pLua, 2);
+    direction.y = (f32)luaL_checknumber(pLua, 3);
+    direction.z = (f32)luaL_checknumber(pLua, 4);
 
     // consider making colors a type that can be more easily passed in?
     Vec3f color;
-    color.x = (float)luaL_checknumber(pLua, 5);
-    color.y = (float)luaL_checknumber(pLua, 6);
-    color.z = (float)luaL_checknumber(pLua, 7);
+    color.x = (f32)luaL_checknumber(pLua, 5);
+    color.y = (f32)luaL_checknumber(pLua, 6);
+    color.z = (f32)luaL_checknumber(pLua, 7);
 
     pGpu->Light(id, direction, color);
     return 0;
@@ -252,9 +252,9 @@ int Light(lua_State* pLua) {
 
 int Ambient(lua_State* pLua) {
     Vec3f color;
-    color.x = (float)luaL_checknumber(pLua, 1);
-    color.y = (float)luaL_checknumber(pLua, 2);
-    color.z = (float)luaL_checknumber(pLua, 3);
+    color.x = (f32)luaL_checknumber(pLua, 1);
+    color.y = (f32)luaL_checknumber(pLua, 2);
+    color.z = (f32)luaL_checknumber(pLua, 3);
 
     pGpu->Ambient(color);
     return 0;
@@ -271,7 +271,7 @@ int EnableFog(lua_State* pLua) {
 // ***********************************************************************
 
 int SetFogStart(lua_State* pLua) {
-    float start = (float)luaL_checknumber(pLua, 1);
+    f32 start = (f32)luaL_checknumber(pLua, 1);
     pGpu->SetFogStart(start);
     return 0;
 }
@@ -279,7 +279,7 @@ int SetFogStart(lua_State* pLua) {
 // ***********************************************************************
 
 int SetFogEnd(lua_State* pLua) {
-    float end = (float)luaL_checknumber(pLua, 1);
+    f32 end = (f32)luaL_checknumber(pLua, 1);
     pGpu->SetFogEnd(end);
     return 0;
 }
@@ -288,9 +288,9 @@ int SetFogEnd(lua_State* pLua) {
 
 int SetFogColor(lua_State* pLua) {
     Vec3f color;
-    color.x = (float)luaL_checknumber(pLua, 1);
-    color.y = (float)luaL_checknumber(pLua, 2);
-    color.z = (float)luaL_checknumber(pLua, 3);
+    color.x = (f32)luaL_checknumber(pLua, 1);
+    color.y = (f32)luaL_checknumber(pLua, 2);
+    color.z = (f32)luaL_checknumber(pLua, 3);
     pGpu->SetFogColor(color);
     return 0;
 }
@@ -300,8 +300,8 @@ int SetFogColor(lua_State* pLua) {
 int DrawSprite(lua_State* pLua) {
     Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
     Vec2f position;
-    position.x = (float)luaL_checknumber(pLua, 2);
-    position.y = (float)luaL_checknumber(pLua, 3);
+    position.x = (f32)luaL_checknumber(pLua, 2);
+    position.y = (f32)luaL_checknumber(pLua, 3);
     pGpu->DrawSprite(pImage, position);
     return 0;
 }
@@ -311,13 +311,13 @@ int DrawSprite(lua_State* pLua) {
 int DrawSpriteRect(lua_State* pLua) {
     Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
     Vec4f rect;
-    rect.x = (float)luaL_checknumber(pLua, 2);
-    rect.y = (float)luaL_checknumber(pLua, 3);
-    rect.z = (float)luaL_checknumber(pLua, 4);
-    rect.w = (float)luaL_checknumber(pLua, 5);
+    rect.x = (f32)luaL_checknumber(pLua, 2);
+    rect.y = (f32)luaL_checknumber(pLua, 3);
+    rect.z = (f32)luaL_checknumber(pLua, 4);
+    rect.w = (f32)luaL_checknumber(pLua, 5);
     Vec2f position;
-    position.x = (float)luaL_checknumber(pLua, 6);
-    position.y = (float)luaL_checknumber(pLua, 7);
+    position.x = (f32)luaL_checknumber(pLua, 6);
+    position.y = (f32)luaL_checknumber(pLua, 7);
     pGpu->DrawSpriteRect(pImage, rect, position);
     return 0;
 }
@@ -325,12 +325,12 @@ int DrawSpriteRect(lua_State* pLua) {
 // ***********************************************************************
 
 int DrawText(lua_State* pLua) {
-    size_t len;
+    usize len;
     const char* str = luaL_checklstring(pLua, 1, &len);
     Vec2f position;
-    position.x = (float)luaL_checknumber(pLua, 2);
-    position.y = (float)luaL_checknumber(pLua, 3);
-    float size = (float)luaL_checknumber(pLua, 4);
+    position.x = (f32)luaL_checknumber(pLua, 2);
+    position.y = (f32)luaL_checknumber(pLua, 3);
+    f32 size = (f32)luaL_checknumber(pLua, 4);
 
     pGpu->DrawText(str, position, size);
     return 0;
@@ -339,18 +339,18 @@ int DrawText(lua_State* pLua) {
 // ***********************************************************************
 
 int DrawTextEx(lua_State* pLua) {
-    size_t len;
+    usize len;
     const char* str = luaL_checklstring(pLua, 1, &len);
     Vec2f position;
-    position.x = (float)luaL_checknumber(pLua, 2);
-    position.y = (float)luaL_checknumber(pLua, 3);
+    position.x = (f32)luaL_checknumber(pLua, 2);
+    position.y = (f32)luaL_checknumber(pLua, 3);
     Vec4f color;
-    color.x = (float)luaL_checknumber(pLua, 4);
-    color.y = (float)luaL_checknumber(pLua, 5);
-    color.z = (float)luaL_checknumber(pLua, 6);
-    color.w = (float)luaL_checknumber(pLua, 7);
+    color.x = (f32)luaL_checknumber(pLua, 4);
+    color.y = (f32)luaL_checknumber(pLua, 5);
+    color.z = (f32)luaL_checknumber(pLua, 6);
+    color.w = (f32)luaL_checknumber(pLua, 7);
     Font* pFont = *(Font**)luaL_checkudata(pLua, 8, "Font");
-    float size = (float)luaL_checknumber(pLua, 9);
+    f32 size = (f32)luaL_checknumber(pLua, 9);
 
     pGpu->DrawTextEx(str, position, color, pFont, size);
     return 0;
@@ -358,13 +358,13 @@ int DrawTextEx(lua_State* pLua) {
 
 int DrawPixel(lua_State* pLua) {
     Vec2f position;
-    position.x = (float)luaL_checknumber(pLua, 1);
-    position.y = (float)luaL_checknumber(pLua, 2);
+    position.x = (f32)luaL_checknumber(pLua, 1);
+    position.y = (f32)luaL_checknumber(pLua, 2);
     Vec4f color;
-    color.x = (float)luaL_checknumber(pLua, 3);
-    color.y = (float)luaL_checknumber(pLua, 4);
-    color.z = (float)luaL_checknumber(pLua, 5);
-    color.w = (float)luaL_checknumber(pLua, 6);
+    color.x = (f32)luaL_checknumber(pLua, 3);
+    color.y = (f32)luaL_checknumber(pLua, 4);
+    color.z = (f32)luaL_checknumber(pLua, 5);
+    color.w = (f32)luaL_checknumber(pLua, 6);
 
     pGpu->DrawPixel(position, color);
     return 0;
@@ -372,16 +372,16 @@ int DrawPixel(lua_State* pLua) {
 
 int DrawLine(lua_State* pLua) {
     Vec2f start;
-    start.x = (float)luaL_checknumber(pLua, 1);
-    start.y = (float)luaL_checknumber(pLua, 2);
+    start.x = (f32)luaL_checknumber(pLua, 1);
+    start.y = (f32)luaL_checknumber(pLua, 2);
     Vec2f end;
-    end.x = (float)luaL_checknumber(pLua, 3);
-    end.y = (float)luaL_checknumber(pLua, 4);
+    end.x = (f32)luaL_checknumber(pLua, 3);
+    end.y = (f32)luaL_checknumber(pLua, 4);
     Vec4f color;
-    color.x = (float)luaL_checknumber(pLua, 5);
-    color.y = (float)luaL_checknumber(pLua, 6);
-    color.z = (float)luaL_checknumber(pLua, 7);
-    color.w = (float)luaL_checknumber(pLua, 8);
+    color.x = (f32)luaL_checknumber(pLua, 5);
+    color.y = (f32)luaL_checknumber(pLua, 6);
+    color.z = (f32)luaL_checknumber(pLua, 7);
+    color.w = (f32)luaL_checknumber(pLua, 8);
 
     pGpu->DrawLine(start, end, color);
     return 0;
@@ -389,14 +389,14 @@ int DrawLine(lua_State* pLua) {
 
 int DrawCircle(lua_State* pLua) {
     Vec2f center;
-    center.x = (float)luaL_checknumber(pLua, 1);
-    center.y = (float)luaL_checknumber(pLua, 2);
-    float radius = (float)luaL_checknumber(pLua, 3);
+    center.x = (f32)luaL_checknumber(pLua, 1);
+    center.y = (f32)luaL_checknumber(pLua, 2);
+    f32 radius = (f32)luaL_checknumber(pLua, 3);
     Vec4f color;
-    color.x = (float)luaL_checknumber(pLua, 4);
-    color.y = (float)luaL_checknumber(pLua, 5);
-    color.z = (float)luaL_checknumber(pLua, 6);
-    color.w = (float)luaL_checknumber(pLua, 7);
+    color.x = (f32)luaL_checknumber(pLua, 4);
+    color.y = (f32)luaL_checknumber(pLua, 5);
+    color.z = (f32)luaL_checknumber(pLua, 6);
+    color.w = (f32)luaL_checknumber(pLua, 7);
 
     pGpu->DrawCircle(center, radius, color);
     return 0;
@@ -404,14 +404,14 @@ int DrawCircle(lua_State* pLua) {
 
 int DrawCircleOutline(lua_State* pLua) {
     Vec2f center;
-    center.x = (float)luaL_checknumber(pLua, 1);
-    center.y = (float)luaL_checknumber(pLua, 2);
-    float radius = (float)luaL_checknumber(pLua, 3);
+    center.x = (f32)luaL_checknumber(pLua, 1);
+    center.y = (f32)luaL_checknumber(pLua, 2);
+    f32 radius = (f32)luaL_checknumber(pLua, 3);
     Vec4f color;
-    color.x = (float)luaL_checknumber(pLua, 4);
-    color.y = (float)luaL_checknumber(pLua, 5);
-    color.z = (float)luaL_checknumber(pLua, 6);
-    color.w = (float)luaL_checknumber(pLua, 7);
+    color.x = (f32)luaL_checknumber(pLua, 4);
+    color.y = (f32)luaL_checknumber(pLua, 5);
+    color.z = (f32)luaL_checknumber(pLua, 6);
+    color.w = (f32)luaL_checknumber(pLua, 7);
 
     pGpu->DrawCircleOutline(center, radius, color);
     return 0;
@@ -419,16 +419,16 @@ int DrawCircleOutline(lua_State* pLua) {
 
 int DrawRectangle(lua_State* pLua) {
     Vec2f bottomLeft;
-    bottomLeft.x = (float)luaL_checknumber(pLua, 1);
-    bottomLeft.y = (float)luaL_checknumber(pLua, 2);
+    bottomLeft.x = (f32)luaL_checknumber(pLua, 1);
+    bottomLeft.y = (f32)luaL_checknumber(pLua, 2);
     Vec2f topRight;
-    topRight.x = (float)luaL_checknumber(pLua, 3);
-    topRight.y = (float)luaL_checknumber(pLua, 4);
+    topRight.x = (f32)luaL_checknumber(pLua, 3);
+    topRight.y = (f32)luaL_checknumber(pLua, 4);
     Vec4f color;
-    color.x = (float)luaL_checknumber(pLua, 5);
-    color.y = (float)luaL_checknumber(pLua, 6);
-    color.z = (float)luaL_checknumber(pLua, 7);
-    color.w = (float)luaL_checknumber(pLua, 8);
+    color.x = (f32)luaL_checknumber(pLua, 5);
+    color.y = (f32)luaL_checknumber(pLua, 6);
+    color.z = (f32)luaL_checknumber(pLua, 7);
+    color.w = (f32)luaL_checknumber(pLua, 8);
 
     pGpu->DrawRectangle(bottomLeft, topRight, color);
     return 0;
@@ -436,16 +436,16 @@ int DrawRectangle(lua_State* pLua) {
 
 int DrawRectangleOutline(lua_State* pLua) {
     Vec2f bottomLeft;
-    bottomLeft.x = (float)luaL_checknumber(pLua, 1);
-    bottomLeft.y = (float)luaL_checknumber(pLua, 2);
+    bottomLeft.x = (f32)luaL_checknumber(pLua, 1);
+    bottomLeft.y = (f32)luaL_checknumber(pLua, 2);
     Vec2f topRight;
-    topRight.x = (float)luaL_checknumber(pLua, 3);
-    topRight.y = (float)luaL_checknumber(pLua, 4);
+    topRight.x = (f32)luaL_checknumber(pLua, 3);
+    topRight.y = (f32)luaL_checknumber(pLua, 4);
     Vec4f color;
-    color.x = (float)luaL_checknumber(pLua, 5);
-    color.y = (float)luaL_checknumber(pLua, 6);
-    color.z = (float)luaL_checknumber(pLua, 7);
-    color.w = (float)luaL_checknumber(pLua, 8);
+    color.x = (f32)luaL_checknumber(pLua, 5);
+    color.y = (f32)luaL_checknumber(pLua, 6);
+    color.z = (f32)luaL_checknumber(pLua, 7);
+    color.w = (f32)luaL_checknumber(pLua, 8);
 
     pGpu->DrawRectangleOutline(bottomLeft, topRight, color);
     return 0;
@@ -454,7 +454,7 @@ int DrawRectangleOutline(lua_State* pLua) {
 // ***********************************************************************
 
 int NewImage(lua_State* pLua) {
-    size_t len;
+    usize len;
     const char* str = luaL_checklstring(pLua, 1, &len);
     String path(str);
 
@@ -488,10 +488,10 @@ int Image_GetHeight(lua_State* pLua) {
 // ***********************************************************************
 
 int NewFont(lua_State* pLua) {
-    size_t len;
+    usize len;
     const char* path = luaL_checklstring(pLua, 1, &len);
     bool antialiasing = luax_checkboolean(pLua, 2);
-    float weight = (float)luaL_checknumber(pLua, 3);
+    f32 weight = (f32)luaL_checknumber(pLua, 3);
 
     // Create a new userdata for our object
     Font** ppFont = (Font**)lua_newuserdata(pLua, sizeof(Font*));

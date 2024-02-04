@@ -60,7 +60,7 @@ struct Image;
 class GraphicsChip {
    public:
     void Init();
-    void DrawFrame(float w, float h);
+    void DrawFrame(f32 w, f32 h);
 
     // Basic draw 2D
     void BeginObject2D(EPrimitiveType type);
@@ -79,7 +79,7 @@ class GraphicsChip {
 
     // Transforms
     void MatrixMode(EMatrixMode mode);
-    void Perspective(float screenWidth, float screenHeight, float nearPlane, float farPlane, float fov);
+    void Perspective(f32 screenWidth, f32 screenHeight, f32 nearPlane, f32 farPlane, f32 fov);
     void Translate(Vec3f translation);
     void Rotate(Vec3f rotation);
     void Scale(Vec3f scaling);
@@ -98,24 +98,24 @@ class GraphicsChip {
 
     // Depth Cueing
     void EnableFog(bool enabled);
-    void SetFogStart(float start);
-    void SetFogEnd(float end);
+    void SetFogStart(f32 start);
+    void SetFogEnd(f32 end);
     void SetFogColor(Vec3f color);
 
     // Extended Graphics API
     void DrawSprite(Image* pImage, Vec2f position);
     void DrawSpriteRect(Image* pImage, Vec4f rect, Vec2f position);
-    void DrawText(const char* text, Vec2f position, float size);
-    void DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, float size);
+    void DrawText(const char* text, Vec2f position, f32 size);
+    void DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, f32 size);
     void DrawPixel(Vec2f position, Vec4f color);
     void DrawLine(Vec2f start, Vec2f end, Vec4f color);
-    void DrawCircle(Vec2f center, float radius, Vec4f color);
-    void DrawCircleOutline(Vec2f center, float radius, Vec4f color);
+    void DrawCircle(Vec2f center, f32 radius, Vec4f color);
+    void DrawCircleOutline(Vec2f center, f32 radius, Vec4f color);
     void DrawRectangle(Vec2f bottomLeft, Vec2f topRight, Vec4f color);
     void DrawRectangleOutline(Vec2f bottomLeft, Vec2f topRight, Vec4f color);
 
    private:
-    void FullScreenQuad(float _textureWidth, float _textureHeight, float _texelHalf, bool _originBottomLeft, float _depth, float _width = 1.0f, float _height = 1.0f);
+    void FullScreenQuad(f32 _textureWidth, f32 _textureHeight, f32 _texelHalf, bool _originBottomLeft, f32 _depth, f32 _width = 1.0f, f32 _height = 1.0f);
 
 
     Vec2f targetResolution { Vec2f(320.0f, 240.0f) };
@@ -129,7 +129,7 @@ class GraphicsChip {
     Vec3f vertexNormalState { Vec3f(0.0f, 0.0f, 0.0f) };
 
     EMatrixMode matrixModeState;
-    Matrixf matrixStates[(size_t)EMatrixMode::Count];
+    Matrixf matrixStates[(usize)EMatrixMode::Count];
 
     Vec4f clearColor { Vec4f(0.25f, 0.25f, 0.25f, 1.0f) };
 

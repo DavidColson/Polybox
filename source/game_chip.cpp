@@ -20,25 +20,25 @@
 
 namespace {
 // Mapping of strings to virtual controller buttons
-HashMap<uint32_t, ControllerButton> stringToControllerButton;
+HashMap<u32, ControllerButton> stringToControllerButton;
 
 // Mapping of strings to virtual controller axis
-HashMap<uint32_t, ControllerAxis> stringToControllerAxis;
+HashMap<u32, ControllerAxis> stringToControllerAxis;
 
 // Mapping of strings to SDL scancodes
-HashMap<uint32_t, SDL_Keycode> stringToKeyCode;
+HashMap<u32, SDL_Keycode> stringToKeyCode;
 
 // Mapping of strings to SDL scancodes
 HashMap<SDL_Keycode, Key> keyCodeToInternalKeyCode;
 
 // Mapping of strings to SDL mouse codes
-HashMap<uint32_t, int> stringToMouseCode;
+HashMap<u32, i32> stringToMouseCode;
 
 // Mapping of strings to SDL controller buttons
-HashMap<uint32_t, SDL_GameControllerButton> stringToSDLControllerButton;
+HashMap<u32, SDL_GameControllerButton> stringToSDLControllerButton;
 
 // Mapping of strings to SDL controller axes
-HashMap<uint32_t, SDL_GameControllerAxis> stringToSDLControllerAxis;
+HashMap<u32, SDL_GameControllerAxis> stringToSDLControllerAxis;
 }
 
 // ***********************************************************************
@@ -360,7 +360,7 @@ void GameChip::Init() {
 
     // Load json mapping file
     SDL_RWops* pFileRead = SDL_RWFromFile("assets/ControllerMapping.json", "rb");
-    uint64_t size = SDL_RWsize(pFileRead);
+    u64 size = SDL_RWsize(pFileRead);
     char* pData = (char*)g_Allocator.Allocate(size * sizeof(char));
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
@@ -375,7 +375,7 @@ void GameChip::Init() {
     // Going through all elements of the json file
     if (mapping.HasKey("Buttons")) {
         JsonValue& buttons = mapping["Buttons"];
-        for (size_t i = 0; i < buttons.Count(); i++) {
+        for (usize i = 0; i < buttons.Count(); i++) {
             JsonValue& jsonButton = buttons[i];
             ControllerButton button = stringToControllerButton[Fnv1a::Hash(jsonButton["Name"].ToString().pData)];
             SDL_GameControllerButton primaryBinding = stringToSDLControllerButton[Fnv1a::Hash(jsonButton["Primary"].ToString().pData)];
@@ -386,14 +386,14 @@ void GameChip::Init() {
                 SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                 keyboardAltBindings[keycode] = button;
             } else if (altBindingLabel.SubStr(0, 5) == "Mouse") {
-                int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
+                i32 mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                 mouseAltBindings[mousecode] = button;
             }
         }
     }
     if (mapping.HasKey("Axes")) {
         JsonValue& jsonAxes = mapping["Axes"];
-		for (size_t i = 0; i < jsonAxes.Count(); i++) {
+		for (usize i = 0; i < jsonAxes.Count(); i++) {
 			JsonValue& jsonAxis = jsonAxes[i];
             ControllerAxis axis = stringToControllerAxis[Fnv1a::Hash(jsonAxis["Name"].ToString().pData)];
 
@@ -406,11 +406,11 @@ void GameChip::Init() {
                 if (altBindingLabel.SubStr(0, 5) == "Scanc") {
                     SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                     keyboardAxisBindings[keycode] = axis;
-                    axes[(size_t)axis].positiveScanCode = keycode;
+                    axes[(usize)axis].positiveScanCode = keycode;
                 } else if (altBindingLabel.SubStr(0, 5) == "Mouse") {
-                    int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
+                    i32 mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                     mouseAxisBindings[mousecode] = axis;
-                    axes[(size_t)axis].positiveMouseButton = mousecode;
+                    axes[(usize)axis].positiveMouseButton = mousecode;
                 }
             }
             if (jsonAxis.HasKey("AltPositive")) {
@@ -418,11 +418,11 @@ void GameChip::Init() {
                 if (altBindingLabel.SubStr(0, 5) == "Scanc") {
                     SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                     keyboardAxisBindings[keycode] = axis;
-                    axes[(size_t)axis].positiveScanCode = keycode;
+                    axes[(usize)axis].positiveScanCode = keycode;
                 } else if (altBindingLabel.SubStr(0, 5) == "Mouse") {
-                    int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
+                    i32 mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                     mouseAxisBindings[mousecode] = axis;
-                    axes[(size_t)axis].positiveMouseButton = mousecode;
+                    axes[(usize)axis].positiveMouseButton = mousecode;
                 }
             }
             if (jsonAxis.HasKey("AltNegative")) {
@@ -430,11 +430,11 @@ void GameChip::Init() {
                 if (altBindingLabel.SubStr(0, 5) == "Scanc") {
                     SDL_Keycode keycode = stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                     keyboardAxisBindings[keycode] = axis;
-                    axes[(size_t)axis].negativeScanCode = keycode;
+                    axes[(usize)axis].negativeScanCode = keycode;
                 } else if (altBindingLabel.SubStr(0, 5) == "Mouse") {
-                    int mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
+                    i32 mousecode = stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                     mouseAxisBindings[mousecode] = axis;
-                    axes[(size_t)axis].negativeMouseButton = mousecode;
+                    axes[(usize)axis].negativeMouseButton = mousecode;
                 }
             }
         }
@@ -468,17 +468,17 @@ void GameChip::ProcessEvent(SDL_Event* event) {
         }
         case SDL_KEYDOWN: {
             SDL_Keycode keycode = event->key.keysym.sym;
-            keyDowns[(size_t)keyCodeToInternalKeyCode[keycode]] = true;
-            keyStates[(size_t)keyCodeToInternalKeyCode[keycode]] = true;
+            keyDowns[(usize)keyCodeToInternalKeyCode[keycode]] = true;
+            keyStates[(usize)keyCodeToInternalKeyCode[keycode]] = true;
 
             ControllerButton button = keyboardAltBindings[keycode];
             if (button != ControllerButton::Invalid) {
-                buttonDowns[(size_t)button] = true;
-                buttonStates[(size_t)button] = true;
+                buttonDowns[(usize)button] = true;
+                buttonStates[(usize)button] = true;
             }
             ControllerAxis axis = keyboardAxisBindings[keycode];
             if (axis != ControllerAxis::Invalid) {
-                Axis& axisData = axes[(size_t)axis];
+                Axis& axisData = axes[(usize)axis];
                 if (axisData.positiveScanCode == keycode)
                     axisData.positiveInput = true;
                 else if (axisData.negativeScanCode == keycode)
@@ -489,17 +489,17 @@ void GameChip::ProcessEvent(SDL_Event* event) {
         }
         case SDL_KEYUP: {
             SDL_Keycode keycode = event->key.keysym.sym;
-            keyUps[(size_t)keyCodeToInternalKeyCode[keycode]] = true;
-            keyStates[(size_t)keyCodeToInternalKeyCode[keycode]] = false;
+            keyUps[(usize)keyCodeToInternalKeyCode[keycode]] = true;
+            keyStates[(usize)keyCodeToInternalKeyCode[keycode]] = false;
 
             ControllerButton button = keyboardAltBindings[keycode];
             if (button != ControllerButton::Invalid) {
-                buttonUps[(size_t)button] = true;
-                buttonStates[(size_t)button] = false;
+                buttonUps[(usize)button] = true;
+                buttonStates[(usize)button] = false;
             }
             ControllerAxis axis = keyboardAxisBindings[keycode];
             if (axis != ControllerAxis::Invalid) {
-                Axis& axisData = axes[(size_t)axis];
+                Axis& axisData = axes[(usize)axis];
                 if (axisData.positiveScanCode == keycode)
                     axisData.positiveInput = false;
                 else if (axisData.negativeScanCode == keycode)
@@ -512,8 +512,8 @@ void GameChip::ProcessEvent(SDL_Event* event) {
             SDL_GameControllerButton sdlButton = (SDL_GameControllerButton)event->cbutton.button;
             ControllerButton button = primaryBindings[sdlButton];
             if (button != ControllerButton::Invalid) {
-                buttonDowns[(size_t)button] = true;
-                buttonStates[(size_t)button] = true;
+                buttonDowns[(usize)button] = true;
+                buttonStates[(usize)button] = true;
             }
             break;
         }
@@ -521,21 +521,21 @@ void GameChip::ProcessEvent(SDL_Event* event) {
             SDL_GameControllerButton sdlButton = (SDL_GameControllerButton)event->cbutton.button;
             ControllerButton button = primaryBindings[sdlButton];
             if (button != ControllerButton::Invalid) {
-                buttonUps[(size_t)button] = true;
-                buttonStates[(size_t)button] = false;
+                buttonUps[(usize)button] = true;
+                buttonStates[(usize)button] = false;
             }
             break;
         }
         case SDL_MOUSEBUTTONDOWN: {
-            int sdlMouseButton = event->button.button;
+            i32 sdlMouseButton = event->button.button;
             ControllerButton button = mouseAltBindings[sdlMouseButton];
             if (button != ControllerButton::Invalid) {
-                buttonDowns[(size_t)button] = true;
-                buttonStates[(size_t)button] = true;
+                buttonDowns[(usize)button] = true;
+                buttonStates[(usize)button] = true;
             }
             ControllerAxis axis = mouseAxisBindings[sdlMouseButton];
             if (axis != ControllerAxis::Invalid) {
-                Axis& axisData = axes[(size_t)axis];
+                Axis& axisData = axes[(usize)axis];
                 if (axisData.positiveMouseButton == sdlMouseButton)
                     axisData.positiveInput = true;
                 else if (axisData.negativeMouseButton == sdlMouseButton)
@@ -545,15 +545,15 @@ void GameChip::ProcessEvent(SDL_Event* event) {
             break;
         }
         case SDL_MOUSEBUTTONUP: {
-            int sdlMouseButton = event->button.button;
+            i32 sdlMouseButton = event->button.button;
             ControllerButton button = mouseAltBindings[sdlMouseButton];
             if (button != ControllerButton::Invalid) {
-                buttonUps[(size_t)button] = true;
-                buttonStates[(size_t)button] = false;
+                buttonUps[(usize)button] = true;
+                buttonStates[(usize)button] = false;
             }
             ControllerAxis axis = mouseAxisBindings[sdlMouseButton];
             if (axis != ControllerAxis::Invalid) {
-                Axis& axisData = axes[(size_t)axis];
+                Axis& axisData = axes[(usize)axis];
                 if (axisData.positiveMouseButton == sdlMouseButton)
                     axisData.positiveInput = false;
                 else if (axisData.negativeMouseButton == sdlMouseButton)
@@ -563,29 +563,29 @@ void GameChip::ProcessEvent(SDL_Event* event) {
             break;
         }
         case SDL_MOUSEMOTION: {
-            float mouseSensitivity = 0.08f;  // TODO: Make configurable
+            f32 mouseSensitivity = 0.08f;  // TODO: Make configurable
             SDL_MouseMotionEvent motionEvent = event->motion;
             ControllerAxis axis;
             if (abs(motionEvent.xrel) > 0) {
                 axis = mouseAxisBindings[stringToMouseCode["Mouse_AxisX"_hash]];
-                axes[(size_t)axis].axisValue = (float)motionEvent.xrel * mouseSensitivity;
-                axes[(size_t)axis].ignoreVirtual = true;
-                axes[(size_t)axis].isMouseDriver = true;
+                axes[(usize)axis].axisValue = (f32)motionEvent.xrel * mouseSensitivity;
+                axes[(usize)axis].ignoreVirtual = true;
+                axes[(usize)axis].isMouseDriver = true;
             }
             if (abs(motionEvent.yrel) > 0) {
                 axis = mouseAxisBindings[stringToMouseCode["Mouse_AxisY"_hash]];
-                axes[(size_t)axis].axisValue = (float)motionEvent.yrel * mouseSensitivity;
-                axes[(size_t)axis].ignoreVirtual = true;
-                axes[(size_t)axis].isMouseDriver = true;
+                axes[(usize)axis].axisValue = (f32)motionEvent.yrel * mouseSensitivity;
+                axes[(usize)axis].ignoreVirtual = true;
+                axes[(usize)axis].isMouseDriver = true;
             }
             break;
         }
         case SDL_CONTROLLERAXISMOTION: {
             SDL_ControllerAxisEvent axisEvent = event->caxis;
             ControllerAxis axis = primaryAxisBindings[(SDL_GameControllerAxis)axisEvent.axis];
-            axes[(size_t)axis].axisValue = (float)axisEvent.value / 32768.f;
-            axes[(size_t)axis].ignoreVirtual = true;
-            axes[(size_t)axis].isMouseDriver = false;
+            axes[(usize)axis].axisValue = (f32)axisEvent.value / 32768.f;
+            axes[(usize)axis].ignoreVirtual = true;
+            axes[(usize)axis].isMouseDriver = false;
             break;
         }
         default: break;
@@ -594,16 +594,16 @@ void GameChip::ProcessEvent(SDL_Event* event) {
 
 // ***********************************************************************
 
-void GameChip::UpdateInputs(float deltaTime, Vec2f targetRes, Vec2f realWindowRes) {
+void GameChip::UpdateInputs(f32 deltaTime, Vec2f targetRes, Vec2f realWindowRes) {
     targetResolution = targetRes;
     windowResolution = realWindowRes;
 
     // TODO: This should be configurable
-    float gravity = 1.0f;
-    float sensitivity = 1.0f;
-    float deadzone = 0.09f;
+    f32 gravity = 1.0f;
+    f32 sensitivity = 1.0f;
+    f32 deadzone = 0.09f;
 
-    for (size_t axisIndex = 0; axisIndex < (size_t)ControllerAxis::Count; axisIndex++) {
+    for (usize axisIndex = 0; axisIndex < (usize)ControllerAxis::Count; axisIndex++) {
         ControllerAxis axisEnum = (ControllerAxis)axisIndex;
         Axis& axis = axes[axisIndex];
 
@@ -686,25 +686,25 @@ void GameChip::Shutdown() {
 // ***********************************************************************
 
 bool GameChip::GetButton(ControllerButton buttonCode) {
-    return buttonStates[(size_t)buttonCode];
+    return buttonStates[(usize)buttonCode];
 }
 
 // ***********************************************************************
 
 bool GameChip::GetButtonDown(ControllerButton buttonCode) {
-    return buttonDowns[(size_t)buttonCode];
+    return buttonDowns[(usize)buttonCode];
 }
 
 // ***********************************************************************
 
 bool GameChip::GetButtonUp(ControllerButton buttonCode) {
-    return buttonUps[(size_t)buttonCode];
+    return buttonUps[(usize)buttonCode];
 }
 
 // ***********************************************************************
 
-float GameChip::GetAxis(ControllerAxis axis) {
-    return axes[(size_t)axis].axisValue;
+f32 GameChip::GetAxis(ControllerAxis axis) {
+    return axes[(usize)axis].axisValue;
 }
 
 // ***********************************************************************
@@ -713,8 +713,8 @@ Vec2i GameChip::GetMousePosition() {
     // TODO: This becomes wrong at the edge of the screen, must apply screen warning to it as well
     Vec2i mousePosition;
     SDL_GetMouseState(&mousePosition.x, &mousePosition.y);
-    float xAdjusted = (float)mousePosition.x / windowResolution.x * targetResolution.x;
-    float yAdjusted = targetResolution.y - ((float)mousePosition.y / windowResolution.y * targetResolution.y);
+    f32 xAdjusted = (f32)mousePosition.x / windowResolution.x * targetResolution.x;
+    f32 yAdjusted = targetResolution.y - ((f32)mousePosition.y / windowResolution.y * targetResolution.y);
     return Vec2i((int)xAdjusted, (int)yAdjusted);
 }
 
@@ -727,19 +727,19 @@ void GameChip::EnableMouseRelativeMode(bool enable) {
 // ***********************************************************************
 
 bool GameChip::GetKey(Key keyCode) {
-    return keyStates[(size_t)keyCode];
+    return keyStates[(usize)keyCode];
 }
 
 // ***********************************************************************
 
 bool GameChip::GetKeyDown(Key keyCode) {
-    return keyDowns[(size_t)keyCode];
+    return keyDowns[(usize)keyCode];
 }
 
 // ***********************************************************************
 
 bool GameChip::GetKeyUp(Key keyCode) {
-    return keyUps[(size_t)keyCode];
+    return keyUps[(usize)keyCode];
 }
 
 // ***********************************************************************

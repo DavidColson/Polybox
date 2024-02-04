@@ -6,17 +6,17 @@
 
 namespace Packing {
 struct Rect {
-    int x { 0 };
-    int y { 0 };
+    i32 x { 0 };
+    i32 y { 0 };
 
-    int w { 0 };
-    int h { 0 };
+    i32 w { 0 };
+    i32 h { 0 };
 
     bool wasPacked { false };
 
-    int ordering { -1 };
+    i32 ordering { -1 };
 };
 
-void RowPackRects(ResizableArray<Rect>& rects, int width, int height);
-void SkylinePackRects(ResizableArray<Rect>& rects, int width, int height);
+void RowPackRects(ResizableArray<Rect>& rects, i32 width, i32 height);
+void SkylinePackRects(ResizableArray<Rect>& rects, i32 width, i32 height);
 }

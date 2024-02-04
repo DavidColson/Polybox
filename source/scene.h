@@ -9,7 +9,7 @@
 
 template<typename T>
 struct Quat;
-typedef Quat<float> Quatf;
+typedef Quat<f32> Quatf;
 
 struct Node : public LuaObject {
     Node() {
@@ -33,20 +33,20 @@ struct Node : public LuaObject {
     // Get and set matrices directly
 
     Node* GetParent();
-    int GetNumChildren();
+    i32 GetNumChildren();
     Node* GetChild(int index);
 
     // User table info
     String name;
-    uint32_t meshId;
+    u32 meshId;
 
     // Tree data
     // TODO: Make private when we have proper tree editing API
     Node* pParent { nullptr };
     ResizableArray<Node*> children;
 
-    uint64_t id;
-    static uint64_t s_nodeIdCounter;
+    u64 id;
+    static u64 s_nodeIdCounter;
     Matrixf localTransform;
     Matrixf worldTransform;
 
@@ -57,7 +57,7 @@ struct Node : public LuaObject {
 struct Scene : public LuaObject {
     virtual ~Scene();
 
-    int GetNumNodes();
+    i32 GetNumNodes();
     Node* GetNode(int index);
 
     // TODO: Note that we currently cannot add or modify this tree without invalidating the pointers inside the nodes

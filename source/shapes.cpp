@@ -7,7 +7,7 @@
 
 // ***********************************************************************
 
-void DrawBox(GraphicsChip& gpu, float x, float y, float z, float width, float height, float depth) {
+void DrawBox(GraphicsChip& gpu, f32 x, f32 y, f32 z, f32 width, f32 height, f32 depth) {
     gpu.BeginObject3D(EPrimitiveType::Triangles);
 
     // gpu.Color(Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
@@ -110,7 +110,7 @@ static Vec3f vdata[NVERTEX] = {
 
 // These are the 20 faces.  Each of the three entries for each
 // vertex gives the 3 vertices that make the face.
-static int tindices[NFACE][3] = {
+static i32 tindices[NFACE][3] = {
     { 0, 4, 1 }, { 0, 9, 4 }, { 9, 5, 4 }, { 4, 5, 8 }, { 4, 8, 1 }, { 8, 10, 1 }, { 8, 3, 10 }, { 5, 3, 8 }, { 5, 2, 3 }, { 2, 7, 3 }, { 7, 10, 3 }, { 7, 6, 10 }, { 7, 11, 6 }, { 11, 0, 6 }, { 0, 1, 6 }, { 6, 1, 10 }, { 9, 0, 11 }, { 9, 11, 2 }, { 9, 2, 5 }, { 7, 2, 11 }
 };
 
@@ -124,7 +124,7 @@ void DrawTriangle(GraphicsChip& gpu, Vec3f v1, Vec3f v2, Vec3f v3) {
 
 // ***********************************************************************
 
-void SubDivide(GraphicsChip& gpu, Vec3f v1, Vec3f v2, Vec3f v3, int depth) {
+void SubDivide(GraphicsChip& gpu, Vec3f v1, Vec3f v2, Vec3f v3, i32 depth) {
     if (depth == 0) {
         DrawTriangle(gpu, v1, v2, v3);
         return;
@@ -150,7 +150,7 @@ void SubDivide(GraphicsChip& gpu, Vec3f v1, Vec3f v2, Vec3f v3, int depth) {
 
 // ***********************************************************************
 
-void DrawIcosahedron(GraphicsChip& gpu, int maxDepth) {
+void DrawIcosahedron(GraphicsChip& gpu, i32 maxDepth) {
     gpu.BeginObject3D(EPrimitiveType::Triangles);
     for (int i = 0; i < NFACE; i++) {
         SubDivide(gpu, vdata[tindices[i][0]], vdata[tindices[i][1]], vdata[tindices[i][2]], maxDepth);

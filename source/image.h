@@ -13,6 +13,6 @@ struct Image : public LuaObject {
     virtual ~Image();
 
     bgfx::TextureHandle handle { BGFX_INVALID_HANDLE };
-    int width;
-    int height;
+    i32 width;
+    i32 height;
 };

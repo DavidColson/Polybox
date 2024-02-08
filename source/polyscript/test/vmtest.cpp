@@ -32,7 +32,20 @@ struct VirtualMachine {
 	// Stack is going to be the back 1kb of memory
 };
 
+#define GetOperand16bit(ptr) *(++ptr)
 #define GetOperand32bit(ptr) ((ptr[1] << 16) | ptr[2]); ptr += 2;
+
+inline void PushStack(VirtualMachine& vm, u32 value) {
+	u32* targetStackSlot = (u32*)(vm.pMemory + vm.stackAddress);
+	*targetStackSlot = value;
+	vm.stackAddress += 4;
+}
+
+inline int PopStack(VirtualMachine& vm) {
+	vm.stackAddress -= 4;
+	int* targetStackSlot = (int*)(vm.pMemory + vm.stackAddress);
+	return *targetStackSlot;
+}
 
 inline void PushInstruction(ResizableArray<u16>& code, InstructionHeader header) {
 	code.PushBack(u16(0));
@@ -58,7 +71,7 @@ void Start() {
 	vm.stackBaseAddress = (u32)memorySize - 1024 * 4; // Stack has 1024, 4 byte slots (must be kept to 4 byte alignment)
 	vm.stackAddress = vm.stackBaseAddress; 
 
-	// Make some program by shoving manually created instructions i32o a list
+	// Make some program by shoving manually created instructions into a list
 	ResizableArray<u16> code;
 	defer(code.Free());
 	
@@ -194,6 +207,11 @@ void Start() {
 
 		PushInstruction(code, {.opcode = OpCode::Print });
 	}
+
+	// Note for Dave: It may be sensible in the VM to completely disregard the type of stack slots
+	// Unless you absolutely have to. All these functions can move around ints and nothing else, with no concern for type
+	// Only the math operations and prints will care really, nothing else
+
 	// Create a little VM loop
 	u16* pEndInstruction = code.end();
 	u16* pInstruction = code.pData;
@@ -203,70 +221,45 @@ void Start() {
 			case OpCode::Const: {
 				// Push immediate value ontop of stack
 				u32 value = GetOperand32bit(pInstruction);
-
-				// TODO: Macro for push value onto stack which will calculate the slot, write it and increment
-
-				// This is the first part of "push" (loads the value i32o the right slot)
-				// Get address of stack slot and cast to appropriate type
-				u32* targetStackSlot = (u32*)(vm.pMemory + vm.stackAddress);
-				*targetStackSlot = value;
-				vm.stackAddress += 4; 
+				PushStack(vm, value);
 				break;
 			}
 			case OpCode::Load: {
-				// Instruction arg is a memory offset
-				u16 offset = *(++pInstruction);
-
-				// TODO: Macro to pop address item off stack and decrement, this will get the item, and then do the address and offset calculation in one go
-
-				// Pop the source address operand off the stack
-				vm.stackAddress -= 4;
-				u32* pSourceAddress = (u32*)(vm.pMemory + vm.stackAddress);
-				int* pSource = (int*)(vm.pMemory + *pSourceAddress + offset);
-				
-				// TODO: Macro to push value onto stack here (value being *pSource)
-				int* pStackTop = (int*)(vm.pMemory + vm.stackAddress);
-				*pStackTop = *pSource;
-				vm.stackAddress += 4;
+				u16 offset = GetOperand16bit(pInstruction);
+				i32 sourceAddress = PopStack(vm);
+				int* pSource = (int*)(vm.pMemory + sourceAddress + offset);
+				PushStack(vm, *pSource);
 				break;
 			}
 			case OpCode::Store: {
-				// TODO: Macro to get 16 bit param
 				// Instruction arg is a memory offset
-				u16 offset = *(++pInstruction);
+				u16 offset = GetOperand16bit(pInstruction);
 
 				// Pop the target memory address off the stack
-				vm.stackAddress -= 4;
-				u32* pDestAddress = (u32*)(vm.pMemory + vm.stackAddress);
-				int* pDest = (int*)(vm.pMemory + *pDestAddress + offset);
+				i32 destAddress = PopStack(vm);
+				int* pDest = (int*)(vm.pMemory + destAddress + offset);
 
-				// TODO: Macro to pop a value off the stack, with deref
 				// Pop the value to store off top of stack 
-				vm.stackAddress -= 4;
-				int* pValue = (int*)(vm.pMemory + vm.stackAddress);
-
-				*pDest = *pValue;
+				i32 value = PopStack(vm);
+				*pDest = value;
 				break;
 			}
 			case OpCode::Copy: {
-				u16 desOffset = *(++pInstruction);
-				u16 srcOffset = *(++pInstruction);
+				u16 desOffset = GetOperand16bit(pInstruction);
+				u16 srcOffset = GetOperand16bit(pInstruction);
 				
 				// Pop the size off the stack
-				vm.stackAddress -= 4;
-				u32* pSize = (u32*)(vm.pMemory + vm.stackAddress);
+				i32 size = PopStack(vm);
 
 				// Pop the destination address off the stack
-				vm.stackAddress -= 4;
-				u32* pDestAddress = (u32*)(vm.pMemory + vm.stackAddress);
-				int* pDest = (int*)(vm.pMemory + (*pDestAddress) + desOffset);
+				i32 destAddress = PopStack(vm);
+				int* pDest = (int*)(vm.pMemory + destAddress + desOffset);
 
 				// Pop the source address off the stack
-				vm.stackAddress -= 4;
-				u32* pSrcAddress = (u32*)(vm.pMemory + vm.stackAddress);
-				int* pSrc = (int*)(vm.pMemory + (*pSrcAddress) + srcOffset);
+				i32 srcAddress = PopStack(vm);
+				int* pSrc = (int*)(vm.pMemory + srcAddress + srcOffset);
 
-				memcpy(pDest, pSrc, *pSize);
+				memcpy(pDest, pSrc, size);
 				break;
 			}
 			case OpCode::Drop: {
@@ -275,27 +268,18 @@ void Start() {
 				break;
 			}
 			case OpCode::Add: {
+				// This function actually cares about types, so you will have to do a reinterpret cast
+				// To make sure the values are of the correct type before doing an add
+
 				// Take two top items from stack, attempt to add and leave result on stack
-				vm.stackAddress -= 4;
-				int* targetStackSlot = (int*)(vm.pMemory + vm.stackAddress);
-				int v1 = *targetStackSlot;
-
-				vm.stackAddress -= 4;
-				int* targetStackSlot2 = (int*)(vm.pMemory + vm.stackAddress);
-				int v2 = *targetStackSlot2;
-
-				int result = v1 + v2;
-
-				int* targetStackSlot3 = (int*)(vm.pMemory + vm.stackAddress);
-				*targetStackSlot3 = result;
-				vm.stackAddress += 4; 
+				i32 v1 = PopStack(vm);
+				i32 v2 = PopStack(vm);
+				PushStack(vm, v1 + v2);
 				break;
 			}
 			case OpCode::Print: {
 				// Take top item from stack and print
-				vm.stackAddress -= 4;
-				int* targetStackSlot = (int*)(vm.pMemory + vm.stackAddress);
-				int v = *targetStackSlot;
+				i32 v = PopStack(vm);
 				Log::Info("%d", v);
 				break;
 			}

@@ -886,8 +886,9 @@ void DebugExpression(Ast::Expression* pExpr, i32 indentationLevel) {
         case Ast::NodeKind::FunctionType: {}
         case Ast::NodeKind::Type: {
             Ast::Type* pType = (Ast::Type*)pExpr;
-            if (pType->pType && pType->constantValue.pTypeInfo)
-                Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pType->constantValue.pTypeInfo->name.pData, pType->pType->name.pData);
+			TypeInfo* pTypeInfo = FindTypeByValue(pType->constantValue);
+            if (pType->pType && pTypeInfo)
+                Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pTypeInfo->name.pData, pType->pType->name.pData);
             break;
         }
         case Ast::NodeKind::VariableAssignment: {

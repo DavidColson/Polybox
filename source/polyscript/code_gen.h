@@ -27,7 +27,7 @@ struct FunctionDbgInfo {
 };
 
 struct Program {
-    ResizableArray<Instruction> code;
+    ResizableArray<u16> code;
 	ResizableArray<size> dbgLineInfo;
 	
 	// This maps the instruction index of the function's entry point to the debug info
@@ -38,6 +38,9 @@ struct Program {
 	HashMap<size, TypeInfo::TypeTag> dbgConstantsTypes;
     IAllocator* pMemory;
 };
+
+#define GetOperand16bit(ptr) *(++ptr)
+#define GetOperand32bit(ptr) ((ptr[1] << 16) | ptr[2]); ptr += 2;
 
 void CodeGenProgram(Compiler& compilerState);
 

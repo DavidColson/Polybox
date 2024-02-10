@@ -7,6 +7,47 @@
 #include <resizable_array.h>
 
 
+struct Value {
+    union {
+        bool boolValue;
+        f32 f32Value;
+        i32 i32Value;
+        i32 functionPointer; // this number is the IP offset of the start of the function
+        i32 typeId; // this is an id into the type table for this process
+    };
+};
+
+inline Value MakeValueNill() {
+    Value v;
+    v.i32Value = 0;
+    return v;
+} 
+
+inline Value MakeValue(bool value) {
+    Value v;
+    v.boolValue = value;
+    return v;
+}
+
+inline Value MakeValue(f32 value) {
+    Value v;
+    v.f32Value = value;
+    return v;
+}
+
+inline Value MakeValue(i32 value) {
+    Value v;
+    v.i32Value = value;
+    return v;
+}
+
+
+inline Value MakeFunctionValue(i32 ipOffset) {
+    Value v;
+    v.functionPointer = ipOffset;
+    return v;
+}
+
 namespace TokenType {
 enum Enum : u32;
 }
@@ -76,7 +117,9 @@ void InitTypeTable();
 
 bool CheckTypesIdentical(TypeInfo* pType1, TypeInfo* pType2);
 
-void AddTypeForRuntime(TypeInfo* pNewType);
+Value MakeValue(TypeInfo* value); 
+
+TypeInfo* FindTypeByValue(Value& v);
 
 TypeInfo* FindTypeByName(String identifier);
 
@@ -93,58 +136,6 @@ TypeInfo* GetBoolType();
 TypeInfo* GetTypeType();
 
 TypeInfo* GetEmptyFuncType();
-
-
-
-
-
-
-struct Value {
-    union {
-        bool boolValue;
-        f32 f32Value;
-        i32 i32Value;
-        i64 functionPointer; // this number is the IP offset of the start of the function
-        TypeInfo* pTypeInfo;
-		void* pPtr;
-    };
-};
-
-inline Value MakeValueNill() {
-    Value v;
-    v.pPtr = nullptr;
-    return v;
-} 
-
-inline Value MakeValue(bool value) {
-    Value v;
-    v.boolValue = value;
-    return v;
-}
-
-inline Value MakeValue(f32 value) {
-    Value v;
-    v.f32Value = value;
-    return v;
-}
-
-inline Value MakeValue(i32 value) {
-    Value v;
-    v.i32Value = value;
-    return v;
-}
-
-inline Value MakeValue(TypeInfo* value) {
-    Value v;
-    v.pTypeInfo = value;
-    return v;
-}
-
-inline Value MakeFunctionValue(i64 ipOffset) {
-    Value v;
-    v.functionPointer = ipOffset;
-    return v;
-}
 
 void InitTokenToOperatorMap();
 

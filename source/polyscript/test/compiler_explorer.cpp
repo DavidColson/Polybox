@@ -457,9 +457,11 @@ void DrawExprProperties(Ast::Expression* pExpr) {
             ImGui::Text("Type: %s Constant: %s Value: %i", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.i32Value);
         else if (CheckTypesIdentical(pExpr->pType, GetBoolType()))
             ImGui::Text("Type: %s Constant: %s Value: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.boolValue ? "true" : "false");
-        else if (CheckTypesIdentical(pExpr->pType, GetTypeType()) && pExpr->constantValue.pTypeInfo)
-            ImGui::Text("Type: %s Constant: %s Value: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pExpr->constantValue.pTypeInfo->name.pData);
-        else
+        else if (CheckTypesIdentical(pExpr->pType, GetTypeType())) {
+    		TypeInfo* pTypeInfo = FindTypeByValue(pExpr->constantValue);
+			ImGui::Text("Type: %s Constant: %s Value: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false", pTypeInfo->name.pData);
+		}
+		else
             ImGui::Text("Type: %s Constant: %s Value: unable to print", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false");
     } else {
         ImGui::Text("Type: %s Constant: %s", nodeTypeStr.pData, pExpr->isConstant ? "true" : "false");
@@ -711,7 +713,7 @@ void DrawAstStatements(ResizableArray<Ast::Statement*>& statements) {
 
 void DrawByteCodeForProgram(Program* pProgram) {
     ImDrawList* pDrawList = ImGui::GetWindowDrawList();
-    Instruction* pInstructionPointer = pProgram->code.pData;
+    u16* pInstructionPointer = pProgram->code.pData;
 
     ImGui::Text("\n");
     // TODO: Don't know function name
@@ -728,8 +730,9 @@ void DrawByteCodeForProgram(Program* pProgram) {
 
         // TODO: Add some padding so operands are lined up nicely
         
-        builder.AppendFormat("%*d  ", (i64)floor(log10((f64)pProgram->code.count)), lineCounter);
-        String instruction = DisassembleInstruction(pProgram, pInstructionPointer);
+		u16 offset;
+        builder.AppendFormat("%*d  ", (i64)floor(log10((f64)pProgram->code.count)) + 1, lineCounter);
+        String instruction = DisassembleInstruction(pProgram, pInstructionPointer, offset);
         defer(FreeString(instruction));
         builder.Append(instruction);
 
@@ -757,8 +760,8 @@ void DrawByteCodeForProgram(Program* pProgram) {
         
         ImGui::SetCursorScreenPos(cursorScreenPos);
 
-        pInstructionPointer += 1;
-        lineCounter += 1;
+        pInstructionPointer += offset;
+        lineCounter += offset;
     }
     builder.Reset();
 }

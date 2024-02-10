@@ -22,6 +22,9 @@ Operator::Enum TokenToOperator(TokenType::Enum tokenType) {
 // ***********************************************************************
 
 bool CheckTypesIdentical(TypeInfo* pType1, TypeInfo* pType2) {
+	if (pType1 == nullptr || pType2 == nullptr)
+		return false;
+
     if (pType1->tag != pType2->tag) {
         return false;
     }
@@ -92,7 +95,8 @@ TypeInfo* CopyTypeDeep(TypeInfo* pTypeInfo, IAllocator* pAlloc = &g_Allocator) {
             pNewFuncType->size = pTypeInfo->size;
             pNewFuncType->name = CopyString(pTypeInfo->name, pAlloc);
 
-            pNewFuncType->pReturnType = CopyTypeDeep(pFuncType->pReturnType, pAlloc);
+			if (pFuncType->pReturnType)
+				pNewFuncType->pReturnType = CopyTypeDeep(pFuncType->pReturnType, pAlloc);
 
             pNewFuncType->params = ResizableArray<TypeInfo*>(pAlloc);
             for (size i = 0; i < pFuncType->params.count; i++) {
@@ -127,15 +131,29 @@ TypeInfo* CopyTypeDeep(TypeInfo* pTypeInfo, IAllocator* pAlloc = &g_Allocator) {
 
 // ***********************************************************************
 
-void AddTypeForRuntime(TypeInfo* pNewType) {
-    for (TypeInfo* pInfo : typeTable) {
-        if (CheckTypesIdentical(pInfo, pNewType)) {
-            return; // Nothing to do
+Value MakeValue(TypeInfo* pType) {
+	for (size i = 0; i < typeTable.count; i++) {
+		TypeInfo* pInfo = typeTable[i];
+        if (CheckTypesIdentical(pInfo, pType)) {
+			Value v;
+			v.typeId = (i32)i;
+			return v;
         }    
     }
 
-    TypeInfo* copy = CopyTypeDeep(pNewType, &typeTableMemory);
+    TypeInfo* copy = CopyTypeDeep(pType, &typeTableMemory);
     typeTable.PushBack(copy);
+
+    Value v;
+	v.typeId = (i32)typeTable.count - 1;
+    return v;
+}
+
+// ***********************************************************************
+
+TypeInfo* FindTypeByValue(Value& v) {
+	Assert(v.typeId < typeTable.count);
+	return typeTable[v.typeId];
 }
 
 // ***********************************************************************

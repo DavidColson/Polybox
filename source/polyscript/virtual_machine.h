@@ -35,26 +35,28 @@ enum Enum : u8 {
     JmpIfFalse,         // ipOffset
     JmpIfTrue,          // ipOffset
     Jmp,                // ipOffset
-    Loop,               // ipOffset
     Return,             // ---
     Call,               // nArgs (number of stack values to pass as arguments)
 
     // Stack manipulation
-    PushConstant,       // value (to push)
-	PushStruct,         // size
-    SetLocal,           // stackIndex
-    PushLocal,          // stackIndex
-	SetField,           // fieldSize, fieldOffset
-	SetFieldPtr,        // fieldSize, fieldOffset
-	PushField,          // fieldSize, fieldOffset
-	PushFieldPtr,       // fieldSize, fieldOffset
-    Pop,                // ---
+    Const,       // value (to push)
+	Load,         // size
+    Store,           // stackIndex
+	Drop,
+	Copy,
 
     // Misc
 	Cast,               // toType, fromType
     Print               // type
 };
 }
+
+// Instructions are minimum 2 bytes, just a header. They can optionally have arguments that are some multiple
+// of 2 bytes, as per the documentation in the opcode table above
+struct InstructionHeader {
+	OpCode::Enum opcode;
+	TypeInfo::TypeTag type;
+};
 
 // instruction is 9 bytes, will end up as 16 due to alignment, so there is some wasted
 // space, decided that this probably isn't worth worrying about for now. 
@@ -82,8 +84,7 @@ struct Instruction {
     };
 };
 
-String DisassembleInstruction(Program* pProgram, Instruction* pInstruction);
-
+String DisassembleInstruction(Program* pProgram, u16* pInstruction, u16& outOffset);
 void DisassembleProgram(Compiler& compilerState);
 
 void Run(Program* pProgramToRun);

@@ -198,7 +198,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
         if (pFuncType->params[i]->nodeKind == Ast::NodeKind::Identifier) {
             Ast::Identifier* pParam = (Ast::Identifier*)pFuncType->params[i];
             pParam = (Ast::Identifier*)TypeCheckExpression(state, pParam);
-            pParamType = pParam->constantValue.pTypeInfo;
+            pParamType = FindTypeByValue(pParam->constantValue);
 
         } else if (pFuncType->params[i]->nodeKind == Ast::NodeKind::Declaration) {
             Ast::Declaration* pParam = (Ast::Declaration*)pFuncType->params[i];
@@ -219,7 +219,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
     builder.Append(")");
     if (pFuncType->pReturnType) {
         pFuncType->pReturnType = (Ast::Type*)TypeCheckExpression(state, pFuncType->pReturnType);
-        pFunctionTypeInfo->pReturnType = pFuncType->pReturnType->constantValue.pTypeInfo;
+        pFunctionTypeInfo->pReturnType = FindTypeByValue(pFuncType->pReturnType->constantValue);
         builder.AppendFormat(" -> %s", pFunctionTypeInfo->pReturnType->name.pData);
     }
     pFunctionTypeInfo->name = builder.CreateString(true, state.pAllocator);
@@ -280,7 +280,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 				if (member.pType)
 					pStructTypeInfo->size += member.pType->size;
 			}
-            // TODO: Naming the struct is i32eresting right, cause the way odin does it is that the struct itself and the named struct are two different things
+            // TODO: Naming the struct is interesting right, cause the way odin does it is that the struct itself and the named struct are two different things
             // But I don't want to implement named types like that today, so for now we'll store the declaration here and set the name. You wanna come back to this
             // soon though, so anonymous struct types are a thing
 			pStructTypeInfo->name = pStruct->pDeclaration->identifier;
@@ -329,7 +329,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
             state.pCurrentScope = pFunction->pScope;
             TypeCheckFunctionType(state, pFunction->pFuncType);
-            state.pCurrentScope->pFunctionType = (TypeInfoFunction*)pFunction->pFuncType->constantValue.pTypeInfo;
+            state.pCurrentScope->pFunctionType = (TypeInfoFunction*)FindTypeByValue(pFunction->pFuncType->constantValue);
 
             // For recursion to work, we have to resolve the function's type before typechecking it's body
             // If it has a declaration (it may not), we'll go get the entity, and resolve it so we can move on.
@@ -337,11 +337,11 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
                 // Find the entity corresponding to this function
                 Entity* pEntity = FindEntity(state.pCurrentScope, pFunction->pDeclaration->identifier);
 
-                pEntity->pType = pFunction->pFuncType->constantValue.pTypeInfo;
+                pEntity->pType = FindTypeByValue(pFunction->pFuncType->constantValue);
                 pEntity->status = EntityStatus::Resolved;
             }
 
-            pFunction->pType = pFunction->pFuncType->constantValue.pTypeInfo;
+            pFunction->pType = FindTypeByValue(pFunction->pFuncType->constantValue);
             TypeCheckStatement(state, pFunction->pBody);
 
             // Pop function scope (where the params live)
@@ -505,7 +505,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			pCast->pExprToCast = TypeCheckExpression(state, pCast->pExprToCast);
             
 			TypeInfo* pFrom = pCast->pExprToCast->pType;
-			TypeInfo* pTo = pCast->pTypeExpr->constantValue.pTypeInfo;
+			TypeInfo* pTo = FindTypeByValue(pCast->pTypeExpr->constantValue);
 
             if (pTo == nullptr || pFrom == nullptr) {
 			    pCast->pType = GetInvalidType();
@@ -534,7 +534,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
                 pCast->constantValue = ComputeCastConstant(pCast->pExprToCast->constantValue, pFrom, pTo);
             }
 
-			pCast->pType = pCast->pTypeExpr->constantValue.pTypeInfo;
+			pCast->pType = FindTypeByValue(pCast->pTypeExpr->constantValue);
 			return pCast;
 		}
         case Ast::NodeKind::Call: {
@@ -691,8 +691,9 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                 TypeInfo* pTypeAnnotationTypeInfo = GetInvalidType();
                 if (pDecl->pTypeAnnotation) {
                     pDecl->pTypeAnnotation = TypeCheckExpression(state, pDecl->pTypeAnnotation);
-                    if (pDecl->pTypeAnnotation->constantValue.pTypeInfo)
-                        pTypeAnnotationTypeInfo = pDecl->pTypeAnnotation->constantValue.pTypeInfo;
+					TypeInfo* pTypeInfo = FindTypeByValue(pDecl->pTypeAnnotation->constantValue);
+                    if (pTypeInfo)
+                        pTypeAnnotationTypeInfo = pTypeInfo;
                 }
 
                 // has type annotation, check it matches the initializer, if so, set the type of the declaration
@@ -710,7 +711,7 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                     if (!pDecl->pTypeAnnotation->isConstant) {
                         state.pErrors->PushError(pDecl->pTypeAnnotation, "Type annotation for declaration must be a constant");
                     } else {
-                        pDecl->pType = pDecl->pTypeAnnotation->constantValue.pTypeInfo;
+                        pDecl->pType = FindTypeByValue(pDecl->pTypeAnnotation->constantValue);
                     }
                 }
             }

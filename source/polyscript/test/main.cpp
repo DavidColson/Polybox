@@ -14,7 +14,6 @@
 #include "compiler_explorer.h"
 #include "tests_framework.h"
 #include "compiler.h"
-#include "vmtest.cpp"
 // TODO: 
 // [ ] Move error state to it's own file
 // [ ] Instead of storing pLocation and a length in tokens, store a String type, so we can more easily compare it and do useful things with it (replace strncmp with it)
@@ -795,28 +794,25 @@ void Constants() {
 }
 
 int main(int argc, char *argv[]) {
-	// Test::Start();
-	// return 0;
-
 	// TODO: Move to program structure
     InitTypeTable();
 	InitTokenToOperatorMap();
 
-    // Values();
-    // ArithmeticOperators();
-    // LogicalOperators();
-    // Expressions();
-    // ControlFlow();
-    // Declarations();
-    // VariableAssignment();
-    // Scopes();
-    // Casting();
-    // Functions();
-    // Structs();
-    // Constants();
-    // 
-    // RunTestPlayground();
-    //
+    Values();
+    ArithmeticOperators();
+    LogicalOperators();
+    Expressions();
+    ControlFlow();
+    Declarations();
+    VariableAssignment();
+    Scopes();
+    Casting();
+    Functions();
+    Structs();
+    Constants();
+
+    RunTestPlayground();
+
     RunCompilerExplorer();
 
     __debugbreak();

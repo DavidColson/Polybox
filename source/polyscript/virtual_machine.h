@@ -11,43 +11,44 @@ struct Program;
 namespace OpCode {
 enum Enum : u8 {
 
-    // Opcode          |   Instructions
-    // ---------------------------------
+    // Opcode      | Uses Type  | Operands     		| Stack
+    // ----------------------------------------------------------------------------------
     // Arithmetic
-    Negate,             // type
-    Add,                // type
-    Subtract,           // type
-    Multiply,           // type
-    Divide,             // type
+    Negate,       // Yes		|					| [value] -> [value]
+    Add,          // Yes		|					| [value1][value2] -> [value]
+    Subtract,     // Yes		|					| [value1][value2] -> [value]
+    Multiply,     // Yes		|					| [value1][value2] -> [value]
+    Divide,       // Yes		|					| [value1][value2] -> [value]
 
     // Logical
-    Not,                // type
+    Not,          // Yes		|					| [boolValue] -> [boolValue]
 
     // Comparison
-    Greater,            // type
-    Less,               // type
-    Equal,              // type
-    NotEqual,           // type
-    GreaterEqual,       // type
-    LessEqual,          // type
+    Greater,      // Yes		|					| [value1][value2] -> [boolValue]
+    Less,         // Yes		|					| [value1][value2] -> [boolValue]
+    Equal,        // Yes		|					| [value1][value2] -> [boolValue]
+    NotEqual,     // Yes		|					| [value1][value2] -> [boolValue]
+    GreaterEqual, // Yes		|					| [value1][value2] -> [boolValue]
+    LessEqual,    // Yes		|					| [value1][value2] -> [boolValue]
 
     // Flow control
-    JmpIfFalse,         // ipOffset
-    JmpIfTrue,          // ipOffset
-    Jmp,                // ipOffset
-    Return,             // ---
-    Call,               // nArgs (number of stack values to pass as arguments)
+    JmpIfFalse,   // Yes		| 16b ipOffset		| [boolValue] -> [boolValue]
+    JmpIfTrue,    // Yes		| 16b ipOffset		| [boolValue] -> [boolValue]
+    Jmp,          // Yes		| 16b ipOffset		| 
+    Return,       // No			|					| [retValue] -> [retValue]
+    Call,         // No			| 16b argCount		| [argCount number of Params] -> []
 
     // Stack manipulation
-    Const,       // value (to push)
-	Load,         // size
-    Store,           // stackIndex
-	Drop,
-	Copy,
+    Const,        // Yes		| 32b value			| [] -> [value]
+	Load,         // No			| 16b offset		| [address] -> [value]
+    Store,        // No			| 16b offset		| [value][address] -> [value]
+	LocalAddr,	  // No			| 16b offset		| [] -> [address]
+	Drop,		  // No			|					| [value] -> []
+	Copy,		  // No			| destOff, srcOff	| [srcAddr][dstAddr][size] -> [srcAddr]
 
     // Misc
-	Cast,               // toType, fromType
-    Print               // type
+	Cast,         // Yes		| 16b fromTypeId	| [value] -> [castedValue]
+    Print         // Yes		|					| [value] -> []
 };
 }
 
@@ -56,32 +57,6 @@ enum Enum : u8 {
 struct InstructionHeader {
 	OpCode::Enum opcode;
 	TypeInfo::TypeTag type;
-};
-
-// instruction is 9 bytes, will end up as 16 due to alignment, so there is some wasted
-// space, decided that this probably isn't worth worrying about for now. 
-// Could reduce it with pragma pack, worth investigating if that's better or not at some point
-// But for now this is simple and easily understood.
-struct Instruction {
-    OpCode::Enum opcode;
-    union {
-        // All possible arguments to the above instructions are packed in here
-        // Mostly for convenience and readability of the VM code.
-        Value constant;
-        TypeInfo::TypeTag type;
-        size ipOffset;
-        size nArgs;
-        size stackIndex;
-        size size;
-        struct {
-            u32 fieldSize;
-            u32 fieldOffset;
-        };
-        struct {
-            TypeInfo::TypeTag toType;
-            TypeInfo::TypeTag fromType;
-        };
-    };
 };
 
 String DisassembleInstruction(Program* pProgram, u16* pInstruction, u16& outOffset);

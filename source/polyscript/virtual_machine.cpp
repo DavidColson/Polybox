@@ -15,13 +15,18 @@
 // #define DEBUG_TRACE
 
 struct CallFrame {
-    Instruction* pInstructionPointer { nullptr };
-    size stackBaseIndex{ 0 };
+    u16* pInstructionPointer { nullptr };
+    i32 stackBaseAddress{ 0 };
 };
 
 struct VirtualMachine {
-	Stack<Value> stack;
+	// At some point it would be cool to refactor this callstack structure to actually be in the 
+	// literal stack.
 	Stack<CallFrame> callStack;
+
+	u8* pMemory; // This is the VM's RAM
+	u32 stackBaseAddress; // The stack is at the end of the RAM block with a predetermined size 
+	u32 stackHeadAddress;
 };
 
 // ***********************************************************************
@@ -73,6 +78,12 @@ String DisassembleInstruction(Program* pProgram, u16* pInstruction, u16& outOffs
         }
         case OpCode::Store: {
             builder.Append("Store ");
+			u16 offset = GetOperand16bit(pInstruction); 
+            builder.AppendFormat("%i",offset);
+            break;
+        }
+        case OpCode::LocalAddr: {
+            builder.Append("LocalAddr ");
 			u16 offset = GetOperand16bit(pInstruction); 
             builder.AppendFormat("%i",offset);
             break;
@@ -245,16 +256,39 @@ void DebugStack(VirtualMachine& vm) {
 	StringBuilder builder;
 
 	builder.Append("\n");
-
 	// TODO: When we have locals debugging, draw a stack slot that is a known local as the local rather than a standard stack slot
-	for (u32 i = 1; i < vm.stack.array.count; i++) {
-		Value& v = vm.stack[vm.stack.array.count - i];
 
-		builder.AppendFormat("[%i: %#X|%g|%i]\n", vm.stack.array.count - i, v.i32Value, v.f32Value, v.i32Value);
-	}
+	// TODO: we can no longer debug the stack like this. Need a new method to do so
+	// for (u32 i = 1; i < vm.stack.array.count; i++) {
+	// 	Value& v = vm.stack[vm.stack.array.count - i];
+	// 	builder.AppendFormat("[%i: %#X|%g|%i]\n", vm.stack.array.count - i, v.i32Value, v.f32Value, v.i32Value);
+	// }
 	String s = builder.CreateString();
 	Log::Debug("->%s", s.pData);
 	FreeString(s);
+}
+
+// ***********************************************************************
+
+inline void PushStack(VirtualMachine& vm, Value value) {
+	u32* targetStackSlot = (u32*)(vm.pMemory + vm.stackHeadAddress);
+	*targetStackSlot = value.i32Value;
+	vm.stackHeadAddress += 4;
+}
+
+// ***********************************************************************
+
+inline Value PopStack(VirtualMachine& vm) {
+	vm.stackHeadAddress -= 4;
+	Value* targetStackSlot = (Value*)(vm.pMemory + vm.stackHeadAddress);
+	return *targetStackSlot;
+}
+
+// ***********************************************************************
+
+inline Value ReadStack(VirtualMachine& vm) {
+	Value* targetStackSlot = (Value*)(vm.pMemory + vm.stackHeadAddress - 4);
+	return *targetStackSlot;
 }
 
 // ***********************************************************************
@@ -270,192 +304,248 @@ void DebugStack(VirtualMachine& vm) {
 // The other idea is to have special instructions which maintain the debug stack that we insert with the codegenerator
 // But this actually is quite difficult, since we lack the context of exactly what the instructions are doing with the types
 
-#if 0
 void Run(Program* pProgramToRun) {
 	if (pProgramToRun == nullptr)
 		return;
 
     VirtualMachine vm;
-    
-	vm.stack.Reserve(1000);
+	i32 memorySize = 2 * 1024 * 1024;
+    vm.pMemory = (u8*)g_Allocator.Allocate(memorySize);
+	defer(g_Allocator.Free(vm.pMemory));
+	vm.stackBaseAddress = (u32)memorySize - 1024 * 4; // Stack has 1024, 4 byte slots (must be kept to 4 byte alignment)
+	vm.stackHeadAddress = vm.stackBaseAddress; 
+
+	// Maybe at some point this could be in the actual stack?
 	vm.callStack.Reserve(100);
 	defer(vm.callStack.Free());
-	defer(vm.stack.Free());
 
     Value fv;
     fv.functionPointer = 0; // start IP of main level function
-	vm.stack.Push(fv);
+	PushStack(vm, fv);
 
     CallFrame frame;
     frame.pInstructionPointer = pProgramToRun->code.pData;
-    frame.stackBaseIndex = 0;
+    frame.stackBaseAddress = vm.stackBaseAddress;
     vm.callStack.Push(frame);
     
 	bool debug = true;
 
     // VM run
     CallFrame* pFrame = &vm.callStack.Top();
-	Instruction* pEndInstruction = pProgramToRun->code.end();
+	u16* pEndInstruction = pProgramToRun->code.end();
     while (pFrame->pInstructionPointer < pEndInstruction) {
 #ifdef DEBUG_TRACE
 		String output = DisassembleInstruction(pProgramToRun, pFrame->pInstructionPointer);
 		Log::Debug("%s", output.pData);
     	FreeString(output);
 #endif
-		switch (pFrame->pInstructionPointer->opcode) {
-			case OpCode::PushConstant: {
-				vm.stack.Push(pFrame->pInstructionPointer->constant);
+		InstructionHeader* pHeader = (InstructionHeader*)pFrame->pInstructionPointer;
+		switch (pHeader->opcode) {
+			case OpCode::Const: {
+				// Push immediate value ontop of stack
+				i32 mem = GetOperand32bit(pFrame->pInstructionPointer);
+				PushStack(vm, *(Value*)&mem);
+				break;
+			}
+			case OpCode::Load: {
+				u16 offset = GetOperand16bit(pFrame->pInstructionPointer);
+				i32 sourceAddress = PopStack(vm).i32Value;
+				Value* pSource = (Value*)(vm.pMemory + sourceAddress + offset);
+				PushStack(vm, *pSource);
+				break;
+			}
+			case OpCode::Store: {
+				// Instruction arg is a memory offset
+				u16 offset = GetOperand16bit(pFrame->pInstructionPointer);
+
+				// Pop the target memory address off the stack
+				i32 destAddress = PopStack(vm).i32Value;
+				Value* pDest = (Value*)(vm.pMemory + destAddress + offset);
+
+				// Read the value to store off top of stack 
+				Value value = ReadStack(vm);
+				*pDest = value;
+				break;
+			}
+			case OpCode::LocalAddr: {
+				u16 offset = GetOperand16bit(pFrame->pInstructionPointer);
+
+				// Calculate an address that offsets from the current frame stack base address
+				i32 address = pFrame->stackBaseAddress + offset;
+				PushStack(vm, MakeValue(address));
+				break;
+			}
+			case OpCode::Copy: {
+				u16 desOffset = GetOperand16bit(pFrame->pInstructionPointer);
+				u16 srcOffset = GetOperand16bit(pFrame->pInstructionPointer);
+				
+				// Pop the size off the stack
+				i32 size = PopStack(vm).i32Value;
+
+				// Pop the destination address off the stack
+				i32 destAddress = PopStack(vm).i32Value;
+				u16* pDest = (u16*)(vm.pMemory + destAddress + desOffset);
+
+				// Read the source address off the stack
+				i32 srcAddress = ReadStack(vm).i32Value;
+				u16* pSrc = (u16*)(vm.pMemory + srcAddress + srcOffset);
+
+				memcpy(pDest, pSrc, size);
+				break;
+			}
+			case OpCode::Drop: {
+				vm.stackHeadAddress -= 4;
 				break;
 			}
 			case OpCode::Negate: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value v = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value v = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(-v.f32Value));
+					PushStack(vm, MakeValue(-v.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(-v.i32Value));
+					PushStack(vm, MakeValue(-v.i32Value));
 				}
 				break;
 			}
 			case OpCode::Not: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value v = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value v = PopStack(vm);
 
 				if (typeId == TypeInfo::Bool) {
-					vm.stack.Push(MakeValue(!v.boolValue));
+					PushStack(vm, MakeValue(!v.boolValue));
 				}
 				break;
 			}
 			case OpCode::Add: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value b = vm.stack.Pop();
-				Value a = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value b = PopStack(vm);
+				Value a = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(a.f32Value + b.f32Value));
+					PushStack(vm, MakeValue(a.f32Value + b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(a.i32Value + b.i32Value));
+					PushStack(vm, MakeValue(a.i32Value + b.i32Value));
 				}
 				break;
 			}
 			case OpCode::Subtract: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value b = vm.stack.Pop();
-				Value a = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value b = PopStack(vm);
+				Value a = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(a.f32Value - b.f32Value));
+					PushStack(vm, MakeValue(a.f32Value - b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(a.i32Value - b.i32Value));
+					PushStack(vm, MakeValue(a.i32Value - b.i32Value));
 				}
 				break;
 			}
 			case OpCode::Multiply: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value b = vm.stack.Pop();
-				Value a = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value b = PopStack(vm);
+				Value a = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(a.f32Value * b.f32Value));
+					PushStack(vm, MakeValue(a.f32Value * b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(a.i32Value * b.i32Value));
+					PushStack(vm, MakeValue(a.i32Value * b.i32Value));
 				}
 				break;
 			}
 			case OpCode::Divide: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value b = vm.stack.Pop();
-				Value a = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value b = PopStack(vm);
+				Value a = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(a.f32Value / b.f32Value));
+					PushStack(vm, MakeValue(a.f32Value / b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(a.i32Value / b.i32Value));
+					PushStack(vm, MakeValue(a.i32Value / b.i32Value));
 				}
 				break;
 			}
 			case OpCode::Greater: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value b = vm.stack.Pop();
-				Value a = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value b = PopStack(vm);
+				Value a = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(a.f32Value > b.f32Value));
+					PushStack(vm, MakeValue(a.f32Value > b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(a.i32Value > b.i32Value));
+					PushStack(vm, MakeValue(a.i32Value > b.i32Value));
 				}
 				break;
 			}
 			case OpCode::Less: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value b = vm.stack.Pop();
-				Value a = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value b = PopStack(vm);
+				Value a = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(a.f32Value < b.f32Value));
+					PushStack(vm, MakeValue(a.f32Value < b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(a.i32Value < b.i32Value));
+					PushStack(vm, MakeValue(a.i32Value < b.i32Value));
 				}
 				break;
 			}
 			case OpCode::GreaterEqual: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value b = vm.stack.Pop();
-				Value a = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value b = PopStack(vm);
+				Value a = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(a.f32Value >= b.f32Value));
+					PushStack(vm, MakeValue(a.f32Value >= b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(a.i32Value >= b.i32Value));
+					PushStack(vm, MakeValue(a.i32Value >= b.i32Value));
 				}
 				break;
 			}
 			case OpCode::LessEqual: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value b = vm.stack.Pop();
-				Value a = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value b = PopStack(vm);
+				Value a = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(a.f32Value <= b.f32Value));
+					PushStack(vm, MakeValue(a.f32Value <= b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(a.i32Value <= b.i32Value));
+					PushStack(vm, MakeValue(a.i32Value <= b.i32Value));
 				}
 				break;
 			}
 			case OpCode::Equal: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value b = vm.stack.Pop();
-				Value a = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value b = PopStack(vm);
+				Value a = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(a.f32Value == b.f32Value));
+					PushStack(vm, MakeValue(a.f32Value == b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(a.i32Value == b.i32Value));
+					PushStack(vm, MakeValue(a.i32Value == b.i32Value));
 				} else if (typeId == TypeInfo::Bool) {
-					vm.stack.Push(MakeValue(a.boolValue == b.boolValue));
+					PushStack(vm, MakeValue(a.boolValue == b.boolValue));
 				}
 				break;
 			}
 			case OpCode::NotEqual: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value b = vm.stack.Pop();
-				Value a = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value b = PopStack(vm);
+				Value a = PopStack(vm);
 
 				if (typeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue(a.f32Value != b.f32Value));
+					PushStack(vm, MakeValue(a.f32Value != b.f32Value));
 				} else if (typeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue(a.i32Value != b.i32Value));
+					PushStack(vm, MakeValue(a.i32Value != b.i32Value));
 				} else if (typeId == TypeInfo::Bool) {
-					vm.stack.Push(MakeValue(a.boolValue != b.boolValue));
+					PushStack(vm, MakeValue(a.boolValue != b.boolValue));
 				}
 				break;
 			}
 			case OpCode::Print: {
-				TypeInfo::TypeTag typeId = pFrame->pInstructionPointer->type;
-				Value v = vm.stack.Pop();
+				TypeInfo::TypeTag typeId = pHeader->type;
+				Value v = PopStack(vm);
 				if (typeId == TypeInfo::TypeTag::Type)
-					Log::Info("%s", v.pTypeInfo->name.pData);
+					Log::Info("%s", FindTypeByValue(v)->name.pData);
 				if (typeId == TypeInfo::TypeTag::F32)
 					Log::Info("%g", v.f32Value);
 				else if (typeId == TypeInfo::TypeTag::I32)
@@ -470,133 +560,68 @@ void Run(Program* pProgramToRun) {
 				}
 				break;
 			}
-			case OpCode::Pop:
-				vm.stack.Pop();
-				break;
-
-			case OpCode::SetLocal: {
-				vm.stack[pFrame->stackBaseIndex + pFrame->pInstructionPointer->stackIndex] = vm.stack.Top();
-				break;
-			}
-			case OpCode::PushLocal: {
-				Value v = vm.stack[pFrame->stackBaseIndex + pFrame->pInstructionPointer->stackIndex];
-				vm.stack.Push(v);
-				break;
-			}
-			case OpCode::SetField: {
-				u32 offset = pFrame->pInstructionPointer->fieldOffset;
-				u32 size = pFrame->pInstructionPointer->fieldSize;
-				
-				Value v = vm.stack.Pop();
-				Value structValue = vm.stack.Pop();
-
-				memcpy((u8*)structValue.pPtr + offset, &v.pPtr, size);
-				vm.stack.Push(v);
-				break;
-			}
-			case OpCode::SetFieldPtr: {
-				u32 offset = pFrame->pInstructionPointer->fieldOffset;
-				u32 size = pFrame->pInstructionPointer->fieldSize;
-				
-				Value v = vm.stack.Pop();
-				Value structValue = vm.stack.Pop();
-
-				memcpy((u8*)structValue.pPtr + offset, v.pPtr, size);
-				vm.stack.Push(v);
-				break;
-			}
-			case OpCode::PushField: {
-				u32 offset = pFrame->pInstructionPointer->fieldOffset;
-				u32 size = pFrame->pInstructionPointer->fieldSize;
-				
-				Value structValue = vm.stack.Pop();
-				Value v;
-
-				memcpy(&v.pPtr, (u8*)structValue.pPtr + offset, size);
-				vm.stack.Push(v);
-				break;
-			}
-			case OpCode::PushFieldPtr: {
-				u32 offset = pFrame->pInstructionPointer->fieldOffset;
-				u32 size = pFrame->pInstructionPointer->fieldSize;
-				
-				Value structValue = vm.stack.Pop();
-				Value v;
-
-				v.pPtr = (u8*)structValue.pPtr + offset;
-				vm.stack.Push(v);
-				break;
-			}
             case OpCode::JmpIfFalse: {
-				// TODO: Need to refactor so that next 16 param is the ipoffset value
-                if (!vm.stack.Top().boolValue)
-                    pFrame->pInstructionPointer = pProgramToRun->code.pData + (pFrame->pInstructionPointer->ipOffset);
+				u16 ipOffset = GetOperand16bit(pFrame->pInstructionPointer);
+                if (!ReadStack(vm).boolValue) {
+                    pFrame->pInstructionPointer = pProgramToRun->code.pData + ipOffset;
+				}
                 break;
             }
             case OpCode::JmpIfTrue: {
-				// TODO: Need to refactor so that next 16 param is the ipoffset value
-                if (vm.stack.Top().boolValue)
-                    pFrame->pInstructionPointer = pProgramToRun->code.pData + (pFrame->pInstructionPointer->ipOffset);
+				u16 ipOffset = GetOperand16bit(pFrame->pInstructionPointer);
+                if (ReadStack(vm).boolValue) {
+                    pFrame->pInstructionPointer = pProgramToRun->code.pData + ipOffset;
+				}
                 break;
             }
             case OpCode::Jmp: {
-				// TODO: Need to refactor so that next 16 param is the ipoffset value
-                pFrame->pInstructionPointer = pProgramToRun->code.pData + (pFrame->pInstructionPointer->ipOffset);
+				u16 ipOffset = GetOperand16bit(pFrame->pInstructionPointer);
+                pFrame->pInstructionPointer = pProgramToRun->code.pData + ipOffset;
                 break;
             }
             case OpCode::Call: {
-				u64 argCount = pFrame->pInstructionPointer->nArgs;
+				u16 argCount = GetOperand16bit(pFrame->pInstructionPointer);
                 
-                Value funcValue = vm.stack[-1 - argCount];
+				// Need to go back in the stack past the args, to retrieve the function pointer
+				i32 funcIndex = 1 + argCount;
+				i32 stackFrameBaseAddress = vm.stackHeadAddress - 4 * funcIndex;
+				Value funcValue = *(Value*)(vm.pMemory + stackFrameBaseAddress);
 
                 CallFrame frame;
                 frame.pInstructionPointer =  pProgramToRun->code.pData + (funcValue.functionPointer - 1);
-                frame.stackBaseIndex = vm.stack.array.count - argCount - 1;
+                frame.stackBaseAddress = stackFrameBaseAddress;
                 vm.callStack.Push(frame);
 
                 pFrame = &vm.callStack.Top();
                 break;
             }
-			case OpCode::PushStruct: {
-				u64 size = pFrame->pInstructionPointer->size;
-				
-				Value v;
-				v.pPtr = g_Allocator.Allocate(usize(size)); // TODO: Stack memory, not heap
-				// TODO: This actually is a leak that we need to fix, but we'll do so by i32roducing stack memory
-				MarkNotALeak(v.pPtr);
-
-				// All memory will be zero allocated by default
-				memset(v.pPtr, 0, size);
-				vm.stack.Push(v);
-				break;
-			}
 			case OpCode::Cast: {
-				TypeInfo::TypeTag fromTypeId = pFrame->pInstructionPointer->fromType;
-				TypeInfo::TypeTag toTypeId = pFrame->pInstructionPointer->toType;
+				TypeInfo::TypeTag fromTypeId = (TypeInfo::TypeTag)GetOperand16bit(pFrame->pInstructionPointer);
+				TypeInfo::TypeTag toTypeId = pHeader->type;
 	
-				Value copy = vm.stack.Pop();
+				Value copy = PopStack(vm);
 				if (toTypeId == TypeInfo::I32 && fromTypeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue((i32)copy.f32Value));
+					PushStack(vm, MakeValue((i32)copy.f32Value));
 				} else if (toTypeId == TypeInfo::I32 && fromTypeId == TypeInfo::Bool) {
-					vm.stack.Push(MakeValue((i32)copy.boolValue));
+					PushStack(vm, MakeValue((i32)copy.boolValue));
 				} else if (toTypeId == TypeInfo::F32 && fromTypeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue((f32)copy.i32Value));
+					PushStack(vm, MakeValue((f32)copy.i32Value));
 				} else if (toTypeId == TypeInfo::F32 && fromTypeId == TypeInfo::Bool) {
-					vm.stack.Push(MakeValue((f32)copy.boolValue));
+					PushStack(vm, MakeValue((f32)copy.boolValue));
 				} else if (toTypeId == TypeInfo::Bool && fromTypeId == TypeInfo::I32) {
-					vm.stack.Push(MakeValue((bool)copy.i32Value));
+					PushStack(vm, MakeValue((bool)copy.i32Value));
 				} else if (toTypeId == TypeInfo::Bool && fromTypeId == TypeInfo::F32) {
-					vm.stack.Push(MakeValue((bool)copy.f32Value));
+					PushStack(vm, MakeValue((bool)copy.f32Value));
 				}
 				break;
 			}
             case OpCode::Return: {
-                Value returnVal = vm.stack.Pop();
+                Value returnVal = PopStack(vm);
 
 				vm.callStack.Pop();
-                vm.stack.Resize(pFrame->stackBaseIndex);
+				vm.stackHeadAddress = pFrame->stackBaseAddress;
 
-                vm.stack.Push(returnVal);
+                PushStack(vm, returnVal);
 
                 if (vm.callStack.array.count == 0) {
                     return;
@@ -614,7 +639,3 @@ void Run(Program* pProgramToRun) {
 #endif
     }
 }
-#else
-void Run(Program* pProgramToRun) {
-}
-#endif

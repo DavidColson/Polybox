@@ -40,7 +40,7 @@ struct Program {
 };
 
 #define GetOperand16bit(ptr) *(++ptr)
-#define GetOperand32bit(ptr) ((ptr[1] << 16) | ptr[2]); ptr += 2;
+#define GetOperand32bit(ptr) ((ptr[2] << 16) | ptr[1]); ptr += 2;
 
 void CodeGenProgram(Compiler& compilerState);
 

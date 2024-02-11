@@ -30,6 +30,7 @@ bool CheckTypesIdentical(TypeInfo* pType1, TypeInfo* pType2) {
     }
 
     switch (pType1->tag) {
+        case TypeInfo::TypeTag::Invalid:
         case TypeInfo::TypeTag::Void:
         case TypeInfo::TypeTag::I32:
         case TypeInfo::TypeTag::F32:
@@ -173,7 +174,7 @@ void InitTypeTable() {
     typeTable = ResizableArray<TypeInfo*>(&typeTableMemory);
 
     TypeInfo* pInvalidType = (TypeInfo*)typeTableMemory.Allocate(sizeof(TypeInfo));
-    pInvalidType->tag = TypeInfo::TypeTag::Void;
+    pInvalidType->tag = TypeInfo::TypeTag::Invalid;
     pInvalidType->size = 0;
     pInvalidType->name = "invalid";
     typeTable.PushBack(pInvalidType);
@@ -206,7 +207,7 @@ void InitTypeTable() {
 
     TypeInfo* pTypeType = (TypeInfo*)typeTableMemory.Allocate(sizeof(TypeInfo));
     pTypeType->tag = TypeInfo::TypeTag::Type;
-    pTypeType->size = 8;
+    pTypeType->size = 4;
     pTypeType->name = "type";
     typeTable.PushBack(pTypeType);
 

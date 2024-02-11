@@ -190,7 +190,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
     TypeInfoFunction* pFunctionTypeInfo = (TypeInfoFunction*)state.pAllocator->Allocate(sizeof(TypeInfoFunction));
     pFunctionTypeInfo->tag = TypeInfo::TypeTag::Function;
-    pFunctionTypeInfo->size = 8;
+    pFunctionTypeInfo->size = 4;
     pFunctionTypeInfo->params = ResizableArray<TypeInfo*>(state.pAllocator);
 
     for (size i = 0; i < pFuncType->params.count; i++) {
@@ -520,6 +520,11 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 				| (CheckTypesIdentical(pFrom, GetI32Type()) && CheckTypesIdentical(pTo, GetBoolType()))
 				| (CheckTypesIdentical(pFrom, GetBoolType()) && CheckTypesIdentical(pTo, GetI32Type()))
 				| (CheckTypesIdentical(pFrom, GetBoolType()) && CheckTypesIdentical(pTo, GetF32Type()))) {
+				castAllowed = true;
+			}
+			
+			// If typechecking failed for one of the two values, surpress the "not possible" error, since it's irrelevant to the user
+			if (CheckTypesIdentical(pFrom, GetInvalidType()) || CheckTypesIdentical(pTo, GetInvalidType())) {
 				castAllowed = true;
 			}
 

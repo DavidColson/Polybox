@@ -51,15 +51,15 @@ inline i32 PushInstruction(CodeGenState& state, u32 line, InstructionHeader head
     return (i32)state.pCurrentlyCompilingProgram->code.count - 1;
 }
 
-inline void PushParam16bit(CodeGenState& state, u16 param) {
+inline void PushOperand16bit(CodeGenState& state, u16 param) {
 	state.pCurrentlyCompilingProgram->code.PushBack(param);
 	size prevLine = *state.pCurrentlyCompilingProgram->dbgLineInfo.end();
     state.pCurrentlyCompilingProgram->dbgLineInfo.PushBack(prevLine);
 }
 
-inline void PushParam32bit(CodeGenState& state, u32 param) {
-	state.pCurrentlyCompilingProgram->code.PushBack(u16(param >> 16));
+inline void PushOperand32bit(CodeGenState& state, u32 param) {
 	state.pCurrentlyCompilingProgram->code.PushBack(u16(param));
+	state.pCurrentlyCompilingProgram->code.PushBack(u16(param >> 16));
 	size prevLine = *state.pCurrentlyCompilingProgram->dbgLineInfo.end();
     state.pCurrentlyCompilingProgram->dbgLineInfo.PushBack(prevLine);
     state.pCurrentlyCompilingProgram->dbgLineInfo.PushBack(prevLine);
@@ -74,7 +74,7 @@ void PushFunctionDbgInfo(CodeGenState& state, size functionEntryIndex, String na
 void EnterScope(CodeGenState& state, Scope* pNewScope) {
     state.pCurrentScope = pNewScope;
     if (pNewScope->kind == ScopeKind::Function) {
-        state.pCurrentScope->codeGenStackFrameBase = state.stackBaseAddress + (i32)state.localsStack.count * 4;
+        state.pCurrentScope->codeGenStackFrameBase = (i32)state.localsStack.count;
     } else {
         // If we're not a function scope, then presumably some scope above us is a function scope
         Scope* pParentFunctionScope = pNewScope;
@@ -107,11 +107,20 @@ Program* CurrentProgram(CodeGenState& state) {
 
 // ***********************************************************************
 
+void AddLocal(CodeGenState& state, String name, size sizeInBytes) {
+	size slotsUsed = (size)ceil((f32)sizeInBytes / 4.0);
+	for (size i = 0; i < slotsUsed; i++) {
+    	state.localsStack.PushBack(name);
+	}
+}
+
+// ***********************************************************************
+
 i32 ResolveLocal(CodeGenState& state, String name) {
-    for (size i = state.localsStack.count - 1; i >= 0; i--) {
+    for (size i = 0; i < state.localsStack.count; i++) {
         String& local = state.localsStack[i];
         if (name == local) {
-            return (i32)i;
+            return ((i32)i - state.pCurrentScope->codeGenStackFrameBase) * 4;
         }
     }
     return -1;
@@ -129,16 +138,16 @@ void CodeGenStatements(CodeGenState& state, ResizableArray<Ast::Statement*>& sta
 
 void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFunction) {
     // Push local for this function
-    state.localsStack.PushBack(identifier);
+	AddLocal(state, identifier, 4);
 
     // Put input params in locals stack
     for (Ast::Node* pParam : pFunction->pFuncType->params) {
         if (pParam->nodeKind == Ast::NodeKind::Identifier) {
             Ast::Identifier* pIdentifier = (Ast::Identifier*)pParam;
-            state.localsStack.PushBack(pIdentifier->identifier);
+			AddLocal(state, pIdentifier->identifier, pIdentifier->pType->size);
         } else if (pParam->nodeKind == Ast::NodeKind::Declaration) {
             Ast::Declaration* pDecl = (Ast::Declaration*)pParam;
-            state.localsStack.PushBack(pDecl->identifier);
+			AddLocal(state, pDecl->identifier, pDecl->pType->size);
         }
     }
 
@@ -150,7 +159,7 @@ void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFun
 
     // Put a return instruction at the end of the function
     PushInstruction(state, pFunction->pBody->endToken.line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::Void });
-	PushParam32bit(state, 0);
+	PushOperand32bit(state, 0);
     PushInstruction(state, pFunction->pBody->endToken.line, { .opcode = OpCode::Return });
 }
 
@@ -166,7 +175,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
     // Identifiers are already in the constant table, so we let them through and they'll be looked up and reused
     if (pExpr->isConstant && (pExpr->nodeKind != Ast::NodeKind::Function && pExpr->nodeKind != Ast::NodeKind::Identifier)) {
         PushInstruction(state, pExpr->line, { .opcode = OpCode::Const, .type = pExpr->pType->tag });
-		PushParam32bit(state, pExpr->constantValue.i32Value);
+		PushOperand32bit(state, pExpr->constantValue.i32Value);
         return;
     }
 
@@ -179,23 +188,23 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             if (pVariable->isConstant) {
                 if (pEntity->kind == EntityKind::Function && pEntity->bFunctionHasBeenGenerated == false) {
                     PushInstruction(state, pVariable->line, { .opcode = OpCode::Const, .type = pEntity->pType->tag });
-					PushParam32bit(state, 0);
-                    pEntity->pendingFunctionConstants.PushBack(state.pCurrentlyCompilingProgram->code.count-1);
+					PushOperand32bit(state, 0);
+                    pEntity->pendingFunctionConstants.PushBack(state.pCurrentlyCompilingProgram->code.count-2);
                 } else {
                     PushInstruction(state, pVariable->line, { .opcode = OpCode::Const, .type = pEntity->pType->tag} );
-                    PushParam32bit(state, pEntity->constantValue.i32Value);
+                    PushOperand32bit(state, pEntity->constantValue.i32Value);
                 }
             } else {
 				i32 localIndex = ResolveLocal(state, pVariable->identifier);
 				if (localIndex != -1) {
 					if (pEntity->pType->tag == TypeInfo::TypeTag::Struct) {
-						PushInstruction(state, pVariable->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-						PushParam32bit(state, state.pCurrentScope->codeGenStackFrameBase + localIndex * 4);
+						PushInstruction(state, pVariable->line, { .opcode = OpCode::LocalAddr });
+						PushOperand16bit(state, localIndex);
 					} else {
-						PushInstruction(state, pVariable->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-						PushParam32bit(state, state.pCurrentScope->codeGenStackFrameBase + localIndex * 4);
+						PushInstruction(state, pVariable->line, { .opcode = OpCode::LocalAddr });
+						PushOperand16bit(state, localIndex);
 						PushInstruction(state, pVariable->line, { .opcode = OpCode::Load });
-						PushParam16bit(state, 0);
+						PushOperand16bit(state, 0);
 					}
 				}
             }
@@ -206,10 +215,10 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             CodeGenExpression(state, pVarAssignment->pAssignment);
             i32 localIndex = ResolveLocal(state, pVarAssignment->pIdentifier->identifier);
             if (localIndex != -1) {
-				PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-				PushParam32bit(state, state.pCurrentScope->codeGenStackFrameBase + localIndex * 4);
+				PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::LocalAddr });
+				PushOperand16bit(state, localIndex);
 				PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::Store });
-				PushParam16bit(state, 0);
+				PushOperand16bit(state, 0);
             }
             break;
         }
@@ -233,16 +242,16 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 				// In this case you will be doing a copy instruction
 				// First push the copy size (the struct to copy in and the target struct addresses are already on the stack)
 				PushInstruction(state, pSetField->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-				PushParam32bit(state, (u32)pTargetField->pType->size);
+				PushOperand32bit(state, (u32)pTargetField->pType->size);
 				PushInstruction(state, pSetField->line, {.opcode = OpCode::Copy }); 
-				PushParam16bit(state, (u16)pTargetField->offset);
-				PushParam16bit(state, 0); 
+				PushOperand16bit(state, (u16)pTargetField->offset);
+				PushOperand16bit(state, 0); 
 			} else {
 				// In this case you will do a store
 				// From the identifier node above, what will be left is the address of the struct underneath the value to store
 				// So you just need to do store, where the offset is the member offset
 				PushInstruction(state, pSetField->line, { .opcode = OpCode::Store });
-				PushParam16bit(state, (u16)pTargetField->offset);
+				PushOperand16bit(state, (u16)pTargetField->offset);
 			}
 			break;
 		}
@@ -266,20 +275,20 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 				// The address of the baseStruct is already on the stack, so you need to load the offset as a const
 				// Then do an add, leaving the new address on the stack
 				PushInstruction(state, pGetField->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-				PushParam32bit(state, (u32)pTargetField->offset);
+				PushOperand32bit(state, (u32)pTargetField->offset);
 				PushInstruction(state, pGetField->line, {.opcode = OpCode::Add, .type = TypeInfo::TypeTag::I32 }); 
 			} else {
 				// In this case the targetfield is just any old plain value we'd want copied into the stack
 				// SO here you can do an actual load with offset parameter
 				PushInstruction(state, pGetField->line, {.opcode = OpCode::Load }); 
-				PushParam16bit(state, (u16)pTargetField->offset);
+				PushOperand16bit(state, (u16)pTargetField->offset);
 			}
 			break;
 		}
         case Ast::NodeKind::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
 			PushInstruction(state, pLiteral->line, { .opcode = OpCode::Const, .type = pLiteral->pType->tag });
-			PushParam32bit(state, pLiteral->constantValue.i32Value);
+			PushOperand32bit(state, pLiteral->constantValue.i32Value);
             break;
         }
         case Ast::NodeKind::Function: {
@@ -287,7 +296,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
             // Push jump to skip over function code
 			i32 jump = PushInstruction(state, pFunction->pBody->startToken.line, { .opcode = OpCode::Jmp });
-			PushParam16bit(state, 0);
+			PushOperand16bit(state, 0);
                 
             // Enter scope
             Scope* pPreviousScope = state.pCurrentScope;
@@ -308,7 +317,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
 			// leave function pointer on the stack
 			PushInstruction(state, pFunction->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::Function });
-			PushParam32bit(state, initialIPOffset);
+			PushOperand32bit(state, initialIPOffset);
 			PushFunctionDbgInfo(state, initialIPOffset, pFunction->pType->name, pFunction->pType);
         
             break;
@@ -326,7 +335,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
                 CodeGenExpression(state, pBinary->pLeft);
 
 				i32 andJump = PushInstruction(state, pBinary->line, { .opcode = OpCode::JmpIfFalse });
-				PushParam16bit(state, 0);
+				PushOperand16bit(state, 0);
                 PushInstruction(state, pBinary->line, { .opcode = OpCode::Drop });
                 CodeGenExpression(state, pBinary->pRight);
                 PatchJump(state, andJump);
@@ -336,7 +345,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             if (pBinary->op == Operator::Or) {
                 CodeGenExpression(state, pBinary->pLeft);
 				i32 orJump = PushInstruction(state, pBinary->line, { .opcode = OpCode::JmpIfTrue });
-				PushParam16bit(state, 0);
+				PushOperand16bit(state, 0);
                 PushInstruction(state, pBinary->line, { .opcode = OpCode::Drop });
                 CodeGenExpression(state, pBinary->pRight);
                 PatchJump(state, orJump);
@@ -422,7 +431,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			} else {
 				AssertMsg(false, "Don't know how to cast non base types yet");
 			}
-			PushParam16bit(state, (i16)fromType);
+			PushOperand16bit(state, (i16)fromType);
 			break;
 		}
         case Ast::NodeKind::Call: {
@@ -434,7 +443,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             }
 
 			PushInstruction(state, pCall->line, { .opcode = OpCode::Call });
-			PushParam16bit(state, (i16)pCall->args.count);
+			PushOperand16bit(state, (i16)pCall->args.count);
             break;
         }
         default:
@@ -460,7 +469,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                         
                         // Push jump to skip over function code
 						i32 jump = PushInstruction(state, pFunction->pBody->startToken.line, { .opcode = OpCode::Jmp });
-						PushParam16bit(state, 0);
+						PushOperand16bit(state, 0);
                             
                         // Enter scope
                         Scope* pPreviousScope = state.pCurrentScope;
@@ -481,10 +490,9 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                         
                         // Loop through pending function constants and correct them
                         for (int i=0; i < pEntity->pendingFunctionConstants.count; i++) {
-                            size instructionIndex = pEntity->pendingFunctionConstants[i];
-                            u16* ins = &state.pCurrentlyCompilingProgram->code[instructionIndex];
-                            i32* functionPointer = (i32*)ins++;
-							*functionPointer = pEntity->constantValue.functionPointer;
+                            size fnPointerIndex = pEntity->pendingFunctionConstants[i];
+                            i32* ins = (i32*)&state.pCurrentlyCompilingProgram->code[fnPointerIndex];
+							*ins = pEntity->constantValue.functionPointer;
                         }
 						PushFunctionDbgInfo(state, initialIPOffset, pEntity->name, pEntity->pType);
                         pEntity->bFunctionHasBeenGenerated = true;
@@ -496,7 +504,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                 break;
             }
 
-            state.localsStack.PushBack(pDecl->identifier);
+			AddLocal(state, pDecl->identifier, pDecl->pType->size);
 
             if (pDecl->pInitializerExpr)
                 CodeGenExpression(state, pDecl->pInitializerExpr);
@@ -506,10 +514,10 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 					// allocate memory for the struct
 					i32 numSlots = (i32)ceil((f32)pDecl->pType->size / 4.f);
 					for (i32 i = 0; i < numSlots; i++) {
-						PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushParam32bit(state, 0);
+						PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
 					}
 				} else { // For all non struct values we just push a new value on the operand stack that is zero
-					PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushParam32bit(state, 0);
+					PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
 				}
             }
             break;
@@ -540,13 +548,13 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
             CodeGenExpression(state, pIf->pCondition);
 
 			i32 ifJump = PushInstruction(state, pIf->line, { .opcode = OpCode::JmpIfFalse });
-			PushParam16bit(state, 0);
+			PushOperand16bit(state, 0);
             PushInstruction(state, pIf->pThenStmt->line, { .opcode = OpCode::Drop });
 
             CodeGenStatement(state, pIf->pThenStmt);
             if (pIf->pElseStmt) {
 				i32 elseJump = PushInstruction(state, pIf->pElseStmt->line, { .opcode = OpCode::Jmp });
-				PushParam16bit(state, 0);
+				PushOperand16bit(state, 0);
                 PatchJump(state, ifJump);
 
                 PushInstruction(state, pIf->pElseStmt->line, { .opcode = OpCode::Drop });
@@ -567,12 +575,12 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
             CodeGenExpression(state, pWhile->pCondition);
 
 			i32 ifJump = PushInstruction(state, pWhile->line, { .opcode = OpCode::JmpIfFalse });
-			PushParam16bit(state, 0);
+			PushOperand16bit(state, 0);
             PushInstruction(state, pWhile->line, { .opcode = OpCode::Drop });
 
             CodeGenStatement(state, pWhile->pBody);
 			PushInstruction(state, pWhile->pBody->line, { .opcode = OpCode::Jmp });
-			PushParam16bit(state, loopStart);
+			PushOperand16bit(state, loopStart);
 
             PatchJump(state, ifJump);
             PushInstruction(state, pWhile->pBody->line, { .opcode = OpCode::Drop });
@@ -619,7 +627,6 @@ void CodeGenProgram(Compiler& compilerState) {
 		state.targetCPUMemory = 2 * 1024 * 1024; // 2 megabytes
 		state.stackSize = 1024*4; // 1024 stack slots, 4 bytes each
 		state.stackBaseAddress = state.targetCPUMemory - state.stackSize;
-		state.pCurrentScope->codeGenStackFrameBase = state.stackBaseAddress;
 
         // Create a program to output to
         SYS_P_NEW(state.pCurrentlyCompilingProgram) Program();
@@ -629,12 +636,12 @@ void CodeGenProgram(Compiler& compilerState) {
         state.pCurrentlyCompilingProgram->dbgLineInfo.pAlloc = state.pOutputAllocator;
 
         // Set off actual codegen of the main file, will recursively codegen all functions inside it
-        state.localsStack.PushBack("<main>");
+		AddLocal(state, "<main>", 4);
         CodeGenStatements(state, compilerState.syntaxTree);
 
         // Put a return instruction at the end of the program
         Token endToken = compilerState.tokens[compilerState.tokens.count - 1];
-		PushInstruction(state, endToken.line, {.opcode = OpCode::Const, .type = TypeInfo::TypeTag::Void}); PushParam32bit(state, 0);
+		PushInstruction(state, endToken.line, {.opcode = OpCode::Const, .type = TypeInfo::TypeTag::Void}); PushOperand32bit(state, 0);
         PushInstruction(state, endToken.line, { .opcode = OpCode::Return });
 
         compilerState.pProgram = state.pCurrentlyCompilingProgram;

@@ -367,10 +367,26 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 
     if (Match(state, 1, TokenType::Identifier)) {
         Token identifier = Previous(state);
-        Ast::Identifier* pIdentifier = MakeNode<Ast::Identifier>(state.pAllocator, identifier, Ast::NodeKind::Identifier);
-        pIdentifier->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
-        return pIdentifier;
+        
+		// This might be the start of a struct literal, so covering that case
+		if (Match(state, 1, TokenType::LeftBrace)) {
+			Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, identifier, Ast::NodeKind::StructLiteral);
+			pLiteral->structName = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
+			pLiteral->members.pAlloc = state.pAllocator;
+			do {
+				pLiteral->members.PushBack(ParseExpression(state));
+			} while (Match(state, 1, TokenType::Comma));
+			return pLiteral;
+		} else {
+			Ast::Identifier* pIdentifier = MakeNode<Ast::Identifier>(state.pAllocator, identifier, Ast::NodeKind::Identifier);
+			pIdentifier->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
+			return pIdentifier;
+		}
     }
+
+	// TODO: Unlabeled struct literal
+	
+
 
 	if (Ast::Type* pType = (Ast::Type*)ParseType(state)) {
         return pType;
@@ -917,6 +933,18 @@ void DebugExpression(Ast::Expression* pExpr, i32 indentationLevel) {
                 Log::Debug("%*s- Literal (%s:%s)", indentationLevel, "", pLiteral->constantValue.boolValue ? "true" : "false", nodeTypeStr.pData);
             break;
         }
+		case Ast::NodeKind::StructLiteral: {
+			Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
+            String nodeTypeStr = "none";
+            if (pStructLiteral->pType) {
+                nodeTypeStr = pStructLiteral->pType->name;
+            }
+            Log::Debug("%*s- Struct Literal (%s)", indentationLevel, "", nodeTypeStr.pData);
+            for (Ast::Expression* pMember : pStructLiteral->members) {
+                DebugExpression(pMember, indentationLevel + 4);
+            }
+			break;
+		}
         case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             Log::Debug("%*s- Function", indentationLevel, "");

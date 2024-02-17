@@ -212,11 +212,15 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
         }
         case Ast::NodeKind::VariableAssignment: {
             Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
+			// Codegen the value to be set
             CodeGenExpression(state, pVarAssignment->pAssignment);
             i32 localIndex = ResolveLocal(state, pVarAssignment->pIdentifier->identifier);
             if (localIndex != -1) {
+				// Codegen the address of the identifier (as opposed to the value as you would do above)
 				PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::LocalAddr });
 				PushOperand16bit(state, localIndex);
+
+				// Do a store
 				PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::Store });
 				PushOperand16bit(state, 0);
             }
@@ -224,9 +228,23 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
         }
 		case Ast::NodeKind::SetField: {
 			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
-
+			
+			// Codegen value to be set (same as above)
 			CodeGenExpression(state, pSetField->pAssignment);
+
+			// Codegen the target which is an identifier node, but it just happens to generate an address cause it's guaranteed
+			// to be a struct
 			CodeGenExpression(state, pSetField->pTarget);
+
+
+			// The discrepancy is really whether to do a store or a load (the difference between assignment and just "identifier"
+			// I guess this is where lvalues and rvalues come into play
+
+			// Food for thought, can we semantically determine during type checking whether any particular identifier needs to be 
+			// an address or a computed value. If we could do this, then the ident node could decide to load or not to load based
+			// the use case, then it can cover setField/Identifier/VariableAssignment all in one.
+
+			// It is basically, is the identifier on the left hand side of an assignment? or is it a struct? That's ostensibly it.
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSetField->pTarget->pType;
 			TypeInfoStruct::Member* pTargetField = nullptr;
@@ -291,6 +309,22 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			PushOperand32bit(state, pLiteral->constantValue.i32Value);
             break;
         }
+		// case struct literal
+		
+		// fill stack with appropriate slots for the struct size
+			
+		// if expressions are variable assignments:
+			// codegen assignment expression
+			// Set struct pointer as top of stack
+			// lookup member offset in array, store offset of member, loop
+
+		// if expressions are expressions
+			// codegen expression
+			// set struct pointer as top of stack
+			// store offset of member i, loop
+
+		// In both of the above situations, you need to check if the target is a struct, and do a copy in that case
+
         case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
 

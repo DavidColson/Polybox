@@ -539,6 +539,18 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
             break;
         }
+		case Ast::NodeKind::StructLiteral: {
+			Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
+            if (ImGui::TreeNodeEx(pStructLiteral, nodeFlags, "Struct Literal")) {
+                if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                DrawExprProperties(pExpr);
+				for (Ast::Expression* pMember : pStructLiteral->members) {
+					DrawAstExpression(pMember);
+				}
+                ImGui::TreePop();
+            }
+			break;
+		}
         case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
             if (ImGui::TreeNodeEx(pFunction, nodeFlags, "Function")) {

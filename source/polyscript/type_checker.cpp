@@ -239,8 +239,117 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             // Nothing to do
             return pExpr;
         }
+		case Ast::NodeKind::StructLiteral: {
+			Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
+
+
+			// Alternate implementation idea
+			// (for Lvalue case only)
+			// We change current scope to be the struct's scope
+			// Then we typecheck the assignment expression as a normal node, it will give type not found errors
+			// And type mismatch errors for the members within the struct
+
+
+
+
+			// Question, how does inference work in this case? We cannot propogate inference up the heirarchy here, because 
+			// the higher node dictates the lower one.
+			// I think in cases where the parent node has information about an "expected" type, it should pass that
+			// as a parameter to the "TypeCheckX" functions below it in the tree. 
+			// This would happen for function arguments, declarations with type annotations and setfields, assignmets etc
+			// The lower node, if it can't determine it's own type, will use the "expected" type and error if it has problems
+			// It should _still_ be the responsibility of the parent to check the lower node has the correct type though
+			// since it may explicitly give back the wrong thing, plus the parent has more context to write an error
+
+	
+			// find the structure type info
+            Entity* pEntity = FindEntity(state.pCurrentScope, pStructLiteral->structName);
+			TypeInfoStruct* pTypeInfo = (TypeInfoStruct*)FindTypeByValue(pEntity->constantValue);
+			pStructLiteral->pType = pTypeInfo;
+
+			// First check if we are using a named initializer list or not
+			bool foundLValues = false;
+			bool foundRValues = false;
+			for (Ast::Expression* pMember : pStructLiteral->members) {
+				if (pMember->nodeKind == Ast::NodeKind::VariableAssignment) {
+					foundLValues = true;
+					continue;
+				}
+				foundRValues = true;
+			}
+			
+			if (foundLValues && foundRValues) {
+				state.pErrors->PushError(pStructLiteral, "Cannot have a mix of lvalues and rvalues in a struct literal");
+				return pStructLiteral;
+			}
+
+			if (foundLValues && !foundRValues) {
+				// Check that each member given matches one actually in the struct type info (and they have the appropriate type
+				for (Ast::Expression* pMember : pStructLiteral->members) {
+					Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pMember;
+					pAssignment->isConstant = false;
+					pAssignment->pAssignment = TypeCheckExpression(state, pAssignment->pAssignment);
+
+					// Find the member in the typeinfo
+					// As below, this really should be being done as part of the scope of the struct
+					// Which will contain an entity for the identifier
+					TypeInfoStruct::Member* pFoundMember = nullptr;
+					for (TypeInfoStruct::Member& mem : pTypeInfo->members) {
+						if (mem.identifier == pAssignment->pIdentifier->identifier) {
+							pFoundMember = &mem;
+						}
+					}	
+
+					if (pFoundMember == nullptr) {
+						state.pErrors->PushError(pAssignment->pIdentifier, "Struct literal member doesn't match a member in the actual struct '%s'", pAssignment->pIdentifier->identifier.pData);
+						return pStructLiteral;
+					} else {
+						// Note that this is covering what would be done by parsing the identifier itself
+						// We aren't checking against the identifier's entity though, which we probably should be doing
+						// Consider how we might typecheck the identifier in the scope of the struct, so it can be done for free
+						pAssignment->pIdentifier->pType	= pFoundMember->pType;
+						// This is redoing what would be done by the variable assignment node typechecking, which as above should be done in the scope of the struct itself
+						if (!CheckTypesIdentical(pFoundMember->pType, pAssignment->pType)) {
+							state.pErrors->PushError(pAssignment->pIdentifier, "Struct literal member is being initialized with a type that doesn't match the actual struct member '%s'", pAssignment->pIdentifier->identifier.pData);
+							return pStructLiteral;
+						}
+					}
+					pAssignment->pType = pAssignment->pIdentifier->pType;
+				}
+			}
+			if (foundRValues && !foundLValues) {
+				if (pStructLiteral->members.count != pTypeInfo->members.count) {
+					state.pErrors->PushError(pStructLiteral, "Incorrect number of members provided to struct initializer for struct '%s'", pStructLiteral->structName.pData);
+					return pStructLiteral;
+				}
+
+				for (size i = 0; i < pStructLiteral->members.count; i++) {
+					TypeInfo* pGivenTypeInfo = pStructLiteral->members[i]->pType;
+					TypeInfo* pKnownTypeInfo = pTypeInfo->members[i].pType;
+
+					if (!CheckTypesIdentical(pGivenTypeInfo, pKnownTypeInfo)) {
+						state.pErrors->PushError(pStructLiteral, "Incorrect type for member '%s' in struct literal", pTypeInfo->members[i].identifier.pData);
+						return pStructLiteral;
+					}
+				}
+			}
+		// case struct literal node {
+		
+		// If all expressions are variable assignments, good
+			// Go through each one, match the variable name to a member, error if not
+			// Check that the assignment expression type matches that of the member
+
+		// If all expressions are not variable assignments, good
+			// Go through the members in order, matching the expression type to that member type
+			// Ensure there is a matching amount of expressions to members
+			
+		// Otherwise, error
+
+		// Struct literal identifier should match obviously
+			return pExpr;
+		}
         case Ast::NodeKind::Type: {
-            pExpr->pType = GetTypeType();
+            pExpr->pType = GetTypeType(); 
             return pExpr;
         }
         case Ast::NodeKind::FunctionType: {

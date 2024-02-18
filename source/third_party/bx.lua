@@ -8,6 +8,7 @@ project "bx"
     exceptionhandling "Off"
     rtti "Off"
     defines "__STDC_FORMAT_MACROS"
+	editandcontinue "Off"
     files
     {
         "bx/include/bx/*.h",
@@ -24,12 +25,6 @@ project "bx"
         "bx/3rdparty",
         "bx/include"
     }
-    if ASAN_Enabled then
-    filter { "system:windows", "configurations:Debug*" }
-        buildoptions { "/fsanitize=address" }
-        flags { "NoIncrementalLink" }
-        editandcontinue "Off"
-    end
     filter "action:vs*"
         defines "_CRT_SECURE_NO_WARNINGS"
     filter "action:vs*"

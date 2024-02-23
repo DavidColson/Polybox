@@ -798,20 +798,20 @@ int main(int argc, char *argv[]) {
     InitTypeTable();
 	InitTokenToOperatorMap();
 
-    // Values();
-    // ArithmeticOperators();
-    // LogicalOperators();
-    // Expressions();
-    // ControlFlow();
-    // Declarations();
-    // VariableAssignment();
-    // Scopes();
-    // Casting();
-    // Functions();
-    // Structs();
-    // Constants();
-    //
-    // RunTestPlayground();
+    Values();
+    ArithmeticOperators();
+    LogicalOperators();
+    Expressions();
+    ControlFlow();
+    Declarations();
+    VariableAssignment();
+    Scopes();
+    Casting();
+    Functions();
+    Structs();
+    Constants();
+
+    RunTestPlayground();
 
     RunCompilerExplorer();
 

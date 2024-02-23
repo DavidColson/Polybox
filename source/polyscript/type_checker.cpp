@@ -242,26 +242,6 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 		case Ast::NodeKind::StructLiteral: {
 			Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
 
-
-			// Alternate implementation idea
-			// (for Lvalue case only)
-			// We change current scope to be the struct's scope
-			// Then we typecheck the assignment expression as a normal node, it will give type not found errors
-			// And type mismatch errors for the members within the struct
-
-
-
-
-			// Question, how does inference work in this case? We cannot propogate inference up the heirarchy here, because 
-			// the higher node dictates the lower one.
-			// I think in cases where the parent node has information about an "expected" type, it should pass that
-			// as a parameter to the "TypeCheckX" functions below it in the tree. 
-			// This would happen for function arguments, declarations with type annotations and setfields, assignmets etc
-			// The lower node, if it can't determine it's own type, will use the "expected" type and error if it has problems
-			// It should _still_ be the responsibility of the parent to check the lower node has the correct type though
-			// since it may explicitly give back the wrong thing, plus the parent has more context to write an error
-
-	
 			// find the structure type info
             Entity* pEntity = FindEntity(state.pCurrentScope, pStructLiteral->structName);
 			TypeInfoStruct* pTypeInfo = (TypeInfoStruct*)FindTypeByValue(pEntity->constantValue);
@@ -304,6 +284,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 						state.pErrors->PushError(pAssignment->pIdentifier, "Struct literal member doesn't match a member in the actual struct '%s'", pAssignment->pIdentifier->identifier.pData);
 						return pStructLiteral;
 					} else {
+						// TODO: This will be fixed by refactoring this node into a proper scope typecheck
 						// Note that this is covering what would be done by parsing the identifier itself
 						// We aren't checking against the identifier's entity though, which we probably should be doing
 						// Consider how we might typecheck the identifier in the scope of the struct, so it can be done for free
@@ -333,19 +314,6 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 					}
 				}
 			}
-		// case struct literal node {
-		
-		// If all expressions are variable assignments, good
-			// Go through each one, match the variable name to a member, error if not
-			// Check that the assignment expression type matches that of the member
-
-		// If all expressions are not variable assignments, good
-			// Go through the members in order, matching the expression type to that member type
-			// Ensure there is a matching amount of expressions to members
-			
-		// Otherwise, error
-
-		// Struct literal identifier should match obviously
 			return pExpr;
 		}
         case Ast::NodeKind::Type: {

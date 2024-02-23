@@ -117,10 +117,19 @@ void AddLocal(CodeGenState& state, String name, size sizeInBytes) {
 // ***********************************************************************
 
 i32 ResolveLocal(CodeGenState& state, String name) {
-    for (size i = 0; i < state.localsStack.count; i++) {
-        String& local = state.localsStack[i];
+	// This does a reverse search so as not to incorrectly find locals in higher scopes, it should find in the lowest scope possible
+	bool found = false;
+	for (size i = state.localsStack.count - 1; i >= 0; i--) {
+		String& local = state.localsStack[i];
+		if (found && name != local) {
+			return ((i32)(i+1) - state.pCurrentScope->codeGenStackFrameBase) * 4;
+		}
         if (name == local) {
-            return ((i32)i - state.pCurrentScope->codeGenStackFrameBase) * 4;
+			// once we find it (and we're not at the bottom), we need to keep iterating to find the lower index, since the local may take up more than one slot
+			if (i != 0)
+				found = true;
+			else 
+            	return ((i32)i - state.pCurrentScope->codeGenStackFrameBase) * 4;
         }
     }
     return -1;
@@ -236,16 +245,6 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			// to be a struct
 			CodeGenExpression(state, pSetField->pTarget);
 
-
-			// The discrepancy is really whether to do a store or a load (the difference between assignment and just "identifier"
-			// I guess this is where lvalues and rvalues come into play
-
-			// Food for thought, can we semantically determine during type checking whether any particular identifier needs to be 
-			// an address or a computed value. If we could do this, then the ident node could decide to load or not to load based
-			// the use case, then it can cover setField/Identifier/VariableAssignment all in one.
-
-			// It is basically, is the identifier on the left hand side of an assignment? or is it a struct? That's ostensibly it.
-
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSetField->pTarget->pType;
 			TypeInfoStruct::Member* pTargetField = nullptr;
 			for (size i = 0; i < pTargetType->members.count; i++) {
@@ -309,22 +308,6 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			PushOperand32bit(state, pLiteral->constantValue.i32Value);
             break;
         }
-		// case struct literal
-		
-		// fill stack with appropriate slots for the struct size
-			
-		// if expressions are variable assignments:
-			// codegen assignment expression
-			// Set struct pointer as top of stack
-			// lookup member offset in array, store offset of member, loop
-
-		// if expressions are expressions
-			// codegen expression
-			// set struct pointer as top of stack
-			// store offset of member i, loop
-
-		// In both of the above situations, you need to check if the target is a struct, and do a copy in that case
-
         case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
 

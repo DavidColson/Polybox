@@ -174,6 +174,15 @@ bool Check(ParsingState &state, TokenType::Enum type) {
     
 // ***********************************************************************
 
+bool CheckPair(ParsingState &state, TokenType::Enum type, TokenType::Enum type2) {
+    if (IsAtEnd(state))
+        return false;
+
+    return Peek(state).type == type && (state.pCurrent+1)->type == type;
+}
+
+// ***********************************************************************
+
 Token Consume(ParsingState &state, TokenType::Enum type, String message) {
     if (Check(state, type))
         return Advance(state);
@@ -369,13 +378,16 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
         Token identifier = Previous(state);
         
 		// This might be the start of a struct literal, so covering that case
-		if (Match(state, 1, TokenType::LeftBrace)) {
+		if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
+			Advance(state); Advance(state);
 			Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, identifier, Ast::NodeKind::StructLiteral);
 			pLiteral->structName = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
 			pLiteral->members.pAlloc = state.pAllocator;
 			do {
 				pLiteral->members.PushBack(ParseExpression(state));
 			} while (Match(state, 1, TokenType::Comma));
+
+			Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression");
 			return pLiteral;
 		} else {
 			Ast::Identifier* pIdentifier = MakeNode<Ast::Identifier>(state.pAllocator, identifier, Ast::NodeKind::Identifier);
@@ -383,10 +395,6 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 			return pIdentifier;
 		}
     }
-
-	// TODO: Unlabeled struct literal
-	
-
 
 	if (Ast::Type* pType = (Ast::Type*)ParseType(state)) {
         return pType;

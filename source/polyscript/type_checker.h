@@ -10,7 +10,7 @@
 
 struct Compiler;
 struct TypeInfo;
-namespace Ast { struct Declaration; }
+namespace Ast { struct Declaration; struct Expression; }
 
 // ***********************************************************************
 
@@ -39,6 +39,7 @@ struct Scope {
     Scope* pParent;
     ScopeKind::Enum kind{ ScopeKind::Invalid };
     HashMap<String, Entity*> entities;
+    ResizableArray<Ast::Expression*> temporaries;
     ResizableArray<Scope*> children;
 
     // If the kind is a function or function type, find the typeinfo here

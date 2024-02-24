@@ -22,6 +22,7 @@ Scope* CreateScope(ScopeKind::Enum kind, Scope* pParent, IAllocator* pAllocator)
     Scope* pScope = (Scope*)pAllocator->Allocate(sizeof(Scope));
     pScope->entities.pAlloc = pAllocator;
     pScope->children.pAlloc = pAllocator;
+    pScope->temporaries.pAlloc = pAllocator;
     pScope->kind = kind;
 
     if (pParent)
@@ -248,6 +249,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			pStructLiteral->pType = pTypeInfo;
 
 			// First check if we are using a named initializer list or not
+			// TODO: This can be done during parsing as well, which will leave the designated Intializer member ready for everyone else
 			bool foundLValues = false;
 			bool foundRValues = false;
 			for (Ast::Expression* pMember : pStructLiteral->members) {
@@ -264,6 +266,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			}
 
 			if (foundLValues && !foundRValues) {
+				pStructLiteral->designatedInitializer = true;
 				// Check that each member given matches one actually in the struct type info (and they have the appropriate type
 				for (Ast::Expression* pMember : pStructLiteral->members) {
 					Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pMember;
@@ -282,23 +285,23 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
 					if (pFoundMember == nullptr) {
 						state.pErrors->PushError(pAssignment->pIdentifier, "Struct literal member doesn't match a member in the actual struct '%s'", pAssignment->pIdentifier->identifier.pData);
-						return pStructLiteral;
 					} else {
 						// TODO: This will be fixed by refactoring this node into a proper scope typecheck
 						// Note that this is covering what would be done by parsing the identifier itself
 						// We aren't checking against the identifier's entity though, which we probably should be doing
 						// Consider how we might typecheck the identifier in the scope of the struct, so it can be done for free
 						pAssignment->pIdentifier->pType	= pFoundMember->pType;
+						pAssignment->pType = pAssignment->pIdentifier->pType;
+
 						// This is redoing what would be done by the variable assignment node typechecking, which as above should be done in the scope of the struct itself
 						if (!CheckTypesIdentical(pFoundMember->pType, pAssignment->pType)) {
 							state.pErrors->PushError(pAssignment->pIdentifier, "Struct literal member is being initialized with a type that doesn't match the actual struct member '%s'", pAssignment->pIdentifier->identifier.pData);
-							return pStructLiteral;
 						}
 					}
-					pAssignment->pType = pAssignment->pIdentifier->pType;
 				}
 			}
 			if (foundRValues && !foundLValues) {
+				pStructLiteral->designatedInitializer = false;
 				if (pStructLiteral->members.count != pTypeInfo->members.count) {
 					state.pErrors->PushError(pStructLiteral, "Incorrect number of members provided to struct initializer for struct '%s'", pStructLiteral->structName.pData);
 					return pStructLiteral;
@@ -309,8 +312,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 					TypeInfo* pKnownTypeInfo = pTypeInfo->members[i].pType;
 
 					if (!CheckTypesIdentical(pGivenTypeInfo, pKnownTypeInfo)) {
-						state.pErrors->PushError(pStructLiteral, "Incorrect type for member '%s' in struct literal", pTypeInfo->members[i].identifier.pData);
-						return pStructLiteral;
+						state.pErrors->PushError(pStructLiteral->members[i], "Incorrect type for member '%s' in struct literal", pTypeInfo->members[i].identifier.pData);
 					}
 				}
 			}
@@ -1040,6 +1042,15 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             state.pCurrentScope = pFunction->pScope->pParent;
             break;
         }
+		case Ast::NodeKind::StructLiteral: {
+            Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
+            state.pCurrentScope->temporaries.PushBack(pExpr);
+			
+            for (size i = 0; i < pStructLiteral->members.count; i++) {
+                CollectEntitiesInExpression(state, pStructLiteral->members[i]);
+            }
+			break;
+		}
         case Ast::NodeKind::Identifier:
         case Ast::NodeKind::Literal:
         default:

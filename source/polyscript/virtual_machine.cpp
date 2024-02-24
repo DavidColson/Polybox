@@ -354,6 +354,7 @@ void Run(Program* pProgramToRun) {
 			case OpCode::Load: {
 				u16 offset = GetOperand16bit(pFrame->pInstructionPointer);
 				i32 sourceAddress = PopStack(vm).i32Value;
+				// TODO: Check for runtime errors here, is source valid?
 				Value* pSource = (Value*)(vm.pMemory + sourceAddress + offset);
 				PushStack(vm, *pSource);
 				break;
@@ -365,6 +366,8 @@ void Run(Program* pProgramToRun) {
 				// Pop the target memory address off the stack
 				i32 destAddress = PopStack(vm).i32Value;
 				Value* pDest = (Value*)(vm.pMemory + destAddress + offset);
+
+				// TODO: Check for runtime errors here, is pDest valid?
 
 				// Read the value to store off top of stack 
 				Value value = ReadStack(vm);
@@ -385,6 +388,8 @@ void Run(Program* pProgramToRun) {
 				
 				// Pop the size off the stack
 				i32 size = PopStack(vm).i32Value;
+
+				// TODO: Check for runtime errors, are pDest and pSrc valid?
 
 				// Pop the destination address off the stack
 				i32 destAddress = PopStack(vm).i32Value;

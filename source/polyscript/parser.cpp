@@ -178,7 +178,7 @@ bool CheckPair(ParsingState &state, TokenType::Enum type, TokenType::Enum type2)
     if (IsAtEnd(state))
         return false;
 
-    return Peek(state).type == type && (state.pCurrent+1)->type == type;
+    return Peek(state).type == type && (state.pCurrent+1)->type == type2;
 }
 
 // ***********************************************************************
@@ -387,7 +387,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 				pLiteral->members.PushBack(ParseExpression(state));
 			} while (Match(state, 1, TokenType::Comma));
 
-			Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression");
+			Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression. Potentially you forgot a '.' between members?");
 			return pLiteral;
 		} else {
 			Ast::Identifier* pIdentifier = MakeNode<Ast::Identifier>(state.pAllocator, identifier, Ast::NodeKind::Identifier);

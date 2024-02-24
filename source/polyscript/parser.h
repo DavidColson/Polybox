@@ -91,6 +91,7 @@ struct StructLiteral : public Expression {
 	// StructName{ var = 1, var2 = 3};
 	String structName;
 	ResizableArray<Expression*> members;
+	bool designatedInitializer = false;
 };
 
 struct Grouping : public Expression {

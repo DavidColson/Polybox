@@ -444,11 +444,16 @@ void VariableAssignment() {
 			"print(i);\n"
 			"b := true;\n"
 			"b = 5 * 5 < 10 || true;\n"
-			"print(b);\n";
+			"print(b);\n"
+			"MyType :: struct {int1: i32; float1: f32;};\n"
+			"structValue:MyType;\n"
+			"structValue = MyType.{10, 22.1};\n"
+			"print(structValue.float1);\n";
 		const char* expectation =
 			"10\n"
 			"60\n"
-			"true\n";
+			"true\n"
+			"22.1\n";
 		errorCount += RunCompilerOnTestCase(assignment, expectation, ResizableArray<String>());
 
 		const char* invalidAssignment = 
@@ -575,12 +580,14 @@ void Functions() {
 			"test :: func() { print(1); };\n"
 			"test2 :: func(i:i32) { print(i); };\n"
 			"test3 :: func() -> f32 { return 1.0; };\n"
-			"test4 :: func(i:i32, f:f32, b:bool) -> i32 { return i; };\n"
+			"test4 :: func(i:i32, f:f32, b:bool) -> i32 { print(f); print(b); return i; };\n"
 			"test5 :: func(i:i32) -> bool { return i > 5; };\n";
 		const char* expectation =
 			"1\n"
 			"5\n"
 			"1\n"
+			"2\n"
+			"true\n"
 			"5\n"
 			"true\n";
 		errorCount += RunCompilerOnTestCase(functionCalling, expectation, ResizableArray<String>());
@@ -671,9 +678,9 @@ void Structs() {
 	{
 		// Test struct declarations
 		const char* structDeclarations = 
-			"test :: struct { i:i32 = 2; f:f32 = 2.0; b:bool = true; };\n"
+			"test :: struct { i:i32; f:f32; b:bool; };\n"
 			"print(test);\n"
-			"test2 :: struct { i:i32 = 3; f:f32 = 2.0; b:bool = false; };\n"
+			"test2 :: struct { i:i32; f:f32; b:bool; };\n"
 			"print(test2);\n";
 		const char* expectation =	
 			"test\n"
@@ -754,6 +761,64 @@ void Structs() {
 	EndTest(errorCount);
 }
 
+void StructLiterals() {
+	StartTest("StructLiterals");
+	int errorCount = 0;
+	{
+		// Simple struct literal
+		const char* plainStructLiterals = 
+			"Test :: struct { i:i32; f:f32; b:bool; };\n"
+			"instance := Test.{1337, 2.22, true};\n"
+			"print(instance.i);\n"
+			"print(instance.f);\n"
+			"print(instance.b);\n";
+		const char* expectation =	
+			"1337\n"
+			"2.22\n"
+			"true\n";
+		errorCount += RunCompilerOnTestCase(plainStructLiterals, expectation, ResizableArray<String>());
+
+		// Designated struct literal, can be out of order
+		const char* designatedStructLiterals = 
+			"Test :: struct { i:i32; f:f32; b:bool; };\n"
+			"instance := Test.{b = false, i = 10, f = 8.24};\n"
+			"print(instance.i);\n"
+			"print(instance.f);\n"
+			"print(instance.b);\n";
+		expectation =	
+			"10\n"
+			"8.24\n"
+			"false\n";
+		errorCount += RunCompilerOnTestCase(designatedStructLiterals, expectation, ResizableArray<String>());
+
+		// Mix of designated and not, not allowed
+		const char* mixedStructLiteral = 
+			"Test :: struct { i:i32; f:f32; b:bool; };\n"
+			"instance := Test.{i = 10, 8.24};\n";
+		ResizableArray<String> expectedErrors;
+		defer(expectedErrors.Free());
+		expectedErrors.PushBack("Cannot have a mix of lvalues and rvalues in a struct literal");
+		errorCount += RunCompilerOnTestCase(mixedStructLiteral, "", expectedErrors);
+
+		const char* mismatchingStructLiteral = 
+			"Test :: struct { i:i32; f:f32; b:bool; };\n"
+			"instance := Test.{y = 10, f = 8.24};\n";
+		expectedErrors.Resize(0);
+		expectedErrors.PushBack("Struct literal member doesn't match a member in the actual struct 'y'");
+		errorCount += RunCompilerOnTestCase(mismatchingStructLiteral, "", expectedErrors);
+
+		const char* incorrectNumberStructLiteral = 
+			"Test :: struct { i:i32; f:f32; b:bool; };\n"
+			"instance := Test.{ 10, 8.24};\n";
+		expectedErrors.Resize(0);
+		expectedErrors.PushBack("Incorrect number of members provided to struct initializer for struct 'Test'");
+		errorCount += RunCompilerOnTestCase(incorrectNumberStructLiteral, "", expectedErrors);
+
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
 void Constants() {
 	StartTest("Constants");
 	int errorCount = 0;
@@ -809,6 +874,7 @@ int main(int argc, char *argv[]) {
     Casting();
     Functions();
     Structs();
+	StructLiterals();
     Constants();
 
     RunTestPlayground();

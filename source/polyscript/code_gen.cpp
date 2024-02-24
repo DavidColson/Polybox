@@ -12,16 +12,9 @@
 #include <hashmap.inl>
 
 namespace {
-struct Local {
-    String name;
-};
-
-struct State {
-    ResizableArray<Local> locals;
-    Scope* pCurrentScope;
-    ErrorState* pErrors;
-    Function* pFunc;
-	IAllocator* pAlloc;
+struct StorageSlot {
+	String name;
+	Ast::Expression* pTemporaryNode;
 };
 
 struct CodeGenState {
@@ -30,7 +23,7 @@ struct CodeGenState {
     
 	Scope* pGlobalScope;
 	Scope* pCurrentScope;
-    ResizableArray<String> localStorage;
+    ResizableArray<StorageSlot> localStorage;
     
     ErrorState* pErrors;
     Program* pCurrentlyCompilingProgram;
@@ -105,21 +98,40 @@ Program* CurrentProgram(CodeGenState& state) {
 
 // ***********************************************************************
 
+void AddTemporary(CodeGenState& state, Ast::Expression* pNode) {
+	size slotsUsed = (size)ceil((f32)pNode->pType->size / 4.0);
+	for (size i = 0; i < slotsUsed; i++) {
+    	state.localStorage.PushBack(StorageSlot{.pTemporaryNode = pNode});
+	}
+}
+
+// ***********************************************************************
+
+i32 ResolveTemporary(CodeGenState& state, Ast::Expression* pNode) {
+	for (size i = state.pCurrentScope->localStorageFunctionBase; i < state.localStorage.count; i++) {
+		StorageSlot& slot = state.localStorage[i];
+		if (slot.pTemporaryNode == pNode) {
+			return ((i32)i - state.pCurrentScope->localStorageFunctionBase) * 4;
+		}
+	}
+    return -1;
+}
+
+// ***********************************************************************
+
 void AddLocal(CodeGenState& state, String name, size sizeInBytes) {
 	size slotsUsed = (size)ceil((f32)sizeInBytes / 4.0);
 	for (size i = 0; i < slotsUsed; i++) {
-    	state.localStorage.PushBack(name);
+    	state.localStorage.PushBack(StorageSlot{.name = name});
 	}
 }
 
 // ***********************************************************************
 
 i32 ResolveLocal(CodeGenState& state, String name) {
-	// This does a reverse search so as not to incorrectly find locals in higher scopes, it should find in the lowest scope possible
-	bool found = false;
 	for (size i = state.pCurrentScope->localStorageFunctionBase; i < state.localStorage.count; i++) {
-		String& local = state.localStorage[i];
-		if (name == local) {
+		StorageSlot& slot = state.localStorage[i];
+		if (slot.name == name) {
 			return ((i32)i - state.pCurrentScope->localStorageFunctionBase) * 4;
 		}
 	}
@@ -134,7 +146,7 @@ void PatchJump(CodeGenState& state, i32 jumpInstructionIndex) {
 
 // ***********************************************************************
 
-void ReserveLocalsForScope(CodeGenState& state, Scope* pScope) {
+void ReserveStorageForScope(CodeGenState& state, Scope* pScope) {
 	for (size i = 0; i < pScope->entities.tableSize; i++) { 
 		HashNode<String, Entity*>& node = pScope->entities.pTable[i];
 		if (node.hash != UNUSED_HASH) {
@@ -143,18 +155,21 @@ void ReserveLocalsForScope(CodeGenState& state, Scope* pScope) {
 				AddLocal(state, pEntity->name, pEntity->pType->size);
 		}
 	}
+	for (size i = 0; i < pScope->temporaries.count; i++) {
+		AddTemporary(state, pScope->temporaries[i]); 
+	}
 }
 
 // ***********************************************************************
 
-void ReserveLocalsForScopeRecursive(CodeGenState& state, Scope* pScope) {
-	ReserveLocalsForScope(state, pScope);
+void ReserveStorageForScopeRecursive(CodeGenState& state, Scope* pScope) {
+	ReserveStorageForScope(state, pScope);
 
 	// Reserve locals for lower level imperative scopes (just blocks for now)
 	for (size i = 0; i < pScope->children.count; i++) {
 		Scope* pChildScope = pScope->children[i];
 		if (pChildScope->kind == ScopeKind::Block) 
-			ReserveLocalsForScope(state, pChildScope);
+			ReserveStorageForScope(state, pChildScope);
 	}
 }
 
@@ -166,15 +181,23 @@ void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFun
     // Push storage for this function
 	AddLocal(state, identifier, 4);
 
-	// Iterate function type scope (storage space for params)
-	ReserveLocalsForScope(state, pFunction->pScope);
-
+	// Put input params in locals stack
+	// Note we could do this with the function scope, but it's important the params are in order
+    for (Ast::Node* pParam : pFunction->pFuncType->params) {
+        if (pParam->nodeKind == Ast::NodeKind::Identifier) {
+            Ast::Identifier* pIdentifier = (Ast::Identifier*)pParam;
+			AddLocal(state, pIdentifier->identifier, pIdentifier->pType->size);
+        } else if (pParam->nodeKind == Ast::NodeKind::Declaration) {
+            Ast::Declaration* pDecl = (Ast::Declaration*)pParam;
+			AddLocal(state, pDecl->identifier, pDecl->pType->size);
+        }
+    }
 	// The function, and the params were already pushed to the stack before the function is called
 	// So we only need to reserve space the locals and temporaries inside the function scope
 	i32 storageSizeStart = (i32)state.localStorage.count;
 
 	// Iterate function body scope (storage space for locals in the function)
-	ReserveLocalsForScopeRecursive(state, pFunction->pBody->pScope);
+	ReserveStorageForScopeRecursive(state, pFunction->pBody->pScope);
 	
 	// Need to emit some opcode to move the stack pointer above all the local space we've reserved.
 	// So that no further function can use the same space.
@@ -254,9 +277,16 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 				PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::LocalAddr });
 				PushOperand16bit(state, localIndex);
 
-				// Do a store
-				PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::Store });
-				PushOperand16bit(state, 0);
+				if (pVarAssignment->pAssignment->pType->tag == TypeInfo::TypeTag::Struct) {
+					PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+					PushOperand32bit(state, (u32)pVarAssignment->pAssignment->pType->size);
+					PushInstruction(state, pVarAssignment->line, {.opcode = OpCode::Copy }); 
+					PushOperand16bit(state, 0);
+					PushOperand16bit(state, 0); 
+				} else {
+					PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::Store });
+					PushOperand16bit(state, 0);
+				}
             }
             break;
         }
@@ -279,7 +309,8 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 					break;
 				}
 			}
-
+			
+			// This below code would move into the shared "assignment" node post refactor, it would just store or copy when appropriate
 			if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
 				// In this case you will be doing a copy instruction
 				// First push the copy size (the struct to copy in and the target struct addresses are already on the stack)
@@ -333,6 +364,73 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			PushOperand32bit(state, pLiteral->constantValue.i32Value);
             break;
         }
+		case Ast::NodeKind::StructLiteral: {
+			Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
+			TypeInfoStruct* pTypeInfo = (TypeInfoStruct*)pStructLiteral->pType;
+
+			i32 stackSlot = ResolveTemporary(state, pStructLiteral); 
+
+			if (pStructLiteral->designatedInitializer) {
+				for (Ast::Expression* pMember : pStructLiteral->members) {
+					Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pMember;
+
+					TypeInfoStruct::Member* pTargetField = nullptr;
+					for (TypeInfoStruct::Member& mem : pTypeInfo->members) {
+						if (mem.identifier == pAssignment->pIdentifier->identifier) {
+							pTargetField = &mem;
+						}
+					}	
+					
+					// Codegen the value to be assigned
+					CodeGenExpression(state, pAssignment->pAssignment);
+					
+					// Push the struct address 
+					PushInstruction(state, pAssignment->line, { .opcode = OpCode::LocalAddr });
+					PushOperand16bit(state, stackSlot);
+
+					if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
+						PushInstruction(state, pAssignment->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+						PushOperand32bit(state, (u32)pTargetField->pType->size);
+						PushInstruction(state, pAssignment->line, {.opcode = OpCode::Copy }); 
+						PushOperand16bit(state, (u16)pTargetField->offset);
+						PushOperand16bit(state, 0); 
+					} else {
+						PushInstruction(state, pAssignment->line, { .opcode = OpCode::Store });
+						PushOperand16bit(state, (u16)pTargetField->offset);
+					}
+					// Store/Copy will leave the src on the stack, so must pop it
+					PushInstruction(state, pAssignment->line, {.opcode = OpCode::Drop }); 
+				}
+			} else {
+				for (size i = 0; i < pTypeInfo->members.count; i++) {
+					TypeInfoStruct::Member* pTargetField = &pTypeInfo->members[i];
+					Ast::Expression* pMemberInitializerExpr = pStructLiteral->members[i];
+
+					// Codegen the value to be assigned
+					CodeGenExpression(state, pMemberInitializerExpr);
+
+					PushInstruction(state, pMemberInitializerExpr->line, { .opcode = OpCode::LocalAddr });
+					PushOperand16bit(state, stackSlot);
+
+					if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
+						PushInstruction(state, pMemberInitializerExpr->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+						PushOperand32bit(state, (u32)pTargetField->pType->size);
+						PushInstruction(state, pMemberInitializerExpr->line, {.opcode = OpCode::Copy }); 
+						PushOperand16bit(state, (u16)pTargetField->offset);
+						PushOperand16bit(state, 0); 
+					} else {
+						PushInstruction(state, pMemberInitializerExpr->line, { .opcode = OpCode::Store });
+						PushOperand16bit(state, (u16)pTargetField->offset);
+					}
+					// Store/Copy will leave the src on the stack, so must pop it
+					PushInstruction(state, pMemberInitializerExpr->line, {.opcode = OpCode::Drop }); 
+				}
+			}
+			// Leave the temporary address on the stack for the next operation to use
+			PushInstruction(state, pStructLiteral->line, { .opcode = OpCode::LocalAddr });
+			PushOperand16bit(state, stackSlot);
+			break;
+		}
         case Ast::NodeKind::Function: {
             Ast::Function* pFunction = (Ast::Function*)pExpr;
 
@@ -548,11 +646,22 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 
 			i32 localIndex = ResolveLocal(state, pDecl->identifier);
             if (pDecl->pInitializerExpr) {
-                CodeGenExpression(state, pDecl->pInitializerExpr);
+				CodeGenExpression(state, pDecl->pInitializerExpr);
 				PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
 				PushOperand16bit(state, localIndex);
-				PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
-				PushOperand16bit(state, 0);
+
+				// Copy or store the initializer in the local location (todo: this is the same as a variable assignment)
+				if (pDecl->pInitializerExpr->pType->tag == TypeInfo::TypeTag::Struct) {
+
+					PushInstruction(state, pDecl->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+					PushOperand32bit(state, (u32)pDecl->pInitializerExpr->pType->size);
+					PushInstruction(state, pDecl->line, {.opcode = OpCode::Copy }); 
+					PushOperand16bit(state, 0); PushOperand16bit(state, 0); 
+
+				} else {
+					PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
+					PushOperand16bit(state, 0);
+				}
 			}
             else {
 				if (pDecl->pType->tag == TypeInfo::Struct) {
@@ -692,7 +801,7 @@ void CodeGenProgram(Compiler& compilerState) {
 		// But handled a bit differently because the main file is not technically a function
 		AddLocal(state, "<main>", 4);
 		i32 storageSizeStart = (i32)state.localStorage.count;
-		ReserveLocalsForScopeRecursive(state, state.pGlobalScope);
+		ReserveStorageForScopeRecursive(state, state.pGlobalScope);
 		i32 storageSlotsUsed = (i32)state.localStorage.count - storageSizeStart;
 		if (storageSlotsUsed > 0) {
 			PushInstruction(state, 0, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });

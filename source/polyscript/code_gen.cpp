@@ -30,7 +30,7 @@ struct CodeGenState {
     
 	Scope* pGlobalScope;
 	Scope* pCurrentScope;
-    ResizableArray<String> localsStack;
+    ResizableArray<String> localStorage;
     
     ErrorState* pErrors;
     Program* pCurrentlyCompilingProgram;
@@ -74,28 +74,26 @@ void PushFunctionDbgInfo(CodeGenState& state, size functionEntryIndex, String na
 void EnterScope(CodeGenState& state, Scope* pNewScope) {
     state.pCurrentScope = pNewScope;
     if (pNewScope->kind == ScopeKind::Function) {
-        state.pCurrentScope->codeGenStackFrameBase = (i32)state.localsStack.count;
+        state.pCurrentScope->localStorageFunctionBase = (i32)state.localStorage.count;
     } else {
         // If we're not a function scope, then presumably some scope above us is a function scope
         Scope* pParentFunctionScope = pNewScope;
         while (pParentFunctionScope != nullptr && pParentFunctionScope->kind != ScopeKind::Global && pParentFunctionScope->kind != ScopeKind::Function) {
             pParentFunctionScope = pParentFunctionScope->pParent;
         }
-        state.pCurrentScope->codeGenStackFrameBase = pParentFunctionScope->codeGenStackFrameBase;
+        state.pCurrentScope->localStorageFunctionBase = pParentFunctionScope->localStorageFunctionBase;
     }
-    state.pCurrentScope->codeGenStackAtEntry = (i32)state.localsStack.count;
 }
 
 // ***********************************************************************
 
 void ExitScope(CodeGenState& state, Scope* pOldScope, Token popToken) {
-    while (state.localsStack.count > state.pCurrentScope->codeGenStackAtEntry) {
-        state.localsStack.PopBack();
-
-        if (state.pCurrentScope->kind == ScopeKind::Block) {
-            PushInstruction(state, popToken.line, { .opcode = OpCode::Drop });
-        }
-    }
+	// All local storage is reserved on function entry, so we only rollback the local storage when exiting a function
+	if (state.pCurrentScope->kind == ScopeKind::Function) {
+		while (state.localStorage.count > state.pCurrentScope->localStorageFunctionBase) {
+			state.localStorage.PopBack();
+		}
+	}
     state.pCurrentScope = pOldScope;
 }
 
@@ -110,7 +108,7 @@ Program* CurrentProgram(CodeGenState& state) {
 void AddLocal(CodeGenState& state, String name, size sizeInBytes) {
 	size slotsUsed = (size)ceil((f32)sizeInBytes / 4.0);
 	for (size i = 0; i < slotsUsed; i++) {
-    	state.localsStack.PushBack(name);
+    	state.localStorage.PushBack(name);
 	}
 }
 
@@ -119,19 +117,12 @@ void AddLocal(CodeGenState& state, String name, size sizeInBytes) {
 i32 ResolveLocal(CodeGenState& state, String name) {
 	// This does a reverse search so as not to incorrectly find locals in higher scopes, it should find in the lowest scope possible
 	bool found = false;
-	for (size i = state.localsStack.count - 1; i >= 0; i--) {
-		String& local = state.localsStack[i];
-		if (found && name != local) {
-			return ((i32)(i+1) - state.pCurrentScope->codeGenStackFrameBase) * 4;
+	for (size i = state.pCurrentScope->localStorageFunctionBase; i < state.localStorage.count; i++) {
+		String& local = state.localStorage[i];
+		if (name == local) {
+			return ((i32)i - state.pCurrentScope->localStorageFunctionBase) * 4;
 		}
-        if (name == local) {
-			// once we find it (and we're not at the bottom), we need to keep iterating to find the lower index, since the local may take up more than one slot
-			if (i != 0)
-				found = true;
-			else 
-            	return ((i32)i - state.pCurrentScope->codeGenStackFrameBase) * 4;
-        }
-    }
+	}
     return -1;
 }
 
@@ -143,22 +134,56 @@ void PatchJump(CodeGenState& state, i32 jumpInstructionIndex) {
 
 // ***********************************************************************
 
+void ReserveLocalsForScope(CodeGenState& state, Scope* pScope) {
+	for (size i = 0; i < pScope->entities.tableSize; i++) { 
+		HashNode<String, Entity*>& node = pScope->entities.pTable[i];
+		if (node.hash != UNUSED_HASH) {
+			Entity* pEntity = node.value;
+			if (pEntity->kind == EntityKind::Variable)
+				AddLocal(state, pEntity->name, pEntity->pType->size);
+		}
+	}
+}
+
+// ***********************************************************************
+
+void ReserveLocalsForScopeRecursive(CodeGenState& state, Scope* pScope) {
+	ReserveLocalsForScope(state, pScope);
+
+	// Reserve locals for lower level imperative scopes (just blocks for now)
+	for (size i = 0; i < pScope->children.count; i++) {
+		Scope* pChildScope = pScope->children[i];
+		if (pChildScope->kind == ScopeKind::Block) 
+			ReserveLocalsForScope(state, pChildScope);
+	}
+}
+
+// ***********************************************************************
+
 void CodeGenStatements(CodeGenState& state, ResizableArray<Ast::Statement*>& statements);
 
 void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFunction) {
-    // Push local for this function
+    // Push storage for this function
 	AddLocal(state, identifier, 4);
 
-    // Put input params in locals stack
-    for (Ast::Node* pParam : pFunction->pFuncType->params) {
-        if (pParam->nodeKind == Ast::NodeKind::Identifier) {
-            Ast::Identifier* pIdentifier = (Ast::Identifier*)pParam;
-			AddLocal(state, pIdentifier->identifier, pIdentifier->pType->size);
-        } else if (pParam->nodeKind == Ast::NodeKind::Declaration) {
-            Ast::Declaration* pDecl = (Ast::Declaration*)pParam;
-			AddLocal(state, pDecl->identifier, pDecl->pType->size);
-        }
-    }
+	// Iterate function type scope (storage space for params)
+	ReserveLocalsForScope(state, pFunction->pScope);
+
+	// The function, and the params were already pushed to the stack before the function is called
+	// So we only need to reserve space the locals and temporaries inside the function scope
+	i32 storageSizeStart = (i32)state.localStorage.count;
+
+	// Iterate function body scope (storage space for locals in the function)
+	ReserveLocalsForScopeRecursive(state, pFunction->pBody->pScope);
+	
+	// Need to emit some opcode to move the stack pointer above all the local space we've reserved.
+	// So that no further function can use the same space.
+	i32 storageSlotsUsed = (i32)state.localStorage.count - storageSizeStart;
+	if (storageSlotsUsed > 0) {
+		PushInstruction(state, pFunction->pBody->startToken.line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+		PushOperand32bit(state, storageSlotsUsed);
+		PushInstruction(state, pFunction->pBody->startToken.line, { .opcode = OpCode::StackChange });
+	}
 
 	// Codegen the statements in the body
 	Scope* pPreviousScope = state.pCurrentScope;
@@ -521,20 +546,31 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                 break;
             }
 
-			AddLocal(state, pDecl->identifier, pDecl->pType->size);
-
-            if (pDecl->pInitializerExpr)
+			i32 localIndex = ResolveLocal(state, pDecl->identifier);
+            if (pDecl->pInitializerExpr) {
                 CodeGenExpression(state, pDecl->pInitializerExpr);
+				PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
+				PushOperand16bit(state, localIndex);
+				PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
+				PushOperand16bit(state, 0);
+			}
             else {
-				if (pDecl->pType->tag == TypeInfo::Struct)
-				{
-					// allocate memory for the struct
+				if (pDecl->pType->tag == TypeInfo::Struct) {
+					// Structs need to store 0s to their local locations to initialize themselves
 					i32 numSlots = (i32)ceil((f32)pDecl->pType->size / 4.f);
 					for (i32 i = 0; i < numSlots; i++) {
 						PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
+						PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
+						PushOperand16bit(state, localIndex + i);
+						PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
+						PushOperand16bit(state, 0);
 					}
-				} else { // For all non struct values we just push a new value on the operand stack that is zero
+				} else { // For all non struct values we initialize to 0
 					PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
+					PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
+					PushOperand16bit(state, localIndex);
+					PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
+					PushOperand16bit(state, 0);
 				}
             }
             break;
@@ -637,7 +673,7 @@ void CodeGenProgram(Compiler& compilerState) {
         state.pErrors = &compilerState.errorState;
         state.pGlobalScope = compilerState.pGlobalScope;
         state.pCurrentScope = state.pGlobalScope;
-        state.localsStack.pAlloc = state.pCompilerAllocator;
+        state.localStorage.pAlloc = state.pCompilerAllocator;
         state.pCurrentlyCompilingProgram = (Program*)state.pOutputAllocator->Allocate(sizeof(Program));
 
 		// Setup cpu memory
@@ -652,8 +688,19 @@ void CodeGenProgram(Compiler& compilerState) {
         state.pCurrentlyCompilingProgram->code.pAlloc = state.pOutputAllocator;
         state.pCurrentlyCompilingProgram->dbgLineInfo.pAlloc = state.pOutputAllocator;
 
-        // Set off actual codegen of the main file, will recursively codegen all functions inside it
+		// Reserve storage for all the global variables (this is ostensibly the same as functions reserving local storage, 
+		// But handled a bit differently because the main file is not technically a function
 		AddLocal(state, "<main>", 4);
+		i32 storageSizeStart = (i32)state.localStorage.count;
+		ReserveLocalsForScopeRecursive(state, state.pGlobalScope);
+		i32 storageSlotsUsed = (i32)state.localStorage.count - storageSizeStart;
+		if (storageSlotsUsed > 0) {
+			PushInstruction(state, 0, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+			PushOperand32bit(state, storageSlotsUsed);
+			PushInstruction(state, 0, { .opcode = OpCode::StackChange });
+		}
+
+		// Set off actual codegen of the main file, will recursively codegen all functions inside it
         CodeGenStatements(state, compilerState.syntaxTree);
 
         // Put a return instruction at the end of the program

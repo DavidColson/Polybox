@@ -161,6 +161,10 @@ String DisassembleInstruction(Program* pProgram, u16* pInstruction, u16& outOffs
             builder.Append("Drop");
             break;
         }
+		case OpCode::StackChange: {
+			builder.Append("StackChange");
+			break;
+		}
         case OpCode::JmpIfFalse: {
             builder.Append("JmpIfFalse");
 			u16 ipOffset = GetOperand16bit(pInstruction); 
@@ -395,6 +399,11 @@ void Run(Program* pProgramToRun) {
 			}
 			case OpCode::Drop: {
 				vm.stackHeadAddress -= 4;
+				break;
+			}
+			case OpCode::StackChange: {
+				Value offset = PopStack(vm);
+				vm.stackHeadAddress += offset.i32Value * 4;
 				break;
 			}
 			case OpCode::Negate: {

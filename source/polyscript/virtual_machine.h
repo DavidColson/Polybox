@@ -45,6 +45,7 @@ enum Enum : u8 {
 	LocalAddr,	  // No			| 16b offset		| [] -> [address]
 	Drop,		  // No			|					| [value] -> []
 	Copy,		  // No			| destOff, srcOff	| [srcAddr][dstAddr][size] -> [srcAddr]
+	StackChange,  // No			| 					| [offset] -> []
 
     // Misc
 	Cast,         // Yes		| 16b fromTypeId	| [value] -> [castedValue]

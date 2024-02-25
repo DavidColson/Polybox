@@ -41,7 +41,7 @@ enum Enum : u8 {
     // Stack manipulation
     Const,        // Yes		| 32b value			| [] -> [value]
 	Load,         // No			| 16b offset		| [address] -> [value]
-    Store,        // No			| 16b offset		| [value][address] -> [value]
+    Store,        // No			| 16b offset		| [address][value] -> [value]
 	LocalAddr,	  // No			| 16b offset		| [] -> [address]
 	Drop,		  // No			|					| [value] -> []
 	Copy,		  // No			| destOff, srcOff	| [srcAddr][dstAddr][size] -> [srcAddr]

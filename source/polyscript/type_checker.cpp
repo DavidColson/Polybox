@@ -248,12 +248,15 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			TypeInfoStruct* pTypeInfo = (TypeInfoStruct*)FindTypeByValue(pEntity->constantValue);
 			pStructLiteral->pType = pTypeInfo;
 
+			// Find the struct type's scope object
+			Ast::Structure* pStruct = (Ast::Structure*)pEntity->pDeclaration->pInitializerExpr;
+
 			// First check if we are using a named initializer list or not
 			// TODO: This can be done during parsing as well, which will leave the designated Intializer member ready for everyone else
 			bool foundLValues = false;
 			bool foundRValues = false;
 			for (Ast::Expression* pMember : pStructLiteral->members) {
-				if (pMember->nodeKind == Ast::NodeKind::VariableAssignment) {
+				if (pMember->nodeKind == Ast::NodeKind::Assignment) {
 					foundLValues = true;
 					continue;
 				}
@@ -267,38 +270,11 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
 			if (foundLValues && !foundRValues) {
 				pStructLiteral->designatedInitializer = true;
-				// Check that each member given matches one actually in the struct type info (and they have the appropriate type
+				state.pCurrentScope = pStruct->pScope;
 				for (Ast::Expression* pMember : pStructLiteral->members) {
-					Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pMember;
-					pAssignment->isConstant = false;
-					pAssignment->pAssignment = TypeCheckExpression(state, pAssignment->pAssignment);
-
-					// Find the member in the typeinfo
-					// As below, this really should be being done as part of the scope of the struct
-					// Which will contain an entity for the identifier
-					TypeInfoStruct::Member* pFoundMember = nullptr;
-					for (TypeInfoStruct::Member& mem : pTypeInfo->members) {
-						if (mem.identifier == pAssignment->pIdentifier->identifier) {
-							pFoundMember = &mem;
-						}
-					}	
-
-					if (pFoundMember == nullptr) {
-						state.pErrors->PushError(pAssignment->pIdentifier, "Struct literal member doesn't match a member in the actual struct '%s'", pAssignment->pIdentifier->identifier.pData);
-					} else {
-						// TODO: This will be fixed by refactoring this node into a proper scope typecheck
-						// Note that this is covering what would be done by parsing the identifier itself
-						// We aren't checking against the identifier's entity though, which we probably should be doing
-						// Consider how we might typecheck the identifier in the scope of the struct, so it can be done for free
-						pAssignment->pIdentifier->pType	= pFoundMember->pType;
-						pAssignment->pType = pAssignment->pIdentifier->pType;
-
-						// This is redoing what would be done by the variable assignment node typechecking, which as above should be done in the scope of the struct itself
-						if (!CheckTypesIdentical(pFoundMember->pType, pAssignment->pType)) {
-							state.pErrors->PushError(pAssignment->pIdentifier, "Struct literal member is being initialized with a type that doesn't match the actual struct member '%s'", pAssignment->pIdentifier->identifier.pData);
-						}
-					}
+					pMember = TypeCheckExpression(state, pMember);
 				}
+				state.pCurrentScope = pStruct->pScope->pParent;
 			}
 			if (foundRValues && !foundLValues) {
 				pStructLiteral->designatedInitializer = false;
@@ -427,30 +403,40 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             state.pCurrentScope = pFunction->pScope->pParent;
             return pFunction;
         }
-        case Ast::NodeKind::VariableAssignment: {
-            Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
-            pVarAssignment->isConstant = false;
-            pVarAssignment->pIdentifier = (Ast::Identifier*)TypeCheckExpression(state, pVarAssignment->pIdentifier);
-            pVarAssignment->pAssignment = TypeCheckExpression(state, pVarAssignment->pAssignment);
+        case Ast::NodeKind::Assignment: {
+            Ast::Assignment* pAssignment = (Ast::Assignment*)pExpr;
+            pAssignment->isConstant = false;
+            pAssignment->pTarget = TypeCheckExpression(state, pAssignment->pTarget);
+            pAssignment->pAssignment = TypeCheckExpression(state, pAssignment->pAssignment);
 
-            // Typechecking failed on the identifier, don't report any more errors
-            if (CheckTypesIdentical(pVarAssignment->pIdentifier->pType, GetInvalidType())) {
-                pVarAssignment->pType = GetInvalidType();
-                return pVarAssignment;
+            // Typechecking failed on the target, don't report any more errors
+            if (CheckTypesIdentical(pAssignment->pTarget->pType, GetInvalidType())) {
+                pAssignment->pType = GetInvalidType();
+                return pAssignment;
             }
 
-            if (pVarAssignment->pIdentifier->isConstant) {
-                state.pErrors->PushError(pVarAssignment, "Can't assign to constant \'%s\'", pVarAssignment->pIdentifier->identifier.pData);
-            }
+			// decide if pTarget is a valid lvalue
+			Ast::NodeKind targetKind = pAssignment->pTarget->nodeKind;
+			if (targetKind != Ast::NodeKind::Identifier &&
+				targetKind != Ast::NodeKind::Selector) {
+                state.pErrors->PushError(pAssignment, "Left of assignment is not a valid Lvalue that we can assign to");
+			}
 
-            TypeInfo* pIdentifierType = pVarAssignment->pIdentifier->pType;
-            TypeInfo* pAssignedVarType = pVarAssignment->pAssignment->pType;
-            if (CheckTypesIdentical(pIdentifierType, pAssignedVarType)) {
-                pVarAssignment->pType = pIdentifierType;
+			if (targetKind == Ast::NodeKind::Identifier) { 
+				Ast::Identifier* pIdent = (Ast::Identifier*)pAssignment->pTarget;
+				if (pIdent->isConstant) {
+					state.pErrors->PushError(pAssignment, "Can't assign to constant ");
+				}
+			}
+
+            TypeInfo* pTargetType = pAssignment->pTarget->pType;
+            TypeInfo* pAssignedVarType = pAssignment->pAssignment->pType;
+            if (CheckTypesIdentical(pTargetType, pAssignedVarType)) {
+                pAssignment->pType = pTargetType;
             } else {
-                state.pErrors->PushError(pVarAssignment, "Type mismatch on assignment, \'%s\' has type '%s', but is being assigned a value with type '%s'", pVarAssignment->pIdentifier->identifier.pData, pIdentifierType->name.pData, pAssignedVarType->name.pData);
+                state.pErrors->PushError(pAssignment, "Type mismatch on assignment, left of assignment has type '%s', but is being assigned a value with type '%s'", pTargetType->name.pData, pAssignedVarType->name.pData);
             }
-            return pVarAssignment;
+            return pAssignment;
         }
         case Ast::NodeKind::Grouping: {
             Ast::Grouping* pGroup = (Ast::Grouping*)pExpr;
@@ -626,7 +612,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             pCall->isConstant = false;
             pCall->pCallee = TypeCheckExpression(state, pCall->pCallee);
 
-			if (pCall->pCallee->nodeKind == Ast::NodeKind::GetField) {
+			if (pCall->pCallee->nodeKind == Ast::NodeKind::Selector) {
 				state.pErrors->PushError(pCall, "Calling fields not currently supported");
                 pCall->pType = GetInvalidType();
 				return pCall;
@@ -661,73 +647,36 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             pCall->pType = pFunctionType->pReturnType;
             return pCall;
         }
-		case Ast::NodeKind::GetField: {
-			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
-			pGetField->pTarget = TypeCheckExpression(state, pGetField->pTarget);
+		case Ast::NodeKind::Selector: {
+			Ast::Selector* pSelector = (Ast::Selector*)pExpr;
+			pSelector->pTarget = TypeCheckExpression(state, pSelector->pTarget);
             
             // TODO: This could be constant actually. If the field was declared as a constant, then this can be constant, for later.
-            pGetField->isConstant = false;
+            pSelector->isConstant = false;
 
-			if (pGetField->pTarget->pType == nullptr) {
-				return pGetField;
+			if (pSelector->pTarget->pType == nullptr) {
+				return pSelector;
 			}
-			TypeInfo* pTargetTypeInfo = pGetField->pTarget->pType;
+			TypeInfo* pTargetTypeInfo = pSelector->pTarget->pType;
 			if (pTargetTypeInfo->tag != TypeInfo::Struct) {
-				state.pErrors->PushError(pGetField, "Attempting to access a field on type '%s' which is not a struct", pTargetTypeInfo->name.pData);
-				return pGetField;
+				state.pErrors->PushError(pSelector, "Attempting to access a field on type '%s' which is not a struct", pTargetTypeInfo->name.pData);
+				return pSelector;
 			}
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pTargetTypeInfo;
 
 			for (size i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
-				if (mem.identifier == pGetField->fieldName) {
-					pGetField->pType = mem.pType;
-					return pGetField;
+				if (mem.identifier == pSelector->fieldName) {
+					pSelector->pType = mem.pType;
+					return pSelector;
 				}
 			}
 
-			state.pErrors->PushError(pGetField, "Specified field does not exist in struct '%s'", pTargetType->name.pData);
+			state.pErrors->PushError(pSelector, "Specified field does not exist in struct '%s'", pTargetType->name.pData);
 			
-			return pGetField;
+			return pSelector;
 			break;
-		}
-		case Ast::NodeKind::SetField: {
-			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
-			pSetField->pTarget = TypeCheckExpression(state, pSetField->pTarget);
-			pSetField->pAssignment = TypeCheckExpression(state, pSetField->pAssignment);
-            pSetField->isConstant = false;
-
-			if (pSetField->pTarget->pType == nullptr) {
-				return pSetField;
-			}
-			TypeInfo* pTargetTypeInfo = pSetField->pTarget->pType;
-			if (pTargetTypeInfo->tag != TypeInfo::Struct) {
-				state.pErrors->PushError(pSetField, "Attempting to set a field on type '%s' which is not a struct", pTargetTypeInfo->name.pData);
-				return pSetField;
-			}
-
-			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pTargetTypeInfo;
-			TypeInfoStruct::Member* pTargetField = nullptr;
-			for (size i = 0; i < pTargetType->members.count; i++) {
-				TypeInfoStruct::Member& mem = pTargetType->members[i];
-				if (mem.identifier == pSetField->fieldName) {
-					pTargetField = &pTargetType->members[i];
-					break;
-				}
-			}
-
-			if (pTargetField == nullptr) {
-				state.pErrors->PushError(pSetField, "Attempting to set a struct field which does not exist in struct '%s'", pTargetType->name.pData);
-				return pSetField;
-			}
-
-            if (!CheckTypesIdentical(pTargetField->pType, pSetField->pAssignment->pType)) {
-				state.pErrors->PushError(pSetField, "Type mismatch on assignment, field \'%s\' has type '%s', but is being assigned a value with type '%s'", pTargetField->identifier.pData, pTargetField->pType->name.pData, pSetField->pAssignment->pType->name.pData);
-			}
-
-			pSetField->pType = pTargetField->pType;
-			return pSetField;
 		}
         case Ast::NodeKind::BadExpression: {
             Ast::BadExpression* pBad = (Ast::BadExpression*)pExpr;
@@ -961,15 +910,9 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             }
             break;
         }
-        case Ast::NodeKind::GetField: {
-            Ast::GetField* pGetField = (Ast::GetField*)pExpr;
-            CollectEntitiesInExpression(state, pGetField->pTarget);
-            break;
-        }
-        case Ast::NodeKind::SetField: {
-            Ast::SetField* pSetField = (Ast::SetField*)pExpr;
-            CollectEntitiesInExpression(state, pSetField->pTarget);
-            CollectEntitiesInExpression(state, pSetField->pAssignment);
+        case Ast::NodeKind::Selector: {
+            Ast::Selector* pSelector = (Ast::Selector*)pExpr;
+            CollectEntitiesInExpression(state, pSelector->pTarget);
             break;
         }
         case Ast::NodeKind::Grouping: {
@@ -983,9 +926,9 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             CollectEntitiesInExpression(state, pCast->pTypeExpr);
             break;
         }
-        case Ast::NodeKind::VariableAssignment: {
-            Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
-            CollectEntitiesInExpression(state, pVarAssignment->pAssignment);
+        case Ast::NodeKind::Assignment: {
+            Ast::Assignment* pAssignment = (Ast::Assignment*)pExpr;
+            CollectEntitiesInExpression(state, pAssignment->pAssignment);
             break;
         }
         case Ast::NodeKind::FunctionType: {

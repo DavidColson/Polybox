@@ -175,6 +175,24 @@ void ReserveStorageForScopeRecursive(CodeGenState& state, Scope* pScope) {
 
 // ***********************************************************************
 
+void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr);
+
+void CodeGenAssignment(CodeGenState& state, i32 line, Ast::Expression* pSrcExpr, i32 offset = 0) {
+	CodeGenExpression(state, pSrcExpr);
+	if (pSrcExpr->pType->tag == TypeInfo::TypeTag::Struct) {
+		PushInstruction(state, line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+		PushOperand32bit(state, (u32)pSrcExpr->pType->size);
+		PushInstruction(state, line, {.opcode = OpCode::Copy }); 
+		PushOperand16bit(state, offset);
+		PushOperand16bit(state, 0); 
+	} else {
+		PushInstruction(state, line, { .opcode = OpCode::Store });
+		PushOperand16bit(state, offset);
+	}
+}
+
+// ***********************************************************************
+
 void CodeGenStatements(CodeGenState& state, ResizableArray<Ast::Statement*>& statements);
 
 void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFunction) {
@@ -227,7 +245,7 @@ void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFun
 void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
     // Constant folding
-    // If this expression is a constant, there's no need to generate any bytecode, just emit the constant literal
+	// If this expression is a constant, there's no need to generate any bytecode, just emit the constant literal
     // Functions need their bodies codegen'd so we let them through
     // Identifiers are already in the constant table, so we let them through and they'll be looked up and reused
     if (pExpr->isConstant && (pExpr->nodeKind != Ast::NodeKind::Function && pExpr->nodeKind != Ast::NodeKind::Identifier)) {
@@ -238,122 +256,55 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
     switch (pExpr->nodeKind) {
         case Ast::NodeKind::Identifier: {
-            Ast::Identifier* pVariable = (Ast::Identifier*)pExpr;
-			// Load from the constant table (it's already been put there)
-			Entity* pEntity = FindEntity(state.pCurrentScope, pVariable->identifier);
+            Ast::Identifier* pIdentifier = (Ast::Identifier*)pExpr;
+			Entity* pEntity = FindEntity(state.pCurrentScope, pIdentifier->identifier);
 
-            if (pVariable->isConstant) {
+            if (pIdentifier->isConstant) {
+				PushInstruction(state, pIdentifier->line, { .opcode = OpCode::Const, .type = pEntity->pType->tag });
+				PushOperand32bit(state, pEntity->constantValue.i32Value);
                 if (pEntity->kind == EntityKind::Function && pEntity->bFunctionHasBeenGenerated == false) {
-                    PushInstruction(state, pVariable->line, { .opcode = OpCode::Const, .type = pEntity->pType->tag });
-					PushOperand32bit(state, 0);
                     pEntity->pendingFunctionConstants.PushBack(state.pCurrentlyCompilingProgram->code.count-2);
-                } else {
-                    PushInstruction(state, pVariable->line, { .opcode = OpCode::Const, .type = pEntity->pType->tag} );
-                    PushOperand32bit(state, pEntity->constantValue.i32Value);
                 }
             } else {
-				i32 localIndex = ResolveLocal(state, pVariable->identifier);
-				if (localIndex != -1) {
-					if (pEntity->pType->tag == TypeInfo::TypeTag::Struct) {
-						PushInstruction(state, pVariable->line, { .opcode = OpCode::LocalAddr });
-						PushOperand16bit(state, localIndex);
-					} else {
-						PushInstruction(state, pVariable->line, { .opcode = OpCode::LocalAddr });
-						PushOperand16bit(state, localIndex);
-						PushInstruction(state, pVariable->line, { .opcode = OpCode::Load });
-						PushOperand16bit(state, 0);
-					}
-				}
-            }
-            break;
-        }
-        case Ast::NodeKind::VariableAssignment: {
-            Ast::VariableAssignment* pVarAssignment = (Ast::VariableAssignment*)pExpr;
-			// Codegen the value to be set
-            CodeGenExpression(state, pVarAssignment->pAssignment);
-            i32 localIndex = ResolveLocal(state, pVarAssignment->pIdentifier->identifier);
-            if (localIndex != -1) {
-				// Codegen the address of the identifier (as opposed to the value as you would do above)
-				PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::LocalAddr });
-				PushOperand16bit(state, localIndex);
+				PushInstruction(state, pIdentifier->line, { .opcode = OpCode::LocalAddr });
+				PushOperand16bit(state, ResolveLocal(state, pIdentifier->identifier));
 
-				if (pVarAssignment->pAssignment->pType->tag == TypeInfo::TypeTag::Struct) {
-					PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-					PushOperand32bit(state, (u32)pVarAssignment->pAssignment->pType->size);
-					PushInstruction(state, pVarAssignment->line, {.opcode = OpCode::Copy }); 
-					PushOperand16bit(state, 0);
-					PushOperand16bit(state, 0); 
-				} else {
-					PushInstruction(state, pVarAssignment->line, { .opcode = OpCode::Store });
+				if (!pIdentifier->isLValue && pEntity->pType->tag != TypeInfo::TypeTag::Struct) {
+					PushInstruction(state, pIdentifier->line, { .opcode = OpCode::Load });
 					PushOperand16bit(state, 0);
 				}
             }
             break;
         }
-		case Ast::NodeKind::SetField: {
-			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
+        case Ast::NodeKind::Assignment: {
+            Ast::Assignment* pAssignment = (Ast::Assignment*)pExpr;
+			CodeGenExpression(state, pAssignment->pTarget);
+			CodeGenAssignment(state, pAssignment->line, pAssignment->pAssignment);
+            break;
+        }
+		case Ast::NodeKind::Selector: {
+			Ast::Selector* pSelector = (Ast::Selector*)pExpr;
 			
-			// Codegen value to be set (same as above)
-			CodeGenExpression(state, pSetField->pAssignment);
+			CodeGenExpression(state, pSelector->pTarget);
 
-			// Codegen the target which is an identifier node, but it just happens to generate an address cause it's guaranteed
-			// to be a struct
-			CodeGenExpression(state, pSetField->pTarget);
-
-			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSetField->pTarget->pType;
+			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSelector->pTarget->pType;
 			TypeInfoStruct::Member* pTargetField = nullptr;
 			for (size i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
-				if (mem.identifier == pSetField->fieldName) {
-					pTargetField = &pTargetType->members[i];
-					break;
-				}
-			}
-			
-			// This below code would move into the shared "assignment" node post refactor, it would just store or copy when appropriate
-			if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
-				// In this case you will be doing a copy instruction
-				// First push the copy size (the struct to copy in and the target struct addresses are already on the stack)
-				PushInstruction(state, pSetField->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-				PushOperand32bit(state, (u32)pTargetField->pType->size);
-				PushInstruction(state, pSetField->line, {.opcode = OpCode::Copy }); 
-				PushOperand16bit(state, (u16)pTargetField->offset);
-				PushOperand16bit(state, 0); 
-			} else {
-				// In this case you will do a store
-				// From the identifier node above, what will be left is the address of the struct underneath the value to store
-				// So you just need to do store, where the offset is the member offset
-				PushInstruction(state, pSetField->line, { .opcode = OpCode::Store });
-				PushOperand16bit(state, (u16)pTargetField->offset);
-			}
-			break;
-		}
-		case Ast::NodeKind::GetField: {
-			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
-			
-			CodeGenExpression(state, pGetField->pTarget);
-
-			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pGetField->pTarget->pType;
-			TypeInfoStruct::Member* pTargetField = nullptr;
-			for (size i = 0; i < pTargetType->members.count; i++) {
-				TypeInfoStruct::Member& mem = pTargetType->members[i];
-				if (mem.identifier == pGetField->fieldName) {
+				if (mem.identifier == pSelector->fieldName) {
 					pTargetField = &pTargetType->members[i];
 					break;
 				}
 			}
 
-			if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
-				// Similar to the identifier local load. You need to leave on the stack the address of the targetField
-				// The address of the baseStruct is already on the stack, so you need to load the offset as a const
-				// Then do an add, leaving the new address on the stack
-				PushInstruction(state, pGetField->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+			if (pSelector->isLValue || pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
+				// This case will leave on the stack a pointer to the field
+				PushInstruction(state, pSelector->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
 				PushOperand32bit(state, (u32)pTargetField->offset);
-				PushInstruction(state, pGetField->line, {.opcode = OpCode::Add, .type = TypeInfo::TypeTag::I32 }); 
+				PushInstruction(state, pSelector->line, {.opcode = OpCode::Add, .type = TypeInfo::TypeTag::I32 }); 
 			} else {
-				// In this case the targetfield is just any old plain value we'd want copied into the stack
-				// SO here you can do an actual load with offset parameter
-				PushInstruction(state, pGetField->line, {.opcode = OpCode::Load }); 
+				// This case will leave the value itself on the stack
+				PushInstruction(state, pSelector->line, {.opcode = OpCode::Load }); 
 				PushOperand16bit(state, (u16)pTargetField->offset);
 			}
 			break;
@@ -372,32 +323,20 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 
 			if (pStructLiteral->designatedInitializer) {
 				for (Ast::Expression* pMember : pStructLiteral->members) {
-					Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pMember;
-
+					Ast::Assignment* pAssignment = (Ast::Assignment*)pMember;
 					TypeInfoStruct::Member* pTargetField = nullptr;
+					Ast::Identifier* pIdentifier = (Ast::Identifier*)pAssignment->pTarget;
 					for (TypeInfoStruct::Member& mem : pTypeInfo->members) {
-						if (mem.identifier == pAssignment->pIdentifier->identifier) {
+						if (mem.identifier == pIdentifier->identifier) {
 							pTargetField = &mem;
 						}
 					}	
 					
-					// Codegen the value to be assigned
-					CodeGenExpression(state, pAssignment->pAssignment);
-					
-					// Push the struct address 
 					PushInstruction(state, pAssignment->line, { .opcode = OpCode::LocalAddr });
 					PushOperand16bit(state, stackSlot);
 
-					if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
-						PushInstruction(state, pAssignment->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-						PushOperand32bit(state, (u32)pTargetField->pType->size);
-						PushInstruction(state, pAssignment->line, {.opcode = OpCode::Copy }); 
-						PushOperand16bit(state, (u16)pTargetField->offset);
-						PushOperand16bit(state, 0); 
-					} else {
-						PushInstruction(state, pAssignment->line, { .opcode = OpCode::Store });
-						PushOperand16bit(state, (u16)pTargetField->offset);
-					}
+					CodeGenAssignment(state, pAssignment->line, pAssignment->pAssignment, (i32)pTargetField->offset);
+
 					// Store/Copy will leave the src on the stack, so must pop it
 					PushInstruction(state, pAssignment->line, {.opcode = OpCode::Drop }); 
 				}
@@ -406,22 +345,11 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 					TypeInfoStruct::Member* pTargetField = &pTypeInfo->members[i];
 					Ast::Expression* pMemberInitializerExpr = pStructLiteral->members[i];
 
-					// Codegen the value to be assigned
-					CodeGenExpression(state, pMemberInitializerExpr);
-
 					PushInstruction(state, pMemberInitializerExpr->line, { .opcode = OpCode::LocalAddr });
 					PushOperand16bit(state, stackSlot);
 
-					if (pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
-						PushInstruction(state, pMemberInitializerExpr->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-						PushOperand32bit(state, (u32)pTargetField->pType->size);
-						PushInstruction(state, pMemberInitializerExpr->line, {.opcode = OpCode::Copy }); 
-						PushOperand16bit(state, (u16)pTargetField->offset);
-						PushOperand16bit(state, 0); 
-					} else {
-						PushInstruction(state, pMemberInitializerExpr->line, { .opcode = OpCode::Store });
-						PushOperand16bit(state, (u16)pTargetField->offset);
-					}
+					CodeGenAssignment(state, pMemberInitializerExpr->line, pMemberInitializerExpr, (i32)pTargetField->offset);
+
 					// Store/Copy will leave the src on the stack, so must pop it
 					PushInstruction(state, pMemberInitializerExpr->line, {.opcode = OpCode::Drop }); 
 				}
@@ -646,42 +574,30 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 
 			i32 localIndex = ResolveLocal(state, pDecl->identifier);
             if (pDecl->pInitializerExpr) {
-				CodeGenExpression(state, pDecl->pInitializerExpr);
 				PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
 				PushOperand16bit(state, localIndex);
-
-				// Copy or store the initializer in the local location (todo: this is the same as a variable assignment)
-				if (pDecl->pInitializerExpr->pType->tag == TypeInfo::TypeTag::Struct) {
-
-					PushInstruction(state, pDecl->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-					PushOperand32bit(state, (u32)pDecl->pInitializerExpr->pType->size);
-					PushInstruction(state, pDecl->line, {.opcode = OpCode::Copy }); 
-					PushOperand16bit(state, 0); PushOperand16bit(state, 0); 
-
-				} else {
-					PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
-					PushOperand16bit(state, 0);
-				}
+				CodeGenAssignment(state, pDecl->line, pDecl->pInitializerExpr);
 			}
             else {
 				if (pDecl->pType->tag == TypeInfo::Struct) {
 					// Structs need to store 0s to their local locations to initialize themselves
 					i32 numSlots = (i32)ceil((f32)pDecl->pType->size / 4.f);
 					for (i32 i = 0; i < numSlots; i++) {
-						PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
 						PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
 						PushOperand16bit(state, localIndex + i);
+						PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
 						PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
 						PushOperand16bit(state, 0);
 					}
 				} else { // For all non struct values we initialize to 0
-					PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
 					PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
 					PushOperand16bit(state, localIndex);
+					PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
 					PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
 					PushOperand16bit(state, 0);
 				}
             }
+			PushInstruction(state, pDecl->line, { .opcode = OpCode::Drop });
             break;
         }
         case Ast::NodeKind::Print: {

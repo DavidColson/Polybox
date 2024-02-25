@@ -363,15 +363,17 @@ void Run(Program* pProgramToRun) {
 				// Instruction arg is a memory offset
 				u16 offset = GetOperand16bit(pFrame->pInstructionPointer);
 
-				// Pop the target memory address off the stack
-				i32 destAddress = PopStack(vm).i32Value;
-				Value* pDest = (Value*)(vm.pMemory + destAddress + offset);
+				// Read the value to store off top of stack 
+				Value value = PopStack(vm);
 
 				// TODO: Check for runtime errors here, is pDest valid?
 
-				// Read the value to store off top of stack 
-				Value value = ReadStack(vm);
+				// Pop the target memory address off the stack
+				i32 destAddress = PopStack(vm).i32Value;
+				Value* pDest = (Value*)(vm.pMemory + destAddress + offset);
 				*pDest = value;
+
+				PushStack(vm, value);
 				break;
 			}
 			case OpCode::LocalAddr: {
@@ -391,15 +393,17 @@ void Run(Program* pProgramToRun) {
 
 				// TODO: Check for runtime errors, are pDest and pSrc valid?
 
+				// Read the source address off the stack
+				i32 srcAddress = PopStack(vm).i32Value;
+				u16* pSrc = (u16*)(vm.pMemory + srcAddress + srcOffset);
+
 				// Pop the destination address off the stack
 				i32 destAddress = PopStack(vm).i32Value;
 				u16* pDest = (u16*)(vm.pMemory + destAddress + desOffset);
 
-				// Read the source address off the stack
-				i32 srcAddress = ReadStack(vm).i32Value;
-				u16* pSrc = (u16*)(vm.pMemory + srcAddress + srcOffset);
-
 				memcpy(pDest, pSrc, size);
+
+				PushStack(vm, MakeValue(srcAddress));
 				break;
 			}
 			case OpCode::Drop: {

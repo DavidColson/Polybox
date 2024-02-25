@@ -26,15 +26,14 @@ enum class NodeKind {
     Binary,
     Unary,
 	Call,
-	GetField,
-	SetField,
+	Selector,
 	StructLiteral,
     Literal,
 	Function,
 	Structure,
     Grouping,
     Identifier,
-	VariableAssignment,
+	Assignment,
 	Cast,
 
     // Types
@@ -66,6 +65,7 @@ struct Expression : public Node {
     TypeInfo* pType;
     bool isConstant { false };
     Value constantValue;
+	bool isLValue { false };
 };
 
 struct BadExpression : public Expression {
@@ -114,9 +114,9 @@ struct Function : public Expression {
     Declaration* pDeclaration;
 };
 
-struct VariableAssignment : public Expression {
-	// identifier = assignment
-    Identifier* pIdentifier;
+struct Assignment : public Expression {
+	// target = assignment
+    Expression* pTarget;
     Expression* pAssignment;
 };
 
@@ -132,17 +132,10 @@ struct Call : public Expression {
     ResizableArray<Expression*> args;
 };
 
-struct GetField : public Expression {
+struct Selector : public Expression {
 	// target.fieldName
 	Expression* pTarget;
 	String fieldName;
-};
-
-struct SetField : public Expression {
-	// target.fieldName = assignment
-	Expression* pTarget;
-	String fieldName;
-	Expression* pAssignment;
 };
 
 // Type type nodes

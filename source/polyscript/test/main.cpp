@@ -432,8 +432,8 @@ void Declarations() {
 	EndTest(errorCount);
 }
 
-void VariableAssignment() {
-	StartTest("Variable Assignment");
+void Assignment() {
+	StartTest("Assignment");
 	int errorCount = 0;
 	{
 		const char* assignment = 
@@ -462,7 +462,7 @@ void VariableAssignment() {
 			"j = 10;\n";
 		ResizableArray<String> expectedErrors;
 		defer(expectedErrors.Free());
-		expectedErrors.PushBack("Type mismatch on assignment, 'i' has type 'i32', but is being assigned a value with type 'bool'");
+		expectedErrors.PushBack("Type mismatch on assignment, left of assignment has type 'i32', but is being assigned a value with type 'bool'");
 		expectedErrors.PushBack("Undeclared identifier 'j', not found in any available scope");
 		errorCount += RunCompilerOnTestCase(invalidAssignment, "", expectedErrors);
 	}
@@ -665,7 +665,7 @@ void Functions() {
 			"};\n";
 		expectedErrors.Resize(0);
 		expectedErrors.PushBack("Type mismatch in return, function has type i32, but return expression is type f32");
-		expectedErrors.PushBack("Type mismatch on assignment, 'addSomething' has type 'func (i32) -> i32', but is being assigned a value with type 'func (i32, f32) -> i32'");
+		expectedErrors.PushBack("Type mismatch on assignment, left of assignment has type 'func (i32) -> i32', but is being assigned a value with type 'func (i32, f32) -> i32'");
 		errorCount += RunCompilerOnTestCase(functionVariableMismatch, "", expectedErrors);
 	}
 	errorCount += ReportMemoryLeaks();
@@ -804,7 +804,7 @@ void StructLiterals() {
 			"Test :: struct { i:i32; f:f32; b:bool; };\n"
 			"instance := Test.{y = 10, f = 8.24};\n";
 		expectedErrors.Resize(0);
-		expectedErrors.PushBack("Struct literal member doesn't match a member in the actual struct 'y'");
+		expectedErrors.PushBack("Undeclared identifier 'y', not found in any available scope");
 		errorCount += RunCompilerOnTestCase(mismatchingStructLiteral, "", expectedErrors);
 
 		const char* incorrectNumberStructLiteral = 
@@ -869,7 +869,7 @@ int main(int argc, char *argv[]) {
     Expressions();
     ControlFlow();
     Declarations();
-    VariableAssignment();
+    Assignment();
     Scopes();
     Casting();
     Functions();

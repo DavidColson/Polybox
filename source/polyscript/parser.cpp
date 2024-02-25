@@ -423,15 +423,16 @@ Ast::Expression* ParseCall(ParsingState& state) {
 
 			Token closeParen = Consume(state, TokenType::RightParen, "Expected right parenthesis to end function call");
 			pExpr = pCall;
+		// here is your selector parsing, equal precedence to function calls
 		} else if (Match(state, 1, TokenType::Dot)) {
 			Token dot = Previous(state);
-            Ast::GetField* pGetField = MakeNode<Ast::GetField>(state.pAllocator, dot, Ast::NodeKind::GetField);
-			pGetField->pTarget = pExpr;
+            Ast::Selector* pSelector = MakeNode<Ast::Selector>(state.pAllocator, dot, Ast::NodeKind::Selector);
+			pSelector->pTarget = pExpr;
 
 			Token fieldName = Consume(state, TokenType::Identifier, "Expected identifier after '.' to access a named field");
-			pGetField->fieldName = CopyCStringRange(fieldName.pLocation, fieldName.pLocation + fieldName.length, state.pAllocator);
+			pSelector->fieldName = CopyCStringRange(fieldName.pLocation, fieldName.pLocation + fieldName.length, state.pAllocator);
 
-			pExpr = pGetField;
+			pExpr = pSelector;
 		} else {
 			break;
 		}
@@ -584,28 +585,19 @@ Ast::Expression* ParseLogicOr(ParsingState& state) {
 // ***********************************************************************
 
 Ast::Expression* ParseAssignment(ParsingState& state) {
+	// How do we know this pExpr will actually end up being used in an assignment at all?
 	Ast::Expression* pExpr = ParseLogicOr(state);
 
     if (Match(state, 1, TokenType::Equal)) {
         Token equal = Previous(state);
-		Ast::Expression* pAssignment = ParseAssignment(state);
+		Ast::Expression* pRight = ParseAssignment(state);
 
-        if (pExpr->nodeKind == Ast::NodeKind::Identifier) {
-            Ast::VariableAssignment* pVarAssignment = MakeNode<Ast::VariableAssignment>(state.pAllocator, equal, Ast::NodeKind::VariableAssignment);
+		pExpr->isLValue = true; // Typechecker will check if this is valid
+		Ast::Assignment* pAssignment = MakeNode<Ast::Assignment>(state.pAllocator, equal, Ast::NodeKind::Assignment);
 
-            pVarAssignment->pIdentifier = (Ast::Identifier*)pExpr;
-            pVarAssignment->pAssignment = pAssignment;
-            return pVarAssignment;
-		} else if (pExpr->nodeKind == Ast::NodeKind::GetField) {
-            Ast::SetField* pSetField = MakeNode<Ast::SetField>(state.pAllocator, equal, Ast::NodeKind::SetField);
-
-			Ast::GetField* pGet = (Ast::GetField*)pExpr;
-			pSetField->pTarget = pGet->pTarget;
-			pSetField->fieldName = pGet->fieldName;
-			pSetField->pAssignment = pAssignment;
-			return pSetField;
-		}
-        state.pErrorState->PushError(equal.pLocation, equal.pLineStart, equal.line, "Expression preceding assignment is not a value we can assign to");
+		pAssignment->pTarget = pExpr;
+		pAssignment->pAssignment = pRight;
+		return pAssignment;
     }
     return pExpr;
 }
@@ -613,6 +605,7 @@ Ast::Expression* ParseAssignment(ParsingState& state) {
 // ***********************************************************************
 
 Ast::Expression* ParseExpression(ParsingState& state) {
+	// We start at the highest precedence possible (i.e. executed last)
 	return ParseAssignment(state);
 }
 
@@ -915,14 +908,15 @@ void DebugExpression(Ast::Expression* pExpr, i32 indentationLevel) {
                 Log::Debug("%*s- Type Literal (%s:%s)", indentationLevel, "", pTypeInfo->name.pData, pType->pType->name.pData);
             break;
         }
-        case Ast::NodeKind::VariableAssignment: {
-            Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pExpr;
+        case Ast::NodeKind::Assignment: {
+            Ast::Assignment* pAssignment = (Ast::Assignment*)pExpr;
             String nodeTypeStr = "none";
             if (pAssignment->pType) {
                 nodeTypeStr = pAssignment->pType->name;
             }
 
-            Log::Debug("%*s- Variable Assignment (%s:%s)", indentationLevel, "", pAssignment->pIdentifier->identifier.pData, nodeTypeStr.pData);
+            Log::Debug("%*s- Assignment (%s)", indentationLevel, "", nodeTypeStr.pData);
+            DebugExpression(pAssignment->pTarget, indentationLevel + 2);
             DebugExpression(pAssignment->pAssignment, indentationLevel + 2);
             break;
         }
@@ -1064,27 +1058,15 @@ void DebugExpression(Ast::Expression* pExpr, i32 indentationLevel) {
             }
             break;
         }
-		case Ast::NodeKind::GetField: {
-			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
+		case Ast::NodeKind::Selector: {
+			Ast::Selector* pSelector = (Ast::Selector*)pExpr;
 
 			String nodeTypeStr = "none";
-			if (pGetField->pType) {
-				nodeTypeStr = pGetField->pType->name;
+			if (pSelector->pType) {
+				nodeTypeStr = pSelector->pType->name;
 			}
-			Log::Debug("%*s- Get Field (%s:%s)", indentationLevel, "", pGetField->fieldName.pData, nodeTypeStr.pData);
-			DebugExpression(pGetField->pTarget, indentationLevel + 2);
-			break;
-		}
-		case Ast::NodeKind::SetField: {
-			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
-			String nodeTypeStr = "none";
-			if (pSetField->pType) {
-				nodeTypeStr = pSetField->pType->name;
-			}
-
-			Log::Debug("%*s- Set Field (%s:%s)", indentationLevel, "", pSetField->fieldName.pData, nodeTypeStr.pData);
-			DebugExpression(pSetField->pTarget, indentationLevel + 2);
-			DebugExpression(pSetField->pAssignment, indentationLevel + 2);
+			Log::Debug("%*s- Selector (%s:%s)", indentationLevel, "", pSelector->fieldName.pData, nodeTypeStr.pData);
+			DebugExpression(pSelector->pTarget, indentationLevel + 2);
 			break;
 		}
         case Ast::NodeKind::BadExpression: {

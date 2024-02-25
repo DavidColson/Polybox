@@ -519,12 +519,12 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
             break;
         }
-        case Ast::NodeKind::VariableAssignment: {
-            Ast::VariableAssignment* pAssignment = (Ast::VariableAssignment*)pExpr;
-            if (ImGui::TreeNodeEx(pAssignment, nodeFlags, "Variable Assignment")) {
+        case Ast::NodeKind::Assignment: {
+            Ast::Assignment* pAssignment = (Ast::Assignment*)pExpr;
+            if (ImGui::TreeNodeEx(pAssignment, nodeFlags, "Assignment")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
-                DrawAstExpression(pAssignment->pIdentifier);
+                DrawAstExpression(pAssignment->pTarget);
                 DrawAstExpression(pAssignment->pAssignment);
                 ImGui::TreePop();
             }
@@ -677,23 +677,12 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
             break;
         }
-		case Ast::NodeKind::GetField: {
-			Ast::GetField* pGetField = (Ast::GetField*)pExpr;
-            if (ImGui::TreeNodeEx(pGetField, nodeFlags, "Get Field - %s", pGetField->fieldName.pData)) {
+		case Ast::NodeKind::Selector: {
+			Ast::Selector* pSelector = (Ast::Selector*)pExpr;
+            if (ImGui::TreeNodeEx(pSelector, nodeFlags, "Selector - %s", pSelector->fieldName.pData)) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
-                DrawAstExpression(pGetField->pTarget);
-                ImGui::TreePop();
-            }
-			break;
-		}
-		case Ast::NodeKind::SetField: {
-			Ast::SetField* pSetField = (Ast::SetField*)pExpr;
-            if (ImGui::TreeNodeEx(pSetField, nodeFlags, "Set Field - %s", pSetField->fieldName.pData)) {
-                if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
-                DrawExprProperties(pExpr);
-                DrawAstExpression(pSetField->pTarget);
-                DrawAstExpression(pSetField->pAssignment);
+                DrawAstExpression(pSelector->pTarget);
                 ImGui::TreePop();
             }
 			break;
@@ -897,6 +886,7 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
             }
             ImGui::SetCursorScreenPos(cursorScreenPos);
         }
+		builder.Reset();
         ImGui::SetCursorScreenPos(ImVec2(ImGui::GetCursorScreenPos().x + widestColumn + lineNumberMaxSize.x, ImGui::GetCursorScreenPos().y));
 
         ImGui::EndChild();
@@ -935,6 +925,7 @@ void UpdateCompilerExplorer(Compiler& compiler, ResizableArray<String>& lines) {
 // ***********************************************************************
 
 void RunCompilerExplorer() {
+	defer(ReportMemoryLeaks());
 	bool appRunning{ true };
 	f32 deltaTime;
 	u64 frameStartTime;
@@ -1063,6 +1054,7 @@ void RunCompilerExplorer() {
         fread(compiler.code.pData, size, 1, pFile);
         fclose(pFile);
     }
+	defer(FreeString(compiler.code, &compiler.compilerMemory));
 	compiler.bPrintAst = false;
 	compiler.bPrintByteCode = false;
 	CompileCode(compiler);
@@ -1151,4 +1143,5 @@ void RunCompilerExplorer() {
     ImGui_ImplSDL2_Shutdown();
 
 	bgfx::shutdown();
+
 }

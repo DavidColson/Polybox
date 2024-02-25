@@ -448,12 +448,15 @@ void Assignment() {
 			"MyType :: struct {int1: i32; float1: f32;};\n"
 			"structValue:MyType;\n"
 			"structValue = MyType.{10, 22.1};\n"
-			"print(structValue.float1);\n";
+			"print(structValue.float1);\n"
+			"structValue = .{92, 6.231};\n"
+			"print(structValue.int1);\n";
 		const char* expectation =
 			"10\n"
 			"60\n"
 			"true\n"
-			"22.1\n";
+			"22.1\n"
+			"92\n";
 		errorCount += RunCompilerOnTestCase(assignment, expectation, ResizableArray<String>());
 
 		const char* invalidAssignment = 
@@ -765,14 +768,17 @@ void StructLiterals() {
 	StartTest("StructLiterals");
 	int errorCount = 0;
 	{
-		// Simple struct literal
+		// Simple struct literal (plus inferred type)
 		const char* plainStructLiterals = 
 			"Test :: struct { i:i32; f:f32; b:bool; };\n"
-			"instance := Test.{1337, 2.22, true};\n"
+			"instance:Test = .{420, 5.2, false};\n"
 			"print(instance.i);\n"
-			"print(instance.f);\n"
-			"print(instance.b);\n";
+			"instance2 := Test.{1337, 2.22, true};\n"
+			"print(instance2.i);\n"
+			"print(instance2.f);\n"
+			"print(instance2.b);\n";
 		const char* expectation =	
+			"420\n"
 			"1337\n"
 			"2.22\n"
 			"true\n";
@@ -814,6 +820,12 @@ void StructLiterals() {
 		expectedErrors.PushBack("Incorrect number of members provided to struct initializer for struct 'Test'");
 		errorCount += RunCompilerOnTestCase(incorrectNumberStructLiteral, "", expectedErrors);
 
+		const char* typeInferenceFailure = 
+			"Test :: struct { i:i32; f:f32; b:bool; };\n"
+			"instance := .{ 10, 8.24, true};\n";
+		expectedErrors.Resize(0);
+		expectedErrors.PushBack("Not enough information provided to do type inference on this struct literal, potentially missing a type annotation?");
+		errorCount += RunCompilerOnTestCase(typeInferenceFailure, "", expectedErrors);
 	}
 	errorCount += ReportMemoryLeaks();
 	EndTest(errorCount);
@@ -845,6 +857,7 @@ void Constants() {
 		defer(expectedErrors.Free());
 		expectedErrors.PushBack("Need an expression to initialize this constant declaration");
 		expectedErrors.PushBack("Need an expression to initialize this constant declaration");
+		expectedErrors.PushBack("Undeclared identifier 'int32', not found in any available scope");
 		errorCount += RunCompilerOnTestCase(parseErrors, "", expectedErrors);
 
 		const char* typeCheckErrors = 

@@ -387,7 +387,7 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 				pLiteral->members.PushBack(ParseExpression(state));
 			} while (Match(state, 1, TokenType::Comma));
 
-			Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression. Potentially you forgot a '.' between members?");
+			Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression. Potentially you forgot a ',' between members?");
 			return pLiteral;
 		} else {
 			Ast::Identifier* pIdentifier = MakeNode<Ast::Identifier>(state.pAllocator, identifier, Ast::NodeKind::Identifier);
@@ -395,6 +395,22 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 			return pIdentifier;
 		}
     }
+
+	if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
+		Advance(state);
+		Token dot = Previous(state);
+		Advance(state);
+
+		Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, dot, Ast::NodeKind::StructLiteral);
+		pLiteral->structName = "";
+		pLiteral->members.pAlloc = state.pAllocator;
+		do {
+			pLiteral->members.PushBack(ParseExpression(state));
+		} while (Match(state, 1, TokenType::Comma));
+
+		Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression. Potentially you forgot a ',' between members?");
+		return pLiteral;
+	}
 
 	if (Ast::Type* pType = (Ast::Type*)ParseType(state)) {
         return pType;

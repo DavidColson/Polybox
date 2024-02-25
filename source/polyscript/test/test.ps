@@ -240,3 +240,6 @@ print(literalInitializer.floatMember); // 921.3
 literalInitializer = BabysFirstStruct.{ true, 2.34, 13 };
 print(literalInitializer.boolMember); // true
 print(literalInitializer.intMember); // 13
+
+inferredStructLiteral : SecondStruct = .{ intMember = 76 };
+print(inferredStructLiteral.intMember); // 76

@@ -62,7 +62,7 @@ struct TypeCheckerState {
 
 void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt);
 void TypeCheckStatements(TypeCheckerState& state, ResizableArray<Ast::Statement*>& program);
-[[nodiscard]] Ast::Expression* TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr);
+[[nodiscard]] Ast::Expression* TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr, TypeInfo* pTypeInferenceHint = nullptr);
 
 // ***********************************************************************
 
@@ -231,7 +231,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
 // ***********************************************************************
 
-[[nodiscard]] Ast::Expression* TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr) {
+[[nodiscard]] Ast::Expression* TypeCheckExpression(TypeCheckerState& state, Ast::Expression* pExpr, TypeInfo* pTypeInferenceHint) {
     if (pExpr == nullptr)
         return pExpr;
 
@@ -244,11 +244,21 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
 
 			// find the structure type info
-            Entity* pEntity = FindEntity(state.pCurrentScope, pStructLiteral->structName);
-			TypeInfoStruct* pTypeInfo = (TypeInfoStruct*)FindTypeByValue(pEntity->constantValue);
+			TypeInfoStruct* pTypeInfo;
+			Entity* pEntity;
+			if (pTypeInferenceHint && pStructLiteral->structName.length == 0 && pTypeInferenceHint->tag == TypeInfo::TypeTag::Struct) {
+				pTypeInfo = (TypeInfoStruct*)pTypeInferenceHint;
+				pEntity = FindEntity(state.pCurrentScope, pTypeInfo->name);
+			} else if (pStructLiteral->structName.length > 0) {
+				pEntity = FindEntity(state.pCurrentScope, pStructLiteral->structName);
+				pTypeInfo = (TypeInfoStruct*)FindTypeByValue(pEntity->constantValue);
+			} else {
+				state.pErrors->PushError(pStructLiteral, "Not enough information provided to do type inference on this struct literal, potentially missing a type annotation?");
+				pStructLiteral->pType = GetInvalidType();
+				return pStructLiteral;
+			}
 			pStructLiteral->pType = pTypeInfo;
 
-			// Find the struct type's scope object
 			Ast::Structure* pStruct = (Ast::Structure*)pEntity->pDeclaration->pInitializerExpr;
 
 			// First check if we are using a named initializer list or not
@@ -407,13 +417,14 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             Ast::Assignment* pAssignment = (Ast::Assignment*)pExpr;
             pAssignment->isConstant = false;
             pAssignment->pTarget = TypeCheckExpression(state, pAssignment->pTarget);
-            pAssignment->pAssignment = TypeCheckExpression(state, pAssignment->pAssignment);
 
             // Typechecking failed on the target, don't report any more errors
             if (CheckTypesIdentical(pAssignment->pTarget->pType, GetInvalidType())) {
                 pAssignment->pType = GetInvalidType();
                 return pAssignment;
             }
+
+			pAssignment->pAssignment = TypeCheckExpression(state, pAssignment->pAssignment, pAssignment->pTarget->pType);
 
 			// decide if pTarget is a valid lvalue
 			Ast::NodeKind targetKind = pAssignment->pTarget->nodeKind;
@@ -624,13 +635,14 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
                 return pCall;
             }
 
+			TypeInfoFunction* pFunctionType = (TypeInfoFunction*)pCall->pCallee->pType;
+			size argsCount = pCall->args.count;
+			size paramsCount = pFunctionType->tag == TypeInfo::TypeTag::Void ? 0 : pFunctionType->params.count;
             for (int i = 0; i < (int)pCall->args.count; i++) {
-                pCall->args[i] = TypeCheckExpression(state, pCall->args[i]);
+                TypeInfo* pArgType = pFunctionType->params[i];
+                pCall->args[i] = TypeCheckExpression(state, pCall->args[i], pArgType);
             }
             
-            TypeInfoFunction* pFunctionType = (TypeInfoFunction*)pCall->pCallee->pType;
-            size argsCount = pCall->args.count;
-            size paramsCount = pFunctionType->tag == TypeInfo::TypeTag::Void ? 0 : pFunctionType->params.count;
             if (pCall->args.count != pFunctionType->params.count) {
                 Ast::Identifier* pVar = (Ast::Identifier*)pCall->pCallee;
                 state.pErrors->PushError(pCall, "Mismatched number of arguments in call to function '%s', expected %i, got %i", pVar->identifier.pData, paramsCount, argsCount);
@@ -702,9 +714,21 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
 
             pEntity->status = EntityStatus::InProgress;
 
+			// Check the type annotation first so we can give inference hints
+			if (pDecl->pTypeAnnotation) {
+                pDecl->pTypeAnnotation = TypeCheckExpression(state, pDecl->pTypeAnnotation);
+                if (pDecl->pTypeAnnotation->nodeKind != Ast::NodeKind::BadExpression && pDecl->pTypeAnnotation->pType->tag != TypeInfo::TypeTag::Invalid) {
+                    if (!pDecl->pTypeAnnotation->isConstant) {
+                        state.pErrors->PushError(pDecl->pTypeAnnotation, "Type annotation for declaration must be a constant");
+                    } else {
+                        pDecl->pType = FindTypeByValue(pDecl->pTypeAnnotation->constantValue);
+                    }
+                }
+			}
+
             // Has initializer
             if (pDecl->pInitializerExpr) {
-                pDecl->pInitializerExpr = TypeCheckExpression(state, pDecl->pInitializerExpr);
+                pDecl->pInitializerExpr = TypeCheckExpression(state, pDecl->pInitializerExpr, pDecl->pType);
                 if (CheckTypesIdentical(pDecl->pInitializerExpr->pType, GetInvalidType())) {
                     pDecl->pType = GetInvalidType();
                     break;
@@ -721,31 +745,13 @@ void TypeCheckStatement(TypeCheckerState& state, Ast::Statement* pStmt) {
                         pEntity->constantValue = pDecl->pInitializerExpr->constantValue;
                 }
 
-                TypeInfo* pTypeAnnotationTypeInfo = GetInvalidType();
-                if (pDecl->pTypeAnnotation) {
-                    pDecl->pTypeAnnotation = TypeCheckExpression(state, pDecl->pTypeAnnotation);
-					TypeInfo* pTypeInfo = FindTypeByValue(pDecl->pTypeAnnotation->constantValue);
-                    if (pTypeInfo)
-                        pTypeAnnotationTypeInfo = pTypeInfo;
-                }
-
                 // has type annotation, check it matches the initializer, if so, set the type of the declaration
-                if (pDecl->pTypeAnnotation && !CheckTypesIdentical(pTypeAnnotationTypeInfo, pDecl->pInitializerExpr->pType)) {
+                if (pDecl->pTypeAnnotation && !CheckTypesIdentical(pDecl->pType, pDecl->pInitializerExpr->pType)) {
                     TypeInfo* pInitType = pDecl->pInitializerExpr->pType;
                     if (pInitType)
-                        state.pErrors->PushError(pDecl->pTypeAnnotation, "Type mismatch in declaration, declared as %s and initialized as %s", pTypeAnnotationTypeInfo->name.pData, pInitType->name.pData);
+                        state.pErrors->PushError(pDecl->pTypeAnnotation, "Type mismatch in declaration, declared as %s and initialized as %s", pDecl->pType->name.pData, pInitType->name.pData);
                 } else {
                     pDecl->pType = pDecl->pInitializerExpr->pType;
-                }
-            // No initializer, must have type annotation
-            } else {
-                pDecl->pTypeAnnotation = TypeCheckExpression(state, pDecl->pTypeAnnotation);
-                if (pDecl->pTypeAnnotation->nodeKind != Ast::NodeKind::BadExpression) {
-                    if (!pDecl->pTypeAnnotation->isConstant) {
-                        state.pErrors->PushError(pDecl->pTypeAnnotation, "Type annotation for declaration must be a constant");
-                    } else {
-                        pDecl->pType = FindTypeByValue(pDecl->pTypeAnnotation->constantValue);
-                    }
                 }
             }
 

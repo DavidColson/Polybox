@@ -506,12 +506,37 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             CodeGenExpression(state, pCall->pCallee);
 
+			i16 stackOffset = 1; //1 slot for the function pointer
             for (Ast::Expression* pExpr : pCall->args) {
-                CodeGenExpression(state, pExpr);
+				i16 argSizeSlots = (i16)ceil((f32)pExpr->pType->size / 4.0);
+				// if arg size is over 4, copy it
+				if (pExpr->pType->size > 4) {
+					i32 destStackSlot = (i32)state.localStorage.count + stackOffset;
+					PushInstruction(state, pCall->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+					PushOperand32bit(state, (i32)argSizeSlots);
+					PushInstruction(state, pCall->line, { .opcode = OpCode::StackChange });
+
+					PushInstruction(state, pCall->line, { .opcode = OpCode::LocalAddr });
+					PushOperand16bit(state, destStackSlot * 4);
+
+					CodeGenExpression(state, pExpr);
+
+					PushInstruction(state, pCall->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+					PushOperand32bit(state, (u32)pExpr->pType->size);
+
+					PushInstruction(state, pCall->line, {.opcode = OpCode::Copy }); 
+					PushOperand16bit(state, 0);
+					PushOperand16bit(state, 0); 
+					PushInstruction(state, pCall->line, {.opcode = OpCode::Drop }); 
+				} else {
+					CodeGenExpression(state, pExpr);
+				}
+				stackOffset += argSizeSlots;
             }
 
 			PushInstruction(state, pCall->line, { .opcode = OpCode::Call });
-			PushOperand16bit(state, (i16)pCall->args.count);
+			// change to arg size
+			PushOperand16bit(state, (stackOffset - 1) * 4);
             break;
         }
         default:
@@ -588,7 +613,10 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 						PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
 						PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
 						PushOperand16bit(state, 0);
+						PushInstruction(state, pDecl->line, { .opcode = OpCode::Drop });
 					}
+					PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
+					PushOperand16bit(state, localIndex);
 				} else { // For all non struct values we initialize to 0
 					PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
 					PushOperand16bit(state, localIndex);

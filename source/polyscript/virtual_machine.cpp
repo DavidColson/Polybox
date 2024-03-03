@@ -398,12 +398,10 @@ void Run(Program* pProgramToRun) {
 				u16* pSrc = (u16*)(vm.pMemory + srcAddress + srcOffset);
 
 				// Pop the destination address off the stack
-				i32 destAddress = PopStack(vm).i32Value;
+				i32 destAddress = ReadStack(vm).i32Value;
 				u16* pDest = (u16*)(vm.pMemory + destAddress + desOffset);
 
 				memcpy(pDest, pSrc, size);
-
-				PushStack(vm, MakeValue(srcAddress));
 				break;
 			}
 			case OpCode::Drop: {
@@ -598,11 +596,11 @@ void Run(Program* pProgramToRun) {
                 break;
             }
             case OpCode::Call: {
-				u16 argCount = GetOperand16bit(pFrame->pInstructionPointer);
+				u16 argSize = GetOperand16bit(pFrame->pInstructionPointer);
                 
 				// Need to go back in the stack past the args, to retrieve the function pointer
-				i32 funcIndex = 1 + argCount;
-				i32 stackFrameBaseAddress = vm.stackHeadAddress - 4 * funcIndex;
+				i32 funcIndex = 4 + argSize;
+				i32 stackFrameBaseAddress = vm.stackHeadAddress - funcIndex;
 				Value funcValue = *(Value*)(vm.pMemory + stackFrameBaseAddress);
 
                 CallFrame frame;

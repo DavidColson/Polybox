@@ -44,7 +44,7 @@ enum Enum : u8 {
     Store,        // No			| 16b offset		| [address][value] -> [value]
 	LocalAddr,	  // No			| 16b offset		| [] -> [address]
 	Drop,		  // No			|					| [value] -> []
-	Copy,		  // No			| destOff, srcOff	| [srcAddr][dstAddr][size] -> [srcAddr]
+	Copy,		  // No			| destOff, srcOff	| [dstAddr][srcAddr][size] -> [destAddr]
 	StackChange,  // No			| 					| [offset] -> []
 
     // Misc

@@ -243,3 +243,17 @@ print(literalInitializer.intMember); // 13
 
 inferredStructLiteral : SecondStruct = .{ intMember = 76 };
 print(inferredStructLiteral.intMember); // 76
+
+// ***************************************************************
+// [TEST] Struct function args
+
+FunctionWithStructArgs :: func (anint : i32, example: BabysFirstStruct, afloat : f32) {
+	print(anint);
+	print(example.intMember);
+	print(afloat);
+};
+
+FunctionWithStructArgs(44, instanceOfStruct, 4.9); // 44, 1337, 4.9
+FunctionWithStructArgs(33, .{ intMember = 420 }, 6.8); // 33, 420, 6.8
+
+

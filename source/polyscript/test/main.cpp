@@ -725,6 +725,25 @@ void Structs() {
 			"true\n";
 		errorCount += RunCompilerOnTestCase(structMemberStruct, expectation, ResizableArray<String>());
 
+		// test structs as function args
+		const char* structFunctionArgs = 
+			"TestStruct :: struct { i:i32; f:f32; b:bool; };\n"
+			"someFunc :: func (num: i32, instance: TestStruct, float : f32) {print(num); print(instance.i); print(float); };\n"
+			"instance:TestStruct;\n"
+			"instance.i = 2;\n"
+			"instance.f = 4.0;\n"
+			"instance.b = true;\n"
+			"someFunc(12, instance, 3.8);\n"
+			"someFunc(44, .{i = 1337}, 5.43);\n";
+		expectation =
+			"12\n"
+			"2\n"
+			"3.8\n"
+			"44\n"
+			"1337\n"
+			"5.43\n";
+		errorCount += RunCompilerOnTestCase(structFunctionArgs, expectation, ResizableArray<String>());
+
 		// Test imperative code in struct scopes
 		const char* nonImperativeScope = 
 			"add :: func (num: i32, float: f32, boolean: bool) -> i32 { return num; };\n"

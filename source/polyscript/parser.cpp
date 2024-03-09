@@ -383,9 +383,11 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 			Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, identifier, Ast::NodeKind::StructLiteral);
 			pLiteral->structName = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
 			pLiteral->members.pAlloc = state.pAllocator;
-			do {
-				pLiteral->members.PushBack(ParseExpression(state));
-			} while (Match(state, 1, TokenType::Comma));
+			if (Peek(state).type != TokenType::RightBrace) {
+				do {
+					pLiteral->members.PushBack(ParseExpression(state));
+				} while (Match(state, 1, TokenType::Comma)); 
+			}
 
 			Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression. Potentially you forgot a ',' between members?");
 			return pLiteral;
@@ -404,9 +406,11 @@ Ast::Expression* ParsePrimary(ParsingState& state) {
 		Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, dot, Ast::NodeKind::StructLiteral);
 		pLiteral->structName = "";
 		pLiteral->members.pAlloc = state.pAllocator;
-		do {
-			pLiteral->members.PushBack(ParseExpression(state));
-		} while (Match(state, 1, TokenType::Comma));
+		if (Peek(state).type != TokenType::RightBrace) {
+			do {
+				pLiteral->members.PushBack(ParseExpression(state));
+			} while (Match(state, 1, TokenType::Comma));
+		}
 
 		Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression. Potentially you forgot a ',' between members?");
 		return pLiteral;

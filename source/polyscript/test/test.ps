@@ -244,6 +244,9 @@ print(literalInitializer.intMember); // 13
 inferredStructLiteral : SecondStruct = .{ intMember = 76 };
 print(inferredStructLiteral.intMember); // 76
 
+zeroStruct : BabysFirstStruct = .{};
+print(zeroStruct.intMember);
+
 // ***************************************************************
 // [TEST] Struct function args
 

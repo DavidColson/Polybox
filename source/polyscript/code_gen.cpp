@@ -319,9 +319,17 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
 			TypeInfoStruct* pTypeInfo = (TypeInfoStruct*)pStructLiteral->pType;
 
-			i32 stackSlot = ResolveTemporary(state, pStructLiteral); 
+			i32 stackOffset = ResolveTemporary(state, pStructLiteral); 
 
-			if (pStructLiteral->designatedInitializer) {
+			if (pStructLiteral->members.count == 0) {
+				i32 numSlots = (i32)ceil((f32)pStructLiteral->pType->size / 4.f);
+				for (i32 i = 0; i < numSlots; i++) {
+					PushInstruction(state, pStructLiteral->line, { .opcode = OpCode::LocalAddr }); PushOperand16bit(state, stackOffset + i * 4);
+					PushInstruction(state, pStructLiteral->line, {.opcode = OpCode::Const, .type = pStructLiteral->pType->tag}); PushOperand32bit(state, 0);
+					PushInstruction(state, pStructLiteral->line, { .opcode = OpCode::Store }); PushOperand16bit(state, 0);
+					PushInstruction(state, pStructLiteral->line, { .opcode = OpCode::Drop });
+				}
+			} else if (pStructLiteral->designatedInitializer) {
 				for (Ast::Expression* pMember : pStructLiteral->members) {
 					Ast::Assignment* pAssignment = (Ast::Assignment*)pMember;
 					TypeInfoStruct::Member* pTargetField = nullptr;
@@ -333,7 +341,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 					}	
 					
 					PushInstruction(state, pAssignment->line, { .opcode = OpCode::LocalAddr });
-					PushOperand16bit(state, stackSlot);
+					PushOperand16bit(state, stackOffset);
 
 					CodeGenAssignment(state, pAssignment->line, pAssignment->pAssignment, (i32)pTargetField->offset);
 
@@ -346,7 +354,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 					Ast::Expression* pMemberInitializerExpr = pStructLiteral->members[i];
 
 					PushInstruction(state, pMemberInitializerExpr->line, { .opcode = OpCode::LocalAddr });
-					PushOperand16bit(state, stackSlot);
+					PushOperand16bit(state, stackOffset);
 
 					CodeGenAssignment(state, pMemberInitializerExpr->line, pMemberInitializerExpr, (i32)pTargetField->offset);
 
@@ -356,7 +364,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 			}
 			// Leave the temporary address on the stack for the next operation to use
 			PushInstruction(state, pStructLiteral->line, { .opcode = OpCode::LocalAddr });
-			PushOperand16bit(state, stackSlot);
+			PushOperand16bit(state, stackOffset);
 			break;
 		}
         case Ast::NodeKind::Function: {
@@ -597,10 +605,10 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
                 break;
             }
 
-			i32 localIndex = ResolveLocal(state, pDecl->identifier);
+			i32 localOffset = ResolveLocal(state, pDecl->identifier);
             if (pDecl->pInitializerExpr) {
 				PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
-				PushOperand16bit(state, localIndex);
+				PushOperand16bit(state, localOffset);
 				CodeGenAssignment(state, pDecl->line, pDecl->pInitializerExpr);
 			}
             else {
@@ -609,17 +617,17 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 					i32 numSlots = (i32)ceil((f32)pDecl->pType->size / 4.f);
 					for (i32 i = 0; i < numSlots; i++) {
 						PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
-						PushOperand16bit(state, localIndex + i);
+						PushOperand16bit(state, localOffset + i * 4);
 						PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
 						PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
 						PushOperand16bit(state, 0);
 						PushInstruction(state, pDecl->line, { .opcode = OpCode::Drop });
 					}
 					PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
-					PushOperand16bit(state, localIndex);
+					PushOperand16bit(state, localOffset);
 				} else { // For all non struct values we initialize to 0
 					PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });
-					PushOperand16bit(state, localIndex);
+					PushOperand16bit(state, localOffset);
 					PushInstruction(state, pDecl->line, {.opcode = OpCode::Const, .type = pDecl->pType->tag}); PushOperand32bit(state, 0);
 					PushInstruction(state, pDecl->line, { .opcode = OpCode::Store });
 					PushOperand16bit(state, 0);

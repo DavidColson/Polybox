@@ -261,6 +261,10 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
 			Ast::Structure* pStruct = (Ast::Structure*)pEntity->pDeclaration->pInitializerExpr;
 
+			if (pStructLiteral->members.count == 0) {
+				return pExpr;
+			}
+
 			// First check if we are using a named initializer list or not
 			// TODO: This can be done during parsing as well, which will leave the designated Intializer member ready for everyone else
 			bool foundLValues = false;

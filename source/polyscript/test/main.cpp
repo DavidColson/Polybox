@@ -816,6 +816,19 @@ void StructLiterals() {
 			"false\n";
 		errorCount += RunCompilerOnTestCase(designatedStructLiterals, expectation, ResizableArray<String>());
 
+		// empty struct initializers
+		const char* emptyStructLiterals = 
+			"Test :: struct { i:i32; f:f32; b:bool; };\n"
+			"instance := Test.{};\n"
+			"print(instance.i);\n"
+			"print(instance.f);\n"
+			"print(instance.b);\n";
+		expectation =	
+			"0\n"
+			"0\n"
+			"false\n";
+		errorCount += RunCompilerOnTestCase(emptyStructLiterals, expectation, ResizableArray<String>());
+
 		// Mix of designated and not, not allowed
 		const char* mixedStructLiteral = 
 			"Test :: struct { i:i32; f:f32; b:bool; };\n"

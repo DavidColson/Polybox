@@ -189,6 +189,7 @@ print(myExampleVar = 12); // 12
 // [TEST] Structs
 instanceOfStruct : BabysFirstStruct;
 instanceOfStruct.floatMember = 1337.0;
+instanceOfStruct.intMember = 1337;
 print(instanceOfStruct.floatMember); // 1337.0
 
 BabysFirstStruct :: struct {
@@ -245,7 +246,11 @@ inferredStructLiteral : SecondStruct = .{ intMember = 76 };
 print(inferredStructLiteral.intMember); // 76
 
 zeroStruct : BabysFirstStruct = .{};
-print(zeroStruct.intMember);
+print(zeroStruct.intMember); // 0
+
+recursiveStructLiteral := SecondStruct.{ floatMember = 44.9, innerStruct = .{ intMember = 698, boolMember = true } };
+print(recursiveStructLiteral.innerStruct.intMember); // 698
+print(recursiveStructLiteral.floatMember); // 44.9
 
 // ***************************************************************
 // [TEST] Struct function args

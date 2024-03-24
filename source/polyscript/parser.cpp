@@ -125,12 +125,28 @@ bool ErrorState::ReportCompilationResult() {
     return success;
 }
 
+// In order of increasing precedence, that is top precedence is executed first, the bottom is executed last
+namespace Precedence {
+enum Enum : u32 {
+	None,
+	Assignment,
+	Or,
+	And,
+	Equality,
+	Comparison,
+	AddSub,
+	MulDiv,
+	UnaryPrefixes,
+	CallsAndSelectors,
+	Primary
+};
+}
 
 // ParsingState
 
 void PushError(ParsingState &state, const char* formatMessage, ...);
 Ast::Statement* ParseBlock(ParsingState& state);
-Ast::Expression* ParseExpression(ParsingState& state);
+Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec);
 Ast::Statement* ParseIf(ParsingState& state);
 Ast::Statement* ParseWhile(ParsingState& state);
 Ast::Statement* ParseReturn(ParsingState& state);
@@ -234,399 +250,425 @@ void Synchronize(ParsingState &state) {
     }
 }
 
+
 // ***********************************************************************
 
-Ast::Expression* ParseType(ParsingState& state) {
-
-    // This should parse an identifier, or each of the primitive syntactic types
-    // There is redundancy in looking for an identifier (due to ParsePrimary) but it's fine
-    if (Match(state, 1, TokenType::Identifier)) {
-        Token identifier = Previous(state);
-        Ast::Identifier* pIdentifier = MakeNode<Ast::Identifier>(state.pAllocator, identifier, Ast::NodeKind::Identifier);
-        pIdentifier->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
-        return pIdentifier;
-    }
-
-    if (Match(state, 1, TokenType::Func)) {
-        Ast::FunctionType* pFuncType = MakeNode<Ast::FunctionType>(state.pAllocator, Previous(state), Ast::NodeKind::FunctionType);
-        pFuncType->params.pAlloc = state.pAllocator;
-
-		Consume(state, TokenType::LeftParen, "Expected left parenthesis to start function param list");
-
-        if (Peek(state).type != TokenType::RightParen) {
-			// Parse parameter list
-			do {
-                // First item could be identifier for a declaration, or a type
-                Ast::Node* pParam = (Ast::Type*)ParseType(state);
-                Token arg = Previous(state);
-
-                if (Match(state, 1, TokenType::Colon)) {
-                    if (pParam->nodeKind == Ast::NodeKind::Identifier) {
-                        // The first item was a declaration, so convert it to one
-                        Ast::Declaration* pParamDecl = MakeNode<Ast::Declaration>(state.pAllocator, arg, Ast::NodeKind::Declaration);
-                        pParamDecl->identifier = CopyCStringRange(arg.pLocation, arg.pLocation + arg.length, state.pAllocator);
-                        pParamDecl->pTypeAnnotation = (Ast::Type*)ParseType(state);
-            
-				        pFuncType->params.PushBack(pParamDecl);
-                    } else {
-                        PushError(state, "Expected an identifier on the left side of this declaration");
-                    }
-                } else {
-				        pFuncType->params.PushBack(pParam);
-                }
-			} while (Match(state, 1, TokenType::Comma));
-		}
-		Consume(state, TokenType::RightParen, "Expected right parenthesis to close argument list");
-
-        // Parse return type
-		if (Match(state, 1, TokenType::FuncSigReturn)) {
-			pFuncType->pReturnType = (Ast::Type*)ParseType(state);
-		}
-
-        return pFuncType;
-    }
-
-    return MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
+Precedence::Enum GetOperatorPrecedence(Operator::Enum op) {
+	switch(op) {
+		case Operator::Add: return Precedence::AddSub;
+		case Operator::Subtract: return Precedence::AddSub;
+		case Operator::Multiply: return Precedence::MulDiv;
+		case Operator::Divide: return Precedence::MulDiv;
+		case Operator::Less: return Precedence::Comparison;
+		case Operator::Greater: return Precedence::Comparison;
+		case Operator::GreaterEqual: return Precedence::Comparison;
+		case Operator::LessEqual: return Precedence::Comparison;
+		case Operator::Equal: return Precedence::Equality;
+		case Operator::NotEqual: return Precedence::Equality;
+		case Operator::And: return Precedence::And;
+		case Operator::Or: return Precedence::Or;
+		case Operator::UnaryMinus: return Precedence::UnaryPrefixes;
+		case Operator::Not: return Precedence::UnaryPrefixes;
+		default: return Precedence::None;
+	}
 }
 
 // ***********************************************************************
 
-Ast::Expression* ParsePrimary(ParsingState& state) {
-
-	if (Match(state, 1, TokenType::Func)) {
-		Token func = Previous(state);
-        state.pCurrent--;
-        Ast::FunctionType* pFuncType = (Ast::FunctionType*)ParseType(state);
-
-        if (Match(state, 1, TokenType::LeftBrace)) {
-            Ast::Function* pFunc = MakeNode<Ast::Function>(state.pAllocator, func, Ast::NodeKind::Function);
-            pFunc->pFuncType = pFuncType;
-            pFunc->pBody = (Ast::Block*)ParseBlock(state);
-            return pFunc;
-		}
-		return pFuncType;
+Precedence::Enum PeekInfixTokenPrecedence(ParsingState& state) {
+	Token tok = Peek(state);
+	switch(tok.type) {
+		case TokenType::LeftParen: return Precedence::CallsAndSelectors;
+		case TokenType::Dot: return Precedence::CallsAndSelectors;
+		case TokenType::Minus: return Precedence::AddSub;
+		case TokenType::Plus: return Precedence::AddSub;
+		case TokenType::Star: return Precedence::MulDiv;
+		case TokenType::Slash: return Precedence::MulDiv;
+		case TokenType::Equal: return Precedence::Assignment;
+		case TokenType::Bang: return Precedence::UnaryPrefixes;
+		case TokenType::Greater: return Precedence::Comparison;
+		case TokenType::Less: return Precedence::Comparison;
+		case TokenType::BangEqual: return Precedence::Comparison;
+		case TokenType::EqualEqual: return Precedence::Equality;
+		case TokenType::LessEqual: return Precedence::Comparison;
+		case TokenType::GreaterEqual: return Precedence::Comparison;
+		case TokenType::And: return Precedence::And;
+		case TokenType::Or: return Precedence::Or;
+		default: return Precedence::None;
 	}
+}
 
-	if (Match(state, 1, TokenType::Struct)) {
-        Ast::Structure* pStruct = MakeNode<Ast::Structure>(state.pAllocator, Previous(state), Ast::NodeKind::Structure);
-		pStruct->members.pAlloc = state.pAllocator;
+// ***********************************************************************
 
-		Consume(state, TokenType::LeftBrace, "Expected '{' after struct to start member declarations");
-        pStruct->startToken = Previous(state);
+Ast::Expression* ParseType(ParsingState& state);
+Ast::Expression* ParseFunctionType(ParsingState& state) {
+	Token funcToken = Advance(state);
+	Ast::FunctionType* pFuncType = MakeNode<Ast::FunctionType>(state.pAllocator, Previous(state), Ast::NodeKind::FunctionType);
+	pFuncType->params.pAlloc = state.pAllocator;
 
-		while (!Check(state, TokenType::RightBrace) && !IsAtEnd(state)) {
-            Ast::Statement* pMember = ParseDeclaration(state);
-			pStruct->members.PushBack(pMember);
-		}
+	Consume(state, TokenType::LeftParen, "Expected left parenthesis to start function param list");
 
-		Consume(state, TokenType::RightBrace, "Expected '}' to end member declarations of struct");
-		pStruct->endToken = Previous(state);
-		return pStruct;
-	}
+	if (Peek(state).type != TokenType::RightParen) {
+		// Parse parameter list
+		do {
+			// First item could be identifier for a declaration, or a type
+			Ast::Node* pParam = (Ast::Type*)ParseType(state);
+			Token arg = Previous(state);
 
-    if (Match(state, 1, TokenType::LiteralInteger)) {
-        Token token = Previous(state);
-        Ast::Literal* pLiteralExpr = MakeNode<Ast::Literal>(state.pAllocator, token, Ast::NodeKind::Literal);
-        pLiteralExpr->isConstant = true;
+			if (Match(state, 1, TokenType::Colon)) {
+				if (pParam->nodeKind == Ast::NodeKind::Identifier) {
+					// The first item was a declaration, so convert it to one
+					Ast::Declaration* pParamDecl = MakeNode<Ast::Declaration>(state.pAllocator, arg, Ast::NodeKind::Declaration);
+					pParamDecl->identifier = CopyCStringRange(arg.pLocation, arg.pLocation + arg.length, state.pAllocator);
+					pParamDecl->pTypeAnnotation = (Ast::Type*)ParseType(state);
 
-        char* endPtr = token.pLocation + token.length;
-        pLiteralExpr->constantValue = MakeValue((i32)strtol(token.pLocation, &endPtr, 10));
-		pLiteralExpr->pType = GetI32Type();
-        return pLiteralExpr;
-    }
-
-    if (Match(state, 1, TokenType::LiteralFloat)) {
-        Token token = Previous(state);
-        Ast::Literal* pLiteralExpr = MakeNode<Ast::Literal>(state.pAllocator, token, Ast::NodeKind::Literal);
-        pLiteralExpr->isConstant = true;
-
-        char* endPtr = token.pLocation + token.length;
-        pLiteralExpr->constantValue = MakeValue((f32)strtod(token.pLocation, &endPtr));
-		pLiteralExpr->pType = GetF32Type();
-		return pLiteralExpr;
-    }
-
-    if (Match(state, 1, TokenType::LiteralBool)) {
-        Token token = Previous(state);
-        Ast::Literal* pLiteralExpr = MakeNode<Ast::Literal>(state.pAllocator, token, Ast::NodeKind::Literal);
-        pLiteralExpr->isConstant = true;
-
-        if (strncmp("true", token.pLocation, token.length) == 0)
-            pLiteralExpr->constantValue = MakeValue(true);
-        else if (strncmp("false", token.pLocation, token.length) == 0)
-            pLiteralExpr->constantValue = MakeValue(false);
-		pLiteralExpr->pType = GetBoolType();
-		return pLiteralExpr;
-    }
-
-    if (Match(state, 1, TokenType::LeftParen)) {
-        Token startToken = Previous(state);
-		Ast::Expression* pExpr = ParseExpression(state);
-        Consume(state, TokenType::RightParen, "Expected a closing right parenthesis \")\", but found nothing in this expression");
-
-        if (pExpr) {
-            Ast::Grouping* pGroupExpr = MakeNode<Ast::Grouping>(state.pAllocator, startToken, Ast::NodeKind::Grouping);
-            pGroupExpr->pExpression = pExpr;
-            return pGroupExpr;
-        }
-        PushError(state, "Expected valid expression inside parenthesis, but found nothing");
-        
-        return MakeNode<Ast::BadExpression>(state.pAllocator, startToken, Ast::NodeKind::BadExpression);
-    }
-
-    if (Match(state, 1, TokenType::Identifier)) {
-        Token identifier = Previous(state);
-        
-		// This might be the start of a struct literal, so covering that case
-		if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
-			Advance(state); Advance(state);
-			Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, identifier, Ast::NodeKind::StructLiteral);
-			pLiteral->structName = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
-			pLiteral->members.pAlloc = state.pAllocator;
-			if (Peek(state).type != TokenType::RightBrace) {
-				do {
-					pLiteral->members.PushBack(ParseExpression(state));
-				} while (Match(state, 1, TokenType::Comma)); 
+					pFuncType->params.PushBack(pParamDecl);
+				} else {
+					PushError(state, "Expected an identifier on the left side of this declaration");
+				}
+			} else {
+				pFuncType->params.PushBack(pParam);
 			}
+		} while (Match(state, 1, TokenType::Comma));
+	}
+	Consume(state, TokenType::RightParen, "Expected right parenthesis to close argument list");
 
-			Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression. Potentially you forgot a ',' between members?");
-			return pLiteral;
-		} else {
-			Ast::Identifier* pIdentifier = MakeNode<Ast::Identifier>(state.pAllocator, identifier, Ast::NodeKind::Identifier);
-			pIdentifier->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
-			return pIdentifier;
-		}
-    }
+	// Parse return type
+	if (Match(state, 1, TokenType::FuncSigReturn)) {
+		pFuncType->pReturnType = (Ast::Type*)ParseType(state);
+	}
 
-	if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
-		Advance(state);
-		Token dot = Previous(state);
-		Advance(state);
+	return pFuncType;
+}
 
-		Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, dot, Ast::NodeKind::StructLiteral);
+// ***********************************************************************
+
+Ast::Expression* ParseFunction(ParsingState& state) {
+	Token func = Peek(state);
+	Ast::FunctionType* pFuncType = (Ast::FunctionType*)ParseFunctionType(state);
+
+	if (Match(state, 1, TokenType::LeftBrace)) {
+		Ast::Function* pFunc = MakeNode<Ast::Function>(state.pAllocator, func, Ast::NodeKind::Function);
+		pFunc->pFuncType = pFuncType;
+		pFunc->pBody = (Ast::Block*)ParseBlock(state);
+		return pFunc;
+	}
+	return pFuncType;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseStruct(ParsingState& state) {
+	Consume(state, TokenType::Struct, "Expected 'struct' at start of struct definition");
+
+	Ast::Structure* pStruct = MakeNode<Ast::Structure>(state.pAllocator, Previous(state), Ast::NodeKind::Structure);
+	pStruct->members.pAlloc = state.pAllocator;
+
+	Consume(state, TokenType::LeftBrace, "Expected '{' after struct to start member declarations");
+	pStruct->startToken = Previous(state);
+
+	while (!Check(state, TokenType::RightBrace) && !IsAtEnd(state)) {
+		Ast::Statement* pMember = ParseDeclaration(state);
+		pStruct->members.PushBack(pMember);
+	}
+
+	Consume(state, TokenType::RightBrace, "Expected '}' to end member declarations of struct");
+	pStruct->endToken = Previous(state);
+	return pStruct;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseIntegerLiteral(ParsingState& state) {
+	Token token = Advance(state);
+	Ast::Literal* pLiteralExpr = MakeNode<Ast::Literal>(state.pAllocator, token, Ast::NodeKind::Literal);
+	pLiteralExpr->isConstant = true;
+
+	char* endPtr = token.pLocation + token.length;
+	pLiteralExpr->constantValue = MakeValue((i32)strtol(token.pLocation, &endPtr, 10));
+	pLiteralExpr->pType = GetI32Type();
+	return pLiteralExpr;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseFloatLiteral(ParsingState& state) {
+	Token token = Advance(state);
+	Ast::Literal* pLiteralExpr = MakeNode<Ast::Literal>(state.pAllocator, token, Ast::NodeKind::Literal);
+	pLiteralExpr->isConstant = true;
+
+	char* endPtr = token.pLocation + token.length;
+	pLiteralExpr->constantValue = MakeValue((f32)strtod(token.pLocation, &endPtr));
+	pLiteralExpr->pType = GetF32Type();
+	return pLiteralExpr;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseBoolLiteral(ParsingState& state) {
+	Token token = Advance(state);
+	Ast::Literal* pLiteralExpr = MakeNode<Ast::Literal>(state.pAllocator, token, Ast::NodeKind::Literal);
+	pLiteralExpr->isConstant = true;
+
+	if (strncmp("true", token.pLocation, token.length) == 0)
+		pLiteralExpr->constantValue = MakeValue(true);
+	else if (strncmp("false", token.pLocation, token.length) == 0)
+		pLiteralExpr->constantValue = MakeValue(false);
+	pLiteralExpr->pType = GetBoolType();
+	return pLiteralExpr;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseGrouping(ParsingState& state) {
+	Token startToken = Advance(state);
+	Ast::Expression* pExpr = ParseExpression(state, Precedence::None);
+	Consume(state, TokenType::RightParen, "Expected a closing right parenthesis \")\", but found nothing in this expression");
+
+	if (pExpr) {
+		Ast::Grouping* pGroupExpr = MakeNode<Ast::Grouping>(state.pAllocator, startToken, Ast::NodeKind::Grouping);
+		pGroupExpr->pExpression = pExpr;
+		return pGroupExpr;
+	}
+	PushError(state, "Expected valid expression inside parenthesis, but found nothing");
+
+	return MakeNode<Ast::BadExpression>(state.pAllocator, startToken, Ast::NodeKind::BadExpression);
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseStructLiteral(ParsingState& state) {
+	Token previous = Previous(state);
+	Token dot = Advance(state);
+	Advance(state);
+
+	Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, dot, Ast::NodeKind::StructLiteral);
+	if (previous.type == TokenType::Identifier) {
+		pLiteral->structName = CopyCStringRange(previous.pLocation, previous.pLocation + previous.length, state.pAllocator);
+	} else {
 		pLiteral->structName = "";
-		pLiteral->members.pAlloc = state.pAllocator;
-		if (Peek(state).type != TokenType::RightBrace) {
-			do {
-				pLiteral->members.PushBack(ParseExpression(state));
-			} while (Match(state, 1, TokenType::Comma));
-		}
-
-		Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression. Potentially you forgot a ',' between members?");
-		return pLiteral;
+	}
+	pLiteral->members.pAlloc = state.pAllocator;
+	if (Peek(state).type != TokenType::RightBrace) {
+		do {
+			pLiteral->members.PushBack(ParseExpression(state, Precedence::None));
+		} while (Match(state, 1, TokenType::Comma));
 	}
 
-	if (Ast::Type* pType = (Ast::Type*)ParseType(state)) {
-        return pType;
-    }
-
-    return MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
+	Consume(state, TokenType::RightBrace, "Expected '}' to end struct literal expression. Potentially you forgot a ',' between members?");
+	return pLiteral;
 }
 
 // ***********************************************************************
 
-Ast::Expression* ParseCall(ParsingState& state) {
-	Ast::Expression* pExpr = ParsePrimary(state);
+Ast::Expression* ParseIdentifier(ParsingState& state) {
+	Token identifier = Advance(state);
 
-	while (true) {
-		if (Match(state, 1, TokenType::LeftParen)) {
-            Token openParen = Previous(state);
-            Ast::Call* pCall = MakeNode<Ast::Call>(state.pAllocator, openParen, Ast::NodeKind::Call);
-			pCall->pCallee = pExpr;
-			pCall->args.pAlloc = state.pAllocator;
-
-			if (!Check(state, TokenType::RightParen)) {
-				do {
-					pCall->args.PushBack(ParseExpression(state));
-				} while (Match(state, 1, TokenType::Comma));
-			}
-
-			Token closeParen = Consume(state, TokenType::RightParen, "Expected right parenthesis to end function call");
-			pExpr = pCall;
-		// here is your selector parsing, equal precedence to function calls
-		} else if (Match(state, 1, TokenType::Dot)) {
-			Token dot = Previous(state);
-            Ast::Selector* pSelector = MakeNode<Ast::Selector>(state.pAllocator, dot, Ast::NodeKind::Selector);
-			pSelector->pTarget = pExpr;
-
-			Token fieldName = Consume(state, TokenType::Identifier, "Expected identifier after '.' to access a named field");
-			pSelector->fieldName = CopyCStringRange(fieldName.pLocation, fieldName.pLocation + fieldName.length, state.pAllocator);
-
-			pExpr = pSelector;
-		} else {
-			break;
-		}
+	// This might be the start of a struct literal, so covering that case
+	if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
+		return ParseStructLiteral(state);
+	} else {
+		Ast::Identifier* pIdentifier = MakeNode<Ast::Identifier>(state.pAllocator, identifier, Ast::NodeKind::Identifier);
+		pIdentifier->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
+		return pIdentifier;
 	}
-    return pExpr;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseSelector(ParsingState& state, Ast::Expression* pLeft) {
+	Token dot = Advance(state);
+	Ast::Selector* pSelector = MakeNode<Ast::Selector>(state.pAllocator, dot, Ast::NodeKind::Selector);
+	pSelector->pTarget = pLeft;
+
+	Token fieldName = Consume(state, TokenType::Identifier, "Expected identifier after '.' to access a named field");
+	pSelector->fieldName = CopyCStringRange(fieldName.pLocation, fieldName.pLocation + fieldName.length, state.pAllocator);
+
+	return pSelector;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseCall(ParsingState& state, Ast::Expression* pLeft) {
+	Token openParen = Advance(state);
+	Ast::Call* pCall = MakeNode<Ast::Call>(state.pAllocator, openParen, Ast::NodeKind::Call);
+	pCall->pCallee = pLeft;
+	pCall->args.pAlloc = state.pAllocator;
+
+	if (!Check(state, TokenType::RightParen)) {
+		do {
+			pCall->args.PushBack(ParseExpression(state, Precedence::None));
+		} while (Match(state, 1, TokenType::Comma));
+	}
+
+	Token closeParen = Consume(state, TokenType::RightParen, "Expected right parenthesis to end function call");
+	return pCall;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseCast(ParsingState& state) {
+	Token asToken = Advance(state);
+	Consume(state, TokenType::LeftParen, "Expected '(' before cast target type");
+
+	Ast::Cast* pCastExpr = MakeNode<Ast::Cast>(state.pAllocator, asToken, Ast::NodeKind::Cast);
+	pCastExpr->pTypeExpr = (Ast::Type*)ParseType(state);
+
+	Consume(state, TokenType::RightParen, "Expected ')' after cast target type");
+
+	pCastExpr->pExprToCast = ParseExpression(state, Precedence::UnaryPrefixes);
+	return pCastExpr;
 }
 
 // ***********************************************************************
 
 Ast::Expression* ParseUnary(ParsingState& state) {
-    while (Match(state, 3, TokenType::Minus, TokenType::Bang, TokenType::As)) {
-		Token prev = Previous(state);
+	Token op = Advance(state);
+	Ast::Unary* pUnaryExpr = MakeNode<Ast::Unary>(state.pAllocator, op, Ast::NodeKind::Unary);
 
-		// Cast Operator
-		if (prev.type == TokenType::As) {
-			Consume(state, TokenType::LeftParen, "Expected '(' before cast target type");
+	if (op.type == TokenType::Minus)
+		pUnaryExpr->op = Operator::UnaryMinus;
+	else if (op.type == TokenType::Bang)
+		pUnaryExpr->op = Operator::Not;
 
-            Ast::Cast* pCastExpr = MakeNode<Ast::Cast>(state.pAllocator, prev, Ast::NodeKind::Cast);
-			pCastExpr->pTypeExpr = (Ast::Type*)ParseType(state);
+	pUnaryExpr->pRight = ParseExpression(state, Precedence::UnaryPrefixes);
+	return pUnaryExpr;
+}
 
-			Consume(state, TokenType::RightParen, "Expected ')' after cast target type");
+// ***********************************************************************
 
-			pCastExpr->pExprToCast = ParseUnary(state);
-			return pCastExpr;
+Ast::Expression* ParseBinary(ParsingState& state, Ast::Expression* pLeft) {
+	Token opToken = Advance(state);
+	Ast::Binary* pBinaryExpr = MakeNode<Ast::Binary>(state.pAllocator, Previous(state), Ast::NodeKind::Binary);
+
+	pBinaryExpr->pLeft = pLeft;
+	pBinaryExpr->op = TokenToOperator(opToken.type);
+	pBinaryExpr->pRight = ParseExpression(state, GetOperatorPrecedence(pBinaryExpr->op));
+
+	return pBinaryExpr;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseAssignment(ParsingState& state, Ast::Expression* pLeft) {
+	Token equal = Advance(state);
+
+	pLeft->isLValue = true; // Typechecker will check if this is valid
+	Ast::Assignment* pAssignment = MakeNode<Ast::Assignment>(state.pAllocator, equal, Ast::NodeKind::Assignment);
+
+	pAssignment->pTarget = pLeft;
+	pAssignment->pAssignment = ParseExpression(state, Precedence::Assignment);
+	return pAssignment;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseType(ParsingState& state) {
+	Token startToken = Peek(state);
+
+	Ast::Expression* pLeft = nullptr;
+	switch(startToken.type) {
+		case TokenType::Identifier:
+			return ParseIdentifier(state);
+			break;
+		case TokenType::Func:
+			return ParseFunctionType(state);
+			break;
+		// todo case for pointer ^
+		default:
+			return MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
+	}
+}
+
+
+// ***********************************************************************
+Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
+	Token prefixToken = Peek(state);
+
+	// First we parse basic elements of expressions and simple unary operators
+	Ast::Expression* pLeft = nullptr;
+	switch(prefixToken.type) {
+		case TokenType::Func:
+			pLeft = ParseFunction(state);
+			break;
+		case TokenType::Struct:
+			pLeft = ParseStruct(state);
+			break;
+		case TokenType::LiteralInteger:
+			pLeft = ParseIntegerLiteral(state);
+			break;
+		case TokenType::LiteralFloat:
+			pLeft = ParseFloatLiteral(state);
+			break;
+		case TokenType::LiteralBool:
+			pLeft = ParseBoolLiteral(state);
+			break;
+		case TokenType::LeftParen:
+			pLeft = ParseGrouping(state);
+			break;
+		case TokenType::Identifier:
+			pLeft = ParseIdentifier(state);
+			break;
+		case TokenType::Dot:
+			if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
+				pLeft =	ParseStructLiteral(state);
+			} else {
+				pLeft = MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
+			}
+			break;
+		case TokenType::As:
+			pLeft = ParseCast(state);
+			break;
+		case TokenType::Minus:
+		case TokenType::Bang:
+			pLeft = ParseUnary(state);
+			break;
+		case TokenType::Semicolon:
+			pLeft = MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
+			break;
+		default:
+			Advance(state);
+			pLeft = MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
+	}
+		
+	// Then as long as we're not increasing in precedence we'll now loop
+	// parsing infix and mixfix operators
+	while(prec < PeekInfixTokenPrecedence(state)) {
+		Token infixToken = Peek(state);
+
+		switch(infixToken.type) {
+			case TokenType::Or:
+			case TokenType::And:
+			case TokenType::EqualEqual:
+			case TokenType::BangEqual:
+			case TokenType::Greater:
+			case TokenType::Less:
+			case TokenType::GreaterEqual:
+			case TokenType::LessEqual:
+			case TokenType::Plus:
+			case TokenType::Minus:
+			case TokenType::Star:
+			case TokenType::Slash:
+				pLeft = ParseBinary(state, pLeft);
+				break;
+			case TokenType::LeftParen:
+				pLeft = ParseCall(state, pLeft);
+				break;
+			case TokenType::Dot:
+				pLeft = ParseSelector(state, pLeft);
+				break;
+			case TokenType::Equal:
+				pLeft = ParseAssignment(state, pLeft);
+				break;
+			case TokenType::Semicolon:
+				pLeft = MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
+				break;	
+			default:
+				Advance(state);
+				pLeft = MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
 		}
-		// Unary maths op
-		else {
-            Ast::Unary* pUnaryExpr = MakeNode<Ast::Unary>(state.pAllocator, prev, Ast::NodeKind::Unary);
-
-			if (prev.type == TokenType::Minus)
-				pUnaryExpr->op = Operator::UnaryMinus;
-			else if (prev.type == TokenType::Bang)
-				pUnaryExpr->op = Operator::Not;
-			pUnaryExpr->pRight = ParseUnary(state);
-
-			return (Ast::Expression*)pUnaryExpr;
-		}
-    }
-	return ParseCall(state);
-}
-
-// ***********************************************************************
-
-Ast::Expression* ParseMulDiv(ParsingState& state) {
-	Ast::Expression* pExpr = ParseUnary(state);
-
-    while (Match(state, 2, TokenType::Star, TokenType::Slash)) {
-        Ast::Binary* pBinaryExpr = MakeNode<Ast::Binary>(state.pAllocator, Previous(state), Ast::NodeKind::Binary);
-
-        Token opToken = Previous(state);
-        pBinaryExpr->pLeft = pExpr;
-        pBinaryExpr->op = TokenToOperator(opToken.type);
-		pBinaryExpr->pRight = ParseUnary(state);
-
-        pExpr = (Ast::Expression*)pBinaryExpr;
-    }
-    return pExpr;
-}
-
-// ***********************************************************************
-
-Ast::Expression* ParseAddSub(ParsingState& state) {
-	Ast::Expression* pExpr = ParseMulDiv(state);
-
-    while (Match(state, 2, TokenType::Minus, TokenType::Plus)) {
-        Ast::Binary* pBinaryExpr = MakeNode<Ast::Binary>(state.pAllocator, Previous(state), Ast::NodeKind::Binary);
-
-        Token opToken = Previous(state);
-        pBinaryExpr->pLeft = pExpr;
-        pBinaryExpr->op = TokenToOperator(opToken.type);
-		pBinaryExpr->pRight = ParseMulDiv(state);
-
-        pExpr = (Ast::Expression*)pBinaryExpr;
-    }
-    return pExpr;
-}
-
-// ***********************************************************************
-
-Ast::Expression* ParseComparison(ParsingState& state) {
-	Ast::Expression* pExpr = ParseAddSub(state);
-
-    while (Match(state, 4, TokenType::Greater, TokenType::Less, TokenType::GreaterEqual, TokenType::LessEqual)) {
-        Ast::Binary* pBinaryExpr = MakeNode<Ast::Binary>(state.pAllocator, Previous(state), Ast::NodeKind::Binary);
-
-        Token opToken = Previous(state);
-        pBinaryExpr->pLeft = pExpr;
-        pBinaryExpr->op = TokenToOperator(opToken.type);
-		pBinaryExpr->pRight = ParseAddSub(state);
-
-        pExpr = (Ast::Expression*)pBinaryExpr;
-    }
-    return pExpr;
-}
-
-// ***********************************************************************
-
-Ast::Expression* ParseEquality(ParsingState& state) {
-	Ast::Expression* pExpr = ParseComparison(state);
-
-    while (Match(state, 2, TokenType::EqualEqual, TokenType::BangEqual)) {
-        Ast::Binary* pBinaryExpr = MakeNode<Ast::Binary>(state.pAllocator, Previous(state), Ast::NodeKind::Binary);
-
-        Token opToken = Previous(state);
-        pBinaryExpr->pLeft = pExpr;
-        pBinaryExpr->op = TokenToOperator(opToken.type);
-		pBinaryExpr->pRight = ParseComparison(state);
-
-        pExpr = (Ast::Expression*)pBinaryExpr;
-    }
-    return pExpr;
-}
-
-// ***********************************************************************
-
-Ast::Expression* ParseLogicAnd(ParsingState& state) {
-	Ast::Expression* pExpr = ParseEquality(state);
-
-    while (Match(state, 1, TokenType::And)) {
-        Ast::Binary* pBinaryExpr = MakeNode<Ast::Binary>(state.pAllocator, Previous(state), Ast::NodeKind::Binary);
-
-        Token opToken = Previous(state);
-        pBinaryExpr->pLeft = pExpr;
-        pBinaryExpr->op = TokenToOperator(opToken.type);
-		pBinaryExpr->pRight = ParseEquality(state);
-
-        pExpr = (Ast::Expression*)pBinaryExpr;
-    }
-    return pExpr;
-}
-
-// ***********************************************************************
-
-Ast::Expression* ParseLogicOr(ParsingState& state) {
-	Ast::Expression* pExpr = ParseLogicAnd(state);
-
-    while (Match(state, 1, TokenType::Or)) {
-        Ast::Binary* pBinaryExpr = MakeNode<Ast::Binary>(state.pAllocator, Previous(state), Ast::NodeKind::Binary);
-
-        Token opToken = Previous(state);
-        pBinaryExpr->pLeft = pExpr;
-        pBinaryExpr->op = TokenToOperator(opToken.type);
-		pBinaryExpr->pRight = ParseLogicAnd(state);
-
-        pExpr = (Ast::Expression*)pBinaryExpr;
-    }
-    return pExpr;
-}
-
-// ***********************************************************************
-
-Ast::Expression* ParseAssignment(ParsingState& state) {
-	// How do we know this pExpr will actually end up being used in an assignment at all?
-	Ast::Expression* pExpr = ParseLogicOr(state);
-
-    if (Match(state, 1, TokenType::Equal)) {
-        Token equal = Previous(state);
-		Ast::Expression* pRight = ParseAssignment(state);
-
-		pExpr->isLValue = true; // Typechecker will check if this is valid
-		Ast::Assignment* pAssignment = MakeNode<Ast::Assignment>(state.pAllocator, equal, Ast::NodeKind::Assignment);
-
-		pAssignment->pTarget = pExpr;
-		pAssignment->pAssignment = pRight;
-		return pAssignment;
-    }
-    return pExpr;
-}
-
-// ***********************************************************************
-
-Ast::Expression* ParseExpression(ParsingState& state) {
-	// We start at the highest precedence possible (i.e. executed last)
-	return ParseAssignment(state);
+	}
+	return pLeft;
 }
 
 // ***********************************************************************
@@ -674,7 +716,7 @@ Ast::Statement* ParseStatement(ParsingState& state) {
 // ***********************************************************************
 
 Ast::Statement* ParseExpressionStmt(ParsingState& state) {
-	Ast::Expression* pExpr = ParseExpression(state);
+	Ast::Expression* pExpr = ParseExpression(state, Precedence::None);
     Consume(state, TokenType::Semicolon, "Expected \";\" at the end of this statement");
 
     Ast::ExpressionStmt* pStmt = MakeNode<Ast::ExpressionStmt>(state.pAllocator, Previous(state), Ast::NodeKind::ExpressionStmt);
@@ -687,7 +729,7 @@ Ast::Statement* ParseExpressionStmt(ParsingState& state) {
 Ast::Statement* ParseIf(ParsingState& state) {
     Ast::If* pIf = MakeNode<Ast::If>(state.pAllocator, Previous(state), Ast::NodeKind::If);
 
-	pIf->pCondition = ParseExpression(state);
+	pIf->pCondition = ParseExpression(state, Precedence::None);
 	pIf->pThenStmt = ParseStatement(state);
 
     if (Match(state, 1, TokenType::Else)) {
@@ -701,7 +743,7 @@ Ast::Statement* ParseIf(ParsingState& state) {
 Ast::Statement* ParseWhile(ParsingState& state) {
     Ast::While* pWhile = MakeNode<Ast::While>(state.pAllocator, Previous(state), Ast::NodeKind::While);
 
-	pWhile->pCondition = ParseExpression(state);
+	pWhile->pCondition = ParseExpression(state, Precedence::None);
 	pWhile->pBody = ParseStatement(state);
 
     return pWhile;
@@ -711,7 +753,7 @@ Ast::Statement* ParseWhile(ParsingState& state) {
 
 Ast::Statement* ParsePrint(ParsingState& state) {
     Consume(state, TokenType::LeftParen, "Expected \"(\" following print, before the expression starts");
-	Ast::Expression* pExpr = ParseExpression(state);
+	Ast::Expression* pExpr = ParseExpression(state, Precedence::None);
     Consume(state, TokenType::RightParen, "Expected \")\" to close print expression");
     Consume(state, TokenType::Semicolon, "Expected \";\" at the end of this statement");
     
@@ -726,7 +768,7 @@ Ast::Statement* ParseReturn(ParsingState& state) {
     Ast::Return* pReturnStmt = MakeNode<Ast::Return>(state.pAllocator, Previous(state), Ast::NodeKind::Return);
 
 	if (!Check(state, TokenType::Semicolon)) {
-		pReturnStmt->pExpr = ParseExpression(state);
+		pReturnStmt->pExpr = ParseExpression(state, Precedence::None);
     } else {
         pReturnStmt->pExpr = nullptr;     
     }
@@ -775,7 +817,7 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
             // Parse initializer for constant declaration
             if (Match(state, 1, TokenType::Colon)) {
                 pDecl->isConstantDeclaration = true;
-                pDecl->pInitializerExpr = ParseExpression(state);
+                pDecl->pInitializerExpr = ParseExpression(state, Precedence::None);
                 if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::BadExpression)
                     PushError(state, "Need an expression to initialize this constant declaration");
             }
@@ -783,7 +825,7 @@ Ast::Statement* ParseDeclaration(ParsingState& state, bool onlyDeclarations) {
             // Parse initializer
             if (Match(state, 1, TokenType::Equal)) {
                 pDecl->isConstantDeclaration = false;
-				pDecl->pInitializerExpr = ParseExpression(state);
+				pDecl->pInitializerExpr = ParseExpression(state, Precedence::None);
 
                 if (pDecl->pInitializerExpr->nodeKind == Ast::NodeKind::BadExpression)
                     PushError(state, "Need an expression to initialize this declaration. If you want it uninitialized, leave out the '=' sign");

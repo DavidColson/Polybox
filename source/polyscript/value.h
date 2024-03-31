@@ -68,6 +68,7 @@ enum Enum : u32 {
     Or,
     UnaryMinus,
     Not,
+	AddressOf,
     Count
 };
 
@@ -87,10 +88,11 @@ struct TypeInfo {
         Function,
 		Type,
 		Struct,
+		Pointer,
         Count
     };
 	static const char* TagToString(TypeTag tag) {
-		static const char* stringNames[] = { "Invalid", "Void", "f32", "i32", "bool", "function", "Type" };
+		static const char* stringNames[] = { "Invalid", "Void", "f32", "i32", "bool", "function", "Type", "struct", "pointer" };
 		return stringNames[tag];
 	}
 
@@ -111,6 +113,10 @@ struct TypeInfoStruct : public TypeInfo {
 		usize offset;
 	};
 	ResizableArray<Member> members;
+};
+
+struct TypeInfoPointer: public TypeInfo {
+	TypeInfo* pBaseType;
 };
 
 void InitTypeTable();

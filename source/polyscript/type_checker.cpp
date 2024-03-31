@@ -320,6 +320,40 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             state.pCurrentScope = pFuncType->pScope->pParent;
             return pFuncType;
         }
+		case Ast::NodeKind::Dereference: {
+            Ast::Dereference* pDereference = (Ast::Dereference*)pExpr;
+            pDereference->pExpr = TypeCheckExpression(state, pDereference->pExpr);
+
+			if (pDereference->pExpr->pType->tag == TypeInfo::TypeTag::Pointer) {
+				TypeInfoPointer* pPointerTypeInfo = (TypeInfoPointer*)pDereference->pExpr->pType; 
+				pDereference->pType = pPointerTypeInfo->pBaseType; 
+			}
+			else {
+				state.pErrors->PushError(pDereference->pExpr, "Attempting to dereference a value which is not a pointer");
+			}
+			return pDereference;
+		}
+		case Ast::NodeKind::PointerType: {
+            Ast::PointerType* pPointerType = (Ast::PointerType*)pExpr;
+			pPointerType->pType = GetTypeType();
+			pPointerType->isConstant = true;
+
+            pPointerType->pBaseType = (Ast::Type*)TypeCheckExpression(state, pPointerType->pBaseType);
+            TypeInfo* pBaseTypeInfo = FindTypeByValue(pPointerType->pBaseType->constantValue);
+
+			TypeInfoPointer* pPointerTypeInfo = (TypeInfoPointer*)state.pAllocator->Allocate(sizeof(TypeInfoPointer));
+			pPointerTypeInfo->tag = TypeInfo::TypeTag::Pointer;
+			pPointerTypeInfo->size = 4;
+			pPointerTypeInfo->pBaseType = pBaseTypeInfo;
+
+			StringBuilder builder;
+            builder.AppendFormat("^%s", pBaseTypeInfo->name.pData);
+			pPointerTypeInfo->name = builder.CreateString(true, state.pAllocator);
+			
+			pPointerType->constantValue = MakeValue(pPointerTypeInfo);
+
+			return pPointerType;
+		}
 		case Ast::NodeKind::Structure: {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
             pStruct->isConstant = true;
@@ -570,9 +604,30 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 				if (CheckTypesIdentical(pUnary->pRight->pType, GetBoolType())) {
 					state.pErrors->PushError(pUnary, "Invalid type (%s) used with op \"%s\"", pUnary->pRight->pType->name.pData, Operator::ToString(pUnary->op));
 				}
-			}
+			} else if (pUnary->op == Operator::AddressOf) {
+				// expr must be identifier, non constant, or selector, all else is not valid
+				// result type is pointer to the expr, do we need to fabricate this type? I guess so
+				if (pUnary->pRight->nodeKind == Ast::NodeKind::Identifier || 
+					pUnary->pRight->nodeKind == Ast::NodeKind::Selector) {
 
-            if (pUnary->isConstant) {
+					if (!pUnary->pRight->isConstant) {
+						TypeInfoPointer* pPointerTypeInfo = (TypeInfoPointer*)state.pAllocator->Allocate(sizeof(TypeInfoPointer));
+						pPointerTypeInfo->tag = TypeInfo::TypeTag::Pointer;
+						pPointerTypeInfo->size = 4;
+						pPointerTypeInfo->pBaseType = pUnary->pRight->pType;
+
+						StringBuilder builder;
+						builder.AppendFormat("^%s", pUnary->pRight->pType->name.pData);
+						pPointerTypeInfo->name = builder.CreateString(true, state.pAllocator);
+						pUnary->pType = pPointerTypeInfo;
+					} else {
+						state.pErrors->PushError(pUnary, "Cannot take address of constant");
+					}
+				} else {
+					state.pErrors->PushError(pUnary, "Can only take the address of a variable or member");
+				}
+			}
+            if (pUnary->isConstant && pUnary->op != Operator::AddressOf) {
                 pUnary->isConstant = true;
                 pUnary->constantValue = ComputeUnaryConstant(pUnary->pType, pUnary->op, pUnary->pRight->constantValue);
             }

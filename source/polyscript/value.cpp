@@ -67,6 +67,16 @@ bool CheckTypesIdentical(TypeInfo* pType1, TypeInfo* pType2) {
             }
             return false;
         } break;
+		case TypeInfo::TypeTag::Pointer: {
+			TypeInfoPointer* pPointer1 = (TypeInfoPointer*)pType1;
+			TypeInfoPointer* pPointer2 = (TypeInfoPointer*)pType2;
+			// Pointers are the same if they share the same base type
+
+			if (CheckTypesIdentical(pPointer1->pBaseType, pPointer2->pBaseType)) {
+				return true;
+			}
+			return false;
+		} break;
         default:
             return false;
             break;
@@ -123,6 +133,16 @@ TypeInfo* CopyTypeDeep(TypeInfo* pTypeInfo, IAllocator* pAlloc = &g_Allocator) {
             }
             return pNewStructType;
         } break;
+		case TypeInfo::TypeTag::Pointer: {
+			TypeInfoPointer* pPointerType = (TypeInfoPointer*)pTypeInfo;
+            TypeInfoPointer* pNewPointerType = (TypeInfoPointer*)pAlloc->Allocate(sizeof(TypeInfoPointer));
+
+            pNewPointerType->tag = pPointerType->tag;
+            pNewPointerType->size = pPointerType->size;
+            pNewPointerType->name = CopyString(pPointerType->name, pAlloc);
+			pNewPointerType->pBaseType = CopyTypeDeep(pPointerType->pBaseType, pAlloc);
+			return pNewPointerType;
+		} break;
         default: {
             return nullptr;
             break;

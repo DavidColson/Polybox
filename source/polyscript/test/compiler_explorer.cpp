@@ -633,6 +633,16 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
             break;
         }
+		case Ast::NodeKind::PointerType: {
+            Ast::PointerType* pPointerType = (Ast::PointerType*)pExpr;
+            if (ImGui::TreeNodeEx(pPointerType, nodeFlags, "PointerType")) {
+                if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                DrawExprProperties(pExpr);
+                DrawAstExpression(pPointerType->pBaseType);
+                ImGui::TreePop();
+			}
+			break;
+		}
         case Ast::NodeKind::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             if (ImGui::TreeNodeEx(pUnary, nodeFlags, "Unary")) {
@@ -644,6 +654,9 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                         break;
                     case Operator::Not:
                         ImGui::Text("Operator: !");
+                        break;
+					case Operator::AddressOf:
+                        ImGui::Text("Operator: @");
                         break;
                     default:
                         break;
@@ -683,6 +696,16 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
                 DrawAstExpression(pSelector->pTarget);
+                ImGui::TreePop();
+            }
+			break;
+		}
+		case Ast::NodeKind::Dereference: {
+			Ast::Dereference* pDereference = (Ast::Dereference*)pExpr;
+            if (ImGui::TreeNodeEx(pDereference, nodeFlags, "Dereference")) {
+                if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                DrawExprProperties(pExpr);
+                DrawAstExpression(pDereference->pExpr);
                 ImGui::TreePop();
             }
 			break;

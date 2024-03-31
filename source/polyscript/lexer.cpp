@@ -90,6 +90,7 @@ void Tokenize(Compiler& compilerState) {
             case '+': tokens.PushBack(MakeToken(scan, TokenType::Plus)); break;
             case '*': tokens.PushBack(MakeToken(scan, TokenType::Star)); break;
             case '%': tokens.PushBack(MakeToken(scan, TokenType::Percent)); break;
+			case '@': tokens.PushBack(MakeToken(scan, TokenType::Address)); break;
             case '^': tokens.PushBack(MakeToken(scan, TokenType::Caret)); break;
             case '-':
                 if (Scan::Match(scan, '>')) {

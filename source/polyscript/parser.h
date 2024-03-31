@@ -27,6 +27,7 @@ enum class NodeKind {
     Unary,
 	Call,
 	Selector,
+	Dereference,
 	StructLiteral,
     Literal,
 	Function,
@@ -39,6 +40,7 @@ enum class NodeKind {
     // Types
     Type,
     FunctionType,
+	PointerType,
 
     // Statements
     BadStatement,
@@ -138,6 +140,11 @@ struct Selector : public Expression {
 	String fieldName;
 };
 
+struct Dereference : public Expression {
+	// expr^
+	Expression* pExpr;
+};
+
 // Type type nodes
 struct Type : public Expression {
 };
@@ -147,6 +154,11 @@ struct FunctionType : public Type {
     Scope* pScope;
     ResizableArray<Node*> params;
     Expression* pReturnType;
+};
+
+struct PointerType : public Type {
+	// ^baseType
+    Type* pBaseType;
 };
 
 struct Statement;

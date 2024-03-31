@@ -31,6 +31,7 @@ enum Enum : u32 {
     Equal,
     Bang,
     Percent,
+	Address,
     Caret,
     Greater,
     Less,

@@ -294,6 +294,7 @@ Precedence::Enum PeekInfixTokenPrecedence(ParsingState& state) {
 		case TokenType::GreaterEqual: return Precedence::Comparison;
 		case TokenType::And: return Precedence::And;
 		case TokenType::Or: return Precedence::Or;
+		case TokenType::Caret: return Precedence::UnaryPrefixes;
 		default: return Precedence::None;
 	}
 }
@@ -522,6 +523,15 @@ Ast::Expression* ParseCast(ParsingState& state) {
 
 // ***********************************************************************
 
+Ast::Expression* ParsePointerType(ParsingState& state) {
+	Token caret = Advance(state);
+	Ast::PointerType* pPointerType = MakeNode<Ast::PointerType>(state.pAllocator, caret, Ast::NodeKind::PointerType);
+	pPointerType->pBaseType = (Ast::Type*)ParseType(state);
+	return pPointerType;
+}
+
+// ***********************************************************************
+
 Ast::Expression* ParseUnary(ParsingState& state) {
 	Token op = Advance(state);
 	Ast::Unary* pUnaryExpr = MakeNode<Ast::Unary>(state.pAllocator, op, Ast::NodeKind::Unary);
@@ -530,9 +540,20 @@ Ast::Expression* ParseUnary(ParsingState& state) {
 		pUnaryExpr->op = Operator::UnaryMinus;
 	else if (op.type == TokenType::Bang)
 		pUnaryExpr->op = Operator::Not;
+	else if (op.type == TokenType::Address)
+		pUnaryExpr->op = Operator::AddressOf;
 
 	pUnaryExpr->pRight = ParseExpression(state, Precedence::UnaryPrefixes);
 	return pUnaryExpr;
+}
+
+// ***********************************************************************
+
+Ast::Expression* ParseDereference(ParsingState& state, Ast::Expression* pLeft) {
+	Token caret = Advance(state);
+	Ast::Dereference* pDereference = MakeNode<Ast::Dereference>(state.pAllocator, Previous(state), Ast::NodeKind::Dereference);
+	pDereference->pExpr = pLeft;
+	return pDereference;
 }
 
 // ***********************************************************************
@@ -574,7 +595,9 @@ Ast::Expression* ParseType(ParsingState& state) {
 		case TokenType::Func:
 			return ParseFunctionType(state);
 			break;
-		// todo case for pointer ^
+		case TokenType::Caret:
+			return ParsePointerType(state);
+			break;
 		default:
 			return MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
 	}
@@ -621,7 +644,11 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 			break;
 		case TokenType::Minus:
 		case TokenType::Bang:
+		case TokenType::Address:
 			pLeft = ParseUnary(state);
+			break;
+		case TokenType::Caret:
+			pLeft = ParsePointerType(state);
 			break;
 		case TokenType::Semicolon:
 			pLeft = MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
@@ -659,6 +686,9 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 				break;
 			case TokenType::Equal:
 				pLeft = ParseAssignment(state, pLeft);
+				break;
+			case TokenType::Caret:
+				pLeft = ParseDereference(state, pLeft);
 				break;
 			case TokenType::Semicolon:
 				pLeft = MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);

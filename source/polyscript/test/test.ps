@@ -264,4 +264,36 @@ FunctionWithStructArgs :: func (anint : i32, example: BabysFirstStruct, afloat :
 FunctionWithStructArgs(44, instanceOfStruct, 4.9); // 44, 1337, 4.9
 FunctionWithStructArgs(33, .{ intMember = 420 }, 6.8); // 33, 420, 6.8
 
+// ***************************************************************
+// [TEST] Pointers
+{
+	someInt := 33;
+	pInt : ^i32 = @someInt;
 
+	someInt = 55;
+	randomValueOnStack := 22;
+
+	print(pInt^); // 55
+
+	someInt = 1337;
+	print(pInt^); // 1337
+
+	pInt^ = 666;
+	print(someInt); // 666
+
+	instance := BabysFirstStruct.{ true, 44.9, 88 };
+	pInstance : ^BabysFirstStruct = @instance;
+
+	print(pInstance^.intMember); // 88
+
+	instance.floatMember = 238.7;
+
+	print(pInstance^.floatMember); // 238.7
+
+	pInstance^.boolMember = false;
+	print(instance.boolMember); // false
+
+	pMember := @instance.intMember;
+	pMember^ = 97;
+	print(instance.intMember); // 97
+}

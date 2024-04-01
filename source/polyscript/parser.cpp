@@ -574,7 +574,6 @@ Ast::Expression* ParseBinary(ParsingState& state, Ast::Expression* pLeft) {
 Ast::Expression* ParseAssignment(ParsingState& state, Ast::Expression* pLeft) {
 	Token equal = Advance(state);
 
-	pLeft->isLValue = true; // Typechecker will check if this is valid
 	Ast::Assignment* pAssignment = MakeNode<Ast::Assignment>(state.pAllocator, equal, Ast::NodeKind::Assignment);
 
 	pAssignment->pTarget = pLeft;

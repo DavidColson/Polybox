@@ -175,11 +175,11 @@ void ReserveStorageForScopeRecursive(CodeGenState& state, Scope* pScope) {
 
 // ***********************************************************************
 
-void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr);
+void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr, bool suppressLoads = false);
 
 void CodeGenAssignment(CodeGenState& state, i32 line, Ast::Expression* pSrcExpr, i32 offset = 0) {
 	CodeGenExpression(state, pSrcExpr);
-	if (pSrcExpr->pType->tag == TypeInfo::TypeTag::Struct) {
+	if (pSrcExpr->pType->size > 4) {
 		PushInstruction(state, line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
 		PushOperand32bit(state, (u32)pSrcExpr->pType->size);
 		PushInstruction(state, line, {.opcode = OpCode::Copy }); 
@@ -242,7 +242,7 @@ void CodeGenFunction(CodeGenState& state, String identifier, Ast::Function* pFun
 
 // ***********************************************************************
 
-void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
+void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr, bool suppressLoads) {
 
     // Constant folding
 	// If this expression is a constant, there's no need to generate any bytecode, just emit the constant literal
@@ -269,7 +269,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 				PushInstruction(state, pIdentifier->line, { .opcode = OpCode::LocalAddr });
 				PushOperand16bit(state, ResolveLocal(state, pIdentifier->identifier));
 
-				if (!pIdentifier->isLValue && pEntity->pType->tag != TypeInfo::TypeTag::Struct) {
+				if (!suppressLoads && pEntity->pType->size <= 4) {
 					PushInstruction(state, pIdentifier->line, { .opcode = OpCode::Load });
 					PushOperand16bit(state, 0);
 				}
@@ -278,14 +278,14 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
         }
         case Ast::NodeKind::Assignment: {
             Ast::Assignment* pAssignment = (Ast::Assignment*)pExpr;
-			CodeGenExpression(state, pAssignment->pTarget);
+			CodeGenExpression(state, pAssignment->pTarget, true);
 			CodeGenAssignment(state, pAssignment->line, pAssignment->pAssignment);
             break;
         }
 		case Ast::NodeKind::Selector: {
 			Ast::Selector* pSelector = (Ast::Selector*)pExpr;
 			
-			CodeGenExpression(state, pSelector->pTarget);
+			CodeGenExpression(state, pSelector->pTarget, true);
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSelector->pTarget->pType;
 			TypeInfoStruct::Member* pTargetField = nullptr;
@@ -297,7 +297,7 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
 				}
 			}
 
-			if (pSelector->isLValue || pTargetField->pType->tag == TypeInfo::TypeTag::Struct) {
+			if (suppressLoads || pTargetField->pType->size > 4) {
 				// This case will leave on the stack a pointer to the field
 				PushInstruction(state, pSelector->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
 				PushOperand32bit(state, (u32)pTargetField->offset);
@@ -468,19 +468,34 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr) {
         }
         case Ast::NodeKind::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
-            CodeGenExpression(state, pUnary->pRight);
             switch (pUnary->op) {
                 case Operator::UnaryMinus:
+					CodeGenExpression(state, pUnary->pRight);
                     PushInstruction(state, pUnary->line, { .opcode = OpCode::Negate, .type = pUnary->pRight->pType->tag});
                     break;
                 case Operator::Not:
+					CodeGenExpression(state, pUnary->pRight);
                     PushInstruction(state, pUnary->line, { .opcode = OpCode::Not, .type = pUnary->pRight->pType->tag});
                     break;
+				case Operator::AddressOf:
+					CodeGenExpression(state, pUnary->pRight, true);
+					break;
                 default:
                     break;
             }
 			break;
         }
+		case Ast::NodeKind::Dereference: {
+			// codegen the expression which will load the pointer value onto the stack (as it's 4 bytes)
+            Ast::Dereference* pDereference = (Ast::Dereference*)pExpr;
+			CodeGenExpression(state, pDereference->pExpr);
+			// if base type size is 4 bytes or less, do a load, otherwise to nothing
+			if (!suppressLoads && pDereference->pExpr->pType->size <= 4) {
+				PushInstruction(state, pDereference->line, { .opcode = OpCode::Load });
+				PushOperand16bit(state, 0);
+			}
+			break;
+		}
 		case Ast::NodeKind::Cast: {
 			Ast::Cast* pCast = (Ast::Cast*)pExpr;
 			CodeGenExpression(state, pCast->pExprToCast);
@@ -612,7 +627,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 				CodeGenAssignment(state, pDecl->line, pDecl->pInitializerExpr);
 			}
             else {
-				if (pDecl->pType->tag == TypeInfo::Struct) {
+				if (pDecl->pType->size > 4) {
 					// Structs need to store 0s to their local locations to initialize themselves
 					i32 numSlots = (i32)ceil((f32)pDecl->pType->size / 4.f);
 					for (i32 i = 0; i < numSlots; i++) {

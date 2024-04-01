@@ -467,7 +467,8 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			// decide if pTarget is a valid lvalue
 			Ast::NodeKind targetKind = pAssignment->pTarget->nodeKind;
 			if (targetKind != Ast::NodeKind::Identifier &&
-				targetKind != Ast::NodeKind::Selector) {
+				targetKind != Ast::NodeKind::Selector &&
+				targetKind != Ast::NodeKind::Dereference) {
                 state.pErrors->PushError(pAssignment, "Left of assignment is not a valid Lvalue that we can assign to");
 			}
 

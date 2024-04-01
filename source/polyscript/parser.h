@@ -67,7 +67,6 @@ struct Expression : public Node {
     TypeInfo* pType;
     bool isConstant { false };
     Value constantValue;
-	bool isLValue { false };
 };
 
 struct BadExpression : public Expression {

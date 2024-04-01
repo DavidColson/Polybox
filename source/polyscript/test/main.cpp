@@ -35,10 +35,9 @@ void RunTestPlayground() {
 
         compiler.code = AllocString(size + 1, &g_Allocator);
         fread(compiler.code.pData, size, 1, pFile);
-		usize len = strlen(compiler.code.pData);
         fclose(pFile);
-		compiler.code.pData[len] = '\0';
-		compiler.code.length = len;
+		compiler.code.pData[size] = '\0';
+		compiler.code.length = size;
 		
 	}
 	compiler.bPrintAst = false;
@@ -903,6 +902,63 @@ void Constants() {
 	EndTest(errorCount);
 }
 
+void Pointers() {
+	StartTest("Pointers");
+	int errorCount = 0;
+	{
+		// Test basic pointer usage, creation, address of variables, dereferencing
+		const char* basicPointers = 
+			"someInt := 33;\n"
+			"pInt : ^i32 = @someInt;\n"
+			"someInt = 55;\n"
+			"print(pInt^);\n"
+			"someInt = 1337;\n"
+			"print(pInt^);\n"
+			"pInt^ = 666;\n"
+			"print(someInt);\n";
+		const char* expectation =	
+			"55\n"
+			"1337\n"
+			"666\n";
+		errorCount += RunCompilerOnTestCase(basicPointers, expectation, ResizableArray<String>());
+
+		// Test pointer use on structs, taking pointers to members and dereferencing pointers to structs and accessing members
+		const char* pointersWithStructs = 
+			"BabysFirstStruct :: struct { boolMember: bool; floatMember: f32; intMember: i32; };\n"
+			"instance := BabysFirstStruct.{ true, 44.9, 88 };\n"
+			"pInstance : ^BabysFirstStruct = @instance;\n"
+			"print(pInstance^.intMember);\n"
+			"instance.floatMember = 238.7;\n"
+			"print(pInstance^.floatMember);\n"
+			"pInstance^.boolMember = false;\n"
+			"print(instance.boolMember);\n"
+			"pMember := @instance.intMember;\n"
+			"pMember^ = 97;\n"
+			"print(instance.intMember);\n";
+		expectation =	
+			"88\n"
+			"238.7\n"
+			"false\n"
+			"97\n";
+		errorCount += RunCompilerOnTestCase(pointersWithStructs, expectation, ResizableArray<String>());
+
+		const char* pointerErrors = 
+			"value:i32 = 5;\n"
+			"print(value^);\n"
+			"constValue :: 99;\n"
+			"pointer := @constValue;\n"
+			"pointer2 := @45;\n";
+		ResizableArray<String> expectedErrors;
+		defer(expectedErrors.Free());
+		expectedErrors.PushBack("Attempting to dereference a value which is not a pointer");
+		expectedErrors.PushBack("Cannot take address of constant");
+		expectedErrors.PushBack("Can only take the address of a variable or member");
+		errorCount += RunCompilerOnTestCase(pointerErrors, "", expectedErrors);
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
 int main(int argc, char *argv[]) {
 	// TODO: Move to program structure
     InitTypeTable();
@@ -921,6 +977,7 @@ int main(int argc, char *argv[]) {
     Structs();
 	StructLiterals();
     Constants();
+	Pointers();
 
     RunTestPlayground();
 

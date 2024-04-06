@@ -41,6 +41,7 @@ enum class NodeKind {
     Type,
     FunctionType,
 	PointerType,
+	ArrayType,
 
     // Statements
     BadStatement,
@@ -158,6 +159,20 @@ struct FunctionType : public Type {
 struct PointerType : public Type {
 	// ^baseType
     Type* pBaseType;
+};
+
+enum ArrayKind {
+	Static,
+	Slice,
+	Dynamic
+};
+
+struct ArrayType : public Type {
+	// [dim]type
+	Type* pBaseType;
+	// todo: typecheck that this is a constant
+	Expression* pDimension;
+	ArrayKind kind;
 };
 
 struct Statement;

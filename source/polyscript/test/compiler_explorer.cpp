@@ -643,6 +643,17 @@ void DrawAstExpression(Ast::Expression* pExpr) {
 			}
 			break;
 		}
+		case Ast::NodeKind::ArrayType: {
+            Ast::ArrayType* pArrayType = (Ast::ArrayType*)pExpr;
+            if (ImGui::TreeNodeEx(pArrayType, nodeFlags, "ArrayType")) {
+                if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                DrawExprProperties(pExpr);
+				DrawAstExpression(pArrayType->pDimension);
+				DrawAstExpression(pArrayType->pBaseType);
+				ImGui::TreePop();
+			}
+			break;
+		}
         case Ast::NodeKind::Unary: {
             Ast::Unary* pUnary = (Ast::Unary*)pExpr;
             if (ImGui::TreeNodeEx(pUnary, nodeFlags, "Unary")) {

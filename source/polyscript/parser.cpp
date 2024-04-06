@@ -532,6 +532,17 @@ Ast::Expression* ParsePointerType(ParsingState& state) {
 
 // ***********************************************************************
 
+Ast::Expression* ParseArrayType(ParsingState& state) {
+	Token leftBracket = Advance(state);
+	Ast::ArrayType* pArrayType = MakeNode<Ast::ArrayType>(state.pAllocator, leftBracket, Ast::NodeKind::ArrayType);
+	pArrayType->pDimension = ParseExpression(state, Precedence::None);
+	Consume(state, TokenType::RightBracket, "Expected ']' following array dimension in array type declaration");
+	pArrayType->pBaseType = (Ast::Type*)ParseType(state);
+	return pArrayType;
+}
+
+// ***********************************************************************
+
 Ast::Expression* ParseUnary(ParsingState& state) {
 	Token op = Advance(state);
 	Ast::Unary* pUnaryExpr = MakeNode<Ast::Unary>(state.pAllocator, op, Ast::NodeKind::Unary);
@@ -597,6 +608,9 @@ Ast::Expression* ParseType(ParsingState& state) {
 		case TokenType::Caret:
 			return ParsePointerType(state);
 			break;
+		case TokenType::LeftBracket:
+			return ParseArrayType(state);
+			break;
 		default:
 			return MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
 	}
@@ -651,6 +665,9 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 			break;
 		case TokenType::Semicolon:
 			pLeft = MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
+			break;
+		case TokenType::LeftBracket:
+			pLeft = ParseArrayType(state);
 			break;
 		default:
 			Advance(state);

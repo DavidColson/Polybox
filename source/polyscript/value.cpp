@@ -77,6 +77,17 @@ bool CheckTypesIdentical(TypeInfo* pType1, TypeInfo* pType2) {
 			}
 			return false;
 		} break;
+		case TypeInfo::TypeTag::Array: {
+			TypeInfoArray* pArray1 = (TypeInfoArray*)pType1;
+			TypeInfoArray* pArray2 = (TypeInfoArray*)pType2;
+			// arrays are identical if the base types are identical and the dimension is the same
+
+			bool baseTypesIdentical = CheckTypesIdentical(pArray1->pBaseType, pArray2->pBaseType);
+			bool dimensionIdentical = pArray1->dimension == pArray2->dimension;
+			if (baseTypesIdentical && dimensionIdentical)
+				return true;
+			return false;
+		} break;
         default:
             return false;
             break;
@@ -142,6 +153,17 @@ TypeInfo* CopyTypeDeep(TypeInfo* pTypeInfo, IAllocator* pAlloc = &g_Allocator) {
             pNewPointerType->name = CopyString(pPointerType->name, pAlloc);
 			pNewPointerType->pBaseType = CopyTypeDeep(pPointerType->pBaseType, pAlloc);
 			return pNewPointerType;
+		} break;
+		case TypeInfo::TypeTag::Array: {
+			TypeInfoArray* pArrayType = (TypeInfoArray*)pTypeInfo;
+            TypeInfoArray* pNewArrayType = (TypeInfoArray*)pAlloc->Allocate(sizeof(TypeInfoArray));
+
+            pNewArrayType->tag = pArrayType->tag;
+            pNewArrayType->size = pArrayType->size;
+            pNewArrayType->name = CopyString(pArrayType->name, pAlloc);
+			pNewArrayType->pBaseType = CopyTypeDeep(pArrayType->pBaseType, pAlloc);
+			pNewArrayType->dimension = pArrayType->dimension;
+			return pNewArrayType;
 		} break;
         default: {
             return nullptr;

@@ -354,6 +354,35 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 
 			return pPointerType;
 		}
+		case Ast::NodeKind::ArrayType: {
+            Ast::ArrayType* pArrayType = (Ast::ArrayType*)pExpr;
+			pArrayType->pType = GetTypeType();
+			pArrayType->isConstant = true;
+
+			pArrayType->pDimension = TypeCheckExpression(state, pArrayType->pDimension);
+			if (!pArrayType->pDimension->isConstant) {
+				state.pErrors->PushError(pArrayType->pDimension, "Array dimension must be a constant value");
+			}
+			if (!CheckTypesIdentical(pArrayType->pDimension->pType, GetI32Type())) {
+				state.pErrors->PushError(pArrayType->pDimension, "Array dimension must be an integer");
+			}
+			
+            pArrayType->pBaseType = (Ast::Type*)TypeCheckExpression(state, pArrayType->pBaseType);
+            TypeInfo* pBaseTypeInfo = FindTypeByValue(pArrayType->pBaseType->constantValue);
+
+			TypeInfoArray* pArrayTypeInfo = (TypeInfoArray*)state.pAllocator->Allocate(sizeof(TypeInfoArray));
+			pArrayTypeInfo->tag = TypeInfo::TypeTag::Array;
+			pArrayTypeInfo->pBaseType = pBaseTypeInfo;
+			pArrayTypeInfo->dimension = pArrayType->pDimension->constantValue.i32Value;
+			pArrayTypeInfo->size = pArrayTypeInfo->dimension * pBaseTypeInfo->size;
+
+			StringBuilder builder;
+            builder.AppendFormat("[%i]%s", pArrayTypeInfo->dimension, pBaseTypeInfo->name.pData);
+			pArrayTypeInfo->name = builder.CreateString(true, state.pAllocator);
+
+			pArrayType->constantValue = MakeValue(pArrayTypeInfo);
+			return pArrayType;
+		}
 		case Ast::NodeKind::Structure: {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
             pStruct->isConstant = true;
@@ -1016,6 +1045,16 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             state.pCurrentScope = pFuncType->pScope->pParent;
             break;
         }
+		case Ast::NodeKind::PointerType: {
+            Ast::PointerType* pPointerType = (Ast::PointerType*)pExpr;
+			CollectEntitiesInExpression(state, pPointerType->pBaseType);
+			break;
+		}
+		case Ast::NodeKind::ArrayType: {
+            Ast::ArrayType* pArrayType = (Ast::ArrayType*)pExpr;
+			CollectEntitiesInExpression(state, pArrayType->pBaseType);
+			break;
+		}
         case Ast::NodeKind::Structure: {
             Ast::Structure* pStruct = (Ast::Structure*)pExpr;
             pStruct->pScope = CreateScope(ScopeKind::Struct, state.pCurrentScope, state.pAllocator);

@@ -89,10 +89,11 @@ struct TypeInfo {
 		Type,
 		Struct,
 		Pointer,
+		Array,
         Count
     };
 	static const char* TagToString(TypeTag tag) {
-		static const char* stringNames[] = { "Invalid", "Void", "f32", "i32", "bool", "function", "Type", "struct", "pointer" };
+		static const char* stringNames[] = { "Invalid", "void", "f32", "i32", "bool", "function", "type", "struct", "pointer", "array" };
 		return stringNames[tag];
 	}
 
@@ -117,6 +118,11 @@ struct TypeInfoStruct : public TypeInfo {
 
 struct TypeInfoPointer: public TypeInfo {
 	TypeInfo* pBaseType;
+};
+
+struct TypeInfoArray: public TypeInfo {
+	TypeInfo* pBaseType;	
+	i32 dimension;
 };
 
 void InitTypeTable();

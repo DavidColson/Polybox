@@ -269,32 +269,11 @@ Precedence::Enum GetOperatorPrecedence(Operator::Enum op) {
 		case Operator::Or: return Precedence::Or;
 		case Operator::UnaryMinus: return Precedence::UnaryPrefixes;
 		case Operator::Not: return Precedence::UnaryPrefixes;
-		default: return Precedence::None;
-	}
-}
-
-// ***********************************************************************
-
-Precedence::Enum PeekInfixTokenPrecedence(ParsingState& state) {
-	Token tok = Peek(state);
-	switch(tok.type) {
-		case TokenType::LeftParen: return Precedence::CallsAndSelectors;
-		case TokenType::Dot: return Precedence::CallsAndSelectors;
-		case TokenType::Minus: return Precedence::AddSub;
-		case TokenType::Plus: return Precedence::AddSub;
-		case TokenType::Star: return Precedence::MulDiv;
-		case TokenType::Slash: return Precedence::MulDiv;
-		case TokenType::Equal: return Precedence::Assignment;
-		case TokenType::Bang: return Precedence::UnaryPrefixes;
-		case TokenType::Greater: return Precedence::Comparison;
-		case TokenType::Less: return Precedence::Comparison;
-		case TokenType::BangEqual: return Precedence::Comparison;
-		case TokenType::EqualEqual: return Precedence::Equality;
-		case TokenType::LessEqual: return Precedence::Comparison;
-		case TokenType::GreaterEqual: return Precedence::Comparison;
-		case TokenType::And: return Precedence::And;
-		case TokenType::Or: return Precedence::Or;
-		case TokenType::Caret: return Precedence::UnaryPrefixes;
+		case Operator::AddressOf: return Precedence::UnaryPrefixes;
+		case Operator::FieldSelector: return Precedence::CallsAndSelectors;
+		case Operator::ArraySubscript: return Precedence::CallsAndSelectors;
+		case Operator::PointerDeref: return Precedence::UnaryPrefixes;
+		case Operator::Assignment: return Precedence::Assignment;
 		default: return Precedence::None;
 	}
 }
@@ -478,13 +457,15 @@ Ast::Expression* ParseIdentifier(ParsingState& state) {
 // ***********************************************************************
 
 Ast::Expression* ParseSelector(ParsingState& state, Ast::Expression* pLeft) {
-	Token dot = Advance(state);
-	Ast::Selector* pSelector = MakeNode<Ast::Selector>(state.pAllocator, dot, Ast::NodeKind::Selector);
+	Token op = Advance(state);
+	Ast::Selector* pSelector = MakeNode<Ast::Selector>(state.pAllocator, op, Ast::NodeKind::Selector);
 	pSelector->pTarget = pLeft;
+	pSelector->op = TokenToOperator(op.type); 
+	pSelector->pSelection = ParseExpression(state, Precedence::CallsAndSelectors);
 
-	Token fieldName = Consume(state, TokenType::Identifier, "Expected identifier after '.' to access a named field");
-	pSelector->fieldName = CopyCStringRange(fieldName.pLocation, fieldName.pLocation + fieldName.length, state.pAllocator);
-
+	if (pSelector->op == Operator::ArraySubscript) {
+		Consume(state, TokenType::RightBracket, "Expected ']' to end array subscript");
+	}
 	return pSelector;
 }
 
@@ -676,7 +657,7 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 		
 	// Then as long as we're not increasing in precedence we'll now loop
 	// parsing infix and mixfix operators
-	while(prec < PeekInfixTokenPrecedence(state)) {
+	while(prec < GetOperatorPrecedence(TokenToOperator(Peek(state).type))) {
 		Token infixToken = Peek(state);
 
 		switch(infixToken.type) {
@@ -698,6 +679,7 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 				pLeft = ParseCall(state, pLeft);
 				break;
 			case TokenType::Dot:
+			case TokenType::LeftBracket:
 				pLeft = ParseSelector(state, pLeft);
 				break;
 			case TokenType::Equal:
@@ -1166,17 +1148,6 @@ void DebugExpression(Ast::Expression* pExpr, i32 indentationLevel) {
             }
             break;
         }
-		case Ast::NodeKind::Selector: {
-			Ast::Selector* pSelector = (Ast::Selector*)pExpr;
-
-			String nodeTypeStr = "none";
-			if (pSelector->pType) {
-				nodeTypeStr = pSelector->pType->name;
-			}
-			Log::Debug("%*s- Selector (%s:%s)", indentationLevel, "", pSelector->fieldName.pData, nodeTypeStr.pData);
-			DebugExpression(pSelector->pTarget, indentationLevel + 2);
-			break;
-		}
         case Ast::NodeKind::BadExpression: {
             Ast::BadExpression* pBad = (Ast::BadExpression*)pExpr;
             Log::Debug("%*s> Bad Expression", indentationLevel, "");

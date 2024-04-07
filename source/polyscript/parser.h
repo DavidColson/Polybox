@@ -135,9 +135,9 @@ struct Call : public Expression {
 };
 
 struct Selector : public Expression {
-	// target.fieldName
+	Operator::Enum op; // could be field selector or array subscript 
 	Expression* pTarget;
-	String fieldName;
+	Expression* pSelection;
 };
 
 struct Dereference : public Expression {

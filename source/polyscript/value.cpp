@@ -7,8 +7,6 @@
 #include <linear_allocator.h>
 
 namespace {
-Operator::Enum tokenToOperatorMap[TokenType::Count];
-
 LinearAllocator typeTableMemory;
 ResizableArray<TypeInfo*> typeTable;
 }
@@ -16,7 +14,27 @@ ResizableArray<TypeInfo*> typeTable;
 // ***********************************************************************
 
 Operator::Enum TokenToOperator(TokenType::Enum tokenType) {
-    return tokenToOperatorMap[tokenType];
+    switch(tokenType) {
+		case TokenType::Plus: return Operator::Add;
+		case TokenType::Minus: return Operator::Subtract;
+		case TokenType::Star: return Operator::Multiply;
+		case TokenType::Slash: return Operator::Divide;
+		case TokenType::Less: return Operator::Less;
+		case TokenType::Greater: return Operator::Greater;
+		case TokenType::GreaterEqual: return Operator::GreaterEqual;
+		case TokenType::LessEqual: return Operator::LessEqual;
+		case TokenType::EqualEqual: return Operator::Equal;
+		case TokenType::BangEqual: return Operator::NotEqual;
+		case TokenType::And: return Operator::And;
+		case TokenType::Or: return Operator::Or;
+		case TokenType::Bang: return Operator::Not;
+		case TokenType::Address: return Operator::AddressOf;
+		case TokenType::Dot: return Operator::FieldSelector;
+		case TokenType::LeftBracket: return Operator::ArraySubscript;
+		case TokenType::Caret: return Operator::PointerDeref;
+		case TokenType::Equal: return Operator::Assignment;
+		default: return Operator::Invalid;
+	}	
 }
 
 // ***********************************************************************
@@ -295,22 +313,4 @@ TypeInfo* GetTypeType() {
 
 TypeInfo* GetEmptyFuncType() {
     return typeTable[6];
-}
-
-// ***********************************************************************
-
-void InitTokenToOperatorMap() {
-    tokenToOperatorMap[TokenType::Plus] = Operator::Add;
-    tokenToOperatorMap[TokenType::Minus] = Operator::Subtract;
-    tokenToOperatorMap[TokenType::Star] = Operator::Multiply;
-    tokenToOperatorMap[TokenType::Slash] = Operator::Divide;
-    tokenToOperatorMap[TokenType::Less] = Operator::Less;
-    tokenToOperatorMap[TokenType::Greater] = Operator::Greater;
-    tokenToOperatorMap[TokenType::GreaterEqual] = Operator::GreaterEqual;
-    tokenToOperatorMap[TokenType::LessEqual] = Operator::LessEqual;
-    tokenToOperatorMap[TokenType::EqualEqual] = Operator::Equal;
-    tokenToOperatorMap[TokenType::BangEqual] = Operator::NotEqual;
-    tokenToOperatorMap[TokenType::And] = Operator::And;
-    tokenToOperatorMap[TokenType::Or] = Operator::Or;
-    tokenToOperatorMap[TokenType::Bang] = Operator::Not;
 }

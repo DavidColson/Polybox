@@ -751,6 +751,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 		case Ast::NodeKind::Selector: {
 			Ast::Selector* pSelector = (Ast::Selector*)pExpr;
 			pSelector->pTarget = TypeCheckExpression(state, pSelector->pTarget);
+			pSelector->pSelection = TypeCheckExpression(state, pSelector->pSelection);
             
             // TODO: This could be constant actually. If the field was declared as a constant, then this can be constant, for later.
             pSelector->isConstant = false;
@@ -758,24 +759,46 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			if (pSelector->pTarget->pType == nullptr) {
 				return pSelector;
 			}
-			TypeInfo* pTargetTypeInfo = pSelector->pTarget->pType;
-			if (pTargetTypeInfo->tag != TypeInfo::Struct) {
-				state.pErrors->PushError(pSelector, "Attempting to access a field on type '%s' which is not a struct", pTargetTypeInfo->name.pData);
-				return pSelector;
-			}
 
-			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pTargetTypeInfo;
-
-			for (size i = 0; i < pTargetType->members.count; i++) {
-				TypeInfoStruct::Member& mem = pTargetType->members[i];
-				if (mem.identifier == pSelector->fieldName) {
-					pSelector->pType = mem.pType;
+			if (pSelector->op == Operator::FieldSelector) { 
+				TypeInfo* pTargetTypeInfo = pSelector->pTarget->pType;
+				if (pTargetTypeInfo->tag != TypeInfo::Struct) {
+					state.pErrors->PushError(pSelector, "Attempting to access a field on type '%s' which is not a struct", pTargetTypeInfo->name.pData);
 					return pSelector;
 				}
-			}
 
-			state.pErrors->PushError(pSelector, "Specified field does not exist in struct '%s'", pTargetType->name.pData);
-			
+				if (pSelector->pSelection->nodeKind != Ast::NodeKind::Identifier) {
+					state.pErrors->PushError(pSelector->pSelection, "Left of field selector must be an identifier", pTargetTypeInfo->name.pData);
+					return pSelector;
+				}
+
+				TypeInfoStruct* pTargetType = (TypeInfoStruct*)pTargetTypeInfo;
+				Ast::Identifier* pFieldIdentifier = (Ast::Identifier*)pSelector->pSelection;
+				for (size i = 0; i < pTargetType->members.count; i++) {
+					TypeInfoStruct::Member& mem = pTargetType->members[i];
+					if (mem.identifier == pFieldIdentifier->identifier) {
+						pSelector->pType = mem.pType;
+						return pSelector;
+					}
+				}
+
+				state.pErrors->PushError(pSelector, "Specified field does not exist in struct '%s'", pTargetType->name.pData);
+			}
+			else if (pSelector->op == Operator::ArraySubscript) {
+				TypeInfo* pTargetTypeInfo = pSelector->pTarget->pType;
+				if (pTargetTypeInfo->tag != TypeInfo::Array) {
+					state.pErrors->PushError(pSelector, "Attempting to subscript value which is not an array");
+					return pSelector;
+				}
+
+				if (pSelector->pSelection->pType->tag != TypeInfo::TypeTag::I32) {
+					state.pErrors->PushError(pSelector->pSelection, "Array subscript must be integer type");
+					return pSelector;
+				}
+
+				TypeInfoArray* pArrayTypeInfo = (TypeInfoArray*)pTargetTypeInfo; 
+				pSelector->pType = pArrayTypeInfo->pBaseType;
+			}
 			return pSelector;
 			break;
 		}

@@ -703,10 +703,11 @@ void DrawAstExpression(Ast::Expression* pExpr) {
         }
 		case Ast::NodeKind::Selector: {
 			Ast::Selector* pSelector = (Ast::Selector*)pExpr;
-            if (ImGui::TreeNodeEx(pSelector, nodeFlags, "Selector - %s", pSelector->fieldName.pData)) {
+            if (ImGui::TreeNodeEx(pSelector, nodeFlags, "Selector")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
                 DrawAstExpression(pSelector->pTarget);
+                DrawAstExpression(pSelector->pSelection);
                 ImGui::TreePop();
             }
 			break;

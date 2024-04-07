@@ -54,6 +54,7 @@ enum Enum : u32;
 
 namespace Operator {
 enum Enum : u32 {
+	Invalid,
     Add,
     Subtract,
     Multiply,
@@ -69,10 +70,15 @@ enum Enum : u32 {
     UnaryMinus,
     Not,
 	AddressOf,
+	FieldSelector,
+	ArraySubscript,
+	PointerDeref,
+	Assignment,
     Count
 };
 
-static const char* stringNames[] = { "+", "-", "*", "/", "<", ">", ">=", "<=", "==", "!=", "&&", "||", "-", "!", "count" };
+static const char* stringNames[] = { 
+	"+", "-", "*", "/", "<", ">", ">=", "<=", "==", "!=", "&&", "||", "-", "!", "@", ".", "[", "^", "=", "count" };
 static const char* ToString(Operator::Enum type) {
     return stringNames[type];
 }
@@ -148,8 +154,6 @@ TypeInfo* GetBoolType();
 TypeInfo* GetTypeType();
 
 TypeInfo* GetEmptyFuncType();
-
-void InitTokenToOperatorMap();
 
 Operator::Enum TokenToOperator(TokenType::Enum tokenType);
 

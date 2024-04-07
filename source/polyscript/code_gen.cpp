@@ -289,9 +289,10 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr, bool suppres
 
 			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSelector->pTarget->pType;
 			TypeInfoStruct::Member* pTargetField = nullptr;
+			Ast::Identifier* pFieldIdentifier = (Ast::Identifier*)pSelector->pSelection;
 			for (size i = 0; i < pTargetType->members.count; i++) {
 				TypeInfoStruct::Member& mem = pTargetType->members[i];
-				if (mem.identifier == pSelector->fieldName) {
+				if (mem.identifier == pFieldIdentifier->identifier) {
 					pTargetField = &pTargetType->members[i];
 					break;
 				}

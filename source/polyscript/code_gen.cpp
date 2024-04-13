@@ -287,27 +287,48 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr, bool suppres
 			
 			CodeGenExpression(state, pSelector->pTarget, true);
 
-			TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSelector->pTarget->pType;
-			TypeInfoStruct::Member* pTargetField = nullptr;
-			Ast::Identifier* pFieldIdentifier = (Ast::Identifier*)pSelector->pSelection;
-			for (size i = 0; i < pTargetType->members.count; i++) {
-				TypeInfoStruct::Member& mem = pTargetType->members[i];
-				if (mem.identifier == pFieldIdentifier->identifier) {
-					pTargetField = &pTargetType->members[i];
-					break;
+			if (pSelector->op == Operator::FieldSelector) {
+				TypeInfoStruct* pTargetType = (TypeInfoStruct*)pSelector->pTarget->pType;
+				TypeInfoStruct::Member* pTargetField = nullptr;
+				Ast::Identifier* pFieldIdentifier = (Ast::Identifier*)pSelector->pSelection;
+				for (size i = 0; i < pTargetType->members.count; i++) {
+					TypeInfoStruct::Member& mem = pTargetType->members[i];
+					if (mem.identifier == pFieldIdentifier->identifier) {
+						pTargetField = &pTargetType->members[i];
+						break;
+					}
+				}
+				if (suppressLoads || pTargetField->pType->size > 4) {
+					// This case will leave on the stack a pointer to the field
+					PushInstruction(state, pSelector->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+					PushOperand32bit(state, (u32)pTargetField->offset);
+					PushInstruction(state, pSelector->line, {.opcode = OpCode::Add, .type = TypeInfo::TypeTag::I32 }); 
+				} else {
+					// This case will leave the value itself on the stack
+					PushInstruction(state, pSelector->line, {.opcode = OpCode::Load }); 
+					PushOperand16bit(state, (u16)pTargetField->offset);
+				}
+			}
+			else if (pSelector->op == Operator::ArraySubscript) {
+				// Need to codegen the subscript value, leave that on the stack for us to use
+				CodeGenExpression(state, pSelector->pSelection);
+
+				// Then you need to push the element size and a multiply to get the offset amount, left on the stack
+				TypeInfoArray* pTargetType = (TypeInfoArray*)pSelector->pTarget->pType;
+				PushInstruction(state, pSelector->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+				PushOperand32bit(state, (u32)pTargetType->pBaseType->size);
+				PushInstruction(state, pSelector->line, {.opcode = OpCode::Multiply, .type = TypeInfo::TypeTag::I32 }); 
+
+				// Then you need to do an add to add the offset to target pointer already there
+				PushInstruction(state, pSelector->line, {.opcode = OpCode::Add, .type = TypeInfo::TypeTag::I32 }); 
+
+				// Then if the size is small, do a load
+				if (!suppressLoads && pTargetType->pBaseType->size <= 4) {
+					PushInstruction(state, pSelector->line, {.opcode = OpCode::Load }); 
+					PushOperand16bit(state, 0);
 				}
 			}
 
-			if (suppressLoads || pTargetField->pType->size > 4) {
-				// This case will leave on the stack a pointer to the field
-				PushInstruction(state, pSelector->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
-				PushOperand32bit(state, (u32)pTargetField->offset);
-				PushInstruction(state, pSelector->line, {.opcode = OpCode::Add, .type = TypeInfo::TypeTag::I32 }); 
-			} else {
-				// This case will leave the value itself on the stack
-				PushInstruction(state, pSelector->line, {.opcode = OpCode::Load }); 
-				PushOperand16bit(state, (u16)pTargetField->offset);
-			}
 			break;
 		}
         case Ast::NodeKind::Literal: {
@@ -629,7 +650,7 @@ void CodeGenStatement(CodeGenState& state, Ast::Statement* pStmt) {
 			}
             else {
 				if (pDecl->pType->size > 4) {
-					// Structs need to store 0s to their local locations to initialize themselves
+					// Large types need to store 0s to their local locations to initialize themselves
 					i32 numSlots = (i32)ceil((f32)pDecl->pType->size / 4.f);
 					for (i32 i = 0; i < numSlots; i++) {
 						PushInstruction(state, pDecl->line, { .opcode = OpCode::LocalAddr });

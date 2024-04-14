@@ -544,6 +544,9 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             if (ImGui::TreeNodeEx(pStructLiteral, nodeFlags, "Struct Literal")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
+				if (pStructLiteral->pStructType != nullptr) {
+					DrawAstExpression(pStructLiteral->pStructType);
+				}
 				for (Ast::Expression* pMember : pStructLiteral->members) {
 					DrawAstExpression(pMember);
 				}

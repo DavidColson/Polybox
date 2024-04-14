@@ -90,8 +90,8 @@ struct Literal : public Expression {
 };
 
 struct StructLiteral : public Expression {
-	// StructName{ var = 1, var2 = 3};
-	String structName;
+	// pStructType.{ var = 1, var2 = 3};
+	Expression* pStructType;
 	ResizableArray<Expression*> members;
 	bool designatedInitializer = false;
 };

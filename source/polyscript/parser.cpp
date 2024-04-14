@@ -417,17 +417,13 @@ Ast::Expression* ParseGrouping(ParsingState& state) {
 
 // ***********************************************************************
 
-Ast::Expression* ParseStructLiteral(ParsingState& state) {
+Ast::Expression* ParseStructLiteral(ParsingState& state, Ast::Expression* pLeft) {
 	Token previous = Previous(state);
 	Token dot = Advance(state);
 	Advance(state);
 
 	Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, dot, Ast::NodeKind::StructLiteral);
-	if (previous.type == TokenType::Identifier) {
-		pLiteral->structName = CopyCStringRange(previous.pLocation, previous.pLocation + previous.length, state.pAllocator);
-	} else {
-		pLiteral->structName = "";
-	}
+	pLiteral->pStructType = pLeft;
 	pLiteral->members.pAlloc = state.pAllocator;
 	if (Peek(state).type != TokenType::RightBrace) {
 		do {
@@ -444,14 +440,9 @@ Ast::Expression* ParseStructLiteral(ParsingState& state) {
 Ast::Expression* ParseIdentifier(ParsingState& state) {
 	Token identifier = Advance(state);
 
-	// This might be the start of a struct literal, so covering that case
-	if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
-		return ParseStructLiteral(state);
-	} else {
-		Ast::Identifier* pIdentifier = MakeNode<Ast::Identifier>(state.pAllocator, identifier, Ast::NodeKind::Identifier);
-		pIdentifier->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
-		return pIdentifier;
-	}
+	Ast::Identifier* pIdentifier = MakeNode<Ast::Identifier>(state.pAllocator, identifier, Ast::NodeKind::Identifier);
+	pIdentifier->identifier = CopyCStringRange(identifier.pLocation, identifier.pLocation + identifier.length, state.pAllocator);
+	return pIdentifier;
 }
 
 // ***********************************************************************
@@ -628,7 +619,7 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 			break;
 		case TokenType::Dot:
 			if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
-				pLeft =	ParseStructLiteral(state);
+				pLeft =	ParseStructLiteral(state, nullptr);
 			} else {
 				pLeft = MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
 			}
@@ -679,6 +670,12 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 				pLeft = ParseCall(state, pLeft);
 				break;
 			case TokenType::Dot:
+				if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
+					pLeft =	ParseStructLiteral(state, pLeft);
+				} else {
+					pLeft = ParseSelector(state, pLeft);
+				}
+				break; 
 			case TokenType::LeftBracket:
 				pLeft = ParseSelector(state, pLeft);
 				break;

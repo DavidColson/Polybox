@@ -244,21 +244,33 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
 
 			// find the structure type info
-			TypeInfoStruct* pTypeInfo;
-			Entity* pEntity;
-			if (pTypeInferenceHint && pStructLiteral->structName.length == 0 && pTypeInferenceHint->tag == TypeInfo::TypeTag::Struct) {
+			TypeInfoStruct* pTypeInfo = nullptr;
+			if (pTypeInferenceHint && pStructLiteral->pStructType == nullptr && pTypeInferenceHint->tag == TypeInfo::TypeTag::Struct) {
 				pTypeInfo = (TypeInfoStruct*)pTypeInferenceHint;
-				pEntity = FindEntity(state.pCurrentScope, pTypeInfo->name);
-			} else if (pStructLiteral->structName.length > 0) {
-				pEntity = FindEntity(state.pCurrentScope, pStructLiteral->structName);
-				pTypeInfo = (TypeInfoStruct*)FindTypeByValue(pEntity->constantValue);
 			} else {
-				state.pErrors->PushError(pStructLiteral, "Not enough information provided to do type inference on this struct literal, potentially missing a type annotation?");
-				pStructLiteral->pType = GetInvalidType();
-				return pStructLiteral;
+				if (pStructLiteral->pStructType != nullptr) {
+					pStructLiteral->pStructType = TypeCheckExpression(state, pStructLiteral->pStructType);
+					// The type expression must be a struct type info to be valid here
+					if (pStructLiteral->pStructType->pType->tag == TypeInfo::TypeTag::Type) {
+						TypeInfo* pStructTypeInfo = FindTypeByValue(pStructLiteral->pStructType->constantValue);
+						if (pStructTypeInfo->tag == TypeInfo::TypeTag::Struct) {
+							pTypeInfo = (TypeInfoStruct*)pStructTypeInfo;
+						}
+					}
+					if (pTypeInfo == nullptr) {
+						state.pErrors->PushError(pStructLiteral, "Not a valid type given as type for struct literal expression. Must be a type that is a struct");
+						pStructLiteral->pType = GetInvalidType();
+						return pStructLiteral;
+					}
+				} else {
+					state.pErrors->PushError(pStructLiteral, "Need type to be specified on this struct literal, can't do type inference here");
+					pStructLiteral->pType = GetInvalidType();
+					return pStructLiteral;
+				}
 			}
 			pStructLiteral->pType = pTypeInfo;
 
+			Entity* pEntity = FindEntity(state.pCurrentScope, pTypeInfo->name);
 			Ast::Structure* pStruct = (Ast::Structure*)pEntity->pDeclaration->pInitializerExpr;
 
 			if (pStructLiteral->members.count == 0) {
@@ -293,7 +305,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			if (foundRValues && !foundLValues) {
 				pStructLiteral->designatedInitializer = false;
 				if (pStructLiteral->members.count != pTypeInfo->members.count) {
-					state.pErrors->PushError(pStructLiteral, "Incorrect number of members provided to struct initializer for struct '%s'", pStructLiteral->structName.pData);
+					state.pErrors->PushError(pStructLiteral, "Incorrect number of members provided to struct initializer for struct '%s'", pTypeInfo->name.pData);
 					return pStructLiteral;
 				}
 

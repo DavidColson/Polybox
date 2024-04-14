@@ -763,7 +763,6 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 		case Ast::NodeKind::Selector: {
 			Ast::Selector* pSelector = (Ast::Selector*)pExpr;
 			pSelector->pTarget = TypeCheckExpression(state, pSelector->pTarget);
-			pSelector->pSelection = TypeCheckExpression(state, pSelector->pSelection);
             
             // TODO: This could be constant actually. If the field was declared as a constant, then this can be constant, for later.
             pSelector->isConstant = false;
@@ -790,6 +789,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 					TypeInfoStruct::Member& mem = pTargetType->members[i];
 					if (mem.identifier == pFieldIdentifier->identifier) {
 						pSelector->pType = mem.pType;
+						pFieldIdentifier->pType = mem.pType;
 						return pSelector;
 					}
 				}
@@ -797,6 +797,8 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 				state.pErrors->PushError(pSelector, "Specified field does not exist in struct '%s'", pTargetType->name.pData);
 			}
 			else if (pSelector->op == Operator::ArraySubscript) {
+				pSelector->pSelection = TypeCheckExpression(state, pSelector->pSelection);
+
 				TypeInfo* pTargetTypeInfo = pSelector->pTarget->pType;
 				if (pTargetTypeInfo->tag != TypeInfo::Array) {
 					state.pErrors->PushError(pSelector, "Attempting to subscript value which is not an array");

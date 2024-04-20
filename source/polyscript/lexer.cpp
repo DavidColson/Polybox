@@ -86,12 +86,20 @@ void Tokenize(Compiler& compilerState) {
             case ':': tokens.PushBack(MakeToken(scan, TokenType::Colon)); break;
             case ';': tokens.PushBack(MakeToken(scan, TokenType::Semicolon)); break;
             case ',': tokens.PushBack(MakeToken(scan, TokenType::Comma)); break;
-            case '.': tokens.PushBack(MakeToken(scan, TokenType::Dot)); break;
             case '+': tokens.PushBack(MakeToken(scan, TokenType::Plus)); break;
             case '*': tokens.PushBack(MakeToken(scan, TokenType::Star)); break;
             case '%': tokens.PushBack(MakeToken(scan, TokenType::Percent)); break;
 			case '@': tokens.PushBack(MakeToken(scan, TokenType::Address)); break;
             case '^': tokens.PushBack(MakeToken(scan, TokenType::Caret)); break;
+			case '.': 
+                if (Scan::Match(scan, '{')) {
+                    tokens.PushBack(MakeToken(scan, TokenType::StructLiteralOp));
+                } else if (Scan::Match(scan, '[')) {
+                    tokens.PushBack(MakeToken(scan, TokenType::ArrayLiteralOp));
+				} else {
+                    tokens.PushBack(MakeToken(scan, TokenType::Dot));
+                }
+                break;
             case '-':
                 if (Scan::Match(scan, '>')) {
                     tokens.PushBack(MakeToken(scan, TokenType::FuncSigReturn));

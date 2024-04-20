@@ -33,6 +33,8 @@ Operator::Enum TokenToOperator(TokenType::Enum tokenType) {
 		case TokenType::LeftBracket: return Operator::ArraySubscript;
 		case TokenType::Caret: return Operator::PointerDeref;
 		case TokenType::Equal: return Operator::Assignment;
+		case TokenType::StructLiteralOp: return Operator::StructLiteral;
+		case TokenType::ArrayLiteralOp: return Operator::ArrayLiteral;
 		default: return Operator::Invalid;
 	}	
 }

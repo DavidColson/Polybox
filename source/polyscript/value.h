@@ -74,11 +74,12 @@ enum Enum : u32 {
 	ArraySubscript,
 	PointerDeref,
 	Assignment,
+	StructLiteral,
+	ArrayLiteral,
     Count
 };
-
 static const char* stringNames[] = { 
-	"+", "-", "*", "/", "<", ">", ">=", "<=", "==", "!=", "&&", "||", "-", "!", "@", ".", "[", "^", "=", "count" };
+	"+", "-", "*", "/", "<", ">", ">=", "<=", "==", "!=", "&&", "||", "-", "!", "@", ".", "[", "^", "=", ".{", ".[" "count" };
 static const char* ToString(Operator::Enum type) {
     return stringNames[type];
 }

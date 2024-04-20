@@ -274,6 +274,8 @@ Precedence::Enum GetOperatorPrecedence(Operator::Enum op) {
 		case Operator::ArraySubscript: return Precedence::CallsAndSelectors;
 		case Operator::PointerDeref: return Precedence::UnaryPrefixes;
 		case Operator::Assignment: return Precedence::Assignment;
+		case Operator::StructLiteral: return Precedence::Primary;
+		case Operator::ArrayLiteral: return Precedence::Primary;
 		default: return Precedence::None;
 	}
 }
@@ -419,10 +421,9 @@ Ast::Expression* ParseGrouping(ParsingState& state) {
 
 Ast::Expression* ParseStructLiteral(ParsingState& state, Ast::Expression* pLeft) {
 	Token previous = Previous(state);
-	Token dot = Advance(state);
-	Advance(state);
+	Token op = Advance(state);
 
-	Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, dot, Ast::NodeKind::StructLiteral);
+	Ast::StructLiteral* pLiteral = MakeNode<Ast::StructLiteral>(state.pAllocator, op, Ast::NodeKind::StructLiteral);
 	pLiteral->pStructType = pLeft;
 	pLiteral->members.pAlloc = state.pAllocator;
 	if (Peek(state).type != TokenType::RightBrace) {
@@ -617,12 +618,8 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 		case TokenType::Identifier:
 			pLeft = ParseIdentifier(state);
 			break;
-		case TokenType::Dot:
-			if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
-				pLeft =	ParseStructLiteral(state, nullptr);
-			} else {
-				pLeft = MakeNode<Ast::BadExpression>(state.pAllocator, *state.pCurrent, Ast::NodeKind::BadExpression);
-			}
+		case TokenType::StructLiteralOp:
+			pLeft =	ParseStructLiteral(state, nullptr);
 			break;
 		case TokenType::As:
 			pLeft = ParseCast(state);
@@ -669,12 +666,11 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 			case TokenType::LeftParen:
 				pLeft = ParseCall(state, pLeft);
 				break;
+			case TokenType::StructLiteralOp:
+				pLeft =	ParseStructLiteral(state, pLeft);
+				break;	
 			case TokenType::Dot:
-				if (CheckPair(state, TokenType::Dot, TokenType::LeftBrace)) {
-					pLeft =	ParseStructLiteral(state, pLeft);
-				} else {
-					pLeft = ParseSelector(state, pLeft);
-				}
+				pLeft = ParseSelector(state, pLeft);
 				break; 
 			case TokenType::LeftBracket:
 				pLeft = ParseSelector(state, pLeft);

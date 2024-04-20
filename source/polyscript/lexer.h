@@ -43,6 +43,8 @@ enum Enum : u32 {
     And,
     Or,
     FuncSigReturn,
+	ArrayLiteralOp,
+	StructLiteralOp,
     // Literals
     LiteralString,
     LiteralInteger,

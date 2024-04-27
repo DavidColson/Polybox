@@ -438,6 +438,25 @@ Ast::Expression* ParseStructLiteral(ParsingState& state, Ast::Expression* pLeft)
 
 // ***********************************************************************
 
+Ast::Expression* ParseArrayLiteral(ParsingState& state, Ast::Expression* pLeft) {
+	Token previous = Previous(state);
+	Token op = Advance(state);
+
+	Ast::ArrayLiteral* pLiteral = MakeNode<Ast::ArrayLiteral>(state.pAllocator, op, Ast::NodeKind::ArrayLiteral);
+	pLiteral->pElementType = pLeft;
+	pLiteral->elements.pAlloc = state.pAllocator;
+	if (Peek(state).type != TokenType::RightBrace) {
+		do {
+			pLiteral->elements.PushBack(ParseExpression(state, Precedence::None));
+		} while (Match(state, 1, TokenType::Comma));
+	}
+
+	Consume(state, TokenType::RightBracket, "Expected ']' to end array literal expression. Potentially you forgot a ',' between members?");
+	return pLiteral;
+}
+
+// ***********************************************************************
+
 Ast::Expression* ParseIdentifier(ParsingState& state) {
 	Token identifier = Advance(state);
 
@@ -621,6 +640,9 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 		case TokenType::StructLiteralOp:
 			pLeft =	ParseStructLiteral(state, nullptr);
 			break;
+		case TokenType::ArrayLiteralOp:
+			pLeft =	ParseArrayLiteral(state, nullptr);
+			break;
 		case TokenType::As:
 			pLeft = ParseCast(state);
 			break;
@@ -668,6 +690,9 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 				break;
 			case TokenType::StructLiteralOp:
 				pLeft =	ParseStructLiteral(state, pLeft);
+				break;	
+			case TokenType::ArrayLiteralOp:
+				pLeft =	ParseArrayLiteral(state, pLeft);
 				break;	
 			case TokenType::Dot:
 				pLeft = ParseSelector(state, pLeft);

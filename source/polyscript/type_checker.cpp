@@ -240,6 +240,49 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             // Nothing to do
             return pExpr;
         }
+		case Ast::NodeKind::ArrayLiteral: {
+			Ast::ArrayLiteral* pArrayLiteral = (Ast::ArrayLiteral*)pExpr;
+
+			TypeInfoArray* pTypeInfo = nullptr;
+			if (pTypeInferenceHint && pArrayLiteral->pElementType == nullptr && pTypeInferenceHint->tag == TypeInfo::TypeTag::Array) {
+				pTypeInfo = (TypeInfoArray*)pTypeInferenceHint;
+			} else {
+				if (pArrayLiteral->pElementType != nullptr) {
+					pArrayLiteral->pElementType = TypeCheckExpression(state, pArrayLiteral->pElementType);
+
+					TypeInfoArray* pArrayTypeInfo = (TypeInfoArray*)state.pAllocator->Allocate(sizeof(TypeInfoArray));
+					pArrayTypeInfo->tag = TypeInfo::TypeTag::Array;
+					pArrayTypeInfo->pBaseType = FindTypeByValue(pArrayLiteral->pElementType->constantValue);
+					pArrayTypeInfo->dimension = (i32)pArrayLiteral->elements.count;
+					pArrayTypeInfo->size = pArrayTypeInfo->dimension * pArrayTypeInfo->pBaseType->size;
+
+					StringBuilder builder;
+					builder.AppendFormat("[%i]%s", pArrayTypeInfo->dimension, pArrayTypeInfo->pBaseType->name.pData);
+					pArrayTypeInfo->name = builder.CreateString(true, state.pAllocator);
+					pTypeInfo = pArrayTypeInfo;
+				} else {
+					state.pErrors->PushError(pArrayLiteral, "Need array element type to be specified on this array literal, can't do type inference here");
+					pArrayLiteral->pType = GetInvalidType();
+					return pArrayLiteral;
+				}
+			}
+			pArrayLiteral->pType = pTypeInfo;
+			if (pArrayLiteral->elements.count != pTypeInfo->dimension) {
+				state.pErrors->PushError(pArrayLiteral, "Incorrect number of elements provided to array literal");
+				return pArrayLiteral;
+			}
+			// Will be easier, just run through elements, doing typchecking and then checking against base type
+			for (size i = 0; i < pArrayLiteral->elements.count; i++) {
+				pArrayLiteral->elements[i] = TypeCheckExpression(state, pArrayLiteral->elements[i]);
+				TypeInfo* pElementTypeInfo = pArrayLiteral->elements[i]->pType;
+
+				if (!CheckTypesIdentical(pElementTypeInfo, pTypeInfo->pBaseType)) {
+					state.pErrors->PushError(pArrayLiteral->elements[i], "Incorrect type for element in array literal");
+				}
+			}
+
+			return pArrayLiteral;
+		}
 		case Ast::NodeKind::StructLiteral: {
 			Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
 
@@ -310,6 +353,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 				}
 
 				for (size i = 0; i < pStructLiteral->members.count; i++) {
+					// Need to actually do typechecking on the member here btw? I think it's null as is?
 					TypeInfo* pGivenTypeInfo = pStructLiteral->members[i]->pType;
 					TypeInfo* pKnownTypeInfo = pTypeInfo->members[i].pType;
 

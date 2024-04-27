@@ -29,6 +29,7 @@ enum class NodeKind {
 	Selector,
 	Dereference,
 	StructLiteral,
+	ArrayLiteral,
     Literal,
 	Function,
 	Structure,
@@ -94,6 +95,12 @@ struct StructLiteral : public Expression {
 	Expression* pStructType;
 	ResizableArray<Expression*> members;
 	bool designatedInitializer = false;
+};
+
+struct ArrayLiteral : public Expression {
+	// pElementType.[ var = 1, var2 = 3];
+	Expression* pElementType;
+	ResizableArray<Expression*> elements;
 };
 
 struct Grouping : public Expression {

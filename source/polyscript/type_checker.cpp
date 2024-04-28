@@ -1171,6 +1171,15 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             state.pCurrentScope = pFunction->pScope->pParent;
             break;
         }
+		case Ast::NodeKind::ArrayLiteral: {
+            Ast::ArrayLiteral* pArrayLiteral = (Ast::ArrayLiteral*)pExpr;
+            state.pCurrentScope->temporaries.PushBack(pExpr);
+			
+            for (size i = 0; i < pArrayLiteral->elements.count; i++) {
+                CollectEntitiesInExpression(state, pArrayLiteral->elements[i]);
+            }
+			break;
+		}
 		case Ast::NodeKind::StructLiteral: {
             Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
             state.pCurrentScope->temporaries.PushBack(pExpr);

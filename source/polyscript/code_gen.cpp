@@ -337,6 +337,38 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr, bool suppres
 			PushOperand32bit(state, pLiteral->constantValue.i32Value);
             break;
         }
+		case Ast::NodeKind::ArrayLiteral: {
+			Ast::ArrayLiteral* pArrayLiteral = (Ast::ArrayLiteral*)pExpr;
+			TypeInfoArray* pTypeInfo = (TypeInfoArray*)pArrayLiteral->pType;
+			i32 elementStride = (i32)pTypeInfo->pBaseType->size;
+			i32 stackOffset = ResolveTemporary(state, pArrayLiteral); // todo: actually add the temporary
+
+			if (pArrayLiteral->elements.count == 0) {
+				i32 numSlots = (i32)ceil((f32)pTypeInfo->size / 4.f);
+				for (i32 i = 0; i < numSlots; i++) {
+					PushInstruction(state, pArrayLiteral->line, { .opcode = OpCode::LocalAddr }); PushOperand16bit(state, stackOffset + i * 4);
+					PushInstruction(state, pArrayLiteral->line, {.opcode = OpCode::Const, .type = pArrayLiteral->pType->tag}); PushOperand32bit(state, 0);
+					PushInstruction(state, pArrayLiteral->line, { .opcode = OpCode::Store }); PushOperand16bit(state, 0);
+					PushInstruction(state, pArrayLiteral->line, { .opcode = OpCode::Drop });
+				}
+			} else {
+				for (size i = 0; i < pArrayLiteral->elements.count; i++) {
+					Ast::Expression* pElementInitializerExpr = pArrayLiteral->elements[i];
+
+					PushInstruction(state, pElementInitializerExpr->line, { .opcode = OpCode::LocalAddr });
+					PushOperand16bit(state, stackOffset);
+
+					CodeGenAssignment(state, pElementInitializerExpr->line, pElementInitializerExpr, (i32)(i * elementStride));
+
+					// Store/Copy will leave the src on the stack, so must pop it
+					PushInstruction(state, pElementInitializerExpr->line, {.opcode = OpCode::Drop }); 
+				}
+			}
+			// Leave the temporary address on the stack for the next operation to use
+			PushInstruction(state, pArrayLiteral->line, { .opcode = OpCode::LocalAddr });
+			PushOperand16bit(state, stackOffset);
+			break;
+		}
 		case Ast::NodeKind::StructLiteral: {
 			Ast::StructLiteral* pStructLiteral = (Ast::StructLiteral*)pExpr;
 			TypeInfoStruct* pTypeInfo = (TypeInfoStruct*)pStructLiteral->pType;

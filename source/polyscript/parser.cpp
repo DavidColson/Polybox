@@ -270,6 +270,7 @@ Precedence::Enum GetOperatorPrecedence(Operator::Enum op) {
 		case Operator::UnaryMinus: return Precedence::UnaryPrefixes;
 		case Operator::Not: return Precedence::UnaryPrefixes;
 		case Operator::AddressOf: return Precedence::UnaryPrefixes;
+		case Operator::FunctionCall: return Precedence::CallsAndSelectors;
 		case Operator::FieldSelector: return Precedence::CallsAndSelectors;
 		case Operator::ArraySubscript: return Precedence::CallsAndSelectors;
 		case Operator::PointerDeref: return Precedence::UnaryPrefixes;

@@ -70,6 +70,7 @@ enum Enum : u32 {
     UnaryMinus,
     Not,
 	AddressOf,
+	FunctionCall,
 	FieldSelector,
 	ArraySubscript,
 	PointerDeref,
@@ -79,7 +80,7 @@ enum Enum : u32 {
     Count
 };
 static const char* stringNames[] = { 
-	"+", "-", "*", "/", "<", ">", ">=", "<=", "==", "!=", "&&", "||", "-", "!", "@", ".", "[", "^", "=", ".{", ".[" "count" };
+	"invalid", "+", "-", "*", "/", "<", ">", ">=", "<=", "==", "!=", "&&", "||", "-", "!", "@", ".", "[", "^", "=", ".{", ".[" "count" };
 static const char* ToString(Operator::Enum type) {
     return stringNames[type];
 }

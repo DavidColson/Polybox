@@ -29,6 +29,7 @@ Operator::Enum TokenToOperator(TokenType::Enum tokenType) {
 		case TokenType::Or: return Operator::Or;
 		case TokenType::Bang: return Operator::Not;
 		case TokenType::Address: return Operator::AddressOf;
+		case TokenType::LeftParen: return Operator::FunctionCall;
 		case TokenType::Dot: return Operator::FieldSelector;
 		case TokenType::LeftBracket: return Operator::ArraySubscript;
 		case TokenType::Caret: return Operator::PointerDeref;
@@ -186,7 +187,7 @@ TypeInfo* CopyTypeDeep(TypeInfo* pTypeInfo, IAllocator* pAlloc = &g_Allocator) {
 			return pNewArrayType;
 		} break;
         default: {
-            return nullptr;
+            return GetInvalidType();
             break;
         }
     }

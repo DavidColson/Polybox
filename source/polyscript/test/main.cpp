@@ -855,7 +855,7 @@ void StructLiterals() {
 			"Test :: struct { i:i32; f:f32; b:bool; };\n"
 			"instance := .{ 10, 8.24, true};\n";
 		expectedErrors.Resize(0);
-		expectedErrors.PushBack("Not enough information provided to do type inference on this struct literal, potentially missing a type annotation?");
+		expectedErrors.PushBack("Need type to be specified on this struct literal, can't do type inference here");
 		errorCount += RunCompilerOnTestCase(typeInferenceFailure, "", expectedErrors);
 	}
 	errorCount += ReportMemoryLeaks();
@@ -959,10 +959,63 @@ void Pointers() {
 	EndTest(errorCount);
 }
 
+void Arrays() {
+	StartTest("Arrays");
+	int errorCount = 0;
+	{
+		// Test basic array creation, assignment, access
+		const char* basicArrays = 
+			"array : [3]i32;\n"
+			"array[0] = 5;\n"
+			"array[1] = 3;\n"
+			"array[2] = 9;\n"
+			"print(array[1]);\n"
+			"print(array[2]);\n"
+			"argArray := f32.[33.4, 22.1, 55.9];\n"
+			"arrayPrinter :: func (arr : [3]f32) { print(arr[1]); };\n"
+			"arrayPrinter(argArray);\n";
+		const char* expectation =	
+			"3\n"
+			"9\n"
+			"22.1\n";
+		errorCount += RunCompilerOnTestCase(basicArrays, expectation, ResizableArray<String>());
+
+		// Test more advanced uses, structs as elements, multidimensional arrays
+		const char* advancedArrays = 
+			"Element :: struct{ num:i32; float:f32; };\n"
+			"structArray : [5]Element;\n"
+			"structArray = .[ Element.{5, 6.8}, .{3, 9.8}, .{6, 5.5}, .{10, 2.4}, .{4, 3.78}];\n"
+			"print(structArray[1].num);\n"
+			"structArray[3].float = 420.9;\n"
+			"print(structArray[3].float);\n"
+			"marray : [10][3]i32;\n"
+			"marray[4][2] = 32;\n"
+			"print(marray[4][2]);\n";
+		expectation =	
+			"3\n"
+			"420.9\n"
+			"32\n";
+		errorCount += RunCompilerOnTestCase(advancedArrays, expectation, ResizableArray<String>());
+		
+		// Array literals
+		const char* arrayLiterals = 
+			"array : [3]i32;\n"
+			"array = i32.[ 4, 5, 6 ];\n"
+			"array2 : [2]f32 = .[3.89, 5.7];\n"
+			"print(array[2]);\n"
+			"print(array2[1]);\n";
+		expectation =	
+			"6\n"
+			"5.7\n";
+		errorCount += RunCompilerOnTestCase(arrayLiterals, expectation, ResizableArray<String>());
+	}
+	errorCount += ReportMemoryLeaks();
+	EndTest(errorCount);
+}
+
 int main(int argc, char *argv[]) {
 	// TODO: Move to program structure
     InitTypeTable();
-	InitTokenToOperatorMap();
 
     Values();
     ArithmeticOperators();
@@ -978,6 +1031,7 @@ int main(int argc, char *argv[]) {
 	StructLiterals();
     Constants();
 	Pointers();
+	Arrays();
 
     RunTestPlayground();
 

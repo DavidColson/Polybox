@@ -297,3 +297,46 @@ FunctionWithStructArgs(33, .{ intMember = 420 }, 6.8); // 33, 420, 6.8
 	pMember^ = 97;
 	print(instance.intMember); // 97
 }
+
+// ***************************************************************
+// [TEST] Static Arrays
+
+{
+	// TODO: test structs and arrays as function returns
+	array : [3]i32; // basic type, parsed as a prefix operator in the expression parser
+	array[0] = 5; // array element selector node, similar to selector node, infix operator
+	array[1] = 3;
+	array[2] = 9;
+	print(array[1]); // still selector node, but this time not an lvalue	
+	print(array[2]);
+
+	// Arrays of structs 
+	Element :: struct{ num:i32; float:f32; };
+	structArray : [5]Element;
+	structArray = .[ Element.{5, 6.8}, .{3, 9.8}, .{6, 5.5}, .{10, 2.4}, .{4, 3.78}];
+	print(structArray[1].num); // 3
+	structArray[3].float = 420.9;
+	print(structArray[3].float); // 420.9
+
+	// Passing arrays into functions
+	argArray := f32.[33.4, 22.1, 55.9];
+	arrayPrinter :: func (arr : [3]f32) { print(arr[1]); };
+	arrayPrinter(argArray); // 22.1
+
+	// Array literals
+	array = i32.[ 4, 5, 6 ]; // array literal, similar sort of parsing to struct literal, maybe share?
+	array2 : [2]f32 = .[3.89, 5.7];
+	print(array[2]); // 6
+	print(array2[1]);// 5.7
+	
+	// multidimensional arrays
+	marray : [10][3]i32;
+	marray[4][2] = 32;
+	print(marray[4][2]); // 32
+
+	// todo:
+	// len function for arrays
+	// Runtime error for array out of bounds access
+	// tests!
+}
+

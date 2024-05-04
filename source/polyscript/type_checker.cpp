@@ -273,7 +273,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			}
 			// Will be easier, just run through elements, doing typchecking and then checking against base type
 			for (size i = 0; i < pArrayLiteral->elements.count; i++) {
-				pArrayLiteral->elements[i] = TypeCheckExpression(state, pArrayLiteral->elements[i]);
+				pArrayLiteral->elements[i] = TypeCheckExpression(state, pArrayLiteral->elements[i], pTypeInfo->pBaseType);
 				TypeInfo* pElementTypeInfo = pArrayLiteral->elements[i]->pType;
 
 				if (!CheckTypesIdentical(pElementTypeInfo, pTypeInfo->pBaseType)) {
@@ -340,8 +340,9 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			if (foundLValues && !foundRValues) {
 				pStructLiteral->designatedInitializer = true;
 				state.pCurrentScope = pStruct->pScope;
-				for (Ast::Expression* pMember : pStructLiteral->members) {
-					pMember = TypeCheckExpression(state, pMember);
+				for (size i = 0; i < pStructLiteral->members.count; i++) {
+					Ast::Expression* pMember = pStructLiteral->members[i];
+					pMember = TypeCheckExpression(state, pMember, pTypeInfo->members[i].pType);
 				}
 				state.pCurrentScope = pStruct->pScope->pParent;
 			}
@@ -819,11 +820,13 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 				TypeInfo* pTargetTypeInfo = pSelector->pTarget->pType;
 				if (pTargetTypeInfo->tag != TypeInfo::Struct) {
 					state.pErrors->PushError(pSelector, "Attempting to access a field on type '%s' which is not a struct", pTargetTypeInfo->name.pData);
+					pSelector->pType = GetInvalidType();
 					return pSelector;
 				}
 
 				if (pSelector->pSelection->nodeKind != Ast::NodeKind::Identifier) {
 					state.pErrors->PushError(pSelector->pSelection, "Left of field selector must be an identifier", pTargetTypeInfo->name.pData);
+					pSelector->pType = GetInvalidType();
 					return pSelector;
 				}
 
@@ -839,6 +842,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 				}
 
 				state.pErrors->PushError(pSelector, "Specified field does not exist in struct '%s'", pTargetType->name.pData);
+				pSelector->pType = GetInvalidType();
 			}
 			else if (pSelector->op == Operator::ArraySubscript) {
 				pSelector->pSelection = TypeCheckExpression(state, pSelector->pSelection);
@@ -846,6 +850,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 				TypeInfo* pTargetTypeInfo = pSelector->pTarget->pType;
 				if (pTargetTypeInfo->tag != TypeInfo::Array) {
 					state.pErrors->PushError(pSelector, "Attempting to subscript value which is not an array");
+					pSelector->pType = GetInvalidType();
 					return pSelector;
 				}
 

@@ -200,6 +200,8 @@ void Tokenize(Compiler& compilerState) {
                         tokens.PushBack(MakeToken(scan, TokenType::Fn));
 					else if (identifier == "as")
 						tokens.PushBack(MakeToken(scan, TokenType::As));
+					else if (identifier == "len")
+						tokens.PushBack(MakeToken(scan, TokenType::Len));
 					else if (identifier == "func")
 						tokens.PushBack(MakeToken(scan, TokenType::Func));
                     else if (identifier == "if")

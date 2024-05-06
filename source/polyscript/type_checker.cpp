@@ -764,6 +764,15 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			pCast->pType = FindTypeByValue(pCast->pTypeExpr->constantValue);
 			return pCast;
 		}
+		case Ast::NodeKind::Len: {
+			Ast::Len* pLen = (Ast::Len*)pExpr;
+			pLen->pExpr = TypeCheckExpression(state, pLen->pExpr);
+			if (pLen->pExpr->pType->tag != TypeInfo::TypeTag::Array) {
+				state.pErrors->PushError(pLen, "Argument for len function must be an array");
+			}
+			pLen->pType = GetI32Type();
+			return pLen;
+		}
         case Ast::NodeKind::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             pCall->isConstant = false;
@@ -1105,6 +1114,11 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
             Ast::Cast* pCast = (Ast::Cast*)pExpr;
             CollectEntitiesInExpression(state, pCast->pExprToCast);
             CollectEntitiesInExpression(state, pCast->pTypeExpr);
+            break;
+        }
+        case Ast::NodeKind::Len: {
+            Ast::Len* pLen = (Ast::Len*)pExpr;
+            CollectEntitiesInExpression(state, pLen->pExpr);
             break;
         }
         case Ast::NodeKind::Assignment: {

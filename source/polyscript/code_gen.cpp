@@ -579,6 +579,13 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr, bool suppres
 			PushOperand16bit(state, (i16)fromType);
 			break;
 		}
+		case Ast::NodeKind::Len: {
+			Ast::Len* pLen = (Ast::Len*)pExpr;
+			TypeInfoArray* pArrayType = (TypeInfoArray*)pLen->pExpr->pType;
+			PushInstruction(state, pLen->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+			PushOperand32bit(state, pArrayType->dimension);
+			break;
+		}
         case Ast::NodeKind::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             CodeGenExpression(state, pCall->pCallee);

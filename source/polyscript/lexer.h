@@ -59,6 +59,7 @@ enum Enum : u32 {
 	Func,
     Fn,
 	As,
+	Len,
     // Other
     Identifier,
     EndOfFile,

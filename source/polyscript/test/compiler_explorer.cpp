@@ -706,6 +706,16 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             }
 			break;
 		}
+		case Ast::NodeKind::Len: {
+			Ast::Len* pLen = (Ast::Len*)pExpr;
+            if (ImGui::TreeNodeEx(pLen, nodeFlags, "Len")) {
+                if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                DrawExprProperties(pExpr);
+                DrawAstExpression(pLen->pExpr);
+                ImGui::TreePop();
+            }
+			break;
+		}
         case Ast::NodeKind::Call: {
             Ast::Call* pCall = (Ast::Call*)pExpr;
             if (ImGui::TreeNodeEx(pCall, nodeFlags, "Call")) {

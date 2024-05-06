@@ -37,6 +37,7 @@ enum class NodeKind {
     Identifier,
 	Assignment,
 	Cast,
+	Len,
 
     // Types
     Type,
@@ -133,6 +134,11 @@ struct Cast : public Expression {
 	// as(typeExpr) exprToCast
 	Expression* pTypeExpr;
 	Expression* pExprToCast;
+};
+
+struct Len : public Expression {
+	// len(pExpr)
+	Expression* pExpr;
 };
 
 struct Call : public Expression {

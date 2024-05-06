@@ -516,6 +516,19 @@ Ast::Expression* ParseCast(ParsingState& state) {
 
 // ***********************************************************************
 
+Ast::Expression* ParseLen(ParsingState& state) {
+	Token lenToken = Advance(state);
+	Consume(state, TokenType::LeftParen, "Expected '(' after len");
+
+	Ast::Len* pLenExpr = MakeNode<Ast::Len>(state.pAllocator, lenToken, Ast::NodeKind::Len);
+	pLenExpr->pExpr = ParseExpression(state, Precedence::None);
+
+	Consume(state, TokenType::RightParen, "Expected ')' after len argument");
+	return pLenExpr;
+}
+
+// ***********************************************************************
+
 Ast::Expression* ParsePointerType(ParsingState& state) {
 	Token caret = Advance(state);
 	Ast::PointerType* pPointerType = MakeNode<Ast::PointerType>(state.pAllocator, caret, Ast::NodeKind::PointerType);
@@ -660,6 +673,9 @@ Ast::Expression* ParseExpression(ParsingState& state, Precedence::Enum prec) {
 			break;
 		case TokenType::LeftBracket:
 			pLeft = ParseArrayType(state);
+			break;
+		case TokenType::Len:
+			pLeft = ParseLen(state);
 			break;
 		default:
 			Advance(state);

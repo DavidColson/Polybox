@@ -973,11 +973,13 @@ void Arrays() {
 			"print(array[2]);\n"
 			"argArray := f32.[33.4, 22.1, 55.9];\n"
 			"arrayPrinter :: func (arr : [3]f32) { print(arr[1]); };\n"
-			"arrayPrinter(argArray);\n";
+			"arrayPrinter(argArray);\n"
+			"print(len(array));\n";
 		const char* expectation =	
 			"3\n"
 			"9\n"
-			"22.1\n";
+			"22.1\n"
+			"3\n";
 		errorCount += RunCompilerOnTestCase(basicArrays, expectation, ResizableArray<String>());
 
 		// Test more advanced uses, structs as elements, multidimensional arrays

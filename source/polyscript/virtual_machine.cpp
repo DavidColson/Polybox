@@ -195,6 +195,10 @@ String DisassembleInstruction(Program* pProgram, u16* pInstruction, u16& outOffs
             builder.AppendFormat("%i", nArgs);
             break;
         }
+		case OpCode::BoundsCheck: {
+			builder.Append("BoundsCheck");
+			break;
+		}
         default:
             builder.Append("OpUnknown");
             break;
@@ -337,6 +341,7 @@ void Run(Program* pProgramToRun) {
     // VM run
     CallFrame* pFrame = &vm.callStack.Top();
 	u16* pEndInstruction = pProgramToRun->code.end();
+	bool panic = false;
     while (pFrame->pInstructionPointer < pEndInstruction) {
 #ifdef DEBUG_TRACE
 		String output = DisassembleInstruction(pProgramToRun, pFrame->pInstructionPointer);
@@ -646,9 +651,31 @@ void Run(Program* pProgramToRun) {
 				}
                 break;
             }
+			case OpCode::BoundsCheck: {
+				// Pop the size off the stack
+				i32 size = PopStack(vm).i32Value;
+
+				// Pop the base address off the stack
+				i32 baseAddress = PopStack(vm).i32Value;
+
+				// Read the target address off the stack
+				i32 targetAddress = ReadStack(vm).i32Value;
+
+				if (targetAddress < baseAddress || targetAddress > (baseAddress + size))
+				{
+					//Panic
+					i64 instructionIndex = pProgramToRun->code.IndexFromPointer(pFrame->pInstructionPointer);
+					i64 lineNumber = pProgramToRun->dbgLineInfo[instructionIndex];
+					Log::Warn("Runtime Error: array bounds check failed (Todo:Callstack) on line %d", lineNumber);
+					panic = true;
+				}
+				break;
+			}
             default:
                 break;
         }
+		if (panic)
+			break;
         pFrame->pInstructionPointer += 1;
 #ifdef DEBUG_TRACE
         DebugStack(vm);

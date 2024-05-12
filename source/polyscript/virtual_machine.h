@@ -49,7 +49,8 @@ enum Enum : u8 {
 
     // Misc
 	Cast,         // Yes		| 16b fromTypeId	| [value] -> [castedValue]
-    Print         // Yes		|					| [value] -> []
+    Print,        // Yes		|					| [value] -> []
+	BoundsCheck	  // No			| 					| [TargetAddress][BaseAddress][Size] -> [TargetAddress]	
 };
 }
 

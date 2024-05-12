@@ -322,6 +322,12 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr, bool suppres
 				// Then you need to do an add to add the offset to target pointer already there
 				PushInstruction(state, pSelector->line, {.opcode = OpCode::Add, .type = TypeInfo::TypeTag::I32 }); 
 
+				// Do bounds checking on the above address, push the base address and array size
+				CodeGenExpression(state, pSelector->pTarget, true);
+				PushInstruction(state, pSelector->line, { .opcode = OpCode::Const, .type = TypeInfo::TypeTag::I32 });
+				PushOperand32bit(state, u32(pTargetType->dimension * pTargetType->pBaseType->size));
+				PushInstruction(state, pSelector->line, {.opcode = OpCode::BoundsCheck }); 
+
 				// Then if the size is small, do a load
 				if (!suppressLoads && pTargetType->pBaseType->size <= 4) {
 					PushInstruction(state, pSelector->line, {.opcode = OpCode::Load }); 

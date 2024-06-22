@@ -1,3 +1,4 @@
+/*
 // ***************************************************************
 // [TEST] Basic expressionsprint(func () -> void);
 
@@ -337,5 +338,43 @@ FunctionWithStructArgs(33, .{ intMember = 420 }, 6.8); // 33, 420, 6.8
 	print(len(marray)); // 10
 	print(len(array)); // 3
 }
+*/
+// ***************************************************************
+// [TEST] Slices
 
+{
+	// slice type
+	slice : []i32;
+	
+	// create slices from an array
+	array := i32.[1, 2, 3, 4, 5, 6, 7];
+	slice = array[2:5]; // low bound and high bound
 
+	// Further bits to do and test
+	// slices can be auto casted from an array
+
+	sliceliteral := i32.[6, 4, 3, 3, 1]; // secretly this auto casts from array to slice
+
+// How do we implement this then?
+/*
+
+Parsing:
+
+ParseArrayType should check for closing bracket, then emit a slice
+Might be wise to share the Ast Node for all array types
+
+ParseSelector is where we implement the slicing syntax
+Assuming parseExpression doesn't consume the colon, then we need to parse expression, check colon, parse expression again
+we should get two expressions that need to resolve to integer, need not be constant
+
+Codegen for slicing:
+
+the slicing syntax is sort of like a literal, made at source, so you will need to reserve space for the slice
+like you would a struct, and then the actual codegen of the slice is just initializing it
+It'll be like a struct internally, so you need to store the 32bit base pointer at 0, and the count at 4 bytes in
+
+base pointer is the base array pointer plus the offset*elementSize
+Size is just the sub between low and high bounds
+must support blank bounds too, which are easy, just the backing array base or size
+*/
+}

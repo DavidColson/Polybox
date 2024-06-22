@@ -416,29 +416,47 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			pArrayType->pType = GetTypeType();
 			pArrayType->isConstant = true;
 
-			pArrayType->pDimension = TypeCheckExpression(state, pArrayType->pDimension);
-			if (!pArrayType->pDimension->isConstant) {
-				state.pErrors->PushError(pArrayType->pDimension, "Array dimension must be a constant value");
-			}
-			if (!CheckTypesIdentical(pArrayType->pDimension->pType, GetI32Type())) {
-				state.pErrors->PushError(pArrayType->pDimension, "Array dimension must be an integer");
-			}
-			
             pArrayType->pBaseType = (Ast::Type*)TypeCheckExpression(state, pArrayType->pBaseType);
             TypeInfo* pBaseTypeInfo = FindTypeByValue(pArrayType->pBaseType->constantValue);
 
-			TypeInfoArray* pArrayTypeInfo = (TypeInfoArray*)state.pAllocator->Allocate(sizeof(TypeInfoArray));
-			pArrayTypeInfo->tag = TypeInfo::TypeTag::Array;
-			pArrayTypeInfo->pBaseType = pBaseTypeInfo;
-			pArrayTypeInfo->dimension = pArrayType->pDimension->constantValue.i32Value;
-			pArrayTypeInfo->size = pArrayTypeInfo->dimension * pBaseTypeInfo->size;
+			if (pArrayType->arrayKind == ArrayKind::Slice)
+			{
+				TypeInfoArray* pArrayTypeInfo = (TypeInfoArray*)state.pAllocator->Allocate(sizeof(TypeInfoArray));
+				pArrayTypeInfo->tag = TypeInfo::TypeTag::Array;
+				pArrayTypeInfo->pBaseType = pBaseTypeInfo;
+				pArrayTypeInfo->kind = ArrayKind::Slice;
+				pArrayTypeInfo->dimension = 0;
+				pArrayTypeInfo->size = 8; // 4 byte pointer + 4 byte length value
 
-			StringBuilder builder;
-            builder.AppendFormat("[%i]%s", pArrayTypeInfo->dimension, pBaseTypeInfo->name.pData);
-			pArrayTypeInfo->name = builder.CreateString(true, state.pAllocator);
+				StringBuilder builder;
+				builder.AppendFormat("[]%s", pBaseTypeInfo->name.pData);
+				pArrayTypeInfo->name = builder.CreateString(true, state.pAllocator);
 
-			pArrayType->constantValue = MakeValue(pArrayTypeInfo);
-			return pArrayType;
+				pArrayType->constantValue = MakeValue(pArrayTypeInfo);
+				return pArrayType;
+			} else {
+				pArrayType->pDimension = TypeCheckExpression(state, pArrayType->pDimension);
+				if (!pArrayType->pDimension->isConstant) {
+					state.pErrors->PushError(pArrayType->pDimension, "Array dimension must be a constant value");
+				}
+				if (!CheckTypesIdentical(pArrayType->pDimension->pType, GetI32Type())) {
+					state.pErrors->PushError(pArrayType->pDimension, "Array dimension must be an integer");
+				}
+
+				TypeInfoArray* pArrayTypeInfo = (TypeInfoArray*)state.pAllocator->Allocate(sizeof(TypeInfoArray));
+				pArrayTypeInfo->tag = TypeInfo::TypeTag::Array;
+				pArrayTypeInfo->pBaseType = pBaseTypeInfo;
+				pArrayTypeInfo->kind = ArrayKind::Static;
+				pArrayTypeInfo->dimension = pArrayType->pDimension->constantValue.i32Value;
+				pArrayTypeInfo->size = pArrayTypeInfo->dimension * pBaseTypeInfo->size;
+
+				StringBuilder builder;
+				builder.AppendFormat("[%i]%s", pArrayTypeInfo->dimension, pBaseTypeInfo->name.pData);
+				pArrayTypeInfo->name = builder.CreateString(true, state.pAllocator);
+
+				pArrayType->constantValue = MakeValue(pArrayTypeInfo);
+				return pArrayType;
+			}
 		}
 		case Ast::NodeKind::Structure: {
 			Ast::Structure* pStruct = (Ast::Structure*)pExpr;
@@ -554,6 +572,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 			Ast::NodeKind targetKind = pAssignment->pTarget->nodeKind;
 			if (targetKind != Ast::NodeKind::Identifier &&
 				targetKind != Ast::NodeKind::Selector &&
+				targetKind != Ast::NodeKind::SliceSelector &&
 				targetKind != Ast::NodeKind::Dereference) {
                 state.pErrors->PushError(pAssignment, "Left of assignment is not a valid Lvalue that we can assign to");
 			}
@@ -695,6 +714,7 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
 				// expr must be identifier, non constant, or selector, all else is not valid
 				// result type is pointer to the expr, do we need to fabricate this type? I guess so
 				if (pUnary->pRight->nodeKind == Ast::NodeKind::Identifier || 
+					pUnary->pRight->nodeKind == Ast::NodeKind::SliceSelector || 
 					pUnary->pRight->nodeKind == Ast::NodeKind::Selector) {
 
 					if (!pUnary->pRight->isConstant) {
@@ -814,6 +834,47 @@ void TypeCheckFunctionType(TypeCheckerState& state, Ast::FunctionType* pFuncType
             pCall->pType = pFunctionType->pReturnType;
             return pCall;
         }
+		case Ast::NodeKind::SliceSelector: {
+			Ast::SliceSelector* pSliceSelector = (Ast::SliceSelector*)pExpr;
+			pSliceSelector->pTarget = TypeCheckExpression(state, pSliceSelector->pTarget);
+
+			// Target needs to be an array
+			TypeInfo* pTargetTypeInfo = pSliceSelector->pTarget->pType;
+			if (pTargetTypeInfo->tag != TypeInfo::Array) {
+				state.pErrors->PushError(pSliceSelector, "Attempting to slice value which is not an array");
+				pSliceSelector->pType = GetInvalidType();
+				return pSliceSelector;
+			}
+			TypeInfoArray* pTargetArrayType = (TypeInfoArray*)pTargetTypeInfo;
+
+			// Need to check low and high if they exist. They need to be int types
+			if (pSliceSelector->pLow) {
+				pSliceSelector->pLow = TypeCheckExpression(state, pSliceSelector->pLow);
+				if (pSliceSelector->pLow->pType->tag != TypeInfo::TypeTag::I32) {
+					state.pErrors->PushError(pSliceSelector->pLow, "Slice bound must be an integer value");
+					return pSliceSelector;
+				}
+			}
+			if (pSliceSelector->pHigh) {
+				pSliceSelector->pHigh = TypeCheckExpression(state, pSliceSelector->pHigh);
+				if (pSliceSelector->pHigh->pType->tag != TypeInfo::TypeTag::I32) {
+					state.pErrors->PushError(pSliceSelector->pHigh, "Slice bound must be an integer value");
+					return pSliceSelector;
+				}
+			}
+			TypeInfoArray* pSliceType = (TypeInfoArray*)state.pAllocator->Allocate(sizeof(TypeInfoArray));
+			pSliceType->tag = TypeInfo::TypeTag::Array;
+			pSliceType->pBaseType = pTargetArrayType->pBaseType;
+			pSliceType->kind = ArrayKind::Slice;
+			pSliceType->dimension = 0;
+			pSliceType->size = 8; // 4 byte pointer + 4 byte length value
+
+			StringBuilder builder;
+			builder.AppendFormat("[]%s", pTargetArrayType->pBaseType->name.pData);
+			pSliceType->name = builder.CreateString(true, state.pAllocator);
+			pSliceSelector->pType = pSliceType;
+            return pSliceSelector;
+		}
 		case Ast::NodeKind::Selector: {
 			Ast::Selector* pSelector = (Ast::Selector*)pExpr;
 			pSelector->pTarget = TypeCheckExpression(state, pSelector->pTarget);
@@ -1103,6 +1164,15 @@ void CollectEntitiesInExpression(TypeCheckerState& state, Ast::Expression* pExpr
         case Ast::NodeKind::Selector: {
             Ast::Selector* pSelector = (Ast::Selector*)pExpr;
             CollectEntitiesInExpression(state, pSelector->pTarget);
+            CollectEntitiesInExpression(state, pSelector->pSelection);
+            break;
+        }
+        case Ast::NodeKind::SliceSelector: {
+            Ast::SliceSelector* pSliceSelector = (Ast::SliceSelector*)pExpr;
+            state.pCurrentScope->temporaries.PushBack(pExpr);
+            CollectEntitiesInExpression(state, pSliceSelector->pTarget);
+            CollectEntitiesInExpression(state, pSliceSelector->pLow);
+            CollectEntitiesInExpression(state, pSliceSelector->pHigh);
             break;
         }
         case Ast::NodeKind::Grouping: {

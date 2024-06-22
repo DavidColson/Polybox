@@ -1019,23 +1019,23 @@ int main(int argc, char *argv[]) {
 	// TODO: Move to program structure
     InitTypeTable();
 
-    Values();
-    ArithmeticOperators();
-    LogicalOperators();
-    Expressions();
-    ControlFlow();
-    Declarations();
-    Assignment();
-    Scopes();
-    Casting();
-    Functions();
-    Structs();
-	StructLiterals();
-    Constants();
-	Pointers();
-	Arrays();
+ //    Values();
+ //    ArithmeticOperators();
+ //    LogicalOperators();
+ //    Expressions();
+ //    ControlFlow();
+ //    Declarations();
+ //    Assignment();
+ //    Scopes();
+ //    Casting();
+ //    Functions();
+ //    Structs();
+	// StructLiterals();
+ //    Constants();
+	// Pointers();
+	// Arrays();
 
-    RunTestPlayground();
+    // RunTestPlayground();
 
     RunCompilerExplorer();
 

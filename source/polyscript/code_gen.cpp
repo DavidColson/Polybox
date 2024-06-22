@@ -337,6 +337,19 @@ void CodeGenExpression(CodeGenState& state, Ast::Expression* pExpr, bool suppres
 
 			break;
 		}
+		case Ast::NodeKind::SliceSelector: {
+			Ast::SliceSelector* pSliceSelector = (Ast::SliceSelector*)pExpr;
+
+			// What needs to be done here then?
+			// So you need to copy two pieces of information to the slice, which I guess needs to be a temporary
+
+			// So you'd get the address of your slice temporary, and then you need to get the address of the target array
+			// Then you need to codegen the low bound, and add that to the target
+			// Then set the the value (the base pointer) to the slice temporary
+			// Then you need to codegen the high value, then the low value and subtract the two
+			// Then set that in the slice temporary + 4 bytes
+			break;
+		}
         case Ast::NodeKind::Literal: {
             Ast::Literal* pLiteral = (Ast::Literal*)pExpr;
 			PushInstruction(state, pLiteral->line, { .opcode = OpCode::Const, .type = pLiteral->pType->tag });

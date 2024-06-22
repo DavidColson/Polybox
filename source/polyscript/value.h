@@ -86,6 +86,12 @@ static const char* ToString(Operator::Enum type) {
 }
 }
 
+enum class ArrayKind {
+	Static,
+	Slice,
+	Dynamic
+};
+
 struct TypeInfo {
     enum TypeTag : u8 {
         Invalid,
@@ -130,6 +136,7 @@ struct TypeInfoPointer: public TypeInfo {
 
 struct TypeInfoArray: public TypeInfo {
 	TypeInfo* pBaseType;	
+	ArrayKind kind;
 	i32 dimension;
 };
 

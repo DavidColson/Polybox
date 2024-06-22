@@ -27,6 +27,7 @@ enum class NodeKind {
     Unary,
 	Call,
 	Selector,
+	SliceSelector,
 	Dereference,
 	StructLiteral,
 	ArrayLiteral,
@@ -148,9 +149,17 @@ struct Call : public Expression {
 };
 
 struct Selector : public Expression {
+	// target.selection OR target[selection]
 	Operator::Enum op; // could be field selector or array subscript 
 	Expression* pTarget;
 	Expression* pSelection;
+};
+
+struct SliceSelector : public Expression {
+	// target[low:high]
+	Expression* pTarget;
+	Expression* pLow;
+	Expression* pHigh;
 };
 
 struct Dereference : public Expression {
@@ -174,18 +183,12 @@ struct PointerType : public Type {
     Type* pBaseType;
 };
 
-enum ArrayKind {
-	Static,
-	Slice,
-	Dynamic
-};
-
 struct ArrayType : public Type {
 	// [dim]type
 	Type* pBaseType;
 	// todo: typecheck that this is a constant
 	Expression* pDimension;
-	ArrayKind kind;
+	ArrayKind arrayKind;
 };
 
 struct Statement;

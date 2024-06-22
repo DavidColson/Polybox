@@ -666,8 +666,14 @@ void DrawAstExpression(Ast::Expression* pExpr) {
             if (ImGui::TreeNodeEx(pArrayType, nodeFlags, "ArrayType")) {
                 if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
                 DrawExprProperties(pExpr);
-				DrawAstExpression(pArrayType->pDimension);
-				DrawAstExpression(pArrayType->pBaseType);
+				if (pArrayType->arrayKind == ArrayKind::Slice) {
+					ImGui::Text("ArrayKind: Slice");
+					DrawAstExpression(pArrayType->pBaseType);
+				} else {
+					ImGui::Text("ArrayKind: Static");
+					DrawAstExpression(pArrayType->pDimension);
+					DrawAstExpression(pArrayType->pBaseType);
+				}
 				ImGui::TreePop();
 			}
 			break;
@@ -736,6 +742,20 @@ void DrawAstExpression(Ast::Expression* pExpr) {
                 DrawExprProperties(pExpr);
                 DrawAstExpression(pSelector->pTarget);
                 DrawAstExpression(pSelector->pSelection);
+                ImGui::TreePop();
+            }
+			break;
+		}
+		case Ast::NodeKind::SliceSelector: {
+			Ast::SliceSelector* pSliceSelector = (Ast::SliceSelector*)pExpr;
+            if (ImGui::TreeNodeEx(pSliceSelector, nodeFlags, "SliceSelector")) {
+                if (ImGui::IsItemClicked()) { selectedLine = pExpr->line-1; }
+                DrawExprProperties(pExpr);
+                DrawAstExpression(pSliceSelector->pTarget);
+				if (pSliceSelector->pLow)
+					DrawAstExpression(pSliceSelector->pLow);
+				if (pSliceSelector->pHigh)
+					DrawAstExpression(pSliceSelector->pHigh);
                 ImGui::TreePop();
             }
 			break;
@@ -1122,9 +1142,9 @@ void RunCompilerExplorer() {
 	compiler.bPrintByteCode = false;
 	CompileCode(compiler);
 
-    // if (compiler.errorState.errors.count > 0) {
-	// 	compiler.errorState.ReportCompilationResult();
-	// }
+    if (compiler.errorState.errors.count > 0) {
+		compiler.errorState.ReportCompilationResult();
+	}
 
     ResizableArray<String> lines;
     defer(lines.Free());

@@ -470,10 +470,49 @@ Ast::Expression* ParseIdentifier(ParsingState& state) {
 
 Ast::Expression* ParseSelector(ParsingState& state, Ast::Expression* pLeft) {
 	Token op = Advance(state);
+	if (Peek(state).type == TokenType::Colon) {
+		// Slice without specified lower bound
+		Advance(state);
+		Ast::Expression* pHigh = ParseExpression(state, Precedence::CallsAndSelectors);
+		Consume(state, TokenType::RightBracket, "Expected ']' to end slicing syntax");
+
+		//make node and return
+		Ast::SliceSelector* pSliceSelector = MakeNode<Ast::SliceSelector>(state.pAllocator, op, Ast::NodeKind::SliceSelector);
+		pSliceSelector->pTarget = pLeft;
+		pSliceSelector->pLow = nullptr;
+		pSliceSelector->pHigh = pHigh;
+		return pSliceSelector;
+	}
+
+	// Could also be a slice low bound?
+	Ast::Expression* pSelection = ParseExpression(state, Precedence::CallsAndSelectors);
+
+	if (Peek(state).type == TokenType::Colon) {
+		Advance(state);
+		if (Peek(state).type == TokenType::RightBracket) {
+			// Slice without higher bound
+			Ast::SliceSelector* pSliceSelector = MakeNode<Ast::SliceSelector>(state.pAllocator, op, Ast::NodeKind::SliceSelector);
+			pSliceSelector->pTarget = pLeft;
+			pSliceSelector->pLow = pSelection;
+			pSliceSelector->pHigh = nullptr;
+			Consume(state, TokenType::RightBracket, "Expected ']' to end slicing syntax");
+			return pSliceSelector;
+		} else {
+			Ast::Expression* pHigh = ParseExpression(state, Precedence::CallsAndSelectors);
+			Ast::SliceSelector* pSliceSelector = MakeNode<Ast::SliceSelector>(state.pAllocator, op, Ast::NodeKind::SliceSelector);
+			pSliceSelector->pTarget = pLeft;
+			pSliceSelector->pLow = pSelection;
+			pSliceSelector->pHigh = pHigh;
+			Consume(state, TokenType::RightBracket, "Expected ']' to end slicing syntax");
+			return pSliceSelector;
+		}
+	}
+
+	// Normal selector
 	Ast::Selector* pSelector = MakeNode<Ast::Selector>(state.pAllocator, op, Ast::NodeKind::Selector);
 	pSelector->pTarget = pLeft;
 	pSelector->op = TokenToOperator(op.type); 
-	pSelector->pSelection = ParseExpression(state, Precedence::CallsAndSelectors);
+	pSelector->pSelection = pSelection;
 
 	if (pSelector->op == Operator::ArraySubscript) {
 		Consume(state, TokenType::RightBracket, "Expected ']' to end array subscript");
@@ -541,8 +580,14 @@ Ast::Expression* ParsePointerType(ParsingState& state) {
 Ast::Expression* ParseArrayType(ParsingState& state) {
 	Token leftBracket = Advance(state);
 	Ast::ArrayType* pArrayType = MakeNode<Ast::ArrayType>(state.pAllocator, leftBracket, Ast::NodeKind::ArrayType);
-	pArrayType->pDimension = ParseExpression(state, Precedence::None);
-	Consume(state, TokenType::RightBracket, "Expected ']' following array dimension in array type declaration");
+	if (Peek(state).type == TokenType::RightBracket) {
+		pArrayType->arrayKind = ArrayKind::Slice;
+		Advance(state);
+	} else {
+		pArrayType->pDimension = ParseExpression(state, Precedence::None);
+		Consume(state, TokenType::RightBracket, "Expected ']' following array dimension in array type declaration");
+		pArrayType->arrayKind = ArrayKind::Static;
+	}
 	pArrayType->pBaseType = (Ast::Type*)ParseType(state);
 	return pArrayType;
 }

@@ -56,8 +56,8 @@ struct Image;
 struct SDL_Window;
 struct Font;
 
-void GraphicsInit(SDL_Window* pWindow);
-void DrawFrame(f32 w, f32 h);
+void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight);
+void DrawFrame(i32 w, i32 h);
 
 // Basic draw 2D
 void BeginObject2D(EPrimitiveType type);

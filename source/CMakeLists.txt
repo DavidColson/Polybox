@@ -16,6 +16,7 @@ set(SOURCES
 	"game_chip.cpp"
 	"graphics_chip_sokol.h"
 	"graphics_chip_sokol.cpp"
+	"sokol_impl_d3d11.cpp"
 	"image.cpp"
 	"image.h"
 	"lua_common.h"

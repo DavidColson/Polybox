@@ -21,7 +21,6 @@ extern "C" {
 }
 
 #include <SDL.h>
-#include <SDL_syswm.h>
 #include <sokol_gfx.h>
 #include <defer.h>
 #include <log.h>
@@ -109,12 +108,7 @@ int main(int argc, char* argv[]) {
 			i32(winHeight),
 			SDL_WINDOW_RESIZABLE);
 
-		SDL_SysWMinfo wmInfo;
-		SDL_VERSION(&wmInfo.version);
-		SDL_GetWindowWMInfo(pWindow, &wmInfo);
-		HWND hwnd = wmInfo.info.win.window;
-
-		GraphicsInit(pWindow);
+		GraphicsInit(pWindow, winWidth, winHeight);
 
 		GameChip game = GameChip();
 		game.Init();
@@ -190,6 +184,8 @@ int main(int argc, char* argv[]) {
 			} else {
 				lua_pop(pLua, 1);
 			}
+
+			DrawFrame(winWidth, winHeight);
 
 			deltaTime = f32(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();
 		}

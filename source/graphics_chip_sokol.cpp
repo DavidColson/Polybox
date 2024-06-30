@@ -4,12 +4,17 @@
 
 #include "font.h"
 #include "image.h"
+#include "sokol_impl.h"
 
+#include <sokol_gfx.h>
 #include <resizable_array.inl>
 #include <maths.h>
 #include <matrix.inl>
 #include <vec3.inl>
 #include <vec2.inl>
+
+// please excuse the dirty trick to block the windows headers messing up my API
+#define DrawTextExA 0 
 
 struct RenderState {
 	Vec2f targetResolution { Vec2f(320.0f, 240.0f) };
@@ -40,6 +45,9 @@ struct RenderState {
 	Image* pTextureState;
 
 	Font defaultFont;
+
+	// sokol backend stuff
+	sg_pass_action passAction;
 };
 
 namespace {
@@ -48,20 +56,32 @@ namespace {
 
 // ***********************************************************************
 
-void GraphicsInit(SDL_Window* pWindow) {
+void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 	pState = (RenderState*)g_Allocator.Allocate(sizeof(RenderState));
     SYS_P_NEW(pState) RenderState();
 
     pState->defaultFont = Font("assets/Roboto-Bold.ttf");
+
 	// init_backend stuff
-	// create sokol desc
+	GraphicsBackendInit(pWindow, winWidth, winHeight);
+	sg_desc desc = {
+		.environment = SokolGetEnvironment()
+	};
+	sg_setup(&desc);
+
+	pState->passAction.colors[0] = { .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.0f, 0.25f, 1.0f } };
 }
 
 // ***********************************************************************
 
-void DrawFrame(f32 w, f32 h) {
+void DrawFrame(i32 w, i32 h) {
 
 	// Present swapchain
+	sg_pass pass = { .action = pState->passAction, .swapchain = SokolGetSwapchain() };
+	sg_begin_pass(&pass);
+	sg_end_pass();
+	sg_commit();
+	SokolPresent();	
 }
 
 // ***********************************************************************

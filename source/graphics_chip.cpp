@@ -358,7 +358,7 @@ void GraphicsChip::EndObject3D() {
                 VertexData* verts = (VertexData*)vertexBuffer.data;
                 bx::memCopy(verts, vertexState.pData, numVertices * sizeof(VertexData));
             } else if (normalsModeState == ENormalsMode::Smooth) {
-                // Convert to indexed list, loop through, saving verts i32o vector, each new one you search for in vector, if you find it, save index in index list.
+                // Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list.
                 ResizableArray<VertexData> uniqueVerts;
                 defer(uniqueVerts.Free());
                 ResizableArray<u16> indices;

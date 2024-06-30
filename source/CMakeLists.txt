@@ -59,16 +59,8 @@ target_compile_definitions(polybox PUBLIC
 	__STDC_FORMAT_MACROS
 	__STDC_CONSTANT_MACROS)
 
-target_compile_shaders(polybox 
-	core2d.vsc
-	core3d.vsc
-	fullscreen.vsc
-	core2d.fsc
-	core2d_textured.fsc
-	core3d.fsc
-	core3d_textured.fsc
-	fullscreen.fsc
-	crt.fsc
+target_compile_shaders(polybox
+	core3d.shader
 )
 
 # Copy the necessary files to the output directory

@@ -41,3 +41,10 @@ Removed backends we don't need, added the bgfx backent and then removed the exam
 - Version: Pulled at change b1221d1
 
 Removed everything except sokol_gfx
+
+## Sokol Tools
+
+- Source: https://github.com/floooh/sokol-tools-bin
+- Version: Pulled at change 1528521
+
+Removed the fips files and some extraneous text files

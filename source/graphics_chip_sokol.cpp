@@ -13,8 +13,15 @@
 #include <vec3.inl>
 #include <vec2.inl>
 
+// shaders
+#include "core3d.h"
+
 // please excuse the dirty trick to block the windows headers messing up my API
 #define DrawTextExA 0 
+
+// this is derived from the ps1's supposed 90k poly's per second with lighting and mapping
+// probably will want to increase this at some point
+#define MAX_VERTICES_PER_FRAME 9000 
 
 struct RenderState {
 	Vec2f targetResolution { Vec2f(320.0f, 240.0f) };
@@ -48,6 +55,9 @@ struct RenderState {
 
 	// sokol backend stuff
 	sg_pass_action passAction;
+	sg_shader shaderCore3d;
+	sg_bindings bind;
+	sg_pipeline pipeline;
 };
 
 namespace {
@@ -69,13 +79,49 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 	};
 	sg_setup(&desc);
 
-	pState->passAction.colors[0] = { .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.0f, 0.25f, 1.0f } };
+	pState->passAction.colors[0] = { 
+		.load_action = SG_LOADACTION_CLEAR,
+		.clear_value = { 0.25f, 0.0f, 0.25f, 1.0f }
+	};
+	
+	pState->shaderCore3d = sg_make_shader(core3d_shader_desc(SG_BACKEND_D3D11));
+
+	sg_buffer_desc vertexBufferDesc = {
+		.size = MAX_VERTICES_PER_FRAME * sizeof(VertexData),
+		.usage = SG_USAGE_STREAM
+	};
+	pState->bind.vertex_buffers[0] = sg_make_buffer(&vertexBufferDesc);
+
+	sg_buffer_desc indexBufferDesc = {
+		.size = MAX_VERTICES_PER_FRAME * sizeof(u16),
+		.type = SG_BUFFERTYPE_INDEXBUFFER,
+		.usage = SG_USAGE_STREAM,
+	};
+	pState->bind.vertex_buffers[0] = sg_make_buffer(&indexBufferDesc);
+
+	sg_pipeline_desc pipelineDesc = {
+		.shader = pState->shaderCore3d,
+		.layout = {
+			.buffers = { {.stride = sizeof(VertexData) } },
+			.attrs = {
+				{ .offset = offsetof(VertexData, pos), .format = SG_VERTEXFORMAT_FLOAT3 },
+				{ .offset = offsetof(VertexData, col), .format = SG_VERTEXFORMAT_FLOAT4 },
+				{ .offset = offsetof(VertexData, tex), .format = SG_VERTEXFORMAT_FLOAT2 },
+				{ .offset = offsetof(VertexData, norm), .format = SG_VERTEXFORMAT_FLOAT3 }
+			}
+		},
+		.depth = {
+			.compare = SG_COMPAREFUNC_LESS_EQUAL,
+			.write_enabled = true
+		},
+		.index_type = SG_INDEXTYPE_NONE,
+		.cull_mode = SG_CULLMODE_BACK
+	};
 }
 
 // ***********************************************************************
 
 void DrawFrame(i32 w, i32 h) {
-
 	// Present swapchain
 	sg_pass pass = { .action = pState->passAction, .swapchain = SokolGetSwapchain() };
 	sg_begin_pass(&pass);
@@ -109,6 +155,31 @@ void BeginObject3D(EPrimitiveType type) {
 
 void EndObject3D() {
 
+	// Notes
+	// SG_USAGE_STREAM is what we need to emulate a transient vertex buffer
+	// we can only update the buffer once per frame, but we can append multiple times
+	// We can also use only part of the buffer, so we presumably will have a max verts, like we had in bgfx transient buffers
+
+	// when binding, the vertex buffer offsets will allow us to bind a specific section of our one vertex buffer
+	// It'll effectively be, append to vertex buffer what you want to use, marking the start point as your offset and bind that
+
+	// One issue is that the way we've architected the API, we will submit a draw call before we've filled the buffer
+	// So we'll have to change it, and rebind it next time anyway
+	// Unless of course end object 3D doesn't submit draw calls, it just fills the buffer and a command list, similar to how imgui works
+	// That's maybe not a bad idea
+	// This is effectively what bgfx did anyway, it just did this deferring for us
+	// You actually can see in the sokol imgui sample how it minimises state changes by not rebinding if the texture hasn't changed and so on.
+	// Again, something that bgfx did for us
+	// Seems like we're just going to copy the imgui rendering backend then lol
+	// Without the concept of a draw list I suppose
+	// Though we could for example group all the 2D stuff into one vertex buffer, and all the 3D into another
+
+
+	// Fresh news
+	// You actually can avoid doing the above, you can interleave appends with drawcalls, as is seen here: https://github.com/floooh/sokol-samples/blob/b40a6e457c908899456a0b5c9519c16e7981ed3d/d3d11/imgui-d3d11.cc#L237
+	// This is very simple for us, but worth noting that it means the user of the API is fully in control of the ordering of draw calls
+	// It might be worth us storing the pipeline and bindings between calls of EndObject, so if the user does draw in an order that reduces state changes
+	// They'll get a perf improvement. Not that it will matter that much though
 }
 
 // ***********************************************************************

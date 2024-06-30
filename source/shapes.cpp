@@ -2,99 +2,99 @@
 
 #include "shapes.h"
 
-#include "graphics_chip.h"
+#include "graphics_chip_sokol.h"
 #include "vec3.inl"
 
 // ***********************************************************************
 
-void DrawBox(GraphicsChip& gpu, f32 x, f32 y, f32 z, f32 width, f32 height, f32 depth) {
-    gpu.BeginObject3D(EPrimitiveType::Triangles);
+void DrawBox(f32 x, f32 y, f32 z, f32 width, f32 height, f32 depth) {
+    BeginObject3D(EPrimitiveType::Triangles);
 
-    // gpu.Color(Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y, z));
-    gpu.TexCoord(Vec2f(1.0f, 0.0f));
-    gpu.Vertex(Vec3f(x + width, y, z));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y + height, z));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y, z));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y + height, z));
-    gpu.TexCoord(Vec2f(0.0f, 1.0f));
-    gpu.Vertex(Vec3f(x, y + height, z));
+    // Color(Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x, y, z));
+    TexCoord(Vec2f(1.0f, 0.0f));
+    Vertex(Vec3f(x + width, y, z));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x + width, y + height, z));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x, y, z));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x + width, y + height, z));
+    TexCoord(Vec2f(0.0f, 1.0f));
+    Vertex(Vec3f(x, y + height, z));
 
-    // gpu.Color(Vec4f(1.0f, 0.0f, 1.0f, 1.0f));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y, z + depth));
-    gpu.TexCoord(Vec2f(0.0f, 1.0f));
-    gpu.Vertex(Vec3f(x, y + height, z + depth));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y, z + depth));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-    gpu.TexCoord(Vec2f(1.0f, 0.0f));
-    gpu.Vertex(Vec3f(x + width, y, z + depth));
+    // Color(Vec4f(1.0f, 0.0f, 1.0f, 1.0f));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x, y, z + depth));
+    TexCoord(Vec2f(0.0f, 1.0f));
+    Vertex(Vec3f(x, y + height, z + depth));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x + width, y + height, z + depth));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x, y, z + depth));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x + width, y + height, z + depth));
+    TexCoord(Vec2f(1.0f, 0.0f));
+    Vertex(Vec3f(x + width, y, z + depth));
 
-    // gpu.Color(Vec4f(1.0f, 1.0f, 0.0f, 1.0f));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y, z));
-    gpu.TexCoord(Vec2f(0.0f, 1.0f));
-    gpu.Vertex(Vec3f(x, y + height, z));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x, y + height, z + depth));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y, z));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x, y + height, z + depth));
-    gpu.TexCoord(Vec2f(1.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y, z + depth));
+    // Color(Vec4f(1.0f, 1.0f, 0.0f, 1.0f));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x, y, z));
+    TexCoord(Vec2f(0.0f, 1.0f));
+    Vertex(Vec3f(x, y + height, z));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x, y + height, z + depth));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x, y, z));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x, y + height, z + depth));
+    TexCoord(Vec2f(1.0f, 0.0f));
+    Vertex(Vec3f(x, y, z + depth));
 
-    // gpu.Color(Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x + width, y, z));
-    gpu.TexCoord(Vec2f(1.0f, 0.0f));
-    gpu.Vertex(Vec3f(x + width, y, z + depth));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x + width, y, z));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-    gpu.TexCoord(Vec2f(0.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y + height, z));
+    // Color(Vec4f(1.0f, 1.0f, 1.0f, 1.0f));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x + width, y, z));
+    TexCoord(Vec2f(1.0f, 0.0f));
+    Vertex(Vec3f(x + width, y, z + depth));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x + width, y + height, z + depth));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x + width, y, z));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x + width, y + height, z + depth));
+    TexCoord(Vec2f(0.0f, 1.0f));
+    Vertex(Vec3f(x + width, y + height, z));
 
-    // gpu.Color(Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y, z));
-    gpu.TexCoord(Vec2f(0.0f, 1.0f));
-    gpu.Vertex(Vec3f(x, y, z + depth));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y, z + depth));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y, z));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y, z + depth));
-    gpu.TexCoord(Vec2f(1.0f, 0.0f));
-    gpu.Vertex(Vec3f(x + width, y, z));
+    // Color(Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x, y, z));
+    TexCoord(Vec2f(0.0f, 1.0f));
+    Vertex(Vec3f(x, y, z + depth));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x + width, y, z + depth));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x, y, z));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x + width, y, z + depth));
+    TexCoord(Vec2f(1.0f, 0.0f));
+    Vertex(Vec3f(x + width, y, z));
 
-    // gpu.Color(Vec4f(0.0f, 1.0f, 1.0f, 1.0f));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y + height, z));
-    gpu.TexCoord(Vec2f(1.0f, 0.0f));
-    gpu.Vertex(Vec3f(x + width, y + height, z));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-    gpu.TexCoord(Vec2f(0.0f, 0.0f));
-    gpu.Vertex(Vec3f(x, y + height, z));
-    gpu.TexCoord(Vec2f(1.0f, 1.0f));
-    gpu.Vertex(Vec3f(x + width, y + height, z + depth));
-    gpu.TexCoord(Vec2f(0.0f, 1.0f));
-    gpu.Vertex(Vec3f(x, y + height, z + depth));
+    // Color(Vec4f(0.0f, 1.0f, 1.0f, 1.0f));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x, y + height, z));
+    TexCoord(Vec2f(1.0f, 0.0f));
+    Vertex(Vec3f(x + width, y + height, z));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x + width, y + height, z + depth));
+    TexCoord(Vec2f(0.0f, 0.0f));
+    Vertex(Vec3f(x, y + height, z));
+    TexCoord(Vec2f(1.0f, 1.0f));
+    Vertex(Vec3f(x + width, y + height, z + depth));
+    TexCoord(Vec2f(0.0f, 1.0f));
+    Vertex(Vec3f(x, y + height, z + depth));
 
-    gpu.EndObject3D();
+    EndObject3D();
 }
 
 
@@ -116,17 +116,17 @@ static i32 tindices[NFACE][3] = {
 
 // ***********************************************************************
 
-void DrawTriangle(GraphicsChip& gpu, Vec3f v1, Vec3f v2, Vec3f v3) {
-    gpu.Vertex(v1);
-    gpu.Vertex(v2);
-    gpu.Vertex(v3);
+void DrawTriangle(Vec3f v1, Vec3f v2, Vec3f v3) {
+    Vertex(v1);
+    Vertex(v2);
+    Vertex(v3);
 }
 
 // ***********************************************************************
 
-void SubDivide(GraphicsChip& gpu, Vec3f v1, Vec3f v2, Vec3f v3, i32 depth) {
+void SubDivide(Vec3f v1, Vec3f v2, Vec3f v3, i32 depth) {
     if (depth == 0) {
-        DrawTriangle(gpu, v1, v2, v3);
+        DrawTriangle( v1, v2, v3);
         return;
     }
     // midpoint of each edge
@@ -142,18 +142,18 @@ void SubDivide(GraphicsChip& gpu, Vec3f v1, Vec3f v2, Vec3f v3, i32 depth) {
     v23 = v23.GetNormalized();
     v31 = v31.GetNormalized();
 
-    SubDivide(gpu, v1, v12, v31, depth - 1);
-    SubDivide(gpu, v2, v23, v12, depth - 1);
-    SubDivide(gpu, v3, v31, v23, depth - 1);
-    SubDivide(gpu, v12, v23, v31, depth - 1);
+    SubDivide( v1, v12, v31, depth - 1);
+    SubDivide( v2, v23, v12, depth - 1);
+    SubDivide( v3, v31, v23, depth - 1);
+    SubDivide( v12, v23, v31, depth - 1);
 }
 
 // ***********************************************************************
 
-void DrawIcosahedron(GraphicsChip& gpu, i32 maxDepth) {
-    gpu.BeginObject3D(EPrimitiveType::Triangles);
+void DrawIcosahedron(i32 maxDepth) {
+    BeginObject3D(EPrimitiveType::Triangles);
     for (int i = 0; i < NFACE; i++) {
-        SubDivide(gpu, vdata[tindices[i][0]], vdata[tindices[i][1]], vdata[tindices[i][2]], maxDepth);
+        SubDivide( vdata[tindices[i][0]], vdata[tindices[i][1]], vdata[tindices[i][2]], maxDepth);
     }
-    gpu.EndObject3D();
+    EndObject3D();
 }

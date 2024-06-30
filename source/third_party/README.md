@@ -34,3 +34,10 @@ Files stripped down to just `include/`, `src/` except Jamfiles and tools subfold
 - Version: 1.89.9
 
 Removed backends we don't need, added the bgfx backent and then removed the examples folder, but otherwise same as upstream
+
+## Sokol
+
+- Source: https://github.com/floooh/sokol
+- Version: Pulled at change b1221d1
+
+Removed everything except sokol_gfx

@@ -8,7 +8,7 @@
 #include "bind_scene.h"
 #include "font.h"
 #include "game_chip.h"
-#include "graphics_chip.h"
+#include "graphics_chip_sokol.h"
 #include "image.h"
 #include "mesh.h"
 #include "scene.h"
@@ -22,8 +22,7 @@ extern "C" {
 
 #include <SDL.h>
 #include <SDL_syswm.h>
-#include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
+#include <sokol_gfx.h>
 #include <defer.h>
 #include <log.h>
 #include <matrix.h>
@@ -93,138 +92,120 @@ void AssertHandler(Log::LogLevel level, String message) {
 // ***********************************************************************
 
 int main(int argc, char* argv[]) {
-    {
-        Log::LogConfig log;
-        log.critCrashes = false;
-        log.customHandler1 = AssertHandler;
-        Log::SetConfig(log);
+	{
+		Log::LogConfig log;
+		log.critCrashes = false;
+		log.customHandler1 = AssertHandler;
+		Log::SetConfig(log);
 
-        i32 winWidth = 1280;
-        i32 winHeight = 960;
+		i32 winWidth = 1280;
+		i32 winHeight = 960;
 
-        SDL_Window* pWindow = SDL_CreateWindow(
-            "Polybox",
-            SDL_WINDOWPOS_UNDEFINED,
-            SDL_WINDOWPOS_UNDEFINED,
-            i32(winWidth),
-            i32(winHeight),
-            SDL_WINDOW_RESIZABLE);
+		SDL_Window* pWindow = SDL_CreateWindow(
+			"Polybox",
+			SDL_WINDOWPOS_UNDEFINED,
+			SDL_WINDOWPOS_UNDEFINED,
+			i32(winWidth),
+			i32(winHeight),
+			SDL_WINDOW_RESIZABLE);
 
-        SDL_SysWMinfo wmInfo;
-        SDL_VERSION(&wmInfo.version);
-        SDL_GetWindowWMInfo(pWindow, &wmInfo);
-        HWND hwnd = wmInfo.info.win.window;
+		SDL_SysWMinfo wmInfo;
+		SDL_VERSION(&wmInfo.version);
+		SDL_GetWindowWMInfo(pWindow, &wmInfo);
+		HWND hwnd = wmInfo.info.win.window;
 
-        bgfx::Init init;
-        init.type = bgfx::RendererType::Direct3D11;
-        init.platformData.ndt = NULL;
-        init.platformData.nwh = wmInfo.info.win.window;
+		GraphicsInit(pWindow);
 
-        bgfx::renderFrame();
+		GameChip game = GameChip();
+		game.Init();
 
-        bgfx::init(init);
-        bgfx::reset(winWidth, winHeight, BGFX_RESET_VSYNC);
+		lua_State* pLua = luaL_newstate();
+		luaL_openlibs(pLua);  // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
 
-        GraphicsChip gpu = GraphicsChip();
-        gpu.Init();
+		Bind::BindGraphicsChip(pLua);
+		Bind::BindMesh(pLua);
+		Bind::BindScene(pLua);
+		Bind::BindGameChip(pLua, &game);
 
-        GameChip game = GameChip();
-        game.Init();
+		if (luaL_dofile(pLua, "assets/game.lua") != LUA_OK) {
+			Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
+		}
 
-        lua_State* pLua = luaL_newstate();
-        luaL_openlibs(pLua);  // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
+		lua_getglobal(pLua, "Start");
+		if (lua_isfunction(pLua, -1)) {
+			if (lua_pcall(pLua, 0, 0, 0) != LUA_OK) {
+				Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
+			}
+		}
 
-        Bind::BindGraphicsChip(pLua, &gpu);
-        Bind::BindMesh(pLua);
-        Bind::BindScene(pLua);
-        Bind::BindGameChip(pLua, &game);
+		bool gameRunning = true;
+		f32 deltaTime = 0.016f;
+		Vec2i relativeMouseStartLocation { Vec2i(0, 0) };
+		bool isCapturingMouse = false;
+		while (gameRunning) {
+			Uint64 frameStart = SDL_GetPerformanceCounter();
 
-        if (luaL_dofile(pLua, "assets/game.lua") != LUA_OK) {
-            Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
-        }
+			game.ClearStates();
+			// Deal with events
+			SDL_Event event;
+			while (SDL_PollEvent(&event)) {
+				game.ProcessEvent(&event);
+				switch (event.type) {
+					case SDL_KEYDOWN: {
+						if (event.key.keysym.scancode == SDL_SCANCODE_TAB && event.key.keysym.mod & KMOD_LSHIFT) {
+							isCapturingMouse = !isCapturingMouse;
+							if (isCapturingMouse) {
+								SDL_GetGlobalMouseState(&relativeMouseStartLocation.x, &relativeMouseStartLocation.y);
+								SDL_SetRelativeMouseMode(SDL_TRUE);
+							} else {
+								SDL_SetRelativeMouseMode(SDL_FALSE);
+								SDL_WarpMouseGlobal(relativeMouseStartLocation.x, relativeMouseStartLocation.y);
+							}
+						}
+					} break;
+					case SDL_WINDOWEVENT:
+						switch (event.window.event) {
+							case SDL_WINDOWEVENT_CLOSE:
+								gameRunning = false;
+								break;
+							default:
+								break;
+						}
+						break;
+					case SDL_QUIT:
+						gameRunning = false;
+						break;
+				}
+			}
+			game.UpdateInputs(deltaTime, Vec2f(320.0f, 240.0f), Vec2f((f32)winWidth, (f32)winHeight));
 
-        lua_getglobal(pLua, "Start");
-        if (lua_isfunction(pLua, -1)) {
-            if (lua_pcall(pLua, 0, 0, 0) != LUA_OK) {
-                Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
-            }
-        }
+			// Lua updates
 
-        bool gameRunning = true;
-        f32 deltaTime = 0.016f;
-        Vec2i relativeMouseStartLocation { Vec2i(0, 0) };
-        bool isCapturingMouse = false;
-        while (gameRunning) {
-            Uint64 frameStart = SDL_GetPerformanceCounter();
+			lua_getglobal(pLua, "Update");
+			if (lua_isfunction(pLua, -1)) {
+				lua_pushnumber(pLua, deltaTime);
+				if (lua_pcall(pLua, 1, 0, 0) != LUA_OK) {
+					Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
+				}
+			} else {
+				lua_pop(pLua, 1);
+			}
 
-            game.ClearStates();
-            // Deal with events
-            SDL_Event event;
-            while (SDL_PollEvent(&event)) {
-                game.ProcessEvent(&event);
-                switch (event.type) {
-                    case SDL_KEYDOWN: {
-                        if (event.key.keysym.scancode == SDL_SCANCODE_TAB && event.key.keysym.mod & KMOD_LSHIFT) {
-                            isCapturingMouse = !isCapturingMouse;
-                            if (isCapturingMouse) {
-                                SDL_GetGlobalMouseState(&relativeMouseStartLocation.x, &relativeMouseStartLocation.y);
-                                SDL_SetRelativeMouseMode(SDL_TRUE);
-                            } else {
-                                SDL_SetRelativeMouseMode(SDL_FALSE);
-                                SDL_WarpMouseGlobal(relativeMouseStartLocation.x, relativeMouseStartLocation.y);
-                            }
-                        }
-                    } break;
-                    case SDL_WINDOWEVENT:
-                        switch (event.window.event) {
-                            case SDL_WINDOWEVENT_CLOSE:
-                                gameRunning = false;
-                                break;
-                            default:
-                                break;
-                        }
-                        break;
-                    case SDL_QUIT:
-                        gameRunning = false;
-                        break;
-                }
-            }
-            bgfx::touch(0);
-            game.UpdateInputs(deltaTime, Vec2f(320.0f, 240.0f), Vec2f((f32)winWidth, (f32)winHeight));
+			deltaTime = f32(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();
+		}
 
-            // Lua updates
+		lua_getglobal(pLua, "End");
+		if (lua_isfunction(pLua, -1)) {
+			if (lua_pcall(pLua, 0, 0, 0) != LUA_OK) {
+				Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
+			}
+		}
 
-            lua_getglobal(pLua, "Update");
-            if (lua_isfunction(pLua, -1)) {
-                lua_pushnumber(pLua, deltaTime);
-                if (lua_pcall(pLua, 1, 0, 0) != LUA_OK) {
-                    Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
-                }
-            } else {
-                lua_pop(pLua, 1);
-            }
+		lua_close(pLua);
+		game.Shutdown();
+	}
+	i32 n = ReportMemoryLeaks();
+	Log::Info("Memory Leak Reports %i leaks", n);
 
-            gpu.DrawFrame((f32)winWidth, (f32)winHeight);
-
-            // bgfx::setDebug(BGFX_DEBUG_STATS);
-            bgfx::frame();
-
-            deltaTime = f32(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();
-        }
-
-        lua_getglobal(pLua, "End");
-        if (lua_isfunction(pLua, -1)) {
-            if (lua_pcall(pLua, 0, 0, 0) != LUA_OK) {
-                Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
-            }
-        }
-
-        lua_close(pLua);
-        game.Shutdown();
-    }
-    bgfx::shutdown();
-    i32 n = ReportMemoryLeaks();
-    Log::Info("Memory Leak Reports %i leaks", n);
-
-    return 0;
+	return 0;
 }

@@ -2,8 +2,10 @@
 
 #include "bind_graphics_chip.h"
 
-#include "graphics_chip.h"
+#include "graphics_chip_sokol.h"
 #include "lua_common.h"
+#include "image.h"
+#include "font.h"
 
 extern "C" {
 #include <lauxlib.h>
@@ -13,14 +15,10 @@ extern "C" {
 #include <light_string.h>
 #include <string.h>
 
-namespace {
-GraphicsChip* pGpu { nullptr };
-}
-
 namespace Bind {
 // ***********************************************************************
 
-int BeginObject2D(lua_State* pLua) {
+int LuaBeginObject2D(lua_State* pLua) {
     const char* primitiveType = luaL_checkstring(pLua, 1);
 
     EPrimitiveType type;
@@ -32,36 +30,36 @@ int BeginObject2D(lua_State* pLua) {
         type = EPrimitiveType::Lines;
     else if (strcmp(primitiveType, "LineStrip") == 0)
         type = EPrimitiveType::LineStrip;
-    pGpu->BeginObject2D(type);
+    BeginObject2D(type);
     return 0;
 }
 
 // ***********************************************************************
 
-int EndObject2D(lua_State* pLua) {
-    pGpu->EndObject2D();
+int LuaEndObject2D(lua_State* pLua) {
+    EndObject2D();
     return 0;
 }
 
 // ***********************************************************************
 
-int Vertex(lua_State* pLua) {
+int LuaVertex(lua_State* pLua) {
     f32 x = (f32)luaL_checknumber(pLua, 1);
     f32 y = (f32)luaL_checknumber(pLua, 2);
 
     if (lua_isnoneornil(pLua, 3)) {
-        pGpu->Vertex(Vec2f(x, y));
+        Vertex(Vec2f(x, y));
         return 0;
     }
 
     f32 z = (f32)luaL_checknumber(pLua, 3);
-    pGpu->Vertex(Vec3f(x, y, z));
+    Vertex(Vec3f(x, y, z));
     return 0;
 }
 
 // ***********************************************************************
 
-int BeginObject3D(lua_State* pLua) {
+int LuaBeginObject3D(lua_State* pLua) {
     const char* primitiveType = luaL_checkstring(pLua, 1);
 
     EPrimitiveType type;
@@ -73,61 +71,61 @@ int BeginObject3D(lua_State* pLua) {
         type = EPrimitiveType::Lines;
     else if (strcmp(primitiveType, "LineStrip") == 0)
         type = EPrimitiveType::LineStrip;
-    pGpu->BeginObject3D(type);
+    BeginObject3D(type);
     return 0;
 }
 
 // ***********************************************************************
 
-int EndObject3D(lua_State* pLua) {
-    pGpu->EndObject3D();
+int LuaEndObject3D(lua_State* pLua) {
+    EndObject3D();
     return 0;
 }
 
 // ***********************************************************************
 
-int Color(lua_State* pLua) {
+int LuaColor(lua_State* pLua) {
     f32 r = (f32)luaL_checknumber(pLua, 1);
     f32 g = (f32)luaL_checknumber(pLua, 2);
     f32 b = (f32)luaL_checknumber(pLua, 3);
     f32 a = (f32)luaL_checknumber(pLua, 4);
-    pGpu->Color(Vec4f(r, g, b, a));
+    Color(Vec4f(r, g, b, a));
     return 0;
 }
 
 // ***********************************************************************
 
-int TexCoord(lua_State* pLua) {
+int LuaTexCoord(lua_State* pLua) {
     f32 u = (f32)luaL_checknumber(pLua, 1);
     f32 v = (f32)luaL_checknumber(pLua, 2);
-    pGpu->TexCoord(Vec2f(u, v));
+    TexCoord(Vec2f(u, v));
     return 0;
 }
 
 // ***********************************************************************
 
-int Normal(lua_State* pLua) {
+int LuaNormal(lua_State* pLua) {
     f32 x = (f32)luaL_checknumber(pLua, 1);
     f32 y = (f32)luaL_checknumber(pLua, 2);
     f32 z = (f32)luaL_checknumber(pLua, 3);
-    pGpu->Normal(Vec3f(x, y, z));
+    Normal(Vec3f(x, y, z));
     return 0;
 }
 
 // ***********************************************************************
 
-int SetClearColor(lua_State* pLua) {
+int LuaSetClearColor(lua_State* pLua) {
     f32 r = (f32)luaL_checknumber(pLua, 1);
     f32 g = (f32)luaL_checknumber(pLua, 2);
     f32 b = (f32)luaL_checknumber(pLua, 3);
     f32 a = (f32)luaL_checknumber(pLua, 4);
-    pGpu->SetClearColor(Vec4f(r, g, b, a));
+    SetClearColor(Vec4f(r, g, b, a));
     return 0;
 }
 
 // ***********************************************************************
 
-int MatrixMode(lua_State* pLua) {
+int LuaMatrixMode(lua_State* pLua) {
     const char* matrixMode = luaL_checkstring(pLua, 1);
 
     EMatrixMode mode;
@@ -137,77 +135,77 @@ int MatrixMode(lua_State* pLua) {
         mode = EMatrixMode::View;
     else if (strcmp(matrixMode, "Projection") == 0)
         mode = EMatrixMode::Projection;
-    pGpu->MatrixMode(mode);
+    MatrixMode(mode);
     return 0;
 }
 
 // ***********************************************************************
 
-int Perspective(lua_State* pLua) {
+int LuaPerspective(lua_State* pLua) {
     f32 screenWidth = (f32)luaL_checknumber(pLua, 1);
     f32 screenHeight = (f32)luaL_checknumber(pLua, 2);
     f32 nearPlane = (f32)luaL_checknumber(pLua, 3);
     f32 farPlane = (f32)luaL_checknumber(pLua, 4);
     f32 fov = (f32)luaL_checknumber(pLua, 5);
-    pGpu->Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);
+    Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);
     return 0;
 }
 
 // ***********************************************************************
 
-int Translate(lua_State* pLua) {
+int LuaTranslate(lua_State* pLua) {
     f32 x = (f32)luaL_checknumber(pLua, 1);
     f32 y = (f32)luaL_checknumber(pLua, 2);
     f32 z = (f32)luaL_checknumber(pLua, 3);
-    pGpu->Translate(Vec3f(x, y, z));
+    Translate(Vec3f(x, y, z));
     return 0;
 }
 
 // ***********************************************************************
 
-int Rotate(lua_State* pLua) {
+int LuaRotate(lua_State* pLua) {
     f32 x = (f32)luaL_checknumber(pLua, 1);
     f32 y = (f32)luaL_checknumber(pLua, 2);
     f32 z = (f32)luaL_checknumber(pLua, 3);
-    pGpu->Rotate(Vec3f(x, y, z));
+    Rotate(Vec3f(x, y, z));
     return 0;
 }
 
 // ***********************************************************************
 
-int Scale(lua_State* pLua) {
+int LuaScale(lua_State* pLua) {
     f32 x = (f32)luaL_checknumber(pLua, 1);
     f32 y = (f32)luaL_checknumber(pLua, 2);
     f32 z = (f32)luaL_checknumber(pLua, 3);
-    pGpu->Scale(Vec3f(x, y, z));
+    Scale(Vec3f(x, y, z));
     return 0;
 }
 
 // ***********************************************************************
 
-int Identity(lua_State* pLua) {
-    pGpu->Identity();
+int LuaIdentity(lua_State* pLua) {
+    Identity();
     return 0;
 }
 
 // ***********************************************************************
 
-int BindTexture(lua_State* pLua) {
+int LuaBindTexture(lua_State* pLua) {
     Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
-    pGpu->BindTexture(pImage);
+    BindTexture(pImage);
     return 0;
 }
 
 // ***********************************************************************
 
-int UnbindTexture(lua_State* pLua) {
-    pGpu->UnbindTexture();
+int LuaUnbindTexture(lua_State* pLua) {
+    UnbindTexture();
     return 0;
 }
 
 // ***********************************************************************
 
-int NormalsMode(lua_State* pLua) {
+int LuaNormalsMode(lua_State* pLua) {
     const char* normalsMode = luaL_checkstring(pLua, 1);
     ENormalsMode mode;
     if (strcmp(normalsMode, "Custom") == 0)
@@ -216,21 +214,21 @@ int NormalsMode(lua_State* pLua) {
         mode = ENormalsMode::Flat;
     else if (strcmp(normalsMode, "Smooth") == 0)
         mode = ENormalsMode::Smooth;
-    pGpu->NormalsMode(mode);
+    NormalsMode(mode);
     return 0;
 }
 
 // ***********************************************************************
 
-int EnableLighting(lua_State* pLua) {
+int LuaEnableLighting(lua_State* pLua) {
     bool enabled = luax_checkboolean(pLua, 1);
-    pGpu->EnableLighting(enabled);
+    EnableLighting(enabled);
     return 0;
 }
 
 // ***********************************************************************
 
-int Light(lua_State* pLua) {
+int LuaLight(lua_State* pLua) {
     i32 id = (i32)luaL_checkinteger(pLua, 1);
 
     Vec3f direction;
@@ -244,71 +242,71 @@ int Light(lua_State* pLua) {
     color.y = (f32)luaL_checknumber(pLua, 6);
     color.z = (f32)luaL_checknumber(pLua, 7);
 
-    pGpu->Light(id, direction, color);
+    Light(id, direction, color);
     return 0;
 }
 
 // ***********************************************************************
 
-int Ambient(lua_State* pLua) {
+int LuaAmbient(lua_State* pLua) {
     Vec3f color;
     color.x = (f32)luaL_checknumber(pLua, 1);
     color.y = (f32)luaL_checknumber(pLua, 2);
     color.z = (f32)luaL_checknumber(pLua, 3);
 
-    pGpu->Ambient(color);
+    Ambient(color);
     return 0;
 }
 
 // ***********************************************************************
 
-int EnableFog(lua_State* pLua) {
+int LuaEnableFog(lua_State* pLua) {
     bool enabled = luax_checkboolean(pLua, 1);
-    pGpu->EnableFog(enabled);
+    EnableFog(enabled);
     return 0;
 }
 
 // ***********************************************************************
 
-int SetFogStart(lua_State* pLua) {
+int LuaSetFogStart(lua_State* pLua) {
     f32 start = (f32)luaL_checknumber(pLua, 1);
-    pGpu->SetFogStart(start);
+    SetFogStart(start);
     return 0;
 }
 
 // ***********************************************************************
 
-int SetFogEnd(lua_State* pLua) {
+int LuaSetFogEnd(lua_State* pLua) {
     f32 end = (f32)luaL_checknumber(pLua, 1);
-    pGpu->SetFogEnd(end);
+    SetFogEnd(end);
     return 0;
 }
 
 // ***********************************************************************
 
-int SetFogColor(lua_State* pLua) {
+int LuaSetFogColor(lua_State* pLua) {
     Vec3f color;
     color.x = (f32)luaL_checknumber(pLua, 1);
     color.y = (f32)luaL_checknumber(pLua, 2);
     color.z = (f32)luaL_checknumber(pLua, 3);
-    pGpu->SetFogColor(color);
+    SetFogColor(color);
     return 0;
 }
 
 // ***********************************************************************
 
-int DrawSprite(lua_State* pLua) {
+int LuaDrawSprite(lua_State* pLua) {
     Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
     Vec2f position;
     position.x = (f32)luaL_checknumber(pLua, 2);
     position.y = (f32)luaL_checknumber(pLua, 3);
-    pGpu->DrawSprite(pImage, position);
+    DrawSprite(pImage, position);
     return 0;
 }
 
 // ***********************************************************************
 
-int DrawSpriteRect(lua_State* pLua) {
+int LuaDrawSpriteRect(lua_State* pLua) {
     Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
     Vec4f rect;
     rect.x = (f32)luaL_checknumber(pLua, 2);
@@ -318,13 +316,13 @@ int DrawSpriteRect(lua_State* pLua) {
     Vec2f position;
     position.x = (f32)luaL_checknumber(pLua, 6);
     position.y = (f32)luaL_checknumber(pLua, 7);
-    pGpu->DrawSpriteRect(pImage, rect, position);
+    DrawSpriteRect(pImage, rect, position);
     return 0;
 }
 
 // ***********************************************************************
 
-int DrawText(lua_State* pLua) {
+int LuaDrawText(lua_State* pLua) {
     usize len;
     const char* str = luaL_checklstring(pLua, 1, &len);
     Vec2f position;
@@ -332,13 +330,13 @@ int DrawText(lua_State* pLua) {
     position.y = (f32)luaL_checknumber(pLua, 3);
     f32 size = (f32)luaL_checknumber(pLua, 4);
 
-    pGpu->DrawText(str, position, size);
+    DrawText(str, position, size);
     return 0;
 }
 
 // ***********************************************************************
 
-int DrawTextEx(lua_State* pLua) {
+int LuaDrawTextEx(lua_State* pLua) {
     usize len;
     const char* str = luaL_checklstring(pLua, 1, &len);
     Vec2f position;
@@ -352,11 +350,11 @@ int DrawTextEx(lua_State* pLua) {
     Font* pFont = *(Font**)luaL_checkudata(pLua, 8, "Font");
     f32 size = (f32)luaL_checknumber(pLua, 9);
 
-    pGpu->DrawTextEx(str, position, color, pFont, size);
+    DrawTextEx(str, position, color, pFont, size);
     return 0;
 }
 
-int DrawPixel(lua_State* pLua) {
+int LuaDrawPixel(lua_State* pLua) {
     Vec2f position;
     position.x = (f32)luaL_checknumber(pLua, 1);
     position.y = (f32)luaL_checknumber(pLua, 2);
@@ -366,11 +364,11 @@ int DrawPixel(lua_State* pLua) {
     color.z = (f32)luaL_checknumber(pLua, 5);
     color.w = (f32)luaL_checknumber(pLua, 6);
 
-    pGpu->DrawPixel(position, color);
+    DrawPixel(position, color);
     return 0;
 }
 
-int DrawLine(lua_State* pLua) {
+int LuaDrawLine(lua_State* pLua) {
     Vec2f start;
     start.x = (f32)luaL_checknumber(pLua, 1);
     start.y = (f32)luaL_checknumber(pLua, 2);
@@ -383,11 +381,11 @@ int DrawLine(lua_State* pLua) {
     color.z = (f32)luaL_checknumber(pLua, 7);
     color.w = (f32)luaL_checknumber(pLua, 8);
 
-    pGpu->DrawLine(start, end, color);
+    DrawLine(start, end, color);
     return 0;
 }
 
-int DrawCircle(lua_State* pLua) {
+int LuaDrawCircle(lua_State* pLua) {
     Vec2f center;
     center.x = (f32)luaL_checknumber(pLua, 1);
     center.y = (f32)luaL_checknumber(pLua, 2);
@@ -398,11 +396,11 @@ int DrawCircle(lua_State* pLua) {
     color.z = (f32)luaL_checknumber(pLua, 6);
     color.w = (f32)luaL_checknumber(pLua, 7);
 
-    pGpu->DrawCircle(center, radius, color);
+    DrawCircle(center, radius, color);
     return 0;
 }
 
-int DrawCircleOutline(lua_State* pLua) {
+int LuaDrawCircleOutline(lua_State* pLua) {
     Vec2f center;
     center.x = (f32)luaL_checknumber(pLua, 1);
     center.y = (f32)luaL_checknumber(pLua, 2);
@@ -413,11 +411,11 @@ int DrawCircleOutline(lua_State* pLua) {
     color.z = (f32)luaL_checknumber(pLua, 6);
     color.w = (f32)luaL_checknumber(pLua, 7);
 
-    pGpu->DrawCircleOutline(center, radius, color);
+    DrawCircleOutline(center, radius, color);
     return 0;
 }
 
-int DrawRectangle(lua_State* pLua) {
+int LuaDrawRectangle(lua_State* pLua) {
     Vec2f bottomLeft;
     bottomLeft.x = (f32)luaL_checknumber(pLua, 1);
     bottomLeft.y = (f32)luaL_checknumber(pLua, 2);
@@ -430,11 +428,11 @@ int DrawRectangle(lua_State* pLua) {
     color.z = (f32)luaL_checknumber(pLua, 7);
     color.w = (f32)luaL_checknumber(pLua, 8);
 
-    pGpu->DrawRectangle(bottomLeft, topRight, color);
+    DrawRectangle(bottomLeft, topRight, color);
     return 0;
 }
 
-int DrawRectangleOutline(lua_State* pLua) {
+int LuaDrawRectangleOutline(lua_State* pLua) {
     Vec2f bottomLeft;
     bottomLeft.x = (f32)luaL_checknumber(pLua, 1);
     bottomLeft.y = (f32)luaL_checknumber(pLua, 2);
@@ -447,13 +445,13 @@ int DrawRectangleOutline(lua_State* pLua) {
     color.z = (f32)luaL_checknumber(pLua, 7);
     color.w = (f32)luaL_checknumber(pLua, 8);
 
-    pGpu->DrawRectangleOutline(bottomLeft, topRight, color);
+    DrawRectangleOutline(bottomLeft, topRight, color);
     return 0;
 }
 
 // ***********************************************************************
 
-int NewImage(lua_State* pLua) {
+int LuaNewImage(lua_State* pLua) {
     usize len;
     const char* str = luaL_checklstring(pLua, 1, &len);
     String path(str);
@@ -471,7 +469,7 @@ int NewImage(lua_State* pLua) {
 
 // ***********************************************************************
 
-int Image_GetWidth(lua_State* pLua) {
+int LuaImage_GetWidth(lua_State* pLua) {
     Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
     lua_pushinteger(pLua, pImage->width);
     return 1;
@@ -479,7 +477,7 @@ int Image_GetWidth(lua_State* pLua) {
 
 // ***********************************************************************
 
-int Image_GetHeight(lua_State* pLua) {
+int LuaImage_GetHeight(lua_State* pLua) {
     Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
     lua_pushinteger(pLua, pImage->height);
     return 1;
@@ -487,7 +485,7 @@ int Image_GetHeight(lua_State* pLua) {
 
 // ***********************************************************************
 
-int NewFont(lua_State* pLua) {
+int LuaNewFont(lua_State* pLua) {
     usize len;
     const char* path = luaL_checklstring(pLua, 1, &len);
     bool antialiasing = luax_checkboolean(pLua, 2);
@@ -506,50 +504,49 @@ int NewFont(lua_State* pLua) {
 
 // ***********************************************************************
 
-int BindGraphicsChip(lua_State* pLua, GraphicsChip* _pGraphics) {
-    pGpu = _pGraphics;
+int BindGraphicsChip(lua_State* pLua) {
 
     // Global functions
     ///////////////////
 
     const luaL_Reg graphicsFuncs[] = {
-        { "BeginObject2D", BeginObject2D },
-        { "EndObject2D", EndObject2D },
-        { "Vertex", Vertex },
-        { "BeginObject3D", BeginObject3D },
-        { "EndObject3D", EndObject3D },
-        { "Color", Color },
-        { "TexCoord", TexCoord },
-        { "Normal", Normal },
-        { "SetClearColor", SetClearColor },
-        { "MatrixMode", MatrixMode },
-        { "Perspective", Perspective },
-        { "Translate", Translate },
-        { "Rotate", Rotate },
-        { "Scale", Scale },
-        { "Identity", Identity },
-        { "BindTexture", BindTexture },
-        { "UnbindTexture", UnbindTexture },
-        { "NormalsMode", NormalsMode },
-        { "EnableLighting", EnableLighting },
-        { "Light", Light },
-        { "Ambient", Ambient },
-        { "EnableFog", EnableFog },
-        { "SetFogStart", SetFogStart },
-        { "SetFogEnd", SetFogEnd },
-        { "SetFogColor", SetFogColor },
-        { "DrawSprite", DrawSprite },
-        { "DrawSpriteRect", DrawSpriteRect },
-        { "DrawText", DrawText },
-        { "DrawTextEx", DrawTextEx },
-        { "DrawPixel", DrawPixel },
-        { "DrawLine", DrawLine },
-        { "DrawCircle", DrawCircle },
-        { "DrawCircleOutline", DrawCircleOutline },
-        { "DrawRectangle", DrawRectangle },
-        { "DrawRectangleOutline", DrawRectangleOutline },
-        { "NewImage", NewImage },
-        { "NewFont", NewFont },
+        { "BeginObject2D", LuaBeginObject2D },
+        { "EndObject2D", LuaEndObject2D },
+        { "Vertex", LuaVertex },
+        { "BeginObject3D", LuaBeginObject3D },
+        { "EndObject3D", LuaEndObject3D },
+        { "Color", LuaColor },
+        { "TexCoord", LuaTexCoord },
+        { "Normal", LuaNormal },
+        { "SetClearColor", LuaSetClearColor },
+        { "MatrixMode", LuaMatrixMode },
+        { "Perspective", LuaPerspective },
+        { "Translate", LuaTranslate },
+        { "Rotate", LuaRotate },
+        { "Scale", LuaScale },
+        { "Identity", LuaIdentity },
+        { "BindTexture", LuaBindTexture },
+        { "UnbindTexture", LuaUnbindTexture },
+        { "NormalsMode", LuaNormalsMode },
+        { "EnableLighting", LuaEnableLighting },
+        { "Light", LuaLight },
+        { "Ambient", LuaAmbient },
+        { "EnableFog", LuaEnableFog },
+        { "SetFogStart", LuaSetFogStart },
+        { "SetFogEnd", LuaSetFogEnd },
+        { "SetFogColor", LuaSetFogColor },
+        { "DrawSprite", LuaDrawSprite },
+        { "DrawSpriteRect", LuaDrawSpriteRect },
+        { "DrawText", LuaDrawText },
+        { "DrawTextEx", LuaDrawTextEx },
+        { "DrawPixel", LuaDrawPixel },
+        { "DrawLine", LuaDrawLine },
+        { "DrawCircle", LuaDrawCircle },
+        { "DrawCircleOutline", LuaDrawCircleOutline },
+        { "DrawRectangle", LuaDrawRectangle },
+        { "DrawRectangleOutline", LuaDrawRectangleOutline },
+        { "NewImage", LuaNewImage },
+        { "NewFont", LuaNewFont },
         { NULL, NULL }
     };
 
@@ -560,8 +557,8 @@ int BindGraphicsChip(lua_State* pLua, GraphicsChip* _pGraphics) {
     ////////
 
     const luaL_Reg imageMethods[] = {
-        { "GetWidth", Image_GetWidth },
-        { "GetHeight", Image_GetHeight },
+        { "GetWidth", LuaImage_GetWidth },
+        { "GetHeight", LuaImage_GetHeight },
         { NULL, NULL }
     };
     luax_registertype(pLua, "Image", imageMethods);

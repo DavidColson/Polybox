@@ -6,6 +6,7 @@
 #include "defer.h"
 #include "json.h"
 #include "string_builder.h"
+#include "image.h"
 
 #include <SDL_rwops.h>
 #include <resizable_array.inl>

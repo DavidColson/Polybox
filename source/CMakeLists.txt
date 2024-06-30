@@ -14,8 +14,8 @@ set(SOURCES
 	"font.cpp"
 	"game_chip.h"
 	"game_chip.cpp"
-	"graphics_chip.h"
-	"graphics_chip.cpp"
+	"graphics_chip_sokol.h"
+	"graphics_chip_sokol.cpp"
 	"image.cpp"
 	"image.h"
 	"lua_common.h"
@@ -33,10 +33,6 @@ add_executable(polybox ${SOURCES})
 
 target_link_libraries(polybox 
 	common_lib 
-	bgfx 
-	bimg 
-	bimg_decode 
-	bx 
 	FreeType 
 	lua 
 	SDL2 
@@ -47,12 +43,10 @@ target_link_libraries(polybox
 
 target_include_directories(polybox PUBLIC 
 	"${PROJ_ROOT_PATH}/source/"
-	"${PROJ_ROOT_PATH}/source/third_party/bgfx/include/"
-	"${PROJ_ROOT_PATH}/source/third_party/bimg/include/"
-	"${PROJ_ROOT_PATH}/source/third_party/bx/include/"
 	"${PROJ_ROOT_PATH}/source/third_party/FreeType/include/"
 	"${PROJ_ROOT_PATH}/source/third_party/lua/src/"
 	"${PROJ_ROOT_PATH}/source/third_party/SDL2/include/"
+	"${PROJ_ROOT_PATH}/source/third_party/sokol/"
 	"${PROJ_ROOT_PATH}/source/common_lib/source")
 
 target_link_directories(polybox PUBLIC

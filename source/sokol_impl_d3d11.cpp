@@ -41,7 +41,7 @@ bool GraphicsBackendInit(SDL_Window* pWindow, int width, int height) {
 	scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	scd.OutputWindow = hwnd;
 	scd.SampleDesc.Count = 1;
-	scd.SampleDesc.Quality = D3D11_STANDARD_MULTISAMPLE_PATTERN;
+	scd.SampleDesc.Quality = 0;
 	scd.Windowed = true;
 
 	if (D3D11CreateDeviceAndSwapChain(

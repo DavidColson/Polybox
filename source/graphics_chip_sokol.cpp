@@ -10,8 +10,10 @@
 #include <resizable_array.inl>
 #include <maths.h>
 #include <matrix.inl>
+#include <vec4.inl>
 #include <vec3.inl>
 #include <vec2.inl>
+#include <defer.h>
 
 // shaders
 #include "core3d.h"
@@ -22,6 +24,16 @@
 // this is derived from the ps1's supposed 90k poly's per second with lighting and mapping
 // probably will want to increase this at some point
 #define MAX_VERTICES_PER_FRAME 9000 
+
+struct DrawCommand {
+	i32 vertexBufferOffset;	
+	i32 indexBufferOffset;	
+	i32 numVerts;
+	bool indexedDraw;
+	i16 textureID;
+	EPrimitiveType type;
+	vs_params_t uniforms;
+};
 
 struct RenderState {
 	Vec2f targetResolution { Vec2f(320.0f, 240.0f) };
@@ -41,8 +53,8 @@ struct RenderState {
 
 	ENormalsMode normalsModeState;
 	bool lightingState { false };
-	Vec3f lightDirectionsStates[MAX_LIGHTS];
-	Vec3f lightColorStates[MAX_LIGHTS];
+	Vec4f lightDirectionsStates[MAX_LIGHTS];
+	Vec4f lightColorStates[MAX_LIGHTS];
 	Vec3f lightAmbientState { Vec3f(0.0f, 0.0f, 0.0f) };
 
 	bool fogState { false };
@@ -52,6 +64,10 @@ struct RenderState {
 	Image* pTextureState;
 
 	Font defaultFont;
+
+	ResizableArray<DrawCommand> drawList;
+	ResizableArray<VertexData> perFrameVertexBuffer;
+	ResizableArray<u16> perFrameIndexBuffer;
 
 	// sokol backend stuff
 	sg_pass_action passAction;
@@ -97,7 +113,8 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 		.type = SG_BUFFERTYPE_INDEXBUFFER,
 		.usage = SG_USAGE_STREAM,
 	};
-	pState->bind.vertex_buffers[0] = sg_make_buffer(&indexBufferDesc);
+	// TODO: you can't bind an index buffer and not use it, need two different binds
+	//pState->bind.index_buffer = sg_make_buffer(&indexBufferDesc);
 
 	sg_pipeline_desc pipelineDesc = {
 		.shader = pState->shaderCore3d,
@@ -114,20 +131,72 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 			.compare = SG_COMPAREFUNC_LESS_EQUAL,
 			.write_enabled = true
 		},
+		.colors = {
+			{
+				.write_mask = SG_COLORMASK_RGB,
+				.blend = { 
+					.enabled = true,
+					.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+					.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+				},
+			}
+		},
 		.index_type = SG_INDEXTYPE_NONE,
-		.cull_mode = SG_CULLMODE_BACK
+		.cull_mode = SG_CULLMODE_NONE
 	};
+	pState->pipeline = sg_make_pipeline(pipelineDesc);
+
+	pState->perFrameVertexBuffer.Reserve(MAX_VERTICES_PER_FRAME);
+	pState->perFrameIndexBuffer.Reserve(MAX_VERTICES_PER_FRAME);
+
+	for (usize i = 0; i < 3; i++) {
+        pState->matrixStates[i] = Matrixf::Identity();
+    }
 }
 
 // ***********************************************************************
 
 void DrawFrame(i32 w, i32 h) {
+	// TODO: Sort the draw list to minimise state changes
+
 	// Present swapchain
 	sg_pass pass = { .action = pState->passAction, .swapchain = SokolGetSwapchain() };
 	sg_begin_pass(&pass);
+	sg_apply_pipeline(pState->pipeline);
+
+	sg_range vtxData;
+	vtxData.ptr = (void*)pState->perFrameVertexBuffer.pData;
+	vtxData.size = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+	sg_update_buffer(pState->bind.vertex_buffers[0], &vtxData);
+
+	sg_apply_viewport(0, 0, 320, 240, true);
+	sg_apply_scissor_rect(0, 0, 320, 240, true);
+
+	for(i32 i = 0; i < pState->drawList.count; i++) {
+
+		DrawCommand& cmd = pState->drawList[i];
+		if (cmd.indexedDraw) // skip for now, one thing at a time
+			continue;
+
+		sg_range uniforms = SG_RANGE_REF(cmd.uniforms);
+		sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &uniforms);
+		pState->bind.vertex_buffer_offsets[0] = cmd.vertexBufferOffset;
+		sg_apply_bindings(&pState->bind);
+		sg_draw(0, cmd.numVerts, 1); 
+	}
 	sg_end_pass();
 	sg_commit();
 	SokolPresent();	
+
+
+	// prepare for next frame
+	pState->perFrameVertexBuffer.count = 0;
+	pState->perFrameIndexBuffer.count = 0;
+	pState->drawList.count=0;
+
+	for (usize i = 0; i < (int)EMatrixMode::Count; i++) {
+        pState->matrixStates[i] = Matrixf::Identity();
+    }
 }
 
 // ***********************************************************************
@@ -154,32 +223,141 @@ void BeginObject3D(EPrimitiveType type) {
 // ***********************************************************************
 
 void EndObject3D() {
+    if (pState->mode == ERenderMode::None)  // TODO Call errors when this is incorrect
+        return;
 
-	// Notes
-	// SG_USAGE_STREAM is what we need to emulate a transient vertex buffer
-	// we can only update the buffer once per frame, but we can append multiple times
-	// We can also use only part of the buffer, so we presumably will have a max verts, like we had in bgfx transient buffers
+	DrawCommand cmd;
 
-	// when binding, the vertex buffer offsets will allow us to bind a specific section of our one vertex buffer
-	// It'll effectively be, append to vertex buffer what you want to use, marking the start point as your offset and bind that
+	i32 numIndices;
+	cmd.type = pState->typeState;
+	bool buffersFilled = false;
+    switch (pState->typeState) {
+        case EPrimitiveType::Points:
+		case EPrimitiveType::Lines:
+		case EPrimitiveType::LineStrip:
+			break;
+        case EPrimitiveType::Triangles: {
+            if (pState->normalsModeState == ENormalsMode::Flat) {
+                for (size i = 0; i < pState->vertexState.count; i += 3) {
+                    Vec3f v1 = pState->vertexState[i + 1].pos - pState->vertexState[i].pos;
+                    Vec3f v2 = pState->vertexState[i + 2].pos - pState->vertexState[i].pos;
+                    Vec3f faceNormal = Vec3f::Cross(v1, v2).GetNormalized();
 
-	// One issue is that the way we've architected the API, we will submit a draw call before we've filled the buffer
-	// So we'll have to change it, and rebind it next time anyway
-	// Unless of course end object 3D doesn't submit draw calls, it just fills the buffer and a command list, similar to how imgui works
-	// That's maybe not a bad idea
-	// This is effectively what bgfx did anyway, it just did this deferring for us
-	// You actually can see in the sokol imgui sample how it minimises state changes by not rebinding if the texture hasn't changed and so on.
-	// Again, something that bgfx did for us
-	// Seems like we're just going to copy the imgui rendering backend then lol
-	// Without the concept of a draw list I suppose
-	// Though we could for example group all the 2D stuff into one vertex buffer, and all the 3D into another
+                    pState->vertexState[i].norm = faceNormal;
+                    pState->vertexState[i + 1].norm = faceNormal;
+                    pState->vertexState[i + 2].norm = faceNormal;
+                }
 
+				u32 numVertices = (u32)pState->vertexState.count;
+				VertexData* pDestBuffer = pState->perFrameVertexBuffer.pData + pState->perFrameVertexBuffer.count;
+				if (pState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
+					return;
+				memcpy(pDestBuffer, pState->vertexState.pData, numVertices * sizeof(VertexData));
 
-	// Fresh news
-	// You actually can avoid doing the above, you can interleave appends with drawcalls, as is seen here: https://github.com/floooh/sokol-samples/blob/b40a6e457c908899456a0b5c9519c16e7981ed3d/d3d11/imgui-d3d11.cc#L237
-	// This is very simple for us, but worth noting that it means the user of the API is fully in control of the ordering of draw calls
-	// It might be worth us storing the pipeline and bindings between calls of EndObject, so if the user does draw in an order that reduces state changes
-	// They'll get a perf improvement. Not that it will matter that much though
+				cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+				cmd.numVerts = numVertices;
+				pState->perFrameVertexBuffer.count += numVertices;
+				buffersFilled = true;
+            } else if (pState->normalsModeState == ENormalsMode::Smooth) {
+				// the purpose of this is to make same vertices share the same normal vector that gets averaged from the nearby polygons
+                // Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list.
+                ResizableArray<VertexData> uniqueVerts;
+                defer(uniqueVerts.Free());
+                ResizableArray<u16> indices;
+                defer(indices.Free());
+                for (size i = 0; i < pState->vertexState.count; i++) {
+                    VertexData* pVertData = uniqueVerts.Find(pState->vertexState[i]);
+                    if (pVertData == uniqueVerts.end()) {
+                        // New vertex
+                        uniqueVerts.PushBack(pState->vertexState[i]);
+                        indices.PushBack((u16)uniqueVerts.count - 1);
+                    } else {
+                        indices.PushBack((u16)uniqueVerts.IndexFromPointer(pVertData));
+                    }
+                }
+
+                // Then run your flat shading algo on the list of vertices looping through index list. If you have a new normal for a vert, then average with the existing one
+                for (size i = 0; i < indices.count; i += 3) {
+                    Vec3f v1 = uniqueVerts[indices[i + 1]].pos - uniqueVerts[indices[i]].pos;
+                    Vec3f v2 = uniqueVerts[indices[i + 2]].pos - uniqueVerts[indices[i]].pos;
+                    Vec3f faceNormal = Vec3f::Cross(v1, v2);
+
+                    uniqueVerts[indices[i]].norm += faceNormal;
+                    uniqueVerts[indices[i + 1]].norm += faceNormal;
+                    uniqueVerts[indices[i + 2]].norm += faceNormal;
+                }
+
+                for (size i = 0; i < uniqueVerts.count; i++) {
+                    uniqueVerts[i].norm = uniqueVerts[i].norm.GetNormalized();
+                }
+
+                // fill vertex buffer
+				u32 numVertices = (u32)uniqueVerts.count;
+				VertexData* pDestBuffer = pState->perFrameVertexBuffer.pData + pState->perFrameVertexBuffer.count;
+				if (pState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
+					return;
+				memcpy(pDestBuffer, uniqueVerts.pData, numVertices * sizeof(VertexData));
+				cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+				cmd.numVerts = numVertices;
+				pState->perFrameVertexBuffer.count += numVertices;
+
+                // fill index buffer
+                numIndices = (u32)indices.count;
+				u16* pDestIndexBuffer = pState->perFrameIndexBuffer.pData + pState->perFrameIndexBuffer.count;
+				if (pState->perFrameIndexBuffer.count + numIndices > MAX_VERTICES_PER_FRAME)
+					return;
+				memcpy(pDestIndexBuffer, indices.pData, numIndices * sizeof(u16));
+				cmd.indexBufferOffset = pState->perFrameIndexBuffer.count * sizeof(u16);
+				pState->perFrameIndexBuffer.count += numIndices;
+				buffersFilled = true;
+            }
+        }
+        default:
+            break;
+    }
+
+    if (buffersFilled == false) {
+        // fill vertex buffer
+		u32 numVertices = (u32)pState->vertexState.count;
+		VertexData* pDestBuffer = pState->perFrameVertexBuffer.pData + pState->perFrameVertexBuffer.count;
+		if (pState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
+			return;
+		memcpy(pDestBuffer, pState->vertexState.pData, numVertices * sizeof(VertexData));
+		cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+		cmd.numVerts = numVertices;
+		pState->perFrameVertexBuffer.count += numVertices;
+    }
+
+    // Submit draw call
+	cmd.uniforms.mvp = pState->matrixStates[(usize)EMatrixMode::Projection] * pState->matrixStates[(usize)EMatrixMode::View] * pState->matrixStates[(usize)EMatrixMode::Model];
+	cmd.uniforms.model = pState->matrixStates[(usize)EMatrixMode::Model];
+	cmd.uniforms.u_lightingEnabled = (i32)pState->lightingState;
+	cmd.uniforms.u_lightDirection[0] = pState->lightDirectionsStates[0];
+	cmd.uniforms.u_lightDirection[1] = pState->lightDirectionsStates[1];
+	cmd.uniforms.u_lightDirection[2] = pState->lightDirectionsStates[2];
+	cmd.uniforms.u_lightColor[0] = pState->lightColorStates[0];
+	cmd.uniforms.u_lightColor[1] = pState->lightColorStates[1];
+	cmd.uniforms.u_lightColor[2] = pState->lightColorStates[2];
+	cmd.uniforms.u_lightAmbient = pState->lightAmbientState;
+
+    if (pState->normalsModeState == ENormalsMode::Smooth)
+        cmd.indexedDraw = true;
+	else
+		cmd.indexedDraw = false;
+
+    if (pState->pTextureState) {
+		// TODO: set texture ID
+		pState->drawList.PushBack(cmd);
+    } else {
+		pState->drawList.PushBack(cmd);
+    }
+
+	// TODO: can probably reuse this memory, don't need to free
+    pState->vertexState.Free();
+    pState->vertexColorState = Vec4f(1.0f);
+    pState->vertexTexCoordState = Vec2f();
+    pState->vertexNormalState = Vec3f();
+    pState->mode = ERenderMode::None;
 }
 
 // ***********************************************************************
@@ -290,8 +468,8 @@ void Light(int id, Vec3f direction, Vec3f color) {
     if (id > 2)
         return;
 
-    pState->lightDirectionsStates[id] = direction;
-    pState->lightColorStates[id] = color;
+    pState->lightDirectionsStates[id] = Vec4f::Embed3D(direction);
+    pState->lightColorStates[id] = Vec4f::Embed3D(color);
 }
 
 // ***********************************************************************

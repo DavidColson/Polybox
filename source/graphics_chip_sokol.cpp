@@ -17,6 +17,7 @@
 
 // shaders
 #include "core3d.h"
+#include "fullscreen.h"
 
 // please excuse the dirty trick to block the windows headers messing up my API
 #define DrawTextExA 0 
@@ -69,15 +70,88 @@ struct RenderState {
 	ResizableArray<VertexData> perFrameVertexBuffer;
 	ResizableArray<u16> perFrameIndexBuffer;
 
-	// sokol backend stuff
-	sg_pass_action passAction;
-	sg_shader shaderCore3d;
-	sg_bindings bind;
-	sg_pipeline pipeline;
+	
+	// Sokol rendering data
+	
+	// pipelines
+	sg_pipeline pipeFullscreenTexture;
+	sg_pipeline pipeCore3DNonIndexed;
+	sg_pipeline pipeCore3DIndexed;
+
+	// passes
+	sg_pass passCore3DScene;
+	sg_pass passUpscaleCore3D;
+
+	// persistent Buffers
+	sg_buffer fullscreenTriangle;
+	sg_buffer transientVertexBuffer;
+	sg_buffer transientIndexBuffer;
+
+	// framebuffers
+	sg_image fbCore3DScene;
+
+	// samplers 
+	sg_sampler samplerNearest;
+
 };
 
 namespace {
 	RenderState* pState;
+}
+
+// ***********************************************************************
+
+void CreateFullScreenQuad(f32 _textureWidth, f32 _textureHeight, f32 _texelHalf, bool _originBottomLeft, f32 _depth, f32 _width = 1.0f, f32 _height = 1.0f) {
+	
+	// allocate space for 3 vertices, stack might be fine
+	VertexData vertices[3];
+
+	const f32 minx = -_width;
+	const f32 maxx = _width;
+	const f32 miny = 0.0f;
+	const f32 maxy = _height * 2.0f;
+
+	const f32 texelHalfW = _texelHalf / _textureWidth;
+	const f32 texelHalfH = _texelHalf / _textureHeight;
+	const f32 minu = -1.0f + texelHalfW;
+	const f32 maxu = 1.0f + texelHalfH;
+
+	const f32 zz = _depth;
+
+	f32 minv = texelHalfH;
+	f32 maxv = 2.0f + texelHalfH;
+
+	if (_originBottomLeft) {
+		f32 temp = minv;
+		minv = maxv;
+		maxv = temp;
+
+		minv -= 1.0f;
+		maxv -= 1.0f;
+	}
+
+	vertices[0].pos.x = minx;
+	vertices[0].pos.y = miny;
+	vertices[0].pos.z = zz;
+	vertices[0].tex.x = minu;
+	vertices[0].tex.y = minv;
+
+	vertices[1].pos.x = maxx;
+	vertices[1].pos.y = maxy;
+	vertices[1].pos.z = zz;
+	vertices[1].tex.x = maxu;
+	vertices[1].tex.y = maxv;
+
+	vertices[2].pos.x = maxx;
+	vertices[2].pos.y = miny;
+	vertices[2].pos.z = zz;
+	vertices[2].tex.x = maxu;
+	vertices[2].tex.y = minv;
+
+	sg_buffer_desc vbufferDesc = {
+		.data = SG_RANGE(vertices)
+	};
+	pState->fullscreenTriangle = sg_make_buffer(&vbufferDesc);
 }
 
 // ***********************************************************************
@@ -95,56 +169,136 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 	};
 	sg_setup(&desc);
 
-	pState->passAction.colors[0] = { 
-		.load_action = SG_LOADACTION_CLEAR,
-		.clear_value = { 0.25f, 0.0f, 0.25f, 1.0f }
-	};
-	
-	pState->shaderCore3d = sg_make_shader(core3d_shader_desc(SG_BACKEND_D3D11));
+	// Fullscreen Texture Pipeline
+	{
+		sg_pipeline_desc pipelineDesc = {
+			.shader = sg_make_shader(fullscreen_shader_desc(SG_BACKEND_D3D11)),
+			.layout = {
+				.buffers = { {.stride = sizeof(VertexData) } },
+				.attrs = {
+					{ .offset = offsetof(VertexData, pos), .format = SG_VERTEXFORMAT_FLOAT3 },
+					{ .offset = offsetof(VertexData, col), .format = SG_VERTEXFORMAT_FLOAT4 },
+					{ .offset = offsetof(VertexData, tex), .format = SG_VERTEXFORMAT_FLOAT2 },
+					{ .offset = offsetof(VertexData, norm), .format = SG_VERTEXFORMAT_FLOAT3 }
+				}
+			},
+			.depth = {
+				.compare = SG_COMPAREFUNC_LESS_EQUAL,
+				.write_enabled = true,
+			},
+			.colors = {
+				{
+					.write_mask = SG_COLORMASK_RGB,
+					.blend = { 
+						.enabled = true,
+						.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+						.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+					},
+				}
+			},
+			.index_type = SG_INDEXTYPE_NONE,
+			.cull_mode = SG_CULLMODE_BACK
+		};
+		pState->pipeFullscreenTexture = sg_make_pipeline(pipelineDesc);
+	}
 
-	sg_buffer_desc vertexBufferDesc = {
-		.size = MAX_VERTICES_PER_FRAME * sizeof(VertexData),
-		.usage = SG_USAGE_STREAM
-	};
-	pState->bind.vertex_buffers[0] = sg_make_buffer(&vertexBufferDesc);
+	// Core3D pipelines (indexed and non indexed)
+	{
+		sg_pipeline_desc pipelineDesc = {
+			.shader = sg_make_shader(core3d_shader_desc(SG_BACKEND_D3D11)),
+			.layout = {
+				.buffers = { {.stride = sizeof(VertexData) } },
+				.attrs = {
+					{ .offset = offsetof(VertexData, pos), .format = SG_VERTEXFORMAT_FLOAT3 },
+					{ .offset = offsetof(VertexData, col), .format = SG_VERTEXFORMAT_FLOAT4 },
+					{ .offset = offsetof(VertexData, tex), .format = SG_VERTEXFORMAT_FLOAT2 },
+					{ .offset = offsetof(VertexData, norm), .format = SG_VERTEXFORMAT_FLOAT3 }
+				}
+			},
+			.depth = {
+				.pixel_format = SG_PIXELFORMAT_DEPTH,
+				.compare = SG_COMPAREFUNC_LESS_EQUAL,
+				.write_enabled = true,
+			},
+			.colors = {
+				{
+					.write_mask = SG_COLORMASK_RGB,
+					.blend = { 
+						.enabled = true,
+						.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+						.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+					},
+				}
+			},
+			.index_type = SG_INDEXTYPE_NONE,
+			.cull_mode = SG_CULLMODE_NONE
+		};
+		pState->pipeCore3DNonIndexed = sg_make_pipeline(pipelineDesc);
 
-	sg_buffer_desc indexBufferDesc = {
-		.size = MAX_VERTICES_PER_FRAME * sizeof(u16),
-		.type = SG_BUFFERTYPE_INDEXBUFFER,
-		.usage = SG_USAGE_STREAM,
-	};
-	// TODO: you can't bind an index buffer and not use it, need two different binds
-	//pState->bind.index_buffer = sg_make_buffer(&indexBufferDesc);
+		pipelineDesc.index_type = SG_INDEXTYPE_UINT16;
+		pState->pipeCore3DIndexed = sg_make_pipeline(pipelineDesc);
+	}
 
-	sg_pipeline_desc pipelineDesc = {
-		.shader = pState->shaderCore3d,
-		.layout = {
-			.buffers = { {.stride = sizeof(VertexData) } },
-			.attrs = {
-				{ .offset = offsetof(VertexData, pos), .format = SG_VERTEXFORMAT_FLOAT3 },
-				{ .offset = offsetof(VertexData, col), .format = SG_VERTEXFORMAT_FLOAT4 },
-				{ .offset = offsetof(VertexData, tex), .format = SG_VERTEXFORMAT_FLOAT2 },
-				{ .offset = offsetof(VertexData, norm), .format = SG_VERTEXFORMAT_FLOAT3 }
-			}
-		},
-		.depth = {
-			.compare = SG_COMPAREFUNC_LESS_EQUAL,
-			.write_enabled = true
-		},
-		.colors = {
-			{
-				.write_mask = SG_COLORMASK_RGB,
-				.blend = { 
-					.enabled = true,
-					.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
-					.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-				},
-			}
-		},
-		.index_type = SG_INDEXTYPE_NONE,
-		.cull_mode = SG_CULLMODE_NONE
-	};
-	pState->pipeline = sg_make_pipeline(pipelineDesc);
+
+	// Create persistent buffers
+	{
+		CreateFullScreenQuad(winWidth, winHeight, 0.0f, true, 0.0f);
+
+		sg_buffer_desc vertexBufferDesc = {
+			.size = MAX_VERTICES_PER_FRAME * sizeof(VertexData),
+			.usage = SG_USAGE_STREAM
+		};
+		pState->transientVertexBuffer = sg_make_buffer(&vertexBufferDesc);
+	}
+
+	// Create core3D scene pass
+	{
+		sg_image_desc viewDesc = {
+			.render_target = true,
+			.width = 320,
+			.height = 240,
+			.sample_count = 1
+		};
+		pState->fbCore3DScene = sg_make_image(&viewDesc);
+
+		viewDesc.pixel_format = SG_PIXELFORMAT_DEPTH;
+		sg_image depth = sg_make_image(&viewDesc);
+
+		sg_attachments_desc attachmentsDesc = {
+			.colors = { {.image = pState->fbCore3DScene } },
+			.depth_stencil = { .image = depth }
+		};
+
+		pState->passCore3DScene = { 
+			.action = {
+				.colors = {
+					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.0f, 0.25f, 1.0f } } 
+				}
+			},
+			.attachments = sg_make_attachments(&attachmentsDesc)
+		};
+	}
+
+	// Create upscale core3d framebuffer pass
+	{
+		pState->passUpscaleCore3D = { 
+			.action = {
+				.colors = {
+					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.0f, 0.25f, 1.0f } } 
+				}
+			},
+			.swapchain = SokolGetSwapchain()
+		};
+	}
+
+	// Create samplers
+	{
+		sg_sampler_desc samplerDesc = {
+			.min_filter = SG_FILTER_NEAREST,
+			.mag_filter = SG_FILTER_NEAREST
+		};
+		pState->samplerNearest = sg_make_sampler(&samplerDesc);
+	}
 
 	pState->perFrameVertexBuffer.Reserve(MAX_VERTICES_PER_FRAME);
 	pState->perFrameIndexBuffer.Reserve(MAX_VERTICES_PER_FRAME);
@@ -159,32 +313,63 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 void DrawFrame(i32 w, i32 h) {
 	// TODO: Sort the draw list to minimise state changes
 
-	// Present swapchain
-	sg_pass pass = { .action = pState->passAction, .swapchain = SokolGetSwapchain() };
-	sg_begin_pass(&pass);
-	sg_apply_pipeline(pState->pipeline);
+	// Draw 3D view into texture
+	{
+		sg_begin_pass(&pState->passCore3DScene);
+		sg_apply_pipeline(pState->pipeCore3DNonIndexed);
 
-	sg_range vtxData;
-	vtxData.ptr = (void*)pState->perFrameVertexBuffer.pData;
-	vtxData.size = pState->perFrameVertexBuffer.count * sizeof(VertexData);
-	sg_update_buffer(pState->bind.vertex_buffers[0], &vtxData);
+		sg_range vtxData;
+		vtxData.ptr = (void*)pState->perFrameVertexBuffer.pData;
+		vtxData.size = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+		sg_update_buffer(pState->transientVertexBuffer, &vtxData);
 
-	sg_apply_viewport(0, 0, 320, 240, true);
-	sg_apply_scissor_rect(0, 0, 320, 240, true);
+		// Todo: parameterize these resolutions
+		sg_apply_viewport(0, 0, 320, 240, true);
+		sg_apply_scissor_rect(0, 0, 320, 240, true);
 
-	for(i32 i = 0; i < pState->drawList.count; i++) {
+		sg_bindings bind{0};
+		bind.vertex_buffers[0] = pState->transientVertexBuffer;
+		for(i32 i = 0; i < pState->drawList.count; i++) {
 
-		DrawCommand& cmd = pState->drawList[i];
-		if (cmd.indexedDraw) // skip for now, one thing at a time
-			continue;
+			DrawCommand& cmd = pState->drawList[i];
+			if (cmd.indexedDraw) // skip for now, one thing at a time
+				continue;
 
-		sg_range uniforms = SG_RANGE_REF(cmd.uniforms);
-		sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &uniforms);
-		pState->bind.vertex_buffer_offsets[0] = cmd.vertexBufferOffset;
-		sg_apply_bindings(&pState->bind);
-		sg_draw(0, cmd.numVerts, 1); 
+			sg_range uniforms = SG_RANGE_REF(cmd.uniforms);
+			sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &uniforms);
+			bind.vertex_buffer_offsets[0] = cmd.vertexBufferOffset;
+			sg_apply_bindings(&bind);
+			sg_draw(0, cmd.numVerts, 1); 
+		}
+		sg_end_pass();
 	}
-	sg_end_pass();
+
+	// Draw framebuffer to swapchain, upscaling in the process
+	{
+		sg_begin_pass(&pState->passUpscaleCore3D);
+		sg_apply_pipeline(pState->pipeFullscreenTexture);
+
+		sg_apply_viewport(0, 0, 1280, 960, true);
+		sg_apply_scissor_rect(0, 0, 1280, 960, true);
+
+		sg_bindings bind = { 
+			.vertex_buffers = { pState->fullscreenTriangle },
+			.fs = {
+				.images = { { pState->fbCore3DScene } },
+				.samplers = { { pState->samplerNearest } }
+			}
+		};
+		sg_apply_bindings(&bind);
+
+		vs_fullscreen_params_t vsUniforms;
+		vsUniforms.mvp = Matrixf::Orthographic(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 100.0f);
+		sg_range vsUniformsRange = SG_RANGE_REF(vsUniforms);
+		sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &vsUniformsRange);
+
+		sg_draw(0, 3, 1);
+		sg_end_pass();
+	}
+
 	sg_commit();
 	SokolPresent();	
 
@@ -261,6 +446,7 @@ void EndObject3D() {
             } else if (pState->normalsModeState == ENormalsMode::Smooth) {
 				// the purpose of this is to make same vertices share the same normal vector that gets averaged from the nearby polygons
                 // Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list.
+
                 ResizableArray<VertexData> uniqueVerts;
                 defer(uniqueVerts.Free());
                 ResizableArray<u16> indices;

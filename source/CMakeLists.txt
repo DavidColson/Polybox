@@ -48,6 +48,7 @@ target_include_directories(polybox PUBLIC
 	"${PROJ_ROOT_PATH}/source/third_party/lua/src/"
 	"${PROJ_ROOT_PATH}/source/third_party/SDL2/include/"
 	"${PROJ_ROOT_PATH}/source/third_party/sokol/"
+	"${PROJ_ROOT_PATH}/source/third_party/stb/"
 	"${PROJ_ROOT_PATH}/source/common_lib/source")
 
 target_link_directories(polybox PUBLIC
@@ -61,6 +62,7 @@ target_compile_definitions(polybox PUBLIC
 
 target_compile_shaders(polybox
 	core3d.shader
+	fullscreen.shader
 )
 
 # Copy the necessary files to the output directory

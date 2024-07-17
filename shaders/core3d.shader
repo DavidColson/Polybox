@@ -2,7 +2,7 @@
 @ctype vec4 Vec4f 
 @ctype vec3 Vec3f 
 
-@vs vs
+@vs vs_core3D
 uniform vs_params {
 	mat4 mvp;
 	mat4 model;
@@ -18,6 +18,7 @@ layout(location=2) in vec2 texcoord;
 layout(location=3) in vec3 normal;
 
 noperspective out vec4 color;
+noperspective out vec2 uv;
 
 void main() {
     gl_Position = mvp * vec4(pos, 1.0);
@@ -35,12 +36,13 @@ void main() {
 
 		color = vec4(color0.xyz * (u_lightAmbient.xyz + diffuse), color0.w);
 	}
-
+	uv = texcoord;
 }
 @end
 
-@fs fs
+@fs fs_core3DNonTextured
 in vec4 color;
+in vec2 uv;
 out vec4 frag_color;
 
 void main() {
@@ -48,4 +50,21 @@ void main() {
 }
 @end
 
-@program core3d vs fs
+@fs fs_core3DTextured
+noperspective in vec4 color;
+noperspective in vec2 uv;
+out vec4 frag_color;
+
+uniform texture2D tex;
+uniform sampler nearestSampler;
+
+void main() {
+	vec4 colorMixed = color * texture(sampler2D(tex, nearestSampler), uv);
+	// vec3 output = mix(color.rgb, u_fogColor.rgb, v_fogDensity.x);
+	frag_color = colorMixed;
+}
+@end
+
+@program core3DTextured vs_core3D fs_core3DTextured
+@program core3DNonTextured vs_core3D fs_core3DNonTextured
+

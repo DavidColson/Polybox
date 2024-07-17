@@ -31,7 +31,8 @@ struct DrawCommand {
 	i32 indexBufferOffset;	
 	i32 numVerts;
 	bool indexedDraw;
-	i16 textureID;
+	bool texturedDraw;
+	sg_image texture;
 	EPrimitiveType type;
 	vs_params_t uniforms;
 };
@@ -77,6 +78,8 @@ struct RenderState {
 	sg_pipeline pipeFullscreenTexture;
 	sg_pipeline pipeCore3DNonIndexed;
 	sg_pipeline pipeCore3DIndexed;
+	sg_pipeline pipeCore3DTexturedNonIndexed;
+	sg_pipeline pipeCore3DTexturedIndexed;
 
 	// passes
 	sg_pass passCore3DScene;
@@ -202,10 +205,10 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 		pState->pipeFullscreenTexture = sg_make_pipeline(pipelineDesc);
 	}
 
-	// Core3D pipelines (indexed and non indexed)
+	// Core3D pipelines (indexed and non indexed) (textured and non textured)
 	{
 		sg_pipeline_desc pipelineDesc = {
-			.shader = sg_make_shader(core3d_shader_desc(SG_BACKEND_D3D11)),
+			.shader = sg_make_shader(core3DNonTextured_shader_desc(SG_BACKEND_D3D11)),
 			.layout = {
 				.buffers = { {.stride = sizeof(VertexData) } },
 				.attrs = {
@@ -237,6 +240,12 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 
 		pipelineDesc.index_type = SG_INDEXTYPE_UINT16;
 		pState->pipeCore3DIndexed = sg_make_pipeline(pipelineDesc);
+
+		pipelineDesc.shader = sg_make_shader(core3DTextured_shader_desc(SG_BACKEND_D3D11));
+		pState->pipeCore3DTexturedIndexed = sg_make_pipeline(pipelineDesc);
+
+		pipelineDesc.index_type = SG_INDEXTYPE_NONE;
+		pState->pipeCore3DTexturedNonIndexed = sg_make_pipeline(pipelineDesc);
 	}
 
 
@@ -316,7 +325,6 @@ void DrawFrame(i32 w, i32 h) {
 	// Draw 3D view into texture
 	{
 		sg_begin_pass(&pState->passCore3DScene);
-		sg_apply_pipeline(pState->pipeCore3DNonIndexed);
 
 		sg_range vtxData;
 		vtxData.ptr = (void*)pState->perFrameVertexBuffer.pData;
@@ -327,16 +335,26 @@ void DrawFrame(i32 w, i32 h) {
 		sg_apply_viewport(0, 0, 320, 240, true);
 		sg_apply_scissor_rect(0, 0, 320, 240, true);
 
-		sg_bindings bind{0};
-		bind.vertex_buffers[0] = pState->transientVertexBuffer;
 		for(i32 i = 0; i < pState->drawList.count; i++) {
-
 			DrawCommand& cmd = pState->drawList[i];
 			if (cmd.indexedDraw) // skip for now, one thing at a time
 				continue;
+			
+			sg_bindings bind{0};
+			bind.vertex_buffers[0] = pState->transientVertexBuffer;
+			if (cmd.texturedDraw) {
+				bind.fs = {
+					.images = { cmd.texture },
+					.samplers = { pState->samplerNearest }
+				};
+				sg_apply_pipeline(pState->pipeCore3DTexturedNonIndexed);
+			} else {
+				sg_apply_pipeline(pState->pipeCore3DNonIndexed);
+			}
 
 			sg_range uniforms = SG_RANGE_REF(cmd.uniforms);
 			sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &uniforms);
+
 			bind.vertex_buffer_offsets[0] = cmd.vertexBufferOffset;
 			sg_apply_bindings(&bind);
 			sg_draw(0, cmd.numVerts, 1); 
@@ -532,11 +550,12 @@ void EndObject3D() {
 		cmd.indexedDraw = false;
 
     if (pState->pTextureState) {
-		// TODO: set texture ID
-		pState->drawList.PushBack(cmd);
+		cmd.texturedDraw = true;
+		cmd.texture = pState->pTextureState->handle;
     } else {
-		pState->drawList.PushBack(cmd);
+		cmd.texturedDraw = false;
     }
+	pState->drawList.PushBack(cmd);
 
 	// TODO: can probably reuse this memory, don't need to free
     pState->vertexState.Free();

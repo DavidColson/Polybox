@@ -2,8 +2,8 @@
 
 @ctype mat4 Matrixf 
 
-@vs vs_fullscreen
-uniform vs_fullscreen_params {
+@vs vs_compositor
+uniform vs_compositor_params {
 	mat4 mvp;
 };
 
@@ -22,19 +22,21 @@ void main()
 }
 @end
 
-@fs fs_fullscreen
+@fs fs_compositor
 in vec4 color;
 in vec2 uv;
 out vec4 frag_color;
 
-uniform texture2D fullscreenFrameTex;
-uniform sampler fullscreenFrameSampler;
+uniform texture2D core2DFrame;
+uniform texture2D core3DFrame;
+uniform sampler nearestSampler;
 
 void main()
 {
-	frag_color = texture(sampler2D(fullscreenFrameTex, fullscreenFrameSampler), uv);
-	// frag_color = vec4(0.9, 0.9, 0.9, 1.0);
+	vec4 core2Dtexel = texture(sampler2D(core2DFrame, nearestSampler), uv);
+	vec4 core3Dtexel = texture(sampler2D(core3DFrame, nearestSampler), uv);
+	frag_color = mix(core3Dtexel, core2Dtexel, core2Dtexel.a);
 }
 @end
 
-@program fullscreen vs_fullscreen fs_fullscreen
+@program compositor vs_compositor fs_compositor

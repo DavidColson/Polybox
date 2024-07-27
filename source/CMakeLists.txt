@@ -62,7 +62,8 @@ target_compile_definitions(polybox PUBLIC
 
 target_compile_shaders(polybox
 	core3d.shader
-	fullscreen.shader
+	core2d.shader
+	compositor.shader
 )
 
 # Copy the necessary files to the output directory

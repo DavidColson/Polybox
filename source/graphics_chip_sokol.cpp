@@ -17,7 +17,8 @@
 
 // shaders
 #include "core3d.h"
-#include "fullscreen.h"
+#include "core2d.h"
+#include "compositor.h"
 
 // please excuse the dirty trick to block the windows headers messing up my API
 #define DrawTextExA 0 
@@ -34,7 +35,17 @@ struct DrawCommand {
 	bool texturedDraw;
 	sg_image texture;
 	EPrimitiveType type;
-	vs_params_t uniforms;
+	vs_core3d_params_t uniforms;
+};
+
+struct DrawCommand2D {
+	i32 vertexBufferOffset;	
+	i32 indexBufferOffset;	
+	i32 numVerts;
+	bool texturedDraw;
+	sg_image texture;
+	EPrimitiveType type;
+	vs_core2d_params_t uniforms;
 };
 
 struct RenderState {
@@ -67,7 +78,8 @@ struct RenderState {
 
 	Font defaultFont;
 
-	ResizableArray<DrawCommand> drawList;
+	ResizableArray<DrawCommand> drawList3D;
+	ResizableArray<DrawCommand2D> drawList2D;
 	ResizableArray<VertexData> perFrameVertexBuffer;
 	ResizableArray<u16> perFrameIndexBuffer;
 
@@ -75,15 +87,20 @@ struct RenderState {
 	// Sokol rendering data
 	
 	// pipelines
-	sg_pipeline pipeFullscreenTexture;
+	// TODO: need variants for primitive type, may want to have an array lookup
+	// like: pipeline[indexed][textured][primitivetype]
+	sg_pipeline pipeCompositor;
 	sg_pipeline pipeCore3DNonIndexed;
 	sg_pipeline pipeCore3DIndexed;
 	sg_pipeline pipeCore3DTexturedNonIndexed;
 	sg_pipeline pipeCore3DTexturedIndexed;
+	sg_pipeline pipeCore2D;
+	sg_pipeline pipeCore2DTextured;
 
 	// passes
 	sg_pass passCore3DScene;
-	sg_pass passUpscaleCore3D;
+	sg_pass passCore2DScene;
+	sg_pass passCompositor;
 
 	// persistent Buffers
 	sg_buffer fullscreenTriangle;
@@ -92,6 +109,7 @@ struct RenderState {
 
 	// framebuffers
 	sg_image fbCore3DScene;
+	sg_image fbCore2DScene;
 
 	// samplers 
 	sg_sampler samplerNearest;
@@ -163,8 +181,6 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 	pState = (RenderState*)g_Allocator.Allocate(sizeof(RenderState));
     SYS_P_NEW(pState) RenderState();
 
-    pState->defaultFont = Font("assets/Roboto-Bold.ttf");
-
 	// init_backend stuff
 	GraphicsBackendInit(pWindow, winWidth, winHeight);
 	sg_desc desc = {
@@ -172,10 +188,12 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 	};
 	sg_setup(&desc);
 
+	pState->defaultFont = Font("assets/Roboto-Bold.ttf");
+
 	// Fullscreen Texture Pipeline
 	{
 		sg_pipeline_desc pipelineDesc = {
-			.shader = sg_make_shader(fullscreen_shader_desc(SG_BACKEND_D3D11)),
+			.shader = sg_make_shader(compositor_shader_desc(SG_BACKEND_D3D11)),
 			.layout = {
 				.buffers = { {.stride = sizeof(VertexData) } },
 				.attrs = {
@@ -202,7 +220,7 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 			.index_type = SG_INDEXTYPE_NONE,
 			.cull_mode = SG_CULLMODE_BACK
 		};
-		pState->pipeFullscreenTexture = sg_make_pipeline(pipelineDesc);
+		pState->pipeCompositor = sg_make_pipeline(pipelineDesc);
 	}
 
 	// Core3D pipelines (indexed and non indexed) (textured and non textured)
@@ -248,6 +266,43 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 		pState->pipeCore3DTexturedNonIndexed = sg_make_pipeline(pipelineDesc);
 	}
 
+	// Core2D pipelines (textured and non textured)
+	{
+		sg_pipeline_desc pipelineDesc = {
+			.shader = sg_make_shader(core2DNonTextured_shader_desc(SG_BACKEND_D3D11)),
+			.layout = {
+				.buffers = { {.stride = sizeof(VertexData) } },
+				.attrs = {
+					{ .offset = offsetof(VertexData, pos), .format = SG_VERTEXFORMAT_FLOAT3 },
+					{ .offset = offsetof(VertexData, col), .format = SG_VERTEXFORMAT_FLOAT4 },
+					{ .offset = offsetof(VertexData, tex), .format = SG_VERTEXFORMAT_FLOAT2 },
+					{ .offset = offsetof(VertexData, norm), .format = SG_VERTEXFORMAT_FLOAT3 }
+				}
+			},
+			.depth = {
+				.pixel_format = SG_PIXELFORMAT_DEPTH,
+				.compare = SG_COMPAREFUNC_LESS_EQUAL,
+				.write_enabled = true,
+			},
+			.colors = {
+				{
+					.write_mask = SG_COLORMASK_RGBA,
+					.blend = { 
+						.enabled = true,
+						.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+						.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+					},
+				}
+			},
+			.index_type = SG_INDEXTYPE_NONE,
+			.cull_mode = SG_CULLMODE_NONE
+		};
+		pState->pipeCore2D = sg_make_pipeline(pipelineDesc);
+	
+		pipelineDesc.shader = sg_make_shader(core2DTextured_shader_desc(SG_BACKEND_D3D11));
+		pState->pipeCore2DTextured = sg_make_pipeline(pipelineDesc);
+	}
+
 
 	// Create persistent buffers
 	{
@@ -288,12 +343,40 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 		};
 	}
 
-	// Create upscale core3d framebuffer pass
+	// Create core2D scene pass
 	{
-		pState->passUpscaleCore3D = { 
+		sg_image_desc viewDesc = {
+			.render_target = true,
+			.width = 320,
+			.height = 240,
+			.sample_count = 1
+		};
+		pState->fbCore2DScene = sg_make_image(&viewDesc);
+
+		viewDesc.pixel_format = SG_PIXELFORMAT_DEPTH;
+		sg_image depth = sg_make_image(&viewDesc);
+
+		sg_attachments_desc attachmentsDesc = {
+			.colors = { {.image = pState->fbCore2DScene } },
+			.depth_stencil = { .image = depth }
+		};
+
+		pState->passCore2DScene = { 
 			.action = {
 				.colors = {
-					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.0f, 0.25f, 1.0f } } 
+					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.0f, 0.25f, 0.0f } } 
+				}
+			},
+			.attachments = sg_make_attachments(&attachmentsDesc)
+		};
+	}
+
+	// Create compositor
+	{
+		pState->passCompositor = { 
+			.action = {
+				.colors = {
+					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.25f, 0.25f, 1.0f } } 
 				}
 			},
 			.swapchain = SokolGetSwapchain()
@@ -322,21 +405,21 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 void DrawFrame(i32 w, i32 h) {
 	// TODO: Sort the draw list to minimise state changes
 
+	// Update the global vertex buffer
+	sg_range vtxData;
+	vtxData.ptr = (void*)pState->perFrameVertexBuffer.pData;
+	vtxData.size = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+	sg_update_buffer(pState->transientVertexBuffer, &vtxData);
+
 	// Draw 3D view into texture
 	{
 		sg_begin_pass(&pState->passCore3DScene);
 
-		sg_range vtxData;
-		vtxData.ptr = (void*)pState->perFrameVertexBuffer.pData;
-		vtxData.size = pState->perFrameVertexBuffer.count * sizeof(VertexData);
-		sg_update_buffer(pState->transientVertexBuffer, &vtxData);
+		sg_apply_viewport(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
+		sg_apply_scissor_rect(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
 
-		// Todo: parameterize these resolutions
-		sg_apply_viewport(0, 0, 320, 240, true);
-		sg_apply_scissor_rect(0, 0, 320, 240, true);
-
-		for(i32 i = 0; i < pState->drawList.count; i++) {
-			DrawCommand& cmd = pState->drawList[i];
+		for(i32 i = 0; i < pState->drawList3D.count; i++) {
+			DrawCommand& cmd = pState->drawList3D[i];
 			if (cmd.indexedDraw) // skip for now, one thing at a time
 				continue;
 			
@@ -362,10 +445,42 @@ void DrawFrame(i32 w, i32 h) {
 		sg_end_pass();
 	}
 
+	// Draw 2D view into texture
+	{
+		sg_begin_pass(&pState->passCore2DScene);
+
+		sg_apply_viewport(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
+		sg_apply_scissor_rect(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
+
+		for(i32 i = 0; i < pState->drawList2D.count; i++) {
+			DrawCommand2D& cmd = pState->drawList2D[i];
+			
+			sg_bindings bind{0};
+			bind.vertex_buffers[0] = pState->transientVertexBuffer;
+			if (cmd.texturedDraw) {
+				bind.fs = {
+					.images = { cmd.texture },
+					.samplers = { pState->samplerNearest }
+				};
+				sg_apply_pipeline(pState->pipeCore2DTextured);
+			} else {
+				sg_apply_pipeline(pState->pipeCore2D);
+			}
+
+			sg_range uniforms = SG_RANGE_REF(cmd.uniforms);
+			sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &uniforms);
+
+			bind.vertex_buffer_offsets[0] = cmd.vertexBufferOffset;
+			sg_apply_bindings(&bind);
+			sg_draw(0, cmd.numVerts, 1); 
+		}
+		sg_end_pass();
+	}
+
 	// Draw framebuffer to swapchain, upscaling in the process
 	{
-		sg_begin_pass(&pState->passUpscaleCore3D);
-		sg_apply_pipeline(pState->pipeFullscreenTexture);
+		sg_begin_pass(&pState->passCompositor);
+		sg_apply_pipeline(pState->pipeCompositor);
 
 		sg_apply_viewport(0, 0, 1280, 960, true);
 		sg_apply_scissor_rect(0, 0, 1280, 960, true);
@@ -373,13 +488,13 @@ void DrawFrame(i32 w, i32 h) {
 		sg_bindings bind = { 
 			.vertex_buffers = { pState->fullscreenTriangle },
 			.fs = {
-				.images = { { pState->fbCore3DScene } },
+				.images = { { pState->fbCore2DScene }, { pState->fbCore3DScene } },
 				.samplers = { { pState->samplerNearest } }
 			}
 		};
 		sg_apply_bindings(&bind);
 
-		vs_fullscreen_params_t vsUniforms;
+		vs_compositor_params_t vsUniforms;
 		vsUniforms.mvp = Matrixf::Orthographic(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 100.0f);
 		sg_range vsUniformsRange = SG_RANGE_REF(vsUniforms);
 		sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &vsUniformsRange);
@@ -395,7 +510,7 @@ void DrawFrame(i32 w, i32 h) {
 	// prepare for next frame
 	pState->perFrameVertexBuffer.count = 0;
 	pState->perFrameIndexBuffer.count = 0;
-	pState->drawList.count=0;
+	pState->drawList3D.count=0;
 
 	for (usize i = 0; i < (int)EMatrixMode::Count; i++) {
         pState->matrixStates[i] = Matrixf::Identity();
@@ -412,7 +527,43 @@ void BeginObject2D(EPrimitiveType type) {
 // ***********************************************************************
 
 void EndObject2D() {
+    if (pState->mode == ERenderMode::None)  // TODO Call errors when this is incorrect
+        return;
 
+	DrawCommand2D cmd;
+	
+	cmd.type = pState->typeState;
+
+	// fill vertex buffer
+	// TODO: this pattern is repeated, could refactor out into function such as FillTransientBuffer
+	u32 numVertices = (u32)pState->vertexState.count;
+	VertexData* pDestBuffer = pState->perFrameVertexBuffer.pData + pState->perFrameVertexBuffer.count;
+	if (pState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
+	return;
+	memcpy(pDestBuffer, pState->vertexState.pData, numVertices * sizeof(VertexData));
+	cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+	cmd.numVerts = numVertices;
+	pState->perFrameVertexBuffer.count += numVertices;
+
+    // Submit draw call
+    Matrixf ortho = Matrixf::Orthographic(0.0f, pState->targetResolution.x, 0.0f, pState->targetResolution.y, -100.0f, 100.0f);
+	cmd.uniforms.mvp = ortho * pState->matrixStates[(usize)EMatrixMode::Model];
+	cmd.uniforms.model = pState->matrixStates[(usize)EMatrixMode::Model];
+
+    if (pState->pTextureState) {
+		cmd.texturedDraw = true;
+		cmd.texture = pState->pTextureState->handle;
+    } else {
+		cmd.texturedDraw = false;
+    }
+	pState->drawList2D.PushBack(cmd);
+
+	// TODO: can probably reuse this memory, don't need to free
+    pState->vertexState.Free();
+    pState->vertexColorState = Vec4f(1.0f);
+    pState->vertexTexCoordState = Vec2f();
+    pState->vertexNormalState = Vec3f();
+    pState->mode = ERenderMode::None;
 }
 
 // ***********************************************************************
@@ -555,7 +706,7 @@ void EndObject3D() {
     } else {
 		cmd.texturedDraw = false;
     }
-	pState->drawList.PushBack(cmd);
+	pState->drawList3D.PushBack(cmd);
 
 	// TODO: can probably reuse this memory, don't need to free
     pState->vertexState.Free();

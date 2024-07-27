@@ -3,7 +3,7 @@
 @ctype vec3 Vec3f 
 
 @vs vs_core3D
-uniform vs_params {
+uniform vs_core3d_params {
 	mat4 mvp;
 	mat4 model;
 	int u_lightingEnabled;

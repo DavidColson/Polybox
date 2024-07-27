@@ -143,13 +143,23 @@ Font::Font(String path, bool antialiasing, f32 weight) {
         pTextureDataAsRGBA8[i + 3] = pTextureDataAsR8[i / 4];
     }
 
-	// sokol todo
-    // const bgfx::Memory* pMem = bgfx::makeRef(pTextureDataAsRGBA8, dstSize, FontTextureFreeCallback, nullptr);
-    // fontTexture.handle = bgfx::createTexture2D(texWidth, texHeight, false, 1, bgfx::TextureFormat::RGBA8, BGFX_TEXTURE_NONE | BGFX_SAMPLER_POINT, pMem);
+	sg_image_desc imageDesc = {
+		.width = texWidth,
+		.height = texHeight,
+		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		.label = path.pData
+	};
+
+	sg_range pixelsData;
+	pixelsData.ptr = (void*)pTextureDataAsRGBA8;
+	pixelsData.size = texWidth * texHeight * 4 * sizeof(u8);
+	imageDesc.data.subimage[0][0] = pixelsData;
+	fontTexture.handle = sg_make_image(&imageDesc);
     fontTexture.height = texHeight;
     fontTexture.width = texWidth;
 
     delete[] pTextureDataAsR8;
+    delete[] pTextureDataAsRGBA8;
 
     FT_Done_Face(face);
     FT_Done_FreeType(freetype);

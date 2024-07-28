@@ -406,10 +406,12 @@ void DrawFrame(i32 w, i32 h) {
 	// TODO: Sort the draw list to minimise state changes
 
 	// Update the global vertex buffer
-	sg_range vtxData;
-	vtxData.ptr = (void*)pState->perFrameVertexBuffer.pData;
-	vtxData.size = pState->perFrameVertexBuffer.count * sizeof(VertexData);
-	sg_update_buffer(pState->transientVertexBuffer, &vtxData);
+	if (pState->perFrameVertexBuffer.count > 0) {
+		sg_range vtxData;
+		vtxData.ptr = (void*)pState->perFrameVertexBuffer.pData;
+		vtxData.size = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+		sg_update_buffer(pState->transientVertexBuffer, &vtxData);
+	}
 
 	// Draw 3D view into texture
 	{

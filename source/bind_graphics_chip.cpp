@@ -6,6 +6,7 @@
 #include "lua_common.h"
 #include "image.h"
 #include "font.h"
+#include "shapes.h"
 
 extern "C" {
 #include <lauxlib.h>
@@ -449,6 +450,27 @@ int LuaDrawRectangleOutline(lua_State* pLua) {
     return 0;
 }
 
+int LuaDrawBox(lua_State* pLua) {
+	
+	f32 x = (f32)luaL_checknumber(pLua, 1);
+	f32 y = (f32)luaL_checknumber(pLua, 2);
+	f32 z = (f32)luaL_checknumber(pLua, 3);
+	f32 width = (f32)luaL_checknumber(pLua, 4);
+	f32 height = (f32)luaL_checknumber(pLua, 5);
+	f32 depth = (f32)luaL_checknumber(pLua, 6);
+
+    DrawBox(x, y, z, width, height, depth);
+    return 0;
+}
+
+int LuaDrawIcosahedron(lua_State* pLua) {
+	
+	f32 maxDepth = (f32)luaL_checknumber(pLua, 1);
+
+	DrawIcosahedron(maxDepth);
+    return 0;
+}
+
 // ***********************************************************************
 
 int LuaNewImage(lua_State* pLua) {
@@ -545,6 +567,8 @@ int BindGraphicsChip(lua_State* pLua) {
         { "DrawCircleOutline", LuaDrawCircleOutline },
         { "DrawRectangle", LuaDrawRectangle },
         { "DrawRectangleOutline", LuaDrawRectangleOutline },
+        { "DrawBox", LuaDrawBox },
+        { "DrawIcosahedron", LuaDrawIcosahedron },
         { "NewImage", LuaNewImage },
         { "NewFont", LuaNewFont },
         { NULL, NULL }

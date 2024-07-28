@@ -23,17 +23,7 @@ void main() {
 }
 @end
 
-@fs fs_core2DNonTextured
-in vec4 color;
-in vec2 uv;
-out vec4 frag_color;
-
-void main() {
-    frag_color = color;
-}
-@end
-
-@fs fs_core2DTextured
+@fs fs_core2D
 in vec4 color;
 in vec2 uv;
 out vec4 frag_color;
@@ -47,6 +37,5 @@ void main() {
 }
 @end
 
-@program core2DTextured vs_core2D fs_core2DTextured
-@program core2DNonTextured vs_core2D fs_core2DNonTextured
+@program core2D vs_core2D fs_core2D
 

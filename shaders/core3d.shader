@@ -40,17 +40,7 @@ void main() {
 }
 @end
 
-@fs fs_core3DNonTextured
-in vec4 color;
-in vec2 uv;
-out vec4 frag_color;
-
-void main() {
-    frag_color = color;
-}
-@end
-
-@fs fs_core3DTextured
+@fs fs_core3D
 noperspective in vec4 color;
 noperspective in vec2 uv;
 out vec4 frag_color;
@@ -65,6 +55,5 @@ void main() {
 }
 @end
 
-@program core3DTextured vs_core3D fs_core3DTextured
-@program core3DNonTextured vs_core3D fs_core3DNonTextured
+@program core3D vs_core3D fs_core3D
 

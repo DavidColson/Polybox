@@ -92,10 +92,7 @@ struct RenderState {
 	sg_pipeline pipeCompositor;
 	sg_pipeline pipeCore3DNonIndexed;
 	sg_pipeline pipeCore3DIndexed;
-	sg_pipeline pipeCore3DTexturedNonIndexed;
-	sg_pipeline pipeCore3DTexturedIndexed;
 	sg_pipeline pipeCore2D;
-	sg_pipeline pipeCore2DTextured;
 
 	// passes
 	sg_pass passCore3DScene;
@@ -114,6 +111,8 @@ struct RenderState {
 	// samplers 
 	sg_sampler samplerNearest;
 
+	// misc
+	sg_image whiteTexture;
 };
 
 namespace {
@@ -190,6 +189,24 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 
 	pState->defaultFont = Font("assets/Roboto-Bold.ttf");
 
+	// Create white texture for non textured draws
+	{
+		u32 pixels[4];
+		memset(pixels, 0xFF, sizeof(pixels));
+
+		sg_image_desc imageDesc = {
+			.type = SG_IMAGETYPE_2D,
+			.width = 2,
+			.height = 2,
+			.pixel_format = SG_PIXELFORMAT_RGBA8,
+			.label = "white"
+		};
+
+		imageDesc.data.subimage[0][0].ptr = (void*)pixels;
+		imageDesc.data.subimage[0][0].size = sizeof(pixels);
+		pState->whiteTexture = sg_make_image(&imageDesc);
+	}
+
 	// Fullscreen Texture Pipeline
 	{
 		sg_pipeline_desc pipelineDesc = {
@@ -223,10 +240,10 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 		pState->pipeCompositor = sg_make_pipeline(pipelineDesc);
 	}
 
-	// Core3D pipelines (indexed and non indexed) (textured and non textured)
+	// Core3D pipelines (indexed and non indexed)
 	{
 		sg_pipeline_desc pipelineDesc = {
-			.shader = sg_make_shader(core3DNonTextured_shader_desc(SG_BACKEND_D3D11)),
+			.shader = sg_make_shader(core3D_shader_desc(SG_BACKEND_D3D11)),
 			.layout = {
 				.buffers = { {.stride = sizeof(VertexData) } },
 				.attrs = {
@@ -258,18 +275,12 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 
 		pipelineDesc.index_type = SG_INDEXTYPE_UINT16;
 		pState->pipeCore3DIndexed = sg_make_pipeline(pipelineDesc);
-
-		pipelineDesc.shader = sg_make_shader(core3DTextured_shader_desc(SG_BACKEND_D3D11));
-		pState->pipeCore3DTexturedIndexed = sg_make_pipeline(pipelineDesc);
-
-		pipelineDesc.index_type = SG_INDEXTYPE_NONE;
-		pState->pipeCore3DTexturedNonIndexed = sg_make_pipeline(pipelineDesc);
 	}
 
-	// Core2D pipelines (textured and non textured)
+	// Core2D pipelines
 	{
 		sg_pipeline_desc pipelineDesc = {
-			.shader = sg_make_shader(core2DNonTextured_shader_desc(SG_BACKEND_D3D11)),
+			.shader = sg_make_shader(core2D_shader_desc(SG_BACKEND_D3D11)),
 			.layout = {
 				.buffers = { {.stride = sizeof(VertexData) } },
 				.attrs = {
@@ -298,9 +309,6 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 			.cull_mode = SG_CULLMODE_NONE
 		};
 		pState->pipeCore2D = sg_make_pipeline(pipelineDesc);
-	
-		pipelineDesc.shader = sg_make_shader(core2DTextured_shader_desc(SG_BACKEND_D3D11));
-		pState->pipeCore2DTextured = sg_make_pipeline(pipelineDesc);
 	}
 
 
@@ -419,6 +427,7 @@ void DrawFrame(i32 w, i32 h) {
 
 		sg_apply_viewport(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
 		sg_apply_scissor_rect(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
+		sg_apply_pipeline(pState->pipeCore3DNonIndexed);
 
 		for(i32 i = 0; i < pState->drawList3D.count; i++) {
 			DrawCommand& cmd = pState->drawList3D[i];
@@ -427,14 +436,13 @@ void DrawFrame(i32 w, i32 h) {
 			
 			sg_bindings bind{0};
 			bind.vertex_buffers[0] = pState->transientVertexBuffer;
+			bind.fs = {
+				.images = { pState->whiteTexture },
+				.samplers = { pState->samplerNearest }
+			};
+
 			if (cmd.texturedDraw) {
-				bind.fs = {
-					.images = { cmd.texture },
-					.samplers = { pState->samplerNearest }
-				};
-				sg_apply_pipeline(pState->pipeCore3DTexturedNonIndexed);
-			} else {
-				sg_apply_pipeline(pState->pipeCore3DNonIndexed);
+				bind.fs.images[0] = cmd.texture;
 			}
 
 			sg_range uniforms = SG_RANGE_REF(cmd.uniforms);
@@ -453,21 +461,22 @@ void DrawFrame(i32 w, i32 h) {
 
 		sg_apply_viewport(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
 		sg_apply_scissor_rect(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
+		sg_apply_pipeline(pState->pipeCore2D);
 
 		for(i32 i = 0; i < pState->drawList2D.count; i++) {
 			DrawCommand2D& cmd = pState->drawList2D[i];
 			
 			sg_bindings bind{0};
 			bind.vertex_buffers[0] = pState->transientVertexBuffer;
+			bind.fs = {
+				.images = { pState->whiteTexture },
+				.samplers = { pState->samplerNearest }
+			};
+
 			if (cmd.texturedDraw) {
-				bind.fs = {
-					.images = { cmd.texture },
-					.samplers = { pState->samplerNearest }
-				};
-				sg_apply_pipeline(pState->pipeCore2DTextured);
-			} else {
-				sg_apply_pipeline(pState->pipeCore2D);
+				bind.fs.images[0] = cmd.texture;
 			}
+
 
 			sg_range uniforms = SG_RANGE_REF(cmd.uniforms);
 			sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &uniforms);

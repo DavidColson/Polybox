@@ -22,8 +22,6 @@ noperspective out vec2 uv;
 
 void main() {
     gl_Position = mvp * vec4(pos, 1.0);
-	vec3 norm = (model * vec4(normal, 0.0)).xyz;
-    color = color0;
 
 	if (u_lightingEnabled == 0)
 	{
@@ -31,6 +29,7 @@ void main() {
 	}
 	else if (u_lightingEnabled == 1)
 	{
+		vec3 norm = (model * vec4(normal, 0.0)).xyz;
 		float lightMag = max(dot(normalize(u_lightDirection[0].xyz), norm.xyz), 0.0);
 		vec3 diffuse = lightMag * u_lightColor[0].xyz;
 

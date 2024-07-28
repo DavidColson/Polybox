@@ -30,22 +30,12 @@
 struct DrawCommand {
 	i32 vertexBufferOffset;	
 	i32 indexBufferOffset;	
-	i32 numVerts;
+	i32 numElements;
 	bool indexedDraw;
 	bool texturedDraw;
 	sg_image texture;
 	EPrimitiveType type;
 	vs_core3d_params_t uniforms;
-};
-
-struct DrawCommand2D {
-	i32 vertexBufferOffset;	
-	i32 indexBufferOffset;	
-	i32 numVerts;
-	bool texturedDraw;
-	sg_image texture;
-	EPrimitiveType type;
-	vs_core2d_params_t uniforms;
 };
 
 struct RenderState {
@@ -79,7 +69,7 @@ struct RenderState {
 	Font defaultFont;
 
 	ResizableArray<DrawCommand> drawList3D;
-	ResizableArray<DrawCommand2D> drawList2D;
+	ResizableArray<DrawCommand> drawList2D;
 	ResizableArray<VertexData> perFrameVertexBuffer;
 	ResizableArray<u16> perFrameIndexBuffer;
 
@@ -87,12 +77,8 @@ struct RenderState {
 	// Sokol rendering data
 	
 	// pipelines
-	// TODO: need variants for primitive type, may want to have an array lookup
-	// like: pipeline[indexed][textured][primitivetype]
 	sg_pipeline pipeCompositor;
-	sg_pipeline pipeCore3DNonIndexed;
-	sg_pipeline pipeCore3DIndexed;
-	sg_pipeline pipeCore2D;
+	sg_pipeline pipeMain[2 * 2 * (i32)EPrimitiveType::Count];
 
 	// passes
 	sg_pass passCore3DScene;
@@ -117,6 +103,78 @@ struct RenderState {
 
 namespace {
 	RenderState* pState;
+}
+
+sg_pipeline& GetPipeline(bool indexed, EPrimitiveType primitive, bool writeAlpha) {
+	u32 index = (i32)indexed + (i32)primitive + (i32)writeAlpha;
+	if (pState->pipeMain[index].id != SG_INVALID_ID) {
+		return pState->pipeMain[index];
+	}
+
+	sg_pipeline_desc pipelineDesc = {
+		.shader = sg_make_shader(core3D_shader_desc(SG_BACKEND_D3D11)),
+		.layout = {
+			.buffers = { {.stride = sizeof(VertexData) } },
+			.attrs = {
+				{ .offset = offsetof(VertexData, pos), .format = SG_VERTEXFORMAT_FLOAT3 },
+				{ .offset = offsetof(VertexData, col), .format = SG_VERTEXFORMAT_FLOAT4 },
+				{ .offset = offsetof(VertexData, tex), .format = SG_VERTEXFORMAT_FLOAT2 },
+				{ .offset = offsetof(VertexData, norm), .format = SG_VERTEXFORMAT_FLOAT3 }
+			}
+		},
+		.depth = {
+			.pixel_format = SG_PIXELFORMAT_DEPTH,
+			.compare = SG_COMPAREFUNC_LESS_EQUAL,
+			.write_enabled = true,
+		},
+		.colors = {
+			{
+				.blend = { 
+					.enabled = true,
+					.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+					.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+				},
+			}
+		},
+		.index_type = SG_INDEXTYPE_NONE,
+		.cull_mode = SG_CULLMODE_NONE
+	};
+
+	switch(primitive) {
+		case EPrimitiveType::Points:
+			pipelineDesc.primitive_type = SG_PRIMITIVETYPE_POINTS;	
+		break;
+		case EPrimitiveType::Triangles:
+			pipelineDesc.primitive_type = SG_PRIMITIVETYPE_TRIANGLES;	
+		break;
+		case EPrimitiveType::TriangleStrip:
+			pipelineDesc.primitive_type = SG_PRIMITIVETYPE_TRIANGLE_STRIP;	
+		break;
+		case EPrimitiveType::Lines:
+			pipelineDesc.primitive_type = SG_PRIMITIVETYPE_LINES;	
+		break;
+		case EPrimitiveType::LineStrip:
+			pipelineDesc.primitive_type = SG_PRIMITIVETYPE_LINE_STRIP;	
+		break;
+		default:
+			pipelineDesc.primitive_type = SG_PRIMITIVETYPE_TRIANGLES;	
+		break;
+	}
+
+	if (indexed) {
+		pipelineDesc.index_type = SG_INDEXTYPE_UINT16;
+	} else {
+		pipelineDesc.index_type = SG_INDEXTYPE_NONE;
+	}
+
+	if (writeAlpha) {
+		pipelineDesc.colors[0].write_mask = SG_COLORMASK_RGBA;
+	} else {
+		pipelineDesc.colors[0].write_mask = SG_COLORMASK_RGB;
+	}
+
+	pState->pipeMain[index] = sg_make_pipeline(pipelineDesc);
+	return pState->pipeMain[index];
 }
 
 // ***********************************************************************
@@ -174,6 +232,7 @@ void CreateFullScreenQuad(f32 _textureWidth, f32 _textureHeight, f32 _texelHalf,
 	pState->fullscreenTriangle = sg_make_buffer(&vbufferDesc);
 }
 
+
 // ***********************************************************************
 
 void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
@@ -207,7 +266,7 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 		pState->whiteTexture = sg_make_image(&imageDesc);
 	}
 
-	// Fullscreen Texture Pipeline
+	// Compositor Pipeline
 	{
 		sg_pipeline_desc pipelineDesc = {
 			.shader = sg_make_shader(compositor_shader_desc(SG_BACKEND_D3D11)),
@@ -240,78 +299,6 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 		pState->pipeCompositor = sg_make_pipeline(pipelineDesc);
 	}
 
-	// Core3D pipelines (indexed and non indexed)
-	{
-		sg_pipeline_desc pipelineDesc = {
-			.shader = sg_make_shader(core3D_shader_desc(SG_BACKEND_D3D11)),
-			.layout = {
-				.buffers = { {.stride = sizeof(VertexData) } },
-				.attrs = {
-					{ .offset = offsetof(VertexData, pos), .format = SG_VERTEXFORMAT_FLOAT3 },
-					{ .offset = offsetof(VertexData, col), .format = SG_VERTEXFORMAT_FLOAT4 },
-					{ .offset = offsetof(VertexData, tex), .format = SG_VERTEXFORMAT_FLOAT2 },
-					{ .offset = offsetof(VertexData, norm), .format = SG_VERTEXFORMAT_FLOAT3 }
-				}
-			},
-			.depth = {
-				.pixel_format = SG_PIXELFORMAT_DEPTH,
-				.compare = SG_COMPAREFUNC_LESS_EQUAL,
-				.write_enabled = true,
-			},
-			.colors = {
-				{
-					.write_mask = SG_COLORMASK_RGB,
-					.blend = { 
-						.enabled = true,
-						.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
-						.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-					},
-				}
-			},
-			.index_type = SG_INDEXTYPE_NONE,
-			.cull_mode = SG_CULLMODE_NONE
-		};
-		pState->pipeCore3DNonIndexed = sg_make_pipeline(pipelineDesc);
-
-		pipelineDesc.index_type = SG_INDEXTYPE_UINT16;
-		pState->pipeCore3DIndexed = sg_make_pipeline(pipelineDesc);
-	}
-
-	// Core2D pipelines
-	{
-		sg_pipeline_desc pipelineDesc = {
-			.shader = sg_make_shader(core2D_shader_desc(SG_BACKEND_D3D11)),
-			.layout = {
-				.buffers = { {.stride = sizeof(VertexData) } },
-				.attrs = {
-					{ .offset = offsetof(VertexData, pos), .format = SG_VERTEXFORMAT_FLOAT3 },
-					{ .offset = offsetof(VertexData, col), .format = SG_VERTEXFORMAT_FLOAT4 },
-					{ .offset = offsetof(VertexData, tex), .format = SG_VERTEXFORMAT_FLOAT2 },
-					{ .offset = offsetof(VertexData, norm), .format = SG_VERTEXFORMAT_FLOAT3 }
-				}
-			},
-			.depth = {
-				.pixel_format = SG_PIXELFORMAT_DEPTH,
-				.compare = SG_COMPAREFUNC_LESS_EQUAL,
-				.write_enabled = true,
-			},
-			.colors = {
-				{
-					.write_mask = SG_COLORMASK_RGBA,
-					.blend = { 
-						.enabled = true,
-						.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
-						.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-					},
-				}
-			},
-			.index_type = SG_INDEXTYPE_NONE,
-			.cull_mode = SG_CULLMODE_NONE
-		};
-		pState->pipeCore2D = sg_make_pipeline(pipelineDesc);
-	}
-
-
 	// Create persistent buffers
 	{
 		CreateFullScreenQuad(winWidth, winHeight, 0.0f, true, 0.0f);
@@ -321,6 +308,14 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 			.usage = SG_USAGE_STREAM
 		};
 		pState->transientVertexBuffer = sg_make_buffer(&vertexBufferDesc);
+
+		sg_buffer_desc indexBufferDesc = {
+			.size = MAX_VERTICES_PER_FRAME * sizeof(u16),
+			.type = SG_BUFFERTYPE_INDEXBUFFER,
+			.usage = SG_USAGE_STREAM
+		};
+		pState->transientIndexBuffer = sg_make_buffer(&indexBufferDesc);
+
 	}
 
 	// Create core3D scene pass
@@ -421,18 +416,25 @@ void DrawFrame(i32 w, i32 h) {
 		sg_update_buffer(pState->transientVertexBuffer, &vtxData);
 	}
 
+	if (pState->perFrameIndexBuffer.count > 0) {
+		sg_range idxData;
+		idxData.ptr = (void*)pState->perFrameIndexBuffer.pData;
+		idxData.size = pState->perFrameIndexBuffer.count * sizeof(u16);
+		sg_update_buffer(pState->transientIndexBuffer, &idxData);
+	}
+
 	// Draw 3D view into texture
 	{
 		sg_begin_pass(&pState->passCore3DScene);
 
 		sg_apply_viewport(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
 		sg_apply_scissor_rect(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
-		sg_apply_pipeline(pState->pipeCore3DNonIndexed);
 
 		for(i32 i = 0; i < pState->drawList3D.count; i++) {
 			DrawCommand& cmd = pState->drawList3D[i];
-			if (cmd.indexedDraw) // skip for now, one thing at a time
-				continue;
+
+			sg_pipeline& pipeline = GetPipeline(cmd.indexedDraw, cmd.type, false);
+			sg_apply_pipeline(pipeline);
 			
 			sg_bindings bind{0};
 			bind.vertex_buffers[0] = pState->transientVertexBuffer;
@@ -440,6 +442,11 @@ void DrawFrame(i32 w, i32 h) {
 				.images = { pState->whiteTexture },
 				.samplers = { pState->samplerNearest }
 			};
+
+			if (cmd.indexedDraw) {
+				bind.index_buffer = pState->transientIndexBuffer;
+				bind.index_buffer_offset = cmd.indexBufferOffset;
+			}
 
 			if (cmd.texturedDraw) {
 				bind.fs.images[0] = cmd.texture;
@@ -450,7 +457,7 @@ void DrawFrame(i32 w, i32 h) {
 
 			bind.vertex_buffer_offsets[0] = cmd.vertexBufferOffset;
 			sg_apply_bindings(&bind);
-			sg_draw(0, cmd.numVerts, 1); 
+			sg_draw(0, cmd.numElements, 1); 
 		}
 		sg_end_pass();
 	}
@@ -461,11 +468,13 @@ void DrawFrame(i32 w, i32 h) {
 
 		sg_apply_viewport(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
 		sg_apply_scissor_rect(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
-		sg_apply_pipeline(pState->pipeCore2D);
 
 		for(i32 i = 0; i < pState->drawList2D.count; i++) {
-			DrawCommand2D& cmd = pState->drawList2D[i];
-			
+			DrawCommand& cmd = pState->drawList2D[i];
+
+			sg_pipeline& pipeline = GetPipeline(cmd.indexedDraw, cmd.type, true);
+			sg_apply_pipeline(pipeline);
+
 			sg_bindings bind{0};
 			bind.vertex_buffers[0] = pState->transientVertexBuffer;
 			bind.fs = {
@@ -477,13 +486,14 @@ void DrawFrame(i32 w, i32 h) {
 				bind.fs.images[0] = cmd.texture;
 			}
 
+			if (cmd.indexedDraw) Assert(false);
 
 			sg_range uniforms = SG_RANGE_REF(cmd.uniforms);
 			sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &uniforms);
 
 			bind.vertex_buffer_offsets[0] = cmd.vertexBufferOffset;
 			sg_apply_bindings(&bind);
-			sg_draw(0, cmd.numVerts, 1); 
+			sg_draw(0, cmd.numElements, 1); 
 		}
 		sg_end_pass();
 	}
@@ -541,7 +551,7 @@ void EndObject2D() {
     if (pState->mode == ERenderMode::None)  // TODO Call errors when this is incorrect
         return;
 
-	DrawCommand2D cmd;
+	DrawCommand cmd;
 	
 	cmd.type = pState->typeState;
 
@@ -550,16 +560,26 @@ void EndObject2D() {
 	u32 numVertices = (u32)pState->vertexState.count;
 	VertexData* pDestBuffer = pState->perFrameVertexBuffer.pData + pState->perFrameVertexBuffer.count;
 	if (pState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
-	return;
+		return;
 	memcpy(pDestBuffer, pState->vertexState.pData, numVertices * sizeof(VertexData));
 	cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
-	cmd.numVerts = numVertices;
+	cmd.numElements = numVertices;
 	pState->perFrameVertexBuffer.count += numVertices;
 
     // Submit draw call
     Matrixf ortho = Matrixf::Orthographic(0.0f, pState->targetResolution.x, 0.0f, pState->targetResolution.y, -100.0f, 100.0f);
 	cmd.uniforms.mvp = ortho * pState->matrixStates[(usize)EMatrixMode::Model];
 	cmd.uniforms.model = pState->matrixStates[(usize)EMatrixMode::Model];
+	cmd.uniforms.u_lightingEnabled = 0;
+	cmd.uniforms.u_lightDirection[0] = 0.f;
+	cmd.uniforms.u_lightDirection[1] = 0.f;
+	cmd.uniforms.u_lightDirection[2] = 0.f;
+	cmd.uniforms.u_lightColor[0] = 0.f;
+	cmd.uniforms.u_lightColor[1] = 0.f;
+	cmd.uniforms.u_lightColor[2] = 0.f;
+	cmd.uniforms.u_lightAmbient = Vec3f(0.0);
+
+	cmd.indexedDraw = false;
 
     if (pState->pTextureState) {
 		cmd.texturedDraw = true;
@@ -620,7 +640,7 @@ void EndObject3D() {
 				memcpy(pDestBuffer, pState->vertexState.pData, numVertices * sizeof(VertexData));
 
 				cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
-				cmd.numVerts = numVertices;
+				cmd.numElements = numVertices;
 				pState->perFrameVertexBuffer.count += numVertices;
 				buffersFilled = true;
             } else if (pState->normalsModeState == ENormalsMode::Smooth) {
@@ -664,7 +684,6 @@ void EndObject3D() {
 					return;
 				memcpy(pDestBuffer, uniqueVerts.pData, numVertices * sizeof(VertexData));
 				cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
-				cmd.numVerts = numVertices;
 				pState->perFrameVertexBuffer.count += numVertices;
 
                 // fill index buffer
@@ -675,6 +694,8 @@ void EndObject3D() {
 				memcpy(pDestIndexBuffer, indices.pData, numIndices * sizeof(u16));
 				cmd.indexBufferOffset = pState->perFrameIndexBuffer.count * sizeof(u16);
 				pState->perFrameIndexBuffer.count += numIndices;
+
+				cmd.numElements = numIndices;
 				buffersFilled = true;
             }
         }
@@ -690,7 +711,7 @@ void EndObject3D() {
 			return;
 		memcpy(pDestBuffer, pState->vertexState.pData, numVertices * sizeof(VertexData));
 		cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
-		cmd.numVerts = numVertices;
+		cmd.numElements = numVertices;
 		pState->perFrameVertexBuffer.count += numVertices;
     }
 
@@ -706,7 +727,7 @@ void EndObject3D() {
 	cmd.uniforms.u_lightColor[2] = pState->lightColorStates[2];
 	cmd.uniforms.u_lightAmbient = pState->lightAmbientState;
 
-    if (pState->normalsModeState == ENormalsMode::Smooth)
+    if (pState->normalsModeState == ENormalsMode::Smooth && cmd.type == EPrimitiveType::Triangles)
         cmd.indexedDraw = true;
 	else
 		cmd.indexedDraw = false;

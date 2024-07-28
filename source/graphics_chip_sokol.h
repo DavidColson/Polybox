@@ -16,9 +16,10 @@ enum class ERenderMode {
     None
 };
 
-enum class EPrimitiveType {
+enum class EPrimitiveType : i32 {
     Points,
     Triangles,
+    TriangleStrip,
     Lines,
     LineStrip,
     Count

@@ -6,6 +6,7 @@
 #include "image.h"
 #include "sokol_impl.h"
 
+#include <SDL_timer.h>
 #include <sokol_gfx.h>
 #include <resizable_array.inl>
 #include <maths.h>
@@ -507,6 +508,7 @@ void DrawFrame(i32 w, i32 h) {
 		sg_begin_pass(&pState->passCompositor);
 		sg_apply_pipeline(pState->pipeCompositor);
 
+		// paramaterize this, the true screen resolution
 		sg_apply_viewport(0, 0, 1280, 960, true);
 		sg_apply_scissor_rect(0, 0, 1280, 960, true);
 
@@ -523,6 +525,12 @@ void DrawFrame(i32 w, i32 h) {
 		vsUniforms.mvp = Matrixf::Orthographic(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 100.0f);
 		sg_range vsUniformsRange = SG_RANGE_REF(vsUniforms);
 		sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &vsUniformsRange);
+
+		fs_compositor_params_t fsUniforms;
+		fsUniforms.screenResolution = Vec2f(1280, 960);
+		fsUniforms.time = f32(SDL_GetTicks()) / 1000.0f;
+		sg_range fsUniformsRange = SG_RANGE_REF(fsUniforms);
+		sg_apply_uniforms(SG_SHADERSTAGE_FS, 0, &fsUniformsRange);
 
 		sg_draw(0, 3, 1);
 		sg_end_pass();

@@ -17,7 +17,6 @@
 
 // shaders
 #include "core3d.h"
-#include "core2d.h"
 #include "compositor.h"
 
 // please excuse the dirty trick to block the windows headers messing up my API
@@ -35,7 +34,8 @@ struct DrawCommand {
 	bool texturedDraw;
 	sg_image texture;
 	EPrimitiveType type;
-	vs_core3d_params_t uniforms;
+	vs_core3d_params_t vsUniforms;
+	fs_core3d_params_t fsUniforms;
 };
 
 struct RenderState {
@@ -452,8 +452,10 @@ void DrawFrame(i32 w, i32 h) {
 				bind.fs.images[0] = cmd.texture;
 			}
 
-			sg_range uniforms = SG_RANGE_REF(cmd.uniforms);
-			sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &uniforms);
+			sg_range vsUniforms = SG_RANGE_REF(cmd.vsUniforms);
+			sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &vsUniforms);
+			sg_range fsUniforms = SG_RANGE_REF(cmd.fsUniforms);
+			sg_apply_uniforms(SG_SHADERSTAGE_FS, 0, &fsUniforms);
 
 			bind.vertex_buffer_offsets[0] = cmd.vertexBufferOffset;
 			sg_apply_bindings(&bind);
@@ -488,8 +490,10 @@ void DrawFrame(i32 w, i32 h) {
 
 			if (cmd.indexedDraw) Assert(false);
 
-			sg_range uniforms = SG_RANGE_REF(cmd.uniforms);
-			sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &uniforms);
+			sg_range vsUniforms = SG_RANGE_REF(cmd.vsUniforms);
+			sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &vsUniforms);
+			sg_range fsUniforms = SG_RANGE_REF(cmd.fsUniforms);
+			sg_apply_uniforms(SG_SHADERSTAGE_FS, 0, &fsUniforms);
 
 			bind.vertex_buffer_offsets[0] = cmd.vertexBufferOffset;
 			sg_apply_bindings(&bind);
@@ -568,16 +572,21 @@ void EndObject2D() {
 
     // Submit draw call
     Matrixf ortho = Matrixf::Orthographic(0.0f, pState->targetResolution.x, 0.0f, pState->targetResolution.y, -100.0f, 100.0f);
-	cmd.uniforms.mvp = ortho * pState->matrixStates[(usize)EMatrixMode::Model];
-	cmd.uniforms.model = pState->matrixStates[(usize)EMatrixMode::Model];
-	cmd.uniforms.u_lightingEnabled = 0;
-	cmd.uniforms.u_lightDirection[0] = 0.f;
-	cmd.uniforms.u_lightDirection[1] = 0.f;
-	cmd.uniforms.u_lightDirection[2] = 0.f;
-	cmd.uniforms.u_lightColor[0] = 0.f;
-	cmd.uniforms.u_lightColor[1] = 0.f;
-	cmd.uniforms.u_lightColor[2] = 0.f;
-	cmd.uniforms.u_lightAmbient = Vec3f(0.0);
+	cmd.vsUniforms.mvp = ortho * pState->matrixStates[(usize)EMatrixMode::Model];
+	cmd.vsUniforms.model = pState->matrixStates[(usize)EMatrixMode::Model];
+	cmd.vsUniforms.modelView = pState->matrixStates[(usize)EMatrixMode::View] * pState->matrixStates[(usize)EMatrixMode::Model];
+	cmd.vsUniforms.lightingEnabled = 0;
+	cmd.vsUniforms.lightDirection[0] = 0.f;
+	cmd.vsUniforms.lightDirection[1] = 0.f;
+	cmd.vsUniforms.lightDirection[2] = 0.f;
+	cmd.vsUniforms.lightColor[0] = 0.f;
+	cmd.vsUniforms.lightColor[1] = 0.f;
+	cmd.vsUniforms.lightColor[2] = 0.f;
+	cmd.vsUniforms.lightAmbient = Vec3f(0.0);
+	cmd.vsUniforms.targetResolution = pState->targetResolution;
+	cmd.vsUniforms.fogEnabled = 0;
+	cmd.vsUniforms.fogDepths = Vec2f(0.0);
+	cmd.fsUniforms.fogColor = Vec4f(0.0);
 
 	cmd.indexedDraw = false;
 
@@ -716,16 +725,21 @@ void EndObject3D() {
     }
 
     // Submit draw call
-	cmd.uniforms.mvp = pState->matrixStates[(usize)EMatrixMode::Projection] * pState->matrixStates[(usize)EMatrixMode::View] * pState->matrixStates[(usize)EMatrixMode::Model];
-	cmd.uniforms.model = pState->matrixStates[(usize)EMatrixMode::Model];
-	cmd.uniforms.u_lightingEnabled = (i32)pState->lightingState;
-	cmd.uniforms.u_lightDirection[0] = pState->lightDirectionsStates[0];
-	cmd.uniforms.u_lightDirection[1] = pState->lightDirectionsStates[1];
-	cmd.uniforms.u_lightDirection[2] = pState->lightDirectionsStates[2];
-	cmd.uniforms.u_lightColor[0] = pState->lightColorStates[0];
-	cmd.uniforms.u_lightColor[1] = pState->lightColorStates[1];
-	cmd.uniforms.u_lightColor[2] = pState->lightColorStates[2];
-	cmd.uniforms.u_lightAmbient = pState->lightAmbientState;
+	cmd.vsUniforms.mvp = pState->matrixStates[(usize)EMatrixMode::Projection] * pState->matrixStates[(usize)EMatrixMode::View] * pState->matrixStates[(usize)EMatrixMode::Model];
+	cmd.vsUniforms.model = pState->matrixStates[(usize)EMatrixMode::Model];
+	cmd.vsUniforms.modelView = pState->matrixStates[(usize)EMatrixMode::View] * pState->matrixStates[(usize)EMatrixMode::Model];
+	cmd.vsUniforms.lightingEnabled = (i32)pState->lightingState;
+	cmd.vsUniforms.lightDirection[0] = pState->lightDirectionsStates[0];
+	cmd.vsUniforms.lightDirection[1] = pState->lightDirectionsStates[1];
+	cmd.vsUniforms.lightDirection[2] = pState->lightDirectionsStates[2];
+	cmd.vsUniforms.lightColor[0] = pState->lightColorStates[0];
+	cmd.vsUniforms.lightColor[1] = pState->lightColorStates[1];
+	cmd.vsUniforms.lightColor[2] = pState->lightColorStates[2];
+	cmd.vsUniforms.lightAmbient = pState->lightAmbientState;
+	cmd.vsUniforms.targetResolution = pState->targetResolution;
+	cmd.vsUniforms.fogEnabled = (i32)pState->fogState;
+	cmd.vsUniforms.fogDepths = pState->fogDepths;
+	cmd.fsUniforms.fogColor = Vec4f::Embed3D(pState->fogColor);
 
     if (pState->normalsModeState == ENormalsMode::Smooth && cmd.type == EPrimitiveType::Triangles)
         cmd.indexedDraw = true;

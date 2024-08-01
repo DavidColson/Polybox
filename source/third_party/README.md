@@ -1,26 +1,5 @@
 # Third Party Libraries
 
-## bgfx
-
-- Source: https://github.com/bkaradzic/bgfx
-- Version: Pulled at change d95a6436
-
-Stripped out examples, build scripts, github files
-
-## bimg
-
-- Source: https://github.com/bkaradzic/bimg
-- Version: Pulled at change 8355d36b
-
-Stripped out build scripts and github files
-
-## bx
-
-- Source: https://github.com/bkaradzic/bx
-- Version: Pulled at change 51f25ba6
-
-Stripped out tests and catch dependency, all build scripts and github files leaving just the code required to run and the license
-
 ## FreeType
 
 - Source: https://www.freetype.org
@@ -28,12 +7,19 @@ Stripped out tests and catch dependency, all build scripts and github files leav
 
 Files stripped down to just `include/`, `src/` except Jamfiles and tools subfolder, and license files. Have chosen FreeType License for this project. Custom premake lua file being used to build.
 
-## ImGui
+## SDL2
 
-- Source: https://github.com/ocornut/imgui
-- Version: 1.89.9
+- Source: https://github.com/libsdl-org/SDL
+- Version: 2.0.8
 
-Removed backends we don't need, added the bgfx backent and then removed the examples folder, but otherwise same as upstream
+Just includes and binaries
+
+## Luau
+
+- Source: https://github.com/luau-lang/luau
+- Version: 0.636
+
+As is, but intend to modify this fairly heavily
 
 ## Sokol
 
@@ -48,3 +34,10 @@ Removed everything except sokol_gfx
 - Version: Pulled at change 1528521
 
 Removed the fips files and some extraneous text files
+
+## stb
+
+- Source: https://github.com/nothings/stb
+- Version: Pulled at change f75e8d1
+
+Just stb_image used here, everything else removed

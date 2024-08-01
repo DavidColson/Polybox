@@ -36,8 +36,8 @@ function Update(deltaTime)
     MatrixMode("Projection")
     Perspective(320, 240, 1, 20, 60)
 
-    -- camX = camX + deltaTime * GetAxis(Axis.RightY)
-    -- camY = camY + deltaTime * GetAxis(Axis.RightX)
+    camX = camX + deltaTime * GetAxis(Axis.RightY)
+    camY = camY + deltaTime * GetAxis(Axis.RightX)
 
     MatrixMode("View")
     Rotate(camX, camY, 0)
@@ -107,7 +107,6 @@ function Update(deltaTime)
         end
         ::continue::
     end
-    SetClearColor(0.25, 0.25, 0.25, 0)
 
     UnbindTexture()
 

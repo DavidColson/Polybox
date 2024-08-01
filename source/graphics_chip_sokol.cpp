@@ -53,8 +53,6 @@ struct RenderState {
 	EMatrixMode matrixModeState;
 	Matrixf matrixStates[(usize)EMatrixMode::Count];
 
-	Vec4f clearColor { Vec4f(0.25f, 0.25f, 0.25f, 1.0f) };
-
 	ENormalsMode normalsModeState;
 	bool lightingState { false };
 	Vec4f lightDirectionsStates[MAX_LIGHTS];
@@ -340,7 +338,7 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 		pState->passCore3DScene = { 
 			.action = {
 				.colors = {
-					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.0f, 0.25f, 1.0f } } 
+					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.25f, 0.25f, 1.0f } } 
 				}
 			},
 			.attachments = sg_make_attachments(&attachmentsDesc)
@@ -368,7 +366,7 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 		pState->passCore2DScene = { 
 			.action = {
 				.colors = {
-					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.0f, 0.25f, 0.0f } } 
+					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 1.f, 1.f, 1.f, 0.0f } } 
 				}
 			},
 			.attachments = sg_make_attachments(&attachmentsDesc)
@@ -803,7 +801,7 @@ void Normal(Vec3f norm) {
 // ***********************************************************************
 
 void SetClearColor(Vec4f color) {
-    pState->clearColor = color;
+	pState->passCore3DScene.action.colors[0].clear_value = { color.x, color.y, color.z, color.w }; 
 }
 
 // ***********************************************************************

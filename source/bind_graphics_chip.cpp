@@ -8,11 +8,8 @@
 #include "font.h"
 #include "shapes.h"
 
-extern "C" {
-#include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
-}
 #include <light_string.h>
 #include <string.h>
 
@@ -574,8 +571,9 @@ int BindGraphicsChip(lua_State* pLua) {
         { NULL, NULL }
     };
 
-    lua_pushglobaltable(pLua);
-    luaL_setfuncs(pLua, graphicsFuncs, 0);
+    lua_pushvalue(pLua, LUA_GLOBALSINDEX);
+    luaL_register(pLua, NULL, graphicsFuncs);
+    lua_pop(pLua, 1);
 
     // Types
     ////////

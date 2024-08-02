@@ -14,11 +14,8 @@
 #include "scene.h"
 #include "shapes.h"
 
-extern "C" {
 #include "lua.h"
-#include "lualib.h"
-#include "lauxlib.h"
-}
+#include "luacode.h"
 
 #include <SDL.h>
 #include <sokol_gfx.h>
@@ -88,6 +85,24 @@ void AssertHandler(Log::LogLevel level, String message) {
     }
 }
 
+
+static void* limitedRealloc(void* ud, void* ptr, size_t osize, size_t nsize)
+{
+    if (nsize == 0)
+    {
+        free(ptr);
+        return nullptr;
+    }
+    else if (nsize > 8 * 1024 * 1024)
+    {
+        // For testing purposes return null for large allocations so we can generate errors related to memory allocation failures
+        return nullptr;
+    }
+    else
+    {
+        return realloc(ptr, nsize);
+    }
+}
 // ***********************************************************************
 
 int main(int argc, char* argv[]) {
@@ -113,22 +128,41 @@ int main(int argc, char* argv[]) {
 		GameChip game = GameChip();
 		game.Init();
 
-		lua_State* pLua = luaL_newstate();
-		luaL_openlibs(pLua);  // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
+		lua_State* pLua = lua_newstate(limitedRealloc, nullptr);
+		// luaL_openlibs(pLua);  // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
 
 		Bind::BindGraphicsChip(pLua);
 		Bind::BindMesh(pLua);
 		Bind::BindScene(pLua);
 		Bind::BindGameChip(pLua, &game);
 
-		if (luaL_dofile(pLua, "assets/game.lua") != LUA_OK) {
+
+		SDL_RWops* pFileRead = SDL_RWFromFile("assets/game.lua", "rb");
+		u64 sourceSize = SDL_RWsize(pFileRead);
+		char* pSource = (char*)g_Allocator.Allocate(sourceSize * sizeof(char));
+		pSource[sourceSize] = '\0';
+		SDL_RWread(pFileRead, pSource, sourceSize, 1);
+		SDL_RWclose(pFileRead);
+
+		usize bytecodeSize = 0;
+		char* pBytecode = luau_compile(pSource, sourceSize, nullptr, &bytecodeSize);
+		int result = luau_load(pLua, "assets/game.lua", pBytecode, bytecodeSize, 0);
+
+		if (result != 0) {
+			Log::Warn("Lua Load Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
+			lua_pop(pLua, 1);
+		}
+
+		if (lua_pcall(pLua, 0, 0, 0) != LUA_OK) {
 			Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
+			lua_pop(pLua, 1);
 		}
 
 		lua_getglobal(pLua, "Start");
 		if (lua_isfunction(pLua, -1)) {
 			if (lua_pcall(pLua, 0, 0, 0) != LUA_OK) {
 				Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
+				lua_pop(pLua, 1);
 			}
 		}
 
@@ -180,6 +214,7 @@ int main(int argc, char* argv[]) {
 				lua_pushnumber(pLua, deltaTime);
 				if (lua_pcall(pLua, 1, 0, 0) != LUA_OK) {
 					Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
+					lua_pop(pLua, 1);
 				}
 			} else {
 				lua_pop(pLua, 1);

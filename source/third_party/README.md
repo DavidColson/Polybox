@@ -19,7 +19,7 @@ Just includes and binaries
 - Source: https://github.com/luau-lang/luau
 - Version: 0.636
 
-As is, but intend to modify this fairly heavily
+Changed luau VM to use abort rather than exception handling
 
 ## Sokol
 

@@ -61,8 +61,7 @@ function Update(deltaTime)
         Rotate(node:GetWorldRotation())
         Scale(node:GetWorldScale())
 
-        if node:GetPropertyTable().meshId ~= nil then 
-            if tankMeshes[node:GetPropertyTable().meshId]:GetName() == "BlobShadow" then goto continue end
+        if node:GetPropertyTable().meshId ~= nil and tankMeshes[node:GetPropertyTable().meshId]:GetName() ~= "BlobShadow" then 
             local prim = tankMeshes[node:GetPropertyTable().meshId]:GetPrimitive(1)
             
             BindTexture(tankImages[prim:GetMaterialTextureId()])
@@ -77,7 +76,6 @@ function Update(deltaTime)
             
             EndObject3D()
         end
-        ::continue::
     end
 
     for i = 1, tankScene:GetNumNodes(), 1 do
@@ -89,8 +87,7 @@ function Update(deltaTime)
         Rotate(node:GetWorldRotation())
         Scale(node:GetWorldScale())
 
-        if node:GetPropertyTable().meshId ~= nil then 
-            if tankMeshes[node:GetPropertyTable().meshId]:GetName() ~= "BlobShadow" then goto continue end
+        if node:GetPropertyTable().meshId ~= nil and tankMeshes[node:GetPropertyTable().meshId]:GetName() == "BlobShadow" then 
             local prim = tankMeshes[node:GetPropertyTable().meshId]:GetPrimitive(1)
             
             BindTexture(tankImages[prim:GetMaterialTextureId()])
@@ -105,7 +102,6 @@ function Update(deltaTime)
             
             EndObject3D()
         end
-        ::continue::
     end
 
     UnbindTexture()

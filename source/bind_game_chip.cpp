@@ -6,11 +6,8 @@
 #include "light_string.h"
 #include "lua_common.h"
 
-extern "C" {
-#include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
-}
 #include <defer.h>
 
 namespace {
@@ -113,7 +110,7 @@ int BindGameChip(lua_State* pLua, GameChip* pGameChip) {
     pGame = pGameChip;
 
     // Bind static mesh functions
-    const luaL_Reg meshGlobalFuncs[] = {
+    const luaL_Reg gameGlobalFuncs[] = {
         { "GetButton", GetButton },
         { "GetButtonDown", GetButtonDown },
         { "GetButtonUp", GetButtonUp },
@@ -127,8 +124,9 @@ int BindGameChip(lua_State* pLua, GameChip* pGameChip) {
         { NULL, NULL }
     };
 
-    lua_pushglobaltable(pLua);
-    luaL_setfuncs(pLua, meshGlobalFuncs, 0);
+    lua_pushvalue(pLua, LUA_GLOBALSINDEX);
+    luaL_register(pLua, NULL, gameGlobalFuncs);
+    lua_pop(pLua, 1);
 
     // push enum tables to global
     lua_newtable(pLua);

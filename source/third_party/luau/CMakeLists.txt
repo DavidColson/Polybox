@@ -6,8 +6,8 @@ endif()
 
 cmake_minimum_required(VERSION 3.0)
 
-option(LUAU_BUILD_CLI "Build CLI" ON)
-option(LUAU_BUILD_TESTS "Build tests" ON)
+option(LUAU_BUILD_CLI "Build CLI" OFF)
+option(LUAU_BUILD_TESTS "Build tests" OFF)
 option(LUAU_BUILD_WEB "Build Web module" OFF)
 option(LUAU_WERROR "Warnings as errors" OFF)
 option(LUAU_STATIC_CRT "Link with the static CRT (/MT)" OFF)
@@ -19,6 +19,11 @@ cmake_policy(SET CMP0091 NEW)
 if(LUAU_STATIC_CRT)
     cmake_minimum_required(VERSION 3.15)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
+
+if(MSVC)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
 endif()
 
 project(Luau LANGUAGES CXX C)

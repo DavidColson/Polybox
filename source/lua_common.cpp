@@ -5,11 +5,8 @@
 #include "image.h"
 #include "mesh.h"
 
-extern "C" {
-#include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
-}
 #include <SDL_syswm.h>
 #include <log.h>
 #undef DrawText
@@ -107,19 +104,19 @@ void luax_registertype(lua_State* pLua, const char* typeName, const luaL_Reg* fu
     lua_pushvalue(pLua, -1);
     lua_setfield(pLua, -2, "__index");
 
-    lua_pushcfunction(pLua, __garbagecollect);
+    lua_pushcfunction(pLua, __garbagecollect, nullptr);
     lua_setfield(pLua, -2, "__gc");
 
-    lua_pushcfunction(pLua, __equality);
+    lua_pushcfunction(pLua, __equality, nullptr);
     lua_setfield(pLua, -2, "__eq");
 
     lua_pushstring(pLua, typeName);
-    lua_pushcclosure(pLua, __gettype, 1);
+    lua_pushcclosure(pLua, __gettype, nullptr, 1);
     lua_setfield(pLua, -2, "GetType");
 
     if (funcs) {
-        // Push all of the type member functions i32o the metatable
-        luaL_setfuncs(pLua, funcs, 0);
+        // Push all of the type member functions into the metatable
+		luaL_register(pLua, NULL, funcs);
     }
 
     lua_pop(pLua, 1);

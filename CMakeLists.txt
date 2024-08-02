@@ -10,5 +10,4 @@ include(common)
 add_subdirectory(source)
 add_subdirectory(source/common_lib)
 add_subdirectory(source/third_party/FreeType)
-add_subdirectory(source/third_party/lua)
-
+add_subdirectory(source/third_party/luau)

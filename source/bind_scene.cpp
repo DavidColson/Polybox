@@ -4,11 +4,8 @@
 
 #include "Scene.h"
 
-extern "C" {
-#include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
-}
 
 namespace Bind {
 // ***********************************************************************
@@ -246,8 +243,9 @@ int BindScene(lua_State* pLua) {
         { NULL, NULL }
     };
 
-    lua_pushglobaltable(pLua);
-    luaL_setfuncs(pLua, sceneGlobalFuncs, 0);
+    lua_pushvalue(pLua, LUA_GLOBALSINDEX);
+    luaL_register(pLua, NULL, sceneGlobalFuncs);
+    lua_pop(pLua, 1);
 
     const luaL_Reg sceneMethods[] = {
         { "GetNumNodes", Scene_GetNumNodes },

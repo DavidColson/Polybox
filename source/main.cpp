@@ -29,6 +29,7 @@
 #include <vec3.h>
 #include <hashmap.inl>
 #include <resizable_array.inl>
+#include <string_builder.h>
 #include <light_string.h>
 #undef DrawText
 #undef DrawTextEx
@@ -451,16 +452,15 @@ int main(int argc, char* argv[]) {
 
 		GraphicsInit(pWindow, winWidth, winHeight);
 
-		GameChip game = GameChip();
-		game.Init();
+		InputInit();
 
 		lua_State* pLua = lua_newstate(limitedRealloc, nullptr);
 		luaL_openlibs(pLua);
 
-		Bind::BindGraphicsChip(pLua);
+		Bind::BindGraphics(pLua);
 		Bind::BindMesh(pLua);
 		Bind::BindScene(pLua);
-		Bind::BindGameChip(pLua, &game);
+		Bind::BindInput(pLua);
 
 		// Prepare frontend for typechecking
 		bool wasError = false;
@@ -557,11 +557,11 @@ int main(int argc, char* argv[]) {
 		while (gameRunning) {
 			Uint64 frameStart = SDL_GetPerformanceCounter();
 
-			game.ClearStates();
+			ClearStates();
 			// Deal with events
 			SDL_Event event;
 			while (SDL_PollEvent(&event)) {
-				game.ProcessEvent(&event);
+				ProcessEvent(&event);
 				switch (event.type) {
 					case SDL_KEYDOWN: {
 						if (event.key.keysym.scancode == SDL_SCANCODE_TAB && event.key.keysym.mod & KMOD_LSHIFT) {
@@ -589,7 +589,7 @@ int main(int argc, char* argv[]) {
 						break;
 				}
 			}
-			game.UpdateInputs(deltaTime, Vec2f(320.0f, 240.0f), Vec2f((f32)winWidth, (f32)winHeight));
+			UpdateInputs(deltaTime, Vec2f(320.0f, 240.0f), Vec2f((f32)winWidth, (f32)winHeight));
 
 			// Lua updates
 
@@ -617,7 +617,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		lua_close(pLua);
-		game.Shutdown();
+		Shutdown();
 	}
 	i32 n = ReportMemoryLeaks();
 	Log::Info("Memory Leak Reports %i leaks", n);

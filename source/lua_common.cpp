@@ -7,8 +7,8 @@
 
 #include <lua.h>
 #include <lualib.h>
-#include <SDL_syswm.h>
 #include <log.h>
+
 #undef DrawText
 #undef DrawTextEx
 

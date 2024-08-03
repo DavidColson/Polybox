@@ -2,10 +2,6 @@
 
 #pragma once
 
-#include <SDL_gamecontroller.h>
-#include <SDL_keycode.h>
-#include <hashmap.h>
-#include <string_builder.h>
 #include <vec2.h>
 
 enum class ControllerButton {
@@ -171,71 +167,27 @@ enum class Key {
 };
 
 union SDL_Event;
+struct String;
 
-class GameChip {
-   public:
-    void Init();
-    void ProcessEvent(SDL_Event* event);
-    void UpdateInputs(f32 deltaTime, Vec2f targetRes, Vec2f realWindowRes);
-    void ClearStates();
-    void Shutdown();
+void InputInit();
+void ProcessEvent(SDL_Event* event);
+void UpdateInputs(f32 deltaTime, Vec2f targetRes, Vec2f realWindowRes);
+void ClearStates();
+void Shutdown();
 
-    // API
-    bool GetButton(ControllerButton buttonCode);
-    bool GetButtonDown(ControllerButton buttonCode);
-    bool GetButtonUp(ControllerButton buttonCode);
-    f32 GetAxis(ControllerAxis axis);
+// API
+bool GetButton(ControllerButton buttonCode);
+bool GetButtonDown(ControllerButton buttonCode);
+bool GetButtonUp(ControllerButton buttonCode);
+f32 GetAxis(ControllerAxis axis);
 
-    Vec2i GetMousePosition();
-    void EnableMouseRelativeMode(bool enable);
+Vec2i GetMousePosition();
+void EnableMouseRelativeMode(bool enable);
 
-    bool GetKey(Key keyCode);
-    bool GetKeyDown(Key keyCode);
-    bool GetKeyUp(Key keyCode);
+bool GetKey(Key keyCode);
+bool GetKeyDown(Key keyCode);
+bool GetKeyUp(Key keyCode);
 
-    String InputString();
+String InputString();
 
-   private:
-    HashMap<SDL_GameControllerButton, ControllerButton> primaryBindings;
-    HashMap<SDL_GameControllerAxis, ControllerAxis> primaryAxisBindings;
-
-    HashMap<SDL_Keycode, ControllerButton> keyboardAltBindings;
-    HashMap<int, ControllerButton> mouseAltBindings;
-
-    HashMap<SDL_Keycode, ControllerAxis> keyboardAxisBindings;
-    HashMap<int, ControllerAxis> mouseAxisBindings;
-
-    struct Axis {
-        f32 axisValue { 0.0f };
-
-        bool ignoreVirtual { false };
-        bool isMouseDriver { false };
-
-        // Virtual axis input state
-        bool positiveInput { false };
-        bool negativeInput { false };
-
-        // Virtual axis mapping
-        SDL_Keycode positiveScanCode { SDLK_UNKNOWN };
-        SDL_Keycode negativeScanCode { SDLK_UNKNOWN };
-        i32 positiveMouseButton { 0 };
-        i32 negativeMouseButton { 0 };
-    };
-
-    bool keyDowns[(usize)Key::Count];
-    bool keyUps[(usize)Key::Count];
-    bool keyStates[(usize)Key::Count];
-
-    bool buttonDowns[(usize)ControllerButton::Count];
-    bool buttonUps[(usize)ControllerButton::Count];
-    bool buttonStates[(usize)ControllerButton::Count];
-
-    Axis axes[(usize)ControllerAxis::Count];
-
-    SDL_GameController* pOpenController { nullptr };
-
-    StringBuilder textInputString;
-
-    Vec2f targetResolution;
-    Vec2f windowResolution;
-};
+   

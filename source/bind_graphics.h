@@ -6,5 +6,5 @@ struct lua_State;
 class GraphicsChip;
 
 namespace Bind {
-int BindGraphicsChip(lua_State* pLua);
+int BindGraphics(lua_State* pLua);
 }

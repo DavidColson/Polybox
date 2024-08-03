@@ -535,7 +535,7 @@ int LuaNewFont(lua_State* pLua) {
 
 // ***********************************************************************
 
-int BindGraphicsChip(lua_State* pLua) {
+int BindGraphics(lua_State* pLua) {
 
     // Global functions
     ///////////////////

@@ -10,47 +10,44 @@
 #include <lualib.h>
 #include <defer.h>
 
-namespace {
-GameChip* pGame { nullptr };
-}
 
 namespace Bind {
 // ***********************************************************************
 
-int GetButton(lua_State* pLua) {
+int LuaGetButton(lua_State* pLua) {
     ControllerButton button = (ControllerButton)luaL_checkinteger(pLua, 1);
-    lua_pushboolean(pLua, pGame->GetButton(button));
+    lua_pushboolean(pLua, GetButton(button));
     return 1;
 }
 
 // ***********************************************************************
 
-int GetButtonDown(lua_State* pLua) {
+int LuaGetButtonDown(lua_State* pLua) {
     ControllerButton button = (ControllerButton)luaL_checkinteger(pLua, 1);
-    lua_pushboolean(pLua, pGame->GetButtonDown(button));
+    lua_pushboolean(pLua, GetButtonDown(button));
     return 1;
 }
 
 // ***********************************************************************
 
-int GetButtonUp(lua_State* pLua) {
+int LuaGetButtonUp(lua_State* pLua) {
     ControllerButton button = (ControllerButton)luaL_checkinteger(pLua, 1);
-    lua_pushboolean(pLua, pGame->GetButtonUp(button));
+    lua_pushboolean(pLua, GetButtonUp(button));
     return 1;
 }
 
 // ***********************************************************************
 
-int GetAxis(lua_State* pLua) {
+int LuaGetAxis(lua_State* pLua) {
     ControllerAxis axis = (ControllerAxis)luaL_checkinteger(pLua, 1);
-    lua_pushnumber(pLua, pGame->GetAxis(axis));
+    lua_pushnumber(pLua, GetAxis(axis));
     return 1;
 }
 
 // ***********************************************************************
 
-int GetMousePosition(lua_State* pLua) {
-    Vec2i mousePos = pGame->GetMousePosition();
+int LuaGetMousePosition(lua_State* pLua) {
+    Vec2i mousePos = GetMousePosition();
     lua_pushinteger(pLua, mousePos.x);
     lua_pushinteger(pLua, mousePos.y);
     return 2;
@@ -58,40 +55,40 @@ int GetMousePosition(lua_State* pLua) {
 
 // ***********************************************************************
 
-int EnableMouseRelativeMode(lua_State* pLua) {
+int LuaEnableMouseRelativeMode(lua_State* pLua) {
     bool enable = luax_checkboolean(pLua, 1);
-    pGame->EnableMouseRelativeMode(enable);
+    EnableMouseRelativeMode(enable);
     return 0;
 }
 
 // ***********************************************************************
 
-int GetKey(lua_State* pLua) {
+int LuaGetKey(lua_State* pLua) {
     Key key = (Key)luaL_checkinteger(pLua, 1);
-    lua_pushboolean(pLua, pGame->GetKey(key));
+    lua_pushboolean(pLua, GetKey(key));
     return 1;
 }
 
 // ***********************************************************************
 
-int GetKeyDown(lua_State* pLua) {
+int LuaGetKeyDown(lua_State* pLua) {
     Key key = (Key)luaL_checkinteger(pLua, 1);
-    lua_pushboolean(pLua, pGame->GetKeyDown(key));
+    lua_pushboolean(pLua, GetKeyDown(key));
     return 1;
 }
 
 // ***********************************************************************
 
-int GetKeyUp(lua_State* pLua) {
+int LuaGetKeyUp(lua_State* pLua) {
     Key key = (Key)luaL_checkinteger(pLua, 1);
-    lua_pushboolean(pLua, pGame->GetKeyUp(key));
+    lua_pushboolean(pLua, GetKeyUp(key));
     return 1;
 }
 
 // ***********************************************************************
 
-int InputString(lua_State* pLua) {
-    String input = pGame->InputString();
+int LuaInputString(lua_State* pLua) {
+    String input = InputString();
     defer(FreeString(input));
     lua_pushstring(pLua, input.pData);
     return 1;
@@ -106,21 +103,20 @@ void PushEnum(lua_State* pLua, i32 value, const char* label) {
 
 // ***********************************************************************
 
-int BindGameChip(lua_State* pLua, GameChip* pGameChip) {
-    pGame = pGameChip;
+int BindInput(lua_State* pLua) {
 
     // Bind static mesh functions
     const luaL_Reg gameGlobalFuncs[] = {
-        { "GetButton", GetButton },
-        { "GetButtonDown", GetButtonDown },
-        { "GetButtonUp", GetButtonUp },
-        { "GetAxis", GetAxis },
-        { "GetMousePosition", GetMousePosition },
-        { "EnableMouseRelativeMode", EnableMouseRelativeMode },
-        { "GetKey", GetKey },
-        { "GetKeyDown", GetKeyDown },
-        { "GetKeyUp", GetKeyUp },
-        { "InputString", InputString },
+        { "GetButton", LuaGetButton },
+        { "GetButtonDown", LuaGetButtonDown },
+        { "GetButtonUp", LuaGetButtonUp },
+        { "GetAxis", LuaGetAxis },
+        { "GetMousePosition", LuaGetMousePosition },
+        { "EnableMouseRelativeMode", LuaEnableMouseRelativeMode },
+        { "GetKey", LuaGetKey },
+        { "GetKeyDown", LuaGetKeyDown },
+        { "GetKeyUp", LuaGetKeyUp },
+        { "InputString", LuaInputString },
         { NULL, NULL }
     };
 

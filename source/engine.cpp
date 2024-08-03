@@ -16,6 +16,8 @@
 
 #include "lua.h"
 #include "luacode.h"
+#include "Luau/Frontend.h"
+#include "Luau/BuiltinDefinitions.h"
 
 #include <SDL.h>
 #include <sokol_gfx.h>
@@ -103,6 +105,63 @@ static void* limitedRealloc(void* ud, void* ptr, size_t osize, size_t nsize)
         return realloc(ptr, nsize);
     }
 }
+
+struct LuaFileResolver : Luau::FileResolver
+{
+    std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override
+    {
+        Luau::SourceCode::Type sourceType;
+        std::optional<std::string> source = std::nullopt;
+
+        // If the module name is "-", then read source from stdin
+        if (name == "-")
+        {
+			Assert("Not sure what this means, come back fix this");
+        }
+        else
+        {
+
+			SDL_RWops* pFileRead = SDL_RWFromFile(name.c_str(), "rb");
+			u64 sourceSize = SDL_RWsize(pFileRead);
+			std::string result(sourceSize, 0);
+			SDL_RWread(pFileRead, result.data(), sourceSize, 1);
+			SDL_RWclose(pFileRead);
+
+			source = result;
+			sourceType = Luau::SourceCode::Module;
+        }
+
+        if (!source)
+            return std::nullopt;
+
+        return Luau::SourceCode{*source, sourceType};
+    }
+
+    std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node) override
+    {
+        if (Luau::AstExprConstantString* expr = node->as<Luau::AstExprConstantString>())
+        {
+            Luau::ModuleName name = std::string(expr->value.data, expr->value.size) + ".luau";
+			SDL_RWops* pFileRead = SDL_RWFromFile(name.c_str(), "rb");
+            if (pFileRead == nullptr)
+            {
+                // fall back to .lua if a module with .luau doesn't exist
+                name = std::string(expr->value.data, expr->value.size) + ".lua";
+            }
+
+            return {{name}};
+        }
+
+        return std::nullopt;
+    }
+
+    std::string getHumanReadableModuleName(const Luau::ModuleName& name) const override
+    {
+        if (name == "-")
+            return "stdin";
+        return name;
+    }
+};
 // ***********************************************************************
 
 int main(int argc, char* argv[]) {
@@ -136,26 +195,72 @@ int main(int argc, char* argv[]) {
 		Bind::BindScene(pLua);
 		Bind::BindGameChip(pLua, &game);
 
+		// Prepare frontend for typechecking
+		bool wasError = false;
+		{
+			Luau::FrontendOptions frontendOptions;
+			frontendOptions.runLintChecks = true;
 
-		SDL_RWops* pFileRead = SDL_RWFromFile("assets/game.lua", "rb");
-		u64 sourceSize = SDL_RWsize(pFileRead);
-		char* pSource = (char*)g_Allocator.Allocate(sourceSize * sizeof(char));
-		pSource[sourceSize] = '\0';
-		SDL_RWread(pFileRead, pSource, sourceSize, 1);
-		SDL_RWclose(pFileRead);
+			LuaFileResolver fileResolver;
+			Luau::NullConfigResolver configResolver;
+			Luau::Frontend frontend(&fileResolver, &configResolver, frontendOptions);
 
-		usize bytecodeSize = 0;
-		char* pBytecode = luau_compile(pSource, sourceSize, nullptr, &bytecodeSize);
-		int result = luau_load(pLua, "assets/game.lua", pBytecode, bytecodeSize, 0);
+			Luau::registerBuiltinGlobals(frontend, frontend.globals);
+			Luau::freeze(frontend.globals.globalTypes); // Marks the type memory as read only
 
-		if (result != 0) {
-			Log::Warn("Lua Load Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
-			lua_pop(pLua, 1);
+			// Add our global type definitions
+
+			// give errors on parsing the type definitions
+
+			// run check
+			Luau::CheckResult result = frontend.check("assets/game.lua");
+
+			if (!result.errors.empty())
+				wasError = true;
+
+			// print errors and lint warnings
+			for (Luau::TypeError& error : result.errors) {
+				std::string humanReadableName = frontend.fileResolver->getHumanReadableModuleName(error.moduleName);
+				if (const Luau::SyntaxError* syntaxError = Luau::get_if<Luau::SyntaxError>(&error.data))
+					Log::Warn("SyntaxError in [%s:%d] - %s", humanReadableName.c_str(), error.location.begin.line + 1, syntaxError->message.c_str());
+				else
+					Log::Warn("TypeError in [%s:%d] - %s", humanReadableName.c_str(), error.location.begin.line + 1, Luau::toString(error, Luau::TypeErrorToStringOptions{frontend.fileResolver}).c_str());
+			}
+
+			for (Luau::LintWarning& error : result.lintResult.errors) {
+				std::string humanReadableName = "assets/game.lua";
+				Log::Warn("LintError in [%s:%d] (%s) - %s", humanReadableName.c_str(), error.location.begin.line + 1,
+					  Luau::LintWarning::getName(error.code), error.text.c_str());
+			}
+			
+			for (Luau::LintWarning& error : result.lintResult.warnings) {
+				std::string humanReadableName = "assets/game.lua";
+				Log::Warn("LintWarning in [%s:%d] (%s) - %s", humanReadableName.c_str(), error.location.begin.line + 1,
+					  Luau::LintWarning::getName(error.code), error.text.c_str());
+			}
 		}
 
-		if (lua_pcall(pLua, 0, 0, 0) != LUA_OK) {
-			Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
-			lua_pop(pLua, 1);
+		if (wasError == false) {
+			SDL_RWops* pFileRead = SDL_RWFromFile("assets/game.lua", "rb");
+			u64 sourceSize = SDL_RWsize(pFileRead);
+			char* pSource = (char*)g_Allocator.Allocate(sourceSize * sizeof(char));
+			SDL_RWread(pFileRead, pSource, sourceSize, 1);
+			pSource[sourceSize] = '\0';
+			SDL_RWclose(pFileRead);
+
+			usize bytecodeSize = 0;
+			char* pBytecode = luau_compile(pSource, sourceSize, nullptr, &bytecodeSize);
+			int result = luau_load(pLua, "assets/game.lua", pBytecode, bytecodeSize, 0);
+
+			if (result != 0) {
+				Log::Warn("Lua Load Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
+				lua_pop(pLua, 1);
+			}
+
+			if (lua_pcall(pLua, 0, 0, 0) != LUA_OK) {
+				Log::Warn("Lua Runtime Error: %s", lua_tostring(pLua, lua_gettop(pLua)));
+				lua_pop(pLua, 1);
+			}
 		}
 
 		lua_getglobal(pLua, "Start");

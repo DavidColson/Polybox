@@ -35,6 +35,7 @@ add_executable(polybox ${SOURCES})
 target_link_libraries(polybox PUBLIC
 	Luau.Compiler
 	Luau.VM
+	Luau.Analysis
 	common_lib 
 	FreeType 
 	SDL2 
@@ -47,6 +48,7 @@ target_include_directories(polybox PUBLIC
 	"${PROJ_ROOT_PATH}/source/"
 	"${PROJ_ROOT_PATH}/source/third_party/FreeType/include/"
 	"${PROJ_ROOT_PATH}/source/third_party/luau/Compiler/include/"
+	"${PROJ_ROOT_PATH}/source/third_party/luau/Analysis/include/"
 	"${PROJ_ROOT_PATH}/source/third_party/luau/VM/include/"
 	"${PROJ_ROOT_PATH}/source/third_party/SDL2/include/"
 	"${PROJ_ROOT_PATH}/source/third_party/sokol/"

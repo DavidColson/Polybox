@@ -157,8 +157,14 @@ int Node_GetChild(lua_State* pLua) {
     Node* pNode = *(Node**)luaL_checkudata(pLua, 1, "Node");
     i32 index = (i32)luaL_checkinteger(pLua, 2);
 
-    Node** ppNode = (Node**)lua_newuserdata(pLua, sizeof(Node*));
-    *ppNode = pNode->GetChild(index - 1);
+	Node** ppNode = (Node**)lua_newuserdatadtor(pLua, sizeof(Node*), [](void* pData) {
+		LuaObject* pObject = *(LuaObject**)pData;
+		if (pObject) {
+			pObject->Release();
+		}
+	});
+
+	*ppNode = pNode->GetChild(index - 1);
     (*ppNode)->Retain();  // The node data already existed, so this is now a new reference to it
     CheckAndInitPropertyTable(pLua, *ppNode);
 
@@ -202,7 +208,13 @@ int Scene_GetNode(lua_State* pLua) {
     Scene* pScene = *(Scene**)luaL_checkudata(pLua, 1, "Scene");
     i32 index = (i32)luaL_checkinteger(pLua, 2);
 
-    Node** ppNode = (Node**)lua_newuserdata(pLua, sizeof(Node*));
+    Node** ppNode = (Node**)lua_newuserdatadtor(pLua, sizeof(Node*), [](void* pData) {
+		LuaObject* pObject = *(LuaObject**)pData;
+		if (pObject) {
+			pObject->Release();
+		}
+	});
+
     *ppNode = pScene->GetNode(index - 1);
     (*ppNode)->Retain();  // The primitive data already existed, so this is now a new reference to it
     CheckAndInitPropertyTable(pLua, *ppNode);
@@ -221,7 +233,13 @@ int LoadScene(lua_State* pLua) {
     Scene* pScene = Scene::LoadScene(path);
 
     // Create a new userdata for our object
-    Scene** ppScene = (Scene**)lua_newuserdata(pLua, sizeof(Scene*));
+    Scene** ppScene = (Scene**)lua_newuserdatadtor(pLua, sizeof(Scene*), [](void* pData) {
+		LuaObject* pObject = *(LuaObject**)pData;
+		if (pObject) {
+			pObject->Release();
+		}
+	});
+
     *ppScene = pScene;
 
     // Sets the metatable of this new userdata to the type's table

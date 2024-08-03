@@ -100,7 +100,13 @@ int Mesh_GetPrimitive(lua_State* pLua) {
     Mesh* pMesh = *(Mesh**)luaL_checkudata(pLua, 1, "Mesh");
     i32 index = (i32)luaL_checkinteger(pLua, 2);
 
-    Primitive** ppPrimitive = (Primitive**)lua_newuserdata(pLua, sizeof(Primitive*));
+	Primitive** ppPrimitive = (Primitive**)lua_newuserdatadtor(pLua, sizeof(Primitive*), [](void* pData) {
+		LuaObject* pObject = *(LuaObject**)pData;
+		if (pObject) {
+			pObject->Release();
+		}
+	});
+
     *ppPrimitive = pMesh->GetPrimitive(index - 1);
     (*ppPrimitive)->Retain();  // The primitive data already existed, so this is now a new reference to it
 
@@ -122,7 +128,13 @@ int LoadMeshes(lua_State* pLua) {
 
     for (size i = 0; i < meshes.count; i++) {
         // Create a new userdata for our object
-        Mesh** ppMesh = (Mesh**)lua_newuserdata(pLua, sizeof(Mesh*));
+		Mesh** ppMesh = (Mesh**)lua_newuserdatadtor(pLua, sizeof(Mesh*), [](void* pData) {
+			LuaObject* pObject = *(LuaObject**)pData;
+			if (pObject) {
+				pObject->Release();
+			}
+		});
+
         *ppMesh = meshes[i];
 
         // Sets the metatable of this new userdata to the type's table
@@ -149,8 +161,14 @@ int LoadTextures(lua_State* pLua) {
 
     for (size i = 0; i < images.count; i++) {
         // Create a new userdata for our object
-        Image** ppImage = (Image**)lua_newuserdata(pLua, sizeof(Image*));
-        *ppImage = images[i];
+		Image** ppImage = (Image**)lua_newuserdatadtor(pLua, sizeof(Image*), [](void* pData) {
+			LuaObject* pObject = *(LuaObject**)pData;
+			if (pObject) {
+				pObject->Release();
+			}
+		});
+
+		*ppImage = images[i];
 
         // Sets the metatable of this new userdata to the type's table
         luaL_getmetatable(pLua, "Image");

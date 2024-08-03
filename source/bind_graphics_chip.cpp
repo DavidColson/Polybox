@@ -476,7 +476,13 @@ int LuaNewImage(lua_State* pLua) {
     String path(str);
 
     // Create a new userdata for our object
-    Image** ppImage = (Image**)lua_newuserdata(pLua, sizeof(Image*));
+    Image** ppImage = (Image**)lua_newuserdatadtor(pLua, sizeof(Image*), [](void* pData) {
+		LuaObject* pObject = *(LuaObject**)pData;
+		if (pObject) {
+			pObject->Release();
+		}
+	});
+
     *ppImage = new Image(path);
 
     // Sets the metatable of this new userdata to the type's table
@@ -511,7 +517,13 @@ int LuaNewFont(lua_State* pLua) {
     f32 weight = (f32)luaL_checknumber(pLua, 3);
 
     // Create a new userdata for our object
-    Font** ppFont = (Font**)lua_newuserdata(pLua, sizeof(Font*));
+    Font** ppFont = (Font**)lua_newuserdatadtor(pLua, sizeof(Font*), [](void* pData) {
+		LuaObject* pObject = *(LuaObject**)pData;
+		if (pObject) {
+			pObject->Release();
+		}
+	});
+
     *ppFont = new Font(path, antialiasing, weight);
 
     // Sets the metatable of this new userdata to the type's table

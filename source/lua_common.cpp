@@ -41,16 +41,6 @@ void LuaObject::Release() {
 
 // ***********************************************************************
 
-static i32 __garbagecollect(lua_State* pLua) {
-    LuaObject* pObject = *(LuaObject**)lua_touserdata(pLua, 1);
-    if (pObject) {
-        pObject->Release();
-    }
-    return 0;
-}
-
-// ***********************************************************************
-
 static i32 __equality(lua_State* pLua) {
     LuaObject* pObject1 = *(LuaObject**)lua_touserdata(pLua, 1);
     LuaObject* pObject2 = *(LuaObject**)lua_touserdata(pLua, 1);
@@ -103,9 +93,6 @@ void luax_registertype(lua_State* pLua, const char* typeName, const luaL_Reg* fu
     // sets table.__index = table
     lua_pushvalue(pLua, -1);
     lua_setfield(pLua, -2, "__index");
-
-    lua_pushcfunction(pLua, __garbagecollect, nullptr);
-    lua_setfield(pLua, -2, "__gc");
 
     lua_pushcfunction(pLua, __equality, nullptr);
     lua_setfield(pLua, -2, "__eq");

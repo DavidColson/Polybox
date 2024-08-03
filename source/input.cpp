@@ -1,4 +1,4 @@
-// Copyright 2020-2022 David Colson. All rights reserved.
+// Copyright David Colson. All rights reserved.
 
 #include "input.h"
 

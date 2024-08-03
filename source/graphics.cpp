@@ -1,6 +1,6 @@
 // Copyright 2020-2024 David Colson. All rights reserved.
 
-#include "graphics_chip_sokol.h"
+#include "graphics.h"
 
 #include "font.h"
 #include "image.h"

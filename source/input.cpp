@@ -1,6 +1,6 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "game_chip.h"
+#include "input.h"
 
 #include <SDL.h>
 #include <SDL_events.h>

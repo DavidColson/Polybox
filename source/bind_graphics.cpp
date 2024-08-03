@@ -1,8 +1,8 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "bind_graphics_chip.h"
+#include "bind_graphics.h"
 
-#include "graphics_chip_sokol.h"
+#include "graphics.h"
 #include "lua_common.h"
 #include "image.h"
 #include "font.h"

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "graphics_chip_sokol.h"
+#include "graphics.h"
 #include "lua_common.h"
 
 #include <light_string.h>

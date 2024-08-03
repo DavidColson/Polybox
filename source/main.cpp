@@ -1,14 +1,14 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "engine.h"
+#include "main.h"
 
-#include "bind_game_chip.h"
-#include "bind_graphics_chip.h"
+#include "bind_input.h"
+#include "bind_graphics.h"
 #include "bind_mesh.h"
 #include "bind_scene.h"
 #include "font.h"
-#include "game_chip.h"
-#include "graphics_chip_sokol.h"
+#include "input.h"
+#include "graphics.h"
 #include "image.h"
 #include "mesh.h"
 #include "scene.h"

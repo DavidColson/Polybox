@@ -2,7 +2,7 @@
 
 #include "shapes.h"
 
-#include "graphics_chip_sokol.h"
+#include "graphics.h"
 #include "vec3.inl"
 
 // ***********************************************************************

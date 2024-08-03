@@ -179,7 +179,7 @@ int Node_GetPropertyTable(lua_State* pLua) {
     Node* pNode = *(Node**)luaL_checkudata(pLua, 1, "Node");
     lua_getfield(pLua, LUA_REGISTRYINDEX, "_nodePropTables");
 
-    // node key is an i32eger (either it's ptr, or eventually a bit merge of scene and node key)
+    // node key is an integer (either it's ptr, or eventually a bit merge of scene and node key)
     lua_pushinteger(pLua, pNode->id);
     lua_gettable(pLua, -2);
 

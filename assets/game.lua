@@ -1,5 +1,5 @@
-
-function RecursePrintNode(node, stringEdge)
+--!strict
+function RecursePrintNode(node:Node, stringEdge:string)
     local meshId = node:GetPropertyTable().meshId
     
     if meshId == nil then
@@ -14,33 +14,36 @@ function RecursePrintNode(node, stringEdge)
     end
 end
 
+local state = {}
+
+state.camX = 0.0
+state.camY = 3.6
+state.text = ""
+
 function Start()
-    tankMeshes = LoadMeshes("assets/tank.gltf")
-    tankImages = LoadTextures("assets/tank.gltf")
-    tankScene = LoadScene("assets/tank.gltf")
+	state.tankMeshes = LoadMeshes("assets/tank.gltf")
+	state.tankImages = LoadTextures("assets/tank.gltf")
+	state.tankScene = LoadScene("assets/tank.gltf")
 
-    x = 50
-    y = 50
+	state.camX = "hello"
+    state.x = 50
+    state.y = 50
 
-    camX = 0.0
-    camY = 3.6
+    -- EnableMouseRelativeMode(true)
 
-    --EnableMouseRelativeMode(true)
-
-    text = ""
 end
 
-function Update(deltaTime)
+function Update(deltaTime: number)
     SetClearColor(0.25, 0.25, 0.25, 1.0)
 
     MatrixMode("Projection")
     Perspective(320, 240, 1, 20, 60)
 
-    camX = camX + deltaTime * GetAxis(Axis.RightY)
-    camY = camY + deltaTime * GetAxis(Axis.RightX)
+    state.camX = state.camX + deltaTime * GetAxis(Axis.RightY)
+    state.camY = state.camY + deltaTime * GetAxis(Axis.RightX)
 
     MatrixMode("View")
-    Rotate(camX, camY, 0)
+    Rotate(state.camX, state.camY, 0)
     Translate(1, -2.5, 6.5)
 
     NormalsMode("Custom")
@@ -52,8 +55,8 @@ function Update(deltaTime)
     SetFogStart(3.0)
     SetFogEnd(15.0)
 
-    for i = 1, tankScene:GetNumNodes(), 1 do
-        local node = tankScene:GetNode(i)
+    for i = 1, state.tankScene:GetNumNodes(), 1 do
+        local node: Node = state.tankScene:GetNode(i)
 
         MatrixMode("Model")
         Identity()
@@ -61,10 +64,10 @@ function Update(deltaTime)
         Rotate(node:GetWorldRotation())
         Scale(node:GetWorldScale())
 
-        if node:GetPropertyTable().meshId ~= nil and tankMeshes[node:GetPropertyTable().meshId]:GetName() ~= "BlobShadow" then 
-            local prim = tankMeshes[node:GetPropertyTable().meshId]:GetPrimitive(1)
+        if node:GetPropertyTable().meshId ~= nil and state.tankMeshes[node:GetPropertyTable().meshId]:GetName() ~= "BlobShadow" then 
+            local prim = state.tankMeshes[node:GetPropertyTable().meshId]:GetPrimitive(1)
             
-            BindTexture(tankImages[prim:GetMaterialTextureId()])
+            BindTexture(state.tankImages[prim:GetMaterialTextureId()])
             
             BeginObject3D("Triangles")
             for i = 1, prim:GetNumVertices(), 1 do
@@ -78,8 +81,8 @@ function Update(deltaTime)
         end
     end
 
-    for i = 1, tankScene:GetNumNodes(), 1 do
-        local node = tankScene:GetNode(i)
+    for i = 1, state.tankScene:GetNumNodes(), 1 do
+        local node = state.tankScene:GetNode(i)
 
         MatrixMode("Model")
         Identity()
@@ -87,10 +90,10 @@ function Update(deltaTime)
         Rotate(node:GetWorldRotation())
         Scale(node:GetWorldScale())
 
-        if node:GetPropertyTable().meshId ~= nil and tankMeshes[node:GetPropertyTable().meshId]:GetName() == "BlobShadow" then 
-            local prim = tankMeshes[node:GetPropertyTable().meshId]:GetPrimitive(1)
+        if node:GetPropertyTable().meshId ~= nil and state.tankMeshes[node:GetPropertyTable().meshId]:GetName() == "BlobShadow" then 
+            local prim = state.tankMeshes[node:GetPropertyTable().meshId]:GetPrimitive(1)
             
-            BindTexture(tankImages[prim:GetMaterialTextureId()])
+            BindTexture(state.tankImages[prim:GetMaterialTextureId()])
             
             BeginObject3D("Triangles")
             for i = 1, prim:GetNumVertices(), 1 do
@@ -113,34 +116,34 @@ function Update(deltaTime)
     Identity()
 
     if GetButton(Button.DpadRight) then
-        x = x+1
+        state.x = state.x+1
     end
     if GetButton(Button.DpadLeft) then
-        x = x-1
+        state.x = state.x-1
     end
     if GetButton(Button.DpadDown) then
-        y = y-1
+        state.y = state.y-1
     end
     if GetButton(Button.DpadUp) then
-        y = y+1
+        state.y = state.y+1
     end
 
     -- x = x + GetAxis(Axis.RightX)
     -- y = y - GetAxis(Axis.RightY)
 
-    text = text .. InputString()
+    state.text = state.text .. InputString()
 
     if GetKeyDown(Key.Backspace) then
         print("hello")
-        text = text:sub(1, text:len()-1)
+        state.text = state.text:sub(1, state.text:len()-1)
     end
 
-    x, y = GetMousePosition()
+    state.x, state.y = GetMousePosition()
 
-    DrawCircle(x, y, 5, 1, 1, 1, 1)
-    DrawText("MouseX: " .. x, 20, 20, 20)
-    DrawText("MouseY: " .. y, 20, 40, 20)
-    DrawText("Text Input: " .. text, 20, 140, 20)
+    DrawCircle(state.x, state.y, 5, 1, 1, 1, 1)
+    DrawText("MouseX: " .. state.x, 20, 20, 20)
+    DrawText("MouseY: " .. state.y, 20, 40, 20)
+    DrawText("Text Input: " .. state.text, 20, 140, 20)
 end
 
 function End()

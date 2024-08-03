@@ -28,9 +28,275 @@
 #include <vec3.h>
 #include <hashmap.inl>
 #include <resizable_array.inl>
+#include <light_string.h>
 #undef DrawText
 #undef DrawTextEx
 
+
+static const String polyboxDefinitions = R"POLY_LIBS(
+
+--- Graphics API
+
+type Primitive = {
+	GetNumVertices: (self: Primitive) -> number,
+	GetVertexPosition: (self: Primitive, index: number) -> (number, number, number),
+	GetVertexColor: (self: Primitive, index: number) -> (number, number, number, number),
+	GetVertexTexCoord: (self: Primitive, index: number) -> (number, number),
+	GetVertexNormal: (self: Primitive, index: number) -> (number, number, number),
+	GetMaterialTextureId: (self: Primitive) -> number,
+ 	GetType: (self: Primitive) -> string,
+}
+
+type Mesh = {
+ 	GetName: (self: Mesh) -> string,
+	GetNumPrimitives: (self: Mesh) -> number,
+	GetPrimitive: (self: Mesh, index: number) -> Primitive,
+ 	GetType: (self: Mesh) -> string,
+}
+
+type Image = {
+ 	GetWidth: (self: Image) -> number,
+	GetHeight: (self: Image) -> number,
+ 	GetType: (self: Image) -> string,
+}
+
+type Font = {
+ 	GetType: (self: Font) -> string,
+}
+
+@checked declare function LoadMeshes(path: string): { [number]: Mesh }
+@checked declare function LoadTextures(path: string): { [number]: Image }
+@checked declare function BeginObject2D(primitiveType: string)
+@checked declare function EndObject2D(primitiveType: string)
+@checked declare function Vertex(x: number, y: number, z: number?)
+@checked declare function BeginObject3D(primitiveType: string)
+@checked declare function EndObject3D()
+@checked declare function Color(r: number, g: number, b: number, a: number)
+@checked declare function TexCoord(u: number, v: number)
+@checked declare function Normal(x: number, y: number, z: number)
+@checked declare function SetClearColor(r: number, g: number, b: number, a: number)
+@checked declare function MatrixMode(mode: string)
+@checked declare function Perspective(screenWidth: number, screenHeight: number, nearPlane: number, farPlane: number, fov: number)
+@checked declare function Translate(x: number, y: number, z: number)
+@checked declare function Rotate(x: number, y: number, z: number)
+@checked declare function Scale(x: number, y: number, z: number)
+@checked declare function Identity()
+@checked declare function BindTexture(texture: Image)
+@checked declare function UnbindTexture()
+@checked declare function NormalsMode(mode: string)
+@checked declare function EnableLighting(enable: boolean)
+@checked declare function Light(id: number, dirX: number, dixY: number, dirZ: number, r: number, g: number, b: number)
+@checked declare function Ambient(r: number, g: number, b: number)
+@checked declare function EnableFog(enable: boolean)
+@checked declare function SetFogStart(fogStart: number)
+@checked declare function SetFogEnd(fogEnd: number)
+@checked declare function SetFogColor(r: number, g: number, b: number)
+@checked declare function DrawSprite(sprite: Image, x: number, y: number)
+@checked declare function DrawSpriteRect(sprite: Image, x: number, y: number, z: number, w: number, posX: number, posY: number)
+@checked declare function DrawText(text: string, x: number, y: number, size: number)
+@checked declare function DrawTextEx(text: string, x: number, y: number, r: number, g: number, b: number, a: number, font: Font, size: number)
+@checked declare function DrawPixel(x: number, y: number, r: number, g: number, b: number, a: number)
+@checked declare function DrawLine(startx: number, starty: number, endx: number, endy: number, r: number, g: number, b: number, a: number)
+@checked declare function DrawCircle(x: number, y: number, radius: number, r: number, g: number, b: number, a: number)
+@checked declare function DrawCircleOutline(x: number, y: number, radius: number, r: number, g: number, b: number, a: number)
+@checked declare function DrawRectangle(bottomLeftx: number, bottomeLeftx: number, topRightx: number, topRighty: number, r: number, g: number, b: number, a: number)
+@checked declare function DrawRectangleOutline(bottomLeftx: number, bottomeLeftx: number, topRightx: number, topRighty: number, r: number, g: number, b: number, a: number)
+@checked declare function DrawBox(x: number, y: number, z: number, width: number, height: number, depth: number)
+@checked declare function DrawIcosahedron(maxDepth: number)
+
+--- Scene API
+
+export type Node = {
+	GetNumChildren: (self: Node) -> number,
+	GetChild: (self: Node, index: number) -> Node,
+	GetPropertyTable: (self: Node) -> any,
+	GetLocalPosition: (self: Node) -> (number, number, number),
+	GetWorldPosition: (self: Node) -> (number, number, number),
+	SetLocalPosition: (self: Node, number, number, number) -> (),	
+	GetLocalRotation: (self: Node) -> (number, number, number),
+	GetWorldRotation: (self: Node) -> (number, number, number),
+	SetLocalRotation: (self: Node, number, number, number) -> (),
+	GetLocalScale: (self: Node) -> (number, number, number),
+	GetWorldScale: (self: Node) -> (number, number, number),
+	SetLocalScale: (self: Node, number, number, number) -> (),
+	GetType: (self: Node) -> string,
+}
+
+export type Scene = {
+	GetNumNodes: (self: Scene) -> number,
+	GetNode: (self: Scene, index: number) -> Node,
+	GetType: (self: Scene) -> string,
+}
+
+@checked declare function LoadScene(path: string): Scene
+
+--- Game API
+
+declare Button: {
+	Invalid: number,
+	FaceBottom: number,
+	FaceRight: number,
+	FaceLeft: number,
+	FaceTop: number,
+	LeftStick: number,
+	RightStick: number,
+	LeftShoulder: number,
+	RightShoulder: number,
+	DpadDown: number,
+	DpadLeft: number,
+	DpadRight: number,
+	DpadUp: number,
+	Start: number,
+	Select: number,
+}
+
+declare Axis: {
+	Invalid: number,
+	LeftX: number,
+	LeftY: number,
+	RightX: number,
+	RightY: number,
+	TriggerLeft: number,
+	TriggerRight: number,
+}
+
+declare Key: {
+	Invalid: number,
+	A: number,
+	B: number,
+	C: number,
+	D: number,
+	E: number,
+	F: number,
+	G: number,
+	H: number,
+	I: number,
+	J: number,
+	K: number,
+	L: number,
+	M: number,
+	N: number,
+	O: number,
+	P: number,
+	Q: number,
+	R: number,
+	S: number,
+	T: number,
+	U: number,
+	V: number,
+	W: number,
+	X: number,
+	Y: number,
+	Z: number,
+	No1: number,
+	No2: number,
+	No3: number,
+	No4: number,
+	No5: number,
+	No6: number,
+	No7: number,
+	No8: number,
+	No9: number,
+	No0: number,
+	Return: number,
+	Escape: number,
+	Backspace: number,
+	Tab: number,
+	Space: number,
+	Exclaim: number,
+	QuoteDbl: number,
+	Hash: number,
+	Percent: number,
+	Dollar: number,
+	Ampersand: number,
+	Quote: number,
+	LeftParen: number,
+	RightParen: number,
+	Asterisk: number,
+	Plus: number,
+	Comma: number,
+	Minus: number,
+	Period: number,
+	Slash: number,
+	Colon: number,
+	Semicolon: number,
+	Less: number,
+	Equals: number,
+	Greater: number,
+	Question: number,
+	At: number,
+	LeftBracket: number,
+	Backslash: number,
+	RightBracket: number,
+	Caret: number,
+	Underscore: number,
+	BackQuote: number,
+	CapsLock: number,
+	F1: number,
+	F2: number,
+	F3: number,
+	F4: number,
+	F5: number,
+	F6: number,
+	F7: number,
+	F8: number,
+	F9: number,
+	F10: number,
+	F11: number,
+	F12: number,
+	PrintScreen: number,
+	ScrollLock: number,
+	Pause: number,
+	Insert: number,
+	Home: number,
+	PageUp: number,
+	Delete: number,
+	End: number,
+	PageDown: number,
+	Right: number,
+	Left: number,
+	Down: number,
+	Up: number,
+	NumLock: number,
+	KpDivide: number,
+	KpMultiply: number,
+	KpMinus: number,
+	KpPlus: number,
+	KpEnter: number,
+	Kp1: number,
+	Kp2: number,
+	Kp3: number,
+	Kp4: number,
+	Kp5: number,
+	Kp6: number,
+	Kp7: number,
+	Kp8: number,
+	Kp9: number,
+	Kp0: number,
+	KpPeriod: number,
+	LeftCtrl: number,
+	LeftShift: number,
+	LeftAlt: number,
+	LeftGui: number,
+	RightCtrl: number,
+	RightShift: number,
+	RightAlt: number,
+	RightGui: number,
+}
+
+@checked declare function GetButton(button: number): boolean 
+@checked declare function GetButtonDown(button: number) : boolean 
+@checked declare function GetButtonUp(button: number) : boolean 
+@checked declare function GetAxis(button: number) : number 
+@checked declare function GetMousePosition() : (number, number)
+@checked declare function EnableMouseRelativeMode(enable: boolean)
+@checked declare function GetKey(key: number) : boolean
+@checked declare function GetKeyDown(key: number) : boolean
+@checked declare function GetKeyUp(key: number) : boolean
+@checked declare function InputString() : string
+
+
+)POLY_LIBS";
 
 // ***********************************************************************
 
@@ -205,12 +471,24 @@ int main(int argc, char* argv[]) {
 			Luau::NullConfigResolver configResolver;
 			Luau::Frontend frontend(&fileResolver, &configResolver, frontendOptions);
 
+			unfreeze(frontend.globals.globalTypes);
 			Luau::registerBuiltinGlobals(frontend, frontend.globals);
-			Luau::freeze(frontend.globals.globalTypes); // Marks the type memory as read only
 
 			// Add our global type definitions
+			Luau::LoadDefinitionFileResult loadResult = frontend.loadDefinitionFile(
+				frontend.globals, frontend.globals.globalScope, std::string_view(polyboxDefinitions.pData), "@polybox", /* captureComments */ false, false);
+			Luau::freeze(frontend.globals.globalTypes); // Marks the type memory as read only
 
 			// give errors on parsing the type definitions
+			for (Luau::ParseError& error : loadResult.parseResult.errors) {
+				Log::Warn("Builtins SyntaxError at [%d] - %s", error.getLocation().begin.line + 1, error.getMessage().c_str());
+			}
+
+			if (loadResult.module) {
+				for (Luau::TypeError& error : loadResult.module->errors) {
+					Log::Warn("Builtins TypeError at [%d] - %s", error.location.begin.line + 1, Luau::toString(error, Luau::TypeErrorToStringOptions{frontend.fileResolver}).c_str());
+				}
+			}
 
 			// run check
 			Luau::CheckResult result = frontend.check("assets/game.lua");

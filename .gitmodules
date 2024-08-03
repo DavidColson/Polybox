@@ -1,3 +1,6 @@
 [submodule "source/common_lib"]
 	path = source/common_lib
 	url = https://github.com/DavidColson/common_lib.git
+[submodule "source/third_party/luau"]
+	path = source/third_party/luau
+	url = https://github.com/DavidColson/luau.git

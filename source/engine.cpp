@@ -16,6 +16,7 @@
 
 #include "lua.h"
 #include "luacode.h"
+#include "lualib.h"
 #include "Luau/Frontend.h"
 #include "Luau/BuiltinDefinitions.h"
 
@@ -454,7 +455,7 @@ int main(int argc, char* argv[]) {
 		game.Init();
 
 		lua_State* pLua = lua_newstate(limitedRealloc, nullptr);
-		// luaL_openlibs(pLua);  // Do we want to expose normal lua libs? Maybe not, pico doesn't, also have the option to open just some of the libs
+		luaL_openlibs(pLua);
 
 		Bind::BindGraphicsChip(pLua);
 		Bind::BindMesh(pLua);

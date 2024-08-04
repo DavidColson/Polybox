@@ -40,6 +40,7 @@ type Buffer = {
 }
 
 @checked declare function NewBuffer(type: string, width: number, height: number?): Buffer
+@checked declare function NewVec(...: number): Buffer
 
 --- Graphics API
 

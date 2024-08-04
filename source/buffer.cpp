@@ -8,65 +8,6 @@
 
 namespace BufferLib {
 
-// ***********************************************************************
-
-i32 NewBuffer(lua_State* L) {
-    usize len;
-    const char* type = luaL_checklstring(L, 1, &len);
-    i32 width = (i32)luaL_checkinteger(L, 2);
-	i32 height = 1;
-	if (lua_isnoneornil(L, 3) == 0) {
-		height = (i32)luaL_checkinteger(L, 3);
-	}
-
-	Buffer* pBuffer = (Buffer*)lua_newuserdatadtor(L, sizeof(Buffer), [](void* pData) {
-		Buffer* pBuffer = (Buffer*)pData;
-		if (pBuffer) {
-			g_Allocator.Free(pBuffer->pData);
-		}
-	});
-
-	i32 typeSize = 0;
-	if (strcmp(type, "f64") == 0) {
-		pBuffer->type = Type::Float64;
-		typeSize = sizeof(f64);
-	}
-	else if (strcmp(type, "f32") == 0) {
-		pBuffer->type = Type::Float32;
-		typeSize = sizeof(f32);
-	}
-	else if (strcmp(type, "i64") == 0) {
-		pBuffer->type = Type::Int64;
-		typeSize = sizeof(i64);
-	}
-	else if (strcmp(type, "i32") == 0) {
-		pBuffer->type = Type::Int32;
-		typeSize = sizeof(i32);
-	}
-	else if (strcmp(type, "i16") == 0) {
-		pBuffer->type = Type::Int16;
-		typeSize = sizeof(i16);
-	}
-	else if (strcmp(type, "u8") == 0) {
-		pBuffer->type = Type::Uint8;
-		typeSize = sizeof(u8);
-	}
-	else {
-		luaL_error(L, "invalid type given to NewBuffer %s", type);
-		return 0;
-	}
-
-	i32 bufSize = width * height * typeSize;
-	pBuffer->pData = (char*)g_Allocator.Allocate(bufSize);
-	memset(pBuffer->pData, 0, bufSize); 
-
-	pBuffer->width = width;
-	pBuffer->height = height;
- 
-	luaL_getmetatable(L, "Buffer");
-	lua_setmetatable(L, -2);
-	return 1;
-}
 
 // ***********************************************************************
 
@@ -78,8 +19,8 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 		case Type::Float64: {
 			f64* pData = (f64*)pBuffer->pData;
 			pData += index;
-			while (lua_isnoneornil(L, paramCounter) == 0) {
-				*pData = (f64)luaL_checknumber(L, paramCounter);			
+			while (lua_isnumber(L, paramCounter) == 0) {
+				*pData = (f64)lua_tonumber(L, paramCounter);			
 				pData++; paramCounter++;
 			}
 			break;
@@ -87,8 +28,8 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 		case Type::Float32: {
 			f32* pData = (f32*)pBuffer->pData;
 			pData += index;
-			while (lua_isnoneornil(L, paramCounter) == 0) {
-				*pData = (f32)luaL_checknumber(L, paramCounter);			
+			while (lua_isnumber(L, paramCounter) == 1) {
+				*pData = (f32)lua_tonumber(L, paramCounter);			
 				pData++; paramCounter++;
 			}
 			break;
@@ -96,8 +37,8 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 		case Type::Int64: {
 			i64* pData = (i64*)pBuffer->pData;
 			pData += index;
-			while (lua_isnoneornil(L, paramCounter) == 0) {
-				*pData = (i64)luaL_checkinteger(L, paramCounter);			
+			while (lua_isnumber(L, paramCounter) == 1) {
+				*pData = (i64)lua_tointeger(L, paramCounter);			
 				pData++; paramCounter++;
 			}
 			break;
@@ -105,8 +46,8 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 		case Type::Int32: {
 			i32* pData = (i32*)pBuffer->pData;
 			pData += index;
-			while (lua_isnoneornil(L, paramCounter) == 0) {
-				*pData = (i32)luaL_checkinteger(L, paramCounter);			
+			while (lua_isnumber(L, paramCounter) == 1) {
+				*pData = (i32)lua_tointeger(L, paramCounter);			
 				pData++; paramCounter++;
 			}
 			break;
@@ -114,8 +55,8 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 		case Type::Int16: {
 			i16* pData = (i16*)pBuffer->pData;
 			pData += index;
-			while (lua_isnoneornil(L, paramCounter) == 0) {
-				*pData = (i16)luaL_checkinteger(L, paramCounter);			
+			while (lua_isnumber(L, paramCounter) == 1) {
+				*pData = (i16)lua_tointeger(L, paramCounter);			
 				pData++; paramCounter++;
 			}
 			break;
@@ -123,37 +64,13 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 		case Type::Uint8: {
 			u8* pData = (u8*)pBuffer->pData;
 			pData += index;
-			while (lua_isnoneornil(L, paramCounter) == 0) {
-				*pData = (u8)luaL_checkunsigned(L, paramCounter);			
+			while (lua_isnumber(L, paramCounter) == 1) {
+				*pData = (u8)lua_tounsigned(L, paramCounter);			
 				pData++; paramCounter++;
 			}
 			break;
 		}
 	}
-}
-
-// ***********************************************************************
-
-i32 Set(lua_State* L) {
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
-    i32 index = (i32)luaL_checkinteger(L, 2);
-	SetImpl(L, pBuffer, index, 3);
-	return 0;
-}
-
-// ***********************************************************************
-
-i32 Set2D(lua_State* L) {
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
-	if (pBuffer->height == 1) {
-		luaL_error(L, "Set2D is only valid on 2-dimensional buffers");
-		return 0;
-	}
-
-    i32 x = (i32)luaL_checkinteger(L, 2);
-    i32 y = (i32)luaL_checkinteger(L, 3);
-	SetImpl(L, pBuffer, pBuffer->width * y + x, 4);
-	return 0;
 }
 
 // ***********************************************************************
@@ -213,6 +130,108 @@ i32 GetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 count) {
 	return count;
 }
 
+// ***********************************************************************
+
+i32 NewBufferImpl(lua_State* L, const char* type, i32 width, i32 height) {
+	Buffer* pBuffer = (Buffer*)lua_newuserdatadtor(L, sizeof(Buffer), [](void* pData) {
+		Buffer* pBuffer = (Buffer*)pData;
+		if (pBuffer) {
+			g_Allocator.Free(pBuffer->pData);
+		}
+	});
+
+	i32 typeSize = 0;
+	if (strcmp(type, "f64") == 0) {
+		pBuffer->type = Type::Float64;
+		typeSize = sizeof(f64);
+	}
+	else if (strcmp(type, "f32") == 0) {
+		pBuffer->type = Type::Float32;
+		typeSize = sizeof(f32);
+	}
+	else if (strcmp(type, "i64") == 0) {
+		pBuffer->type = Type::Int64;
+		typeSize = sizeof(i64);
+	}
+	else if (strcmp(type, "i32") == 0) {
+		pBuffer->type = Type::Int32;
+		typeSize = sizeof(i32);
+	}
+	else if (strcmp(type, "i16") == 0) {
+		pBuffer->type = Type::Int16;
+		typeSize = sizeof(i16);
+	}
+	else if (strcmp(type, "u8") == 0) {
+		pBuffer->type = Type::Uint8;
+		typeSize = sizeof(u8);
+	}
+	else {
+		luaL_error(L, "invalid type given to NewBuffer %s", type);
+		return 0;
+	}
+
+	i32 bufSize = width * height * typeSize;
+	pBuffer->pData = (char*)g_Allocator.Allocate(bufSize);
+	memset(pBuffer->pData, 0, bufSize); 
+
+	pBuffer->width = width;
+	pBuffer->height = height;
+ 
+	luaL_getmetatable(L, "Buffer");
+	lua_setmetatable(L, -2);
+	return 1;
+}
+
+// ***********************************************************************
+
+i32 NewBuffer(lua_State* L) {
+    usize len;
+    const char* type = luaL_checklstring(L, 1, &len);
+    i32 width = (i32)luaL_checkinteger(L, 2);
+	i32 height = 1;
+	if (lua_isnoneornil(L, 3) == 0) {
+		height = (i32)luaL_checkinteger(L, 3);
+	}
+	return NewBufferImpl(L, type, width, height);
+}
+
+// ***********************************************************************
+
+i32 NewVec(lua_State* L) {
+	i32 nArgs = lua_gettop(L);
+	NewBufferImpl(L, "f32", 3, 1);
+    Buffer* pBuffer = (Buffer*)lua_touserdata(L, -1);
+	if (nArgs > 0)
+		SetImpl(L, pBuffer, 0, 1);
+	return 1;
+}
+
+// ***********************************************************************
+
+i32 Set(lua_State* L) {
+    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+    i32 index = (i32)luaL_checkinteger(L, 2);
+	SetImpl(L, pBuffer, index, 3);
+	return 0;
+}
+
+// ***********************************************************************
+
+i32 Set2D(lua_State* L) {
+    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+	if (pBuffer->height == 1) {
+		luaL_error(L, "Set2D is only valid on 2-dimensional buffers");
+		return 0;
+	}
+
+    i32 x = (i32)luaL_checkinteger(L, 2);
+    i32 y = (i32)luaL_checkinteger(L, 3);
+	SetImpl(L, pBuffer, pBuffer->width * y + x, 4);
+	return 0;
+}
+
+// ***********************************************************************
+
 i32 Get(lua_State* L) {
 	//TODO: bounds checking
     Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
@@ -220,6 +239,8 @@ i32 Get(lua_State* L) {
 	i32 count = (i32)luaL_checkinteger(L, 3);
 	return GetImpl(L, pBuffer, index, count);
 }
+
+// ***********************************************************************
 
 i32 Get2D(lua_State* L) {
 	//TODO: bounds checking
@@ -253,10 +274,6 @@ i32 Index(lua_State* L) {
 	else if (strcmp(str, "y") == 0) { index = 1; }
 	else if (strcmp(str, "z") == 0) { index = 2; }
 	else if (strcmp(str, "w") == 0) { index = 3; }
-	else if (strcmp(str, "r") == 0) { index = 0; }
-	else if (strcmp(str, "g") == 0) { index = 1; }
-	else if (strcmp(str, "b") == 0) { index = 2; }
-	else if (strcmp(str, "a") == 0) { index = 3; }
 
 	if (index >= 0) {
 		return GetImpl(L, pBuffer, index, 1);
@@ -277,6 +294,25 @@ i32 NewIndex(lua_State* L) {
 
 	if (lua_isnumber(L, 2)) {
 		SetImpl(L, pBuffer, lua_tointeger(L, 2), 3);
+	}
+
+    usize len;
+    const char* str = luaL_checklstring(L, 2, &len);
+
+	i32 index = -1;
+	if (strcmp(str, "x") == 0) { index = 0; }
+	else if (strcmp(str, "y") == 0) { index = 1; }
+	else if (strcmp(str, "z") == 0) { index = 2; }
+	else if (strcmp(str, "w") == 0) { index = 3; }
+
+	if (index >= 0) {
+		SetImpl(L, pBuffer, index, 3);
+	}
+	else {
+		// standard indexing behaviour
+		luaL_getmetatable(L, "Buffer");
+		lua_setfield(L, -1, str);
+		return 1;
 	}
 	return 0;
 }
@@ -312,6 +348,7 @@ void BindBuffer(lua_State* L) {
 	// register global functions
     const luaL_Reg globalFuncs[] = {
         { "NewBuffer", NewBuffer },
+        { "NewVec", NewVec },
         { NULL, NULL }
     };
 

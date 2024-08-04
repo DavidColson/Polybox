@@ -5,6 +5,7 @@
 #include <lualib.h>
 #include <memory.h>
 #include <string.h>
+#include <maths.h>
 
 namespace BufferLib {
 
@@ -343,6 +344,90 @@ i32 Size(lua_State* L) {
 
 // ***********************************************************************
 
+#define OPERATOR_FUNC(op, name) 											\
+i32 name(lua_State* L) {													\
+    Buffer* pBuffer1 = (Buffer*)luaL_checkudata(L, 1, "Buffer");			\
+    Buffer* pBuffer2 = (Buffer*)luaL_checkudata(L, 2, "Buffer");			\
+																			\
+	if (pBuffer1->type != pBuffer2->type) {									\
+		luaL_error(L, "Type mismatch in buffer operation");					\
+	}																		\
+	i32 buf1Size = pBuffer1->width * pBuffer1->height;						\
+	i32 buf2Size = pBuffer2->width * pBuffer2->height;						\
+	i32 resultSize = min(buf1Size, buf2Size);								\
+																			\
+	const char* typeStr = "f32";											\
+	switch(pBuffer1->type) {												\
+		case Type::Float64: typeStr = "f64"; break;							\
+		case Type::Float32: typeStr = "f32"; break;							\
+		case Type::Int64: typeStr = "i64"; break;							\
+		case Type::Int32: typeStr = "i32"; break;							\
+		case Type::Int16: typeStr = "i16"; break;							\
+		case Type::Uint8: typeStr = "u8"; break;							\
+	}																		\
+	NewBufferImpl(L, typeStr, pBuffer1->width, pBuffer1->height);			\
+    Buffer* pBuffer = (Buffer*)lua_touserdata(L, -1);						\
+																			\
+	switch(pBuffer->type) {													\
+		case Type::Float64: {												\
+			f64* pResult = (f64*)pBuffer->pData;							\
+			f64* pBuf1 = (f64*)pBuffer1->pData;								\
+			f64* pBuf2 = (f64*)pBuffer2->pData;								\
+			for (int i=0; i < resultSize; i++) 								\
+				pResult[i] = pBuf1[i] op pBuf2[i];							\
+			break;															\
+		}																	\
+		case Type::Float32: {												\
+			f32* pResult = (f32*)pBuffer->pData;							\
+			f32* pBuf1 = (f32*)pBuffer1->pData;								\
+			f32* pBuf2 = (f32*)pBuffer2->pData;								\
+			for (int i=0; i < resultSize; i++) 								\
+				pResult[i] = pBuf1[i] op pBuf2[i];							\
+			break;															\
+		}																	\
+		case Type::Int64: {													\
+			i64* pResult = (i64*)pBuffer->pData;							\
+			i64* pBuf1 = (i64*)pBuffer1->pData;								\
+			i64* pBuf2 = (i64*)pBuffer2->pData;								\
+			for (int i=0; i < resultSize; i++) 								\
+				pResult[i] = pBuf1[i] op pBuf2[i];							\
+			break;															\
+		}																	\
+		case Type::Int32: {													\
+			i32* pResult = (i32*)pBuffer->pData;							\
+			i32* pBuf1 = (i32*)pBuffer1->pData;								\
+			i32* pBuf2 = (i32*)pBuffer2->pData;								\
+			for (int i=0; i < resultSize; i++)								\
+				pResult[i] = pBuf1[i] op pBuf2[i];							\
+			break;															\
+		}																	\
+		case Type::Int16: {													\
+			i16* pResult = (i16*)pBuffer->pData;							\
+			i16* pBuf1 = (i16*)pBuffer1->pData;								\
+			i16* pBuf2 = (i16*)pBuffer2->pData;								\
+			for (int i=0; i < resultSize; i++) 								\
+				pResult[i] = pBuf1[i] op pBuf2[i];							\
+			break;															\
+		}																	\
+		case Type::Uint8: {													\
+			u8* pResult = (u8*)pBuffer->pData;								\
+			u8* pBuf1 = (u8*)pBuffer1->pData;								\
+			u8* pBuf2 = (u8*)pBuffer2->pData;								\
+			for (int i=0; i < resultSize; i++) 								\
+				pResult[i] = pBuf1[i] op pBuf2[i];							\
+			break;															\
+		}																	\
+	}																		\
+	return 1;																\
+}																			
+
+OPERATOR_FUNC(+, Add)
+OPERATOR_FUNC(-, Sub)
+OPERATOR_FUNC(*, Mul)
+OPERATOR_FUNC(/, Div)
+
+// ***********************************************************************
+
 void BindBuffer(lua_State* L) {
 
 	// register global functions
@@ -363,6 +448,10 @@ void BindBuffer(lua_State* L) {
     const luaL_Reg bufferMethods[] = {
         { "__index", Index },
         { "__newindex", NewIndex },
+        { "__add", Add },
+        { "__sub", Sub },
+        { "__mul", Mul },
+        { "__div", Div },
         { "Set", Set },
         { "Set2D", Set2D },
         { "Get", Get },

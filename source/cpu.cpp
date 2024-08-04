@@ -18,26 +18,31 @@
 static const String polyboxDefinitions = R"POLY_LIBS(
 --- Buffer API
 
-type Buffer = {
-	Set: (self: Buffer, index: number, ...number) -> (),
-	Set2D: (self: Buffer, x: number, y: number, ...number) -> (),
+declare class Buffer 
+	function Set(self, index: number, ...: number)
+	function Set2D(self, x: number, y: number, ...: number)
 
-	Get: (self: Buffer, index: number, count: number) -> (...number),
-	Get2D: (self: Buffer, x: number, y: number, count: number) -> (...number),
+	function Get(self, index: number, count: number): ...number
+	function Get2D(self, x: number, y: number, count: number): ...number
 
-	Width: (self: Buffer) -> number,
-	Height: (self: Buffer) -> number,
-	Size: (self: Buffer) -> number,
+	function Width(self): number
+	function Height(self): number
+	function Size(self): number
 
-	x: number,
-	y: number,
-	z: number,
-	w: number,
-	r: number,
-	g: number,
-	b: number,
-	a: number,
-}
+	function __add(self, other: Buffer): Buffer
+	function __sub(self, other: Buffer): Buffer
+	function __mul(self, other: Buffer): Buffer
+	function __div(self, other: Buffer): Buffer
+
+	x: number
+	y: number
+	z: number
+	w: number
+	r: number
+	g: number
+	b: number
+	a: number
+end
 
 @checked declare function NewBuffer(type: string, width: number, height: number?): Buffer
 @checked declare function NewVec(...: number): Buffer

@@ -24,6 +24,15 @@ type Buffer = {
 
 	Get: (self: Buffer, index: number, count: number) -> (...number),
 	Get2D: (self: Buffer, x: number, y: number, count: number) -> (...number),
+
+	x: number,
+	y: number,
+	z: number,
+	w: number,
+	r: number,
+	g: number,
+	b: number,
+	a: number,
 }
 
 @checked declare function NewBuffer(type: string, width: number, height: number?): Buffer

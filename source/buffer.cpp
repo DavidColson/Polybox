@@ -204,6 +204,7 @@ i32 GetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 count) {
 }
 
 i32 Get(lua_State* L) {
+	//TODO: bounds checking
     Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
     i32 index = (i32)luaL_checkinteger(L, 2);
 	i32 count = (i32)luaL_checkinteger(L, 3);
@@ -211,6 +212,7 @@ i32 Get(lua_State* L) {
 }
 
 i32 Get2D(lua_State* L) {
+	//TODO: bounds checking
     Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
 	if (pBuffer->height == 1) {
 		luaL_error(L, "Get2D is only valid on 2-dimensional buffers");
@@ -220,6 +222,66 @@ i32 Get2D(lua_State* L) {
     i32 y = (i32)luaL_checkinteger(L, 3);
 	i32 count = (i32)luaL_checkinteger(L, 3);
 	return GetImpl(L, pBuffer, pBuffer->width * y + x, count);
+}
+
+
+i32 Index(lua_State* L) {
+	// first we have the userdata
+    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+	// then the key
+    usize len;
+    const char* str = luaL_checklstring(L, 2, &len);
+
+	i32 index = -1;
+	if (strcmp(str, "x") == 0) { index = 0; }
+	else if (strcmp(str, "y") == 0) { index = 1; }
+	else if (strcmp(str, "z") == 0) { index = 2; }
+	else if (strcmp(str, "w") == 0) { index = 3; }
+	else if (strcmp(str, "r") == 0) { index = 0; }
+	else if (strcmp(str, "g") == 0) { index = 1; }
+	else if (strcmp(str, "b") == 0) { index = 2; }
+	else if (strcmp(str, "a") == 0) { index = 3; }
+
+	if (index >= 0) {
+		switch(pBuffer->type) {
+			case Type::Float64: {
+				f64* pData = (f64*)pBuffer->pData;
+				lua_pushnumber(L, pData[index]);
+				break;
+			}
+			case Type::Float32: {
+				f32* pData = (f32*)pBuffer->pData;
+				lua_pushnumber(L, pData[index]);
+				break;
+			}
+			case Type::Int64: {
+				i64* pData = (i64*)pBuffer->pData;
+				lua_pushinteger(L, pData[index]);
+				break;
+			}
+			case Type::Int32: {
+				i32* pData = (i32*)pBuffer->pData;
+				lua_pushinteger(L, pData[index]);
+				break;
+			}
+			case Type::Int16: {
+				i16* pData = (i16*)pBuffer->pData;
+				lua_pushinteger(L, pData[index]);
+				break;
+			}
+			case Type::Uint8: {
+				u8* pData = (u8*)pBuffer->pData;
+				lua_pushunsigned(L, pData[index]);
+				break;
+			}
+		}
+	}
+	else {
+		// standard indexing behaviour
+		luaL_getmetatable(L, "Buffer");
+		lua_getfield(L, -1, str);
+	}
+	return 1;
 }
 
 void BindBuffer(lua_State* L) {
@@ -239,15 +301,13 @@ void BindBuffer(lua_State* L) {
 
 	// register metamethods
     const luaL_Reg bufferMethods[] = {
+        { "__index", Index },
         { "Set", Set },
         { "Set2D", Set2D },
         { "Get", Get },
         { "Get2D", Get2D },
         { NULL, NULL }
     };
-
-    lua_pushvalue(L, -1);
-    lua_setfield(L, -2, "__index");
 
 	luaL_register(L, NULL, bufferMethods);
     lua_pop(L, 1);

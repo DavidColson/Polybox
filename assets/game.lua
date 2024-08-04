@@ -37,9 +37,8 @@ function Start()
 					5,6,7,8);
 	print("buffer test:")
 	print(buf:Get2D(2, 1, 1))
-	
-	local buf1 = NewBuffer("i32", 4);
-	buf1:Set2D(0, 0, 12, 13, 14, 15);
+	print(buf.y)
+	print(buf.a)
     -- EnableMouseRelativeMode(true)
 end
 

@@ -21,6 +21,8 @@ set(SOURCES
 	"sokol_impl_d3d11.cpp"
 	"image.cpp"
 	"image.h"
+	"buffer.h"
+	"buffer.cpp"
 	"lua_common.h"
 	"lua_common.cpp"
 	"mesh.h"

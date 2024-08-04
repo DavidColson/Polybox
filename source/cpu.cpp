@@ -4,6 +4,7 @@
 #include "bind_graphics.h"
 #include "bind_mesh.h"
 #include "bind_scene.h"
+#include "buffer.h"
 
 #include <SDL.h>
 #include <lua.h>
@@ -15,6 +16,18 @@
 #include <log.h>
 
 static const String polyboxDefinitions = R"POLY_LIBS(
+--- Buffer API
+
+type Buffer = {
+	Set: (self: Buffer, index: number, ...number) -> (),
+	Set2D: (self: Buffer, x: number, y: number, ...number) -> (),
+
+	Get: (self: Buffer, index: number, count: number) -> (...number),
+	Get2D: (self: Buffer, x: number, y: number, count: number) -> (...number),
+}
+
+@checked declare function NewBuffer(type: string, width: number, height: number?): Buffer
+
 --- Graphics API
 
 type Primitive = {
@@ -353,6 +366,7 @@ void CompileAndLoadProgram(String path) {
 	Bind::BindMesh(L);
 	Bind::BindScene(L);
 	Bind::BindInput(L);
+	BufferLib::BindBuffer(L);
 
 	// type checking
 	bool wasError = false;

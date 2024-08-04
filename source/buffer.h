@@ -1,0 +1,26 @@
+// Copyright David Colson. All rights reserved.
+
+#include <types.h>
+
+struct lua_State;
+
+namespace BufferLib {
+ 
+enum class Type {
+	Float64,
+	Float32,
+	Int64,
+	Int32,
+	Int16,
+	Uint8
+};
+
+struct Buffer {
+	i32 width;
+	i32 height;
+	Type type;
+	char* pData;
+};
+
+void BindBuffer(lua_State* L);
+}

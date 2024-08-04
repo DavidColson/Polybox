@@ -25,12 +25,22 @@ function Start()
 	state.tankImages = LoadTextures("assets/tank.gltf")
 	state.tankScene = LoadScene("assets/tank.gltf")
 
-	state.camX = "hello"
     state.x = 50
     state.y = 50
 
-    -- EnableMouseRelativeMode(true)
+	local num = math.asin(0.234)
+	local time = os.clock()
+	print(math.sin(1.24))
 
+	local buf = NewBuffer("f32", 4, 4)
+	buf:Set2D(0,0, 	1,2,3,4,
+					5,6,7,8);
+	print("buffer test:")
+	print(buf:Get2D(2, 1, 1))
+	
+	local buf1 = NewBuffer("i32", 4);
+	buf1:Set2D(0, 0, 12, 13, 14, 15);
+    -- EnableMouseRelativeMode(true)
 end
 
 function Update(deltaTime: number)

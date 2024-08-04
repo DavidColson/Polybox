@@ -42,6 +42,11 @@ function Start()
 
 	buf[0] = 1337
 	print(buf[0])
+
+	print("test size")
+	print(buf:Height())
+	print(buf:Width())
+	print(buf:Size())
     -- EnableMouseRelativeMode(true)
 end
 

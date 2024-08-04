@@ -25,6 +25,10 @@ type Buffer = {
 	Get: (self: Buffer, index: number, count: number) -> (...number),
 	Get2D: (self: Buffer, x: number, y: number, count: number) -> (...number),
 
+	Width: (self: Buffer) -> number,
+	Height: (self: Buffer) -> number,
+	Size: (self: Buffer) -> number,
+
 	x: number,
 	y: number,
 	z: number,
@@ -307,6 +311,8 @@ struct State {
 
 State* pState = nullptr;
 
+// ***********************************************************************
+
 struct LuaFileResolver : Luau::FileResolver {
     std::optional<Luau::SourceCode> readSource(const Luau::ModuleName& name) override {
         Luau::SourceCode::Type sourceType;
@@ -347,6 +353,8 @@ struct LuaFileResolver : Luau::FileResolver {
     }
 };
 
+// ***********************************************************************
+
 static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize)
 {
     if (nsize == 0) {
@@ -357,10 +365,14 @@ static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize)
     }
 }
 
+// ***********************************************************************
+
 void Init() {
 	pState = (State*)g_Allocator.Allocate(sizeof(State));
     SYS_P_NEW(pState) State();
 }
+
+// ***********************************************************************
 
 void CompileAndLoadProgram(String path) {
 	// eventually we'll support multiple independant programs running on the cpu, 
@@ -459,6 +471,8 @@ void CompileAndLoadProgram(String path) {
 
 }
 
+// ***********************************************************************
+
 void Start() {
 	lua_State* L = pState->pProgramState;
 	lua_getglobal(L, "Start");
@@ -469,6 +483,8 @@ void Start() {
 		}
 	}
 }
+
+// ***********************************************************************
 
 void Tick(f32 deltaTime) {
 	lua_State* L = pState->pProgramState;
@@ -483,6 +499,8 @@ void Tick(f32 deltaTime) {
 		lua_pop(L, 1);
 	}
 }
+
+// ***********************************************************************
 
 void End() {
 	lua_State* L = pState->pProgramState;

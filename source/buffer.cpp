@@ -8,6 +8,8 @@
 
 namespace BufferLib {
 
+// ***********************************************************************
+
 i32 NewBuffer(lua_State* L) {
     usize len;
     const char* type = luaL_checklstring(L, 1, &len);
@@ -65,6 +67,8 @@ i32 NewBuffer(lua_State* L) {
 	lua_setmetatable(L, -2);
 	return 1;
 }
+
+// ***********************************************************************
 
 void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 	// now grab as many integers as you can find and put them in the buffer from the starting index
@@ -128,12 +132,16 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 	}
 }
 
+// ***********************************************************************
+
 i32 Set(lua_State* L) {
     Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
     i32 index = (i32)luaL_checkinteger(L, 2);
 	SetImpl(L, pBuffer, index, 3);
 	return 0;
 }
+
+// ***********************************************************************
 
 i32 Set2D(lua_State* L) {
     Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
@@ -147,6 +155,8 @@ i32 Set2D(lua_State* L) {
 	SetImpl(L, pBuffer, pBuffer->width * y + x, 4);
 	return 0;
 }
+
+// ***********************************************************************
 
 i32 GetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 count) {
 	switch(pBuffer->type) {
@@ -224,6 +234,7 @@ i32 Get2D(lua_State* L) {
 	return GetImpl(L, pBuffer, pBuffer->width * y + x, count);
 }
 
+// ***********************************************************************
 
 i32 Index(lua_State* L) {
 	// first we have the userdata
@@ -258,6 +269,8 @@ i32 Index(lua_State* L) {
 	}
 }
 
+// ***********************************************************************
+
 i32 NewIndex(lua_State* L) {
 	// first we have the userdata
     Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
@@ -267,6 +280,32 @@ i32 NewIndex(lua_State* L) {
 	}
 	return 0;
 }
+
+// ***********************************************************************
+
+i32 Width(lua_State* L) {
+    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+	lua_pushinteger(L, pBuffer->width);
+	return 1;
+}
+
+// ***********************************************************************
+
+i32 Height(lua_State* L) {
+    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+	lua_pushinteger(L, pBuffer->height);
+	return 1;
+}
+
+// ***********************************************************************
+
+i32 Size(lua_State* L) {
+    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+	lua_pushinteger(L, pBuffer->width * pBuffer->height);
+	return 1;
+}
+
+// ***********************************************************************
 
 void BindBuffer(lua_State* L) {
 
@@ -291,6 +330,9 @@ void BindBuffer(lua_State* L) {
         { "Set2D", Set2D },
         { "Get", Get },
         { "Get2D", Get2D },
+        { "Width", Width },
+        { "Height", Height },
+        { "Size", Size },
         { NULL, NULL }
     };
 

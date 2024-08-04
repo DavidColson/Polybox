@@ -104,6 +104,8 @@ namespace {
 	RenderState* pState;
 }
 
+// ***********************************************************************
+
 sg_pipeline& GetPipeline(bool indexed, EPrimitiveType primitive, bool writeAlpha) {
 	u32 index = (i32)indexed + (i32)primitive + (i32)writeAlpha;
 	if (pState->pipeMain[index].id != SG_INVALID_ID) {

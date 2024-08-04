@@ -29,6 +29,10 @@ declare class Buffer
 	function Height(self): number
 	function Size(self): number
 
+	function Magnitude(self): number
+	function Distance(self, other: Buffer): number
+	function Dot(self, other: Buffer): number
+
 	function __add(self, other: Buffer): Buffer
 	function __sub(self, other: Buffer): Buffer
 	function __mul(self, other: Buffer): Buffer

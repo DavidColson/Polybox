@@ -428,6 +428,114 @@ OPERATOR_FUNC(/, Div)
 
 // ***********************************************************************
 
+template<typename T>
+T CalcMagnitude(Buffer* pBuffer) {
+	T sum = T();
+	i32 bufSize = pBuffer->width * pBuffer->height;
+	for (i32 i = 0; i < bufSize; i++) {
+		T* pData = (T*)pBuffer->pData;
+		T elem = pData[i];
+		sum += elem*elem;
+	}
+	return sqrt(sum);
+}
+
+// ***********************************************************************
+
+i32 VecMagnitude(lua_State* L) {
+    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+	switch(pBuffer->type) {
+		case Type::Float64: lua_pushnumber(L, CalcMagnitude<f64>(pBuffer)); break;
+		case Type::Float32: lua_pushnumber(L, CalcMagnitude<f32>(pBuffer)); break;
+		case Type::Int64: lua_pushinteger(L, CalcMagnitude<i64>(pBuffer)); break;
+		case Type::Int32: lua_pushinteger(L, CalcMagnitude<i32>(pBuffer)); break;
+		case Type::Int16: lua_pushinteger(L, CalcMagnitude<i16>(pBuffer)); break;
+		case Type::Uint8: lua_pushunsigned(L, CalcMagnitude<u8>(pBuffer)); break;
+		default: return 0;
+	}
+	return 1;
+}
+
+// ***********************************************************************
+
+template<typename T>
+T CalcDistance(Buffer* pBuffer, Buffer* pOther) {
+	T sum = T();
+	i32 bufSize = pBuffer->width * pBuffer->height;
+	for (i32 i = 0; i < bufSize; i++) {
+		T* pData = (T*)pBuffer->pData;
+		T* pOtherData = (T*)pOther->pData;
+		T diff = pOtherData[i] - pData[i];
+		sum += diff*diff;
+	}
+	return sqrt(sum);
+}
+
+// ***********************************************************************
+
+i32 VecDistance(lua_State* L) {
+    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+    Buffer* pOther = (Buffer*)luaL_checkudata(L, 2, "Buffer");
+
+	i32 bufSize = pBuffer->width * pBuffer->height;
+	i32 otherSize = pBuffer->width * pBuffer->height;
+	if (bufSize != otherSize) {
+		luaL_error(L, "Both buffers must be the same size for Distance");	
+	}
+
+	switch(pBuffer->type) {
+		case Type::Float64: lua_pushnumber(L, CalcDistance<f64>(pBuffer, pOther)); break;
+		case Type::Float32: lua_pushnumber(L, CalcDistance<f32>(pBuffer, pOther)); break;
+		case Type::Int64: lua_pushinteger(L, CalcDistance<i64>(pBuffer, pOther)); break;
+		case Type::Int32: lua_pushinteger(L, CalcDistance<i32>(pBuffer, pOther)); break;
+		case Type::Int16: lua_pushinteger(L, CalcDistance<i16>(pBuffer, pOther)); break;
+		case Type::Uint8: lua_pushunsigned(L, CalcDistance<u8>(pBuffer, pOther)); break;
+		default: return 0;
+	}
+	return 1;
+}
+
+// ***********************************************************************
+
+template<typename T>
+T CalcDot(Buffer* pBuffer, Buffer* pOther) {
+	T sum = T();
+	i32 bufSize = pBuffer->width * pBuffer->height;
+	for (i32 i = 0; i < bufSize; i++) {
+		T* pData = (T*)pBuffer->pData;
+		T* pOtherData = (T*)pOther->pData;
+		sum += pOtherData[i] * pData[i];
+	}
+	return sum;
+}
+
+
+// ***********************************************************************
+
+i32 VecDot(lua_State* L) {
+    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+    Buffer* pOther = (Buffer*)luaL_checkudata(L, 2, "Buffer");
+
+	i32 bufSize = pBuffer->width * pBuffer->height;
+	i32 otherSize = pBuffer->width * pBuffer->height;
+	if (bufSize != otherSize) {
+		luaL_error(L, "Both buffers must be the same size for Dot");	
+	}
+
+	switch(pBuffer->type) {
+		case Type::Float64: lua_pushnumber(L, CalcDot<f64>(pBuffer, pOther)); break;
+		case Type::Float32: lua_pushnumber(L, CalcDot<f32>(pBuffer, pOther)); break;
+		case Type::Int64: lua_pushinteger(L,  CalcDot<i64>(pBuffer, pOther)); break;
+		case Type::Int32: lua_pushinteger(L,  CalcDot<i32>(pBuffer, pOther)); break;
+		case Type::Int16: lua_pushinteger(L,  CalcDot<i16>(pBuffer, pOther)); break;
+		case Type::Uint8: lua_pushunsigned(L, CalcDot<u8>(pBuffer, pOther)); break;
+		default: return 0;
+	}
+	return 1;
+}
+ 
+// ***********************************************************************
+
 void BindBuffer(lua_State* L) {
 
 	// register global functions
@@ -459,6 +567,9 @@ void BindBuffer(lua_State* L) {
         { "Width", Width },
         { "Height", Height },
         { "Size", Size },
+        { "Magnitude", VecMagnitude },
+        { "Distance", VecDistance },
+        { "Dot", VecDot },
         { NULL, NULL }
     };
 

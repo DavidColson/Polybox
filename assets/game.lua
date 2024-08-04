@@ -39,6 +39,9 @@ function Start()
 	print(buf:Get2D(2, 1, 1))
 	print(buf.y)
 	print(buf.a)
+
+	buf[0] = 1337
+	print(buf[0])
     -- EnableMouseRelativeMode(true)
 end
 

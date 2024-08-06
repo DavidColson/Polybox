@@ -4,7 +4,7 @@
 
 #include "font.h"
 #include "image.h"
-#include "sokol_impl.h"
+#include "graphics_platform.h"
 
 #include <SDL_timer.h>
 #include <sokol_gfx.h>
@@ -465,6 +465,10 @@ void DrawFrame(i32 w, i32 h) {
 		sg_end_pass();
 	}
 
+	// experimental code to readback 3D view for cpu editing
+	// ReadbackImagePixels(pState->fbCore3DScene, pState->pPixelsData);
+	// memset(pState->pPixelsData + 8000 * 4 * sizeof(u8), 0, 640); 
+
 	// Draw 2D view into texture
 	{
 		sg_begin_pass(&pState->passCore2DScene);
@@ -536,14 +540,16 @@ void DrawFrame(i32 w, i32 h) {
 		sg_end_pass();
 	}
 
+
+
+
 	sg_commit();
 	SokolPresent();	
-
-
 	// prepare for next frame
 	pState->perFrameVertexBuffer.count = 0;
 	pState->perFrameIndexBuffer.count = 0;
 	pState->drawList3D.count=0;
+	pState->drawList2D.count = 0;
 
 	for (usize i = 0; i < (int)EMatrixMode::Count; i++) {
         pState->matrixStates[i] = Matrixf::Identity();

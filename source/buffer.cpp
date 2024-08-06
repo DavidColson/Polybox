@@ -573,6 +573,11 @@ void BindBuffer(lua_State* L) {
         { NULL, NULL }
     };
 
+	// TODO: some future functionality that might be useful:
+	// Cross product
+	// more fancy operations such as using strides, offsets, scalar against buffer etc
+	// helpers for treating buffers as matrices, matmul functions, transpose, inverse etc
+
 	luaL_register(L, NULL, bufferMethods);
     lua_pop(L, 1);
 }

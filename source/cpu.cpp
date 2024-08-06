@@ -5,6 +5,7 @@
 #include "bind_mesh.h"
 #include "bind_scene.h"
 #include "buffer.h"
+#include "serialization.h"
 
 #include <SDL.h>
 #include <lua.h>
@@ -16,6 +17,10 @@
 #include <log.h>
 
 static const String polyboxDefinitions = R"POLY_LIBS(
+--- Serialization API
+
+@checked declare function serialize(value: any): string
+
 --- Buffer API
 
 declare class Buffer 
@@ -398,6 +403,7 @@ void CompileAndLoadProgram(String path) {
 	Bind::BindScene(L);
 	Bind::BindInput(L);
 	BufferLib::BindBuffer(L);
+	Serialization::BindSerialization(L);
 
 	// type checking
 	bool wasError = false;

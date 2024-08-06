@@ -32,21 +32,14 @@ function Start()
 	local time = os.clock()
 	print(math.sin(1.24))
 
-	local buf = NewBuffer("f32", 4, 4)
-	buf:Set2D(0,0, 	1,2,3,4,
-					5,6,7,8);
-	print("buffer test:")
-	print(buf:Get2D(2, 1, 1))
-	print(buf.y)
-	print(buf.a)
+	local myTable = {
+		value = 1337,
+		name = "david",
+		float = 3.1337,
+		bool = true,
+	}
+	print(serialize(myTable))
 
-	buf[0] = 1337
-	print(buf[0])
-
-	print("test size")
-	print(buf:Height())
-	print(buf:Width())
-	print(buf:Size())
     -- EnableMouseRelativeMode(true)
 end
 

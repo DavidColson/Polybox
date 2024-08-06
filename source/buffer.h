@@ -4,6 +4,7 @@
 
 struct lua_State;
 
+// Considering renaming to userdata, it's just better
 namespace BufferLib {
  
 enum class Type {

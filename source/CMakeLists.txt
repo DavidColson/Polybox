@@ -24,6 +24,8 @@ set(SOURCES
 	"image.h"
 	"buffer.h"
 	"buffer.cpp"
+	"serialization.h"
+	"serialization.cpp"
 	"lua_common.h"
 	"lua_common.cpp"
 	"mesh.h"

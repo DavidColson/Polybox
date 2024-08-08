@@ -33,10 +33,15 @@ function Start()
 	print(math.sin(1.24))
 
 	local myTable = {
+		[55]=23,
 		value = 1337,
 		name = "david",
 		float = 3.1337,
 		bool = true,
+		43,
+		52,
+		["test="]="hello",
+		12
 	}
 	print(serialize(myTable))
 

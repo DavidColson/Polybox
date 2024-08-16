@@ -2,6 +2,8 @@
 
 #include "serialization.h"
 
+#include "buffer.h"
+
 #include <lua.h>
 #include <lualib.h>
 #include <string_builder.h>
@@ -74,6 +76,80 @@ void SerializeRecursive(lua_State* L, i32 depth, StringBuilder& builder) {
 		}
 		// remove the final ", "
 		builder.length -= 2;
+	}
+	if (lua_isuserdata(L, -1)) {
+		if (lua_getmetatable(L, -1)) {
+			lua_getfield(L, LUA_REGISTRYINDEX, "Buffer"); 
+			if (lua_rawequal(L, -1, -2)) {
+				lua_pop(L, 2);
+				// value on stack is a buffer
+				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
+
+				switch(pBuf->type) {
+					case BufferLib::Type::Float64: builder.Append("buffer(\"f64\""); break;
+					case BufferLib::Type::Float32: builder.Append("buffer(\"f32\""); break;
+					case BufferLib::Type::Int64: builder.Append("buffer(\"i64\""); break;
+					case BufferLib::Type::Int32: builder.Append("buffer(\"i32\""); break;
+					case BufferLib::Type::Int16: builder.Append("buffer(\"i16\""); break;
+					case BufferLib::Type::Uint8: builder.Append("buffer(\"u8\"");; break;
+				}
+				builder.AppendFormat(",%i,%i,\"", pBuf->width, pBuf->height);
+				switch(pBuf->type) {
+					case BufferLib::Type::Float64: {
+						f64* pFloats = (f64*)pBuf->pData;
+						for (int i = 0; i < pBuf->width*pBuf->height; i++) {
+							if (i+1 < pBuf->width*pBuf->height)
+								builder.AppendFormat("%f,", pFloats[i]);
+							else
+								builder.AppendFormat("%f", pFloats[i]);
+						}
+						break;
+					}
+					case BufferLib::Type::Float32: {
+						f32* pFloats = (f32*)pBuf->pData;
+						for (int i = 0; i < pBuf->width*pBuf->height; i++) {
+							if (i+1 < pBuf->width*pBuf->height)
+								builder.AppendFormat("%f,", pFloats[i]);
+							else
+								builder.AppendFormat("%f", pFloats[i]);
+						}
+						break;
+					}
+					case BufferLib::Type::Int64: {
+						i64* pInts = (i64*)pBuf->pData;
+						for (int i = 0; i < pBuf->width*pBuf->height; i++)
+							builder.AppendFormat("%016x", pInts[i]);
+						break;
+					}
+					case BufferLib::Type::Int32: {
+						// 8 hex digits
+						i32* pInts = (i32*)pBuf->pData;
+						for (int i = 0; i < pBuf->width*pBuf->height; i++)
+							builder.AppendFormat("%08x", pInts[i]);
+						break;
+					}
+					case BufferLib::Type::Int16: {
+						// 4 hex digits
+						i16* pInts = (i16*)pBuf->pData;
+						for (int i = 0; i < pBuf->width*pBuf->height; i++)
+							builder.AppendFormat("%04x", pInts[i]);
+						break;
+					}
+					case BufferLib::Type::Uint8: {
+						// two hex digits == 1 byte
+						u8* pInts = (u8*)pBuf->pData;
+						for (int i = 0; i < pBuf->width*pBuf->height; i++)
+							builder.AppendFormat("%02x", pInts[i]);
+						break;
+					}
+				}
+				builder.Append("\")");
+			} else {
+				luaL_error(L, "Unrecognized lua data, cannot be serialized");
+			}
+		} else { 
+			luaL_error(L, "Unrecognized lua data, cannot be serialized");
+		}
 	}
 	if (lua_isnumber(L, -1)) {
 		f32 value = lua_tonumber(L, -1);

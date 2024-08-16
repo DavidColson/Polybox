@@ -32,6 +32,12 @@ function Start()
 	local time = os.clock()
 	print(math.sin(1.24))
 
+	local bufferFloats = NewBuffer("f32", 5)
+	bufferFloats:Set(0, 22.1, 54.2, 87.51213, 99999.1337, 2.43)
+
+	local bufferInts = NewBuffer("i16", 4)
+	bufferInts:Set(0, 32, 1, 44, 87)
+
 	local myTable = {
 		[55]=23,
 		value = 1337,
@@ -41,7 +47,9 @@ function Start()
 		43,
 		52,
 		["test="]="hello",
-		12
+		12,
+		intBuf = bufferInts,
+		intflot = bufferFloats
 	}
 	print(serialize(myTable))
 

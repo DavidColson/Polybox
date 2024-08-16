@@ -20,7 +20,7 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 		case Type::Float64: {
 			f64* pData = (f64*)pBuffer->pData;
 			pData += index;
-			while (lua_isnumber(L, paramCounter) == 0) {
+			while (lua_isnumber(L, paramCounter) == 1) {
 				*pData = (f64)lua_tonumber(L, paramCounter);			
 				pData++; paramCounter++;
 			}

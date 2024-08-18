@@ -14,6 +14,41 @@ function RecursePrintNode(node:Node, stringEdge:string)
     end
 end
 
+local function printTable( t:any)
+    local printTable_cache = {}
+    local function sub_printTable( t:any, indent:any )
+ 
+        if ( printTable_cache[tostring(t)] ) then
+            print( indent .. "*" .. tostring(t) )
+        else
+            printTable_cache[tostring(t)] = true
+            if ( type( t ) == "table" ) then
+                for pos,val in pairs( t ) do
+                    if ( type(val) == "table" ) then
+                        print( indent .. "[" .. pos .. "] => " .. tostring( t ).. " {" )
+                        sub_printTable( val, indent .. string.rep( " ", string.len(pos)+8 ) )
+                        print( indent .. string.rep( " ", string.len(pos)+6 ) .. "}" )
+                    elseif ( type(val) == "string" ) then
+                        print( indent .. "[" .. pos .. '] => "' .. val .. '"' )
+                    else
+                        print( indent .. "[" .. pos .. "] => " .. tostring(val) )
+                    end
+                end
+            else
+                print( indent..tostring(t) )
+            end
+        end
+    end
+ 
+    if ( type(t) == "table" ) then
+        print( tostring(t) .. " {" )
+        sub_printTable( t, "  " )
+        print( "}" )
+    else
+        sub_printTable( t, "  " )
+    end
+end
+
 local state = {}
 
 state.camX = 0.0
@@ -47,12 +82,14 @@ function Start()
 		43,
 		52,
 		["test="]="hello",
-		12,
-		intBuf = bufferInts,
-		intflot = bufferFloats
+		12
+		-- intBuf = bufferInts,
+		-- intflot = bufferFloats
 	}
-	print(serialize(myTable))
-
+	local str = serialize(myTable)
+	print(str)
+	local newTable = deserialize(str)
+	printTable(newTable)
     -- EnableMouseRelativeMode(true)
 end
 

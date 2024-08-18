@@ -352,6 +352,8 @@ int LuaDrawTextEx(lua_State* pLua) {
     return 0;
 }
 
+// ***********************************************************************
+
 int LuaDrawPixel(lua_State* pLua) {
     Vec2f position;
     position.x = (f32)luaL_checknumber(pLua, 1);

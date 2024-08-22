@@ -82,14 +82,15 @@ function Start()
 		43,
 		52,
 		["test="]="hello",
-		12
-		-- intBuf = bufferInts,
-		-- intflot = bufferFloats
+		12,
+		intBuf = bufferInts,
+		intflot = bufferFloats
 	}
 	local str = serialize(myTable)
 	print(str)
 	local newTable = deserialize(str)
 	printTable(newTable)
+	print("This should be 44: " .. newTable.intBuf[2])
     -- EnableMouseRelativeMode(true)
 end
 

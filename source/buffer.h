@@ -8,9 +8,7 @@ struct lua_State;
 namespace BufferLib {
  
 enum class Type {
-	Float64,
 	Float32,
-	Int64,
 	Int32,
 	Int16,
 	Uint8

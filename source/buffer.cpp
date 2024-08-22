@@ -17,29 +17,11 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 	// while until none or nil
 	i32 paramCounter = startParam;
 	switch(pBuffer->type) {
-		case Type::Float64: {
-			f64* pData = (f64*)pBuffer->pData;
-			pData += index;
-			while (lua_isnumber(L, paramCounter) == 1) {
-				*pData = (f64)lua_tonumber(L, paramCounter);			
-				pData++; paramCounter++;
-			}
-			break;
-		}
 		case Type::Float32: {
 			f32* pData = (f32*)pBuffer->pData;
 			pData += index;
 			while (lua_isnumber(L, paramCounter) == 1) {
 				*pData = (f32)lua_tonumber(L, paramCounter);			
-				pData++; paramCounter++;
-			}
-			break;
-		}
-		case Type::Int64: {
-			i64* pData = (i64*)pBuffer->pData;
-			pData += index;
-			while (lua_isnumber(L, paramCounter) == 1) {
-				*pData = (i64)lua_tointeger(L, paramCounter);			
 				pData++; paramCounter++;
 			}
 			break;
@@ -78,27 +60,11 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 
 i32 GetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 count) {
 	switch(pBuffer->type) {
-		case Type::Float64: {
-			f64* pData = (f64*)pBuffer->pData;
-			pData += index;
-			for (i32 i = 0; i < count; i++) {
-				lua_pushnumber(L, pData[i]);
-			}
-			break;
-		}
 		case Type::Float32: {
 			f32* pData = (f32*)pBuffer->pData;
 			pData += index;
 			for (i32 i = 0; i < count; i++) {
 				lua_pushnumber(L, pData[i]);
-			}
-			break;
-		}
-		case Type::Int64: {
-			i64* pData = (i64*)pBuffer->pData;
-			pData += index;
-			for (i32 i = 0; i < count; i++) {
-				lua_pushinteger(L, pData[i]);
 			}
 			break;
 		}
@@ -142,17 +108,9 @@ i32 NewBufferImpl(lua_State* L, const char* type, i32 width, i32 height) {
 	});
 
 	i32 typeSize = 0;
-	if (strcmp(type, "f64") == 0) {
-		pBuffer->type = Type::Float64;
-		typeSize = sizeof(f64);
-	}
-	else if (strcmp(type, "f32") == 0) {
+	if (strcmp(type, "f32") == 0) {
 		pBuffer->type = Type::Float32;
 		typeSize = sizeof(f32);
-	}
-	else if (strcmp(type, "i64") == 0) {
-		pBuffer->type = Type::Int64;
-		typeSize = sizeof(i64);
 	}
 	else if (strcmp(type, "i32") == 0) {
 		pBuffer->type = Type::Int32;
@@ -358,9 +316,7 @@ i32 name(lua_State* L) {													\
 																			\
 	const char* typeStr = "f32";											\
 	switch(pBuffer1->type) {												\
-		case Type::Float64: typeStr = "f64"; break;							\
 		case Type::Float32: typeStr = "f32"; break;							\
-		case Type::Int64: typeStr = "i64"; break;							\
 		case Type::Int32: typeStr = "i32"; break;							\
 		case Type::Int16: typeStr = "i16"; break;							\
 		case Type::Uint8: typeStr = "u8"; break;							\
@@ -369,26 +325,10 @@ i32 name(lua_State* L) {													\
     Buffer* pBuffer = (Buffer*)lua_touserdata(L, -1);						\
 																			\
 	switch(pBuffer->type) {													\
-		case Type::Float64: {												\
-			f64* pResult = (f64*)pBuffer->pData;							\
-			f64* pBuf1 = (f64*)pBuffer1->pData;								\
-			f64* pBuf2 = (f64*)pBuffer2->pData;								\
-			for (int i=0; i < resultSize; i++) 								\
-				pResult[i] = pBuf1[i] op pBuf2[i];							\
-			break;															\
-		}																	\
 		case Type::Float32: {												\
 			f32* pResult = (f32*)pBuffer->pData;							\
 			f32* pBuf1 = (f32*)pBuffer1->pData;								\
 			f32* pBuf2 = (f32*)pBuffer2->pData;								\
-			for (int i=0; i < resultSize; i++) 								\
-				pResult[i] = pBuf1[i] op pBuf2[i];							\
-			break;															\
-		}																	\
-		case Type::Int64: {													\
-			i64* pResult = (i64*)pBuffer->pData;							\
-			i64* pBuf1 = (i64*)pBuffer1->pData;								\
-			i64* pBuf2 = (i64*)pBuffer2->pData;								\
 			for (int i=0; i < resultSize; i++) 								\
 				pResult[i] = pBuf1[i] op pBuf2[i];							\
 			break;															\
@@ -445,9 +385,7 @@ T CalcMagnitude(Buffer* pBuffer) {
 i32 VecMagnitude(lua_State* L) {
     Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
 	switch(pBuffer->type) {
-		case Type::Float64: lua_pushnumber(L, CalcMagnitude<f64>(pBuffer)); break;
 		case Type::Float32: lua_pushnumber(L, CalcMagnitude<f32>(pBuffer)); break;
-		case Type::Int64: lua_pushinteger(L, CalcMagnitude<i64>(pBuffer)); break;
 		case Type::Int32: lua_pushinteger(L, CalcMagnitude<i32>(pBuffer)); break;
 		case Type::Int16: lua_pushinteger(L, CalcMagnitude<i16>(pBuffer)); break;
 		case Type::Uint8: lua_pushunsigned(L, CalcMagnitude<u8>(pBuffer)); break;
@@ -484,9 +422,7 @@ i32 VecDistance(lua_State* L) {
 	}
 
 	switch(pBuffer->type) {
-		case Type::Float64: lua_pushnumber(L, CalcDistance<f64>(pBuffer, pOther)); break;
 		case Type::Float32: lua_pushnumber(L, CalcDistance<f32>(pBuffer, pOther)); break;
-		case Type::Int64: lua_pushinteger(L, CalcDistance<i64>(pBuffer, pOther)); break;
 		case Type::Int32: lua_pushinteger(L, CalcDistance<i32>(pBuffer, pOther)); break;
 		case Type::Int16: lua_pushinteger(L, CalcDistance<i16>(pBuffer, pOther)); break;
 		case Type::Uint8: lua_pushunsigned(L, CalcDistance<u8>(pBuffer, pOther)); break;
@@ -523,9 +459,7 @@ i32 VecDot(lua_State* L) {
 	}
 
 	switch(pBuffer->type) {
-		case Type::Float64: lua_pushnumber(L, CalcDot<f64>(pBuffer, pOther)); break;
 		case Type::Float32: lua_pushnumber(L, CalcDot<f32>(pBuffer, pOther)); break;
-		case Type::Int64: lua_pushinteger(L,  CalcDot<i64>(pBuffer, pOther)); break;
 		case Type::Int32: lua_pushinteger(L,  CalcDot<i32>(pBuffer, pOther)); break;
 		case Type::Int16: lua_pushinteger(L,  CalcDot<i16>(pBuffer, pOther)); break;
 		case Type::Uint8: lua_pushunsigned(L, CalcDot<u8>(pBuffer, pOther)); break;

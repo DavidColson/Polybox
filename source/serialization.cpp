@@ -11,6 +11,7 @@
 #include <defer.h>
 #include <log.h>
 #include <scanning.h>
+#include <cstring>
 
 namespace Serialization {
 
@@ -91,25 +92,13 @@ void SerializeRecursive(lua_State* L, i32 depth, StringBuilder& builder) {
 				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
 
 				switch(pBuf->type) {
-					case BufferLib::Type::Float64: builder.Append("buffer(\"f64\""); break;
-					case BufferLib::Type::Float32: builder.Append("buffer(\"f32\""); break;
-					case BufferLib::Type::Int64: builder.Append("buffer(\"i64\""); break;
-					case BufferLib::Type::Int32: builder.Append("buffer(\"i32\""); break;
-					case BufferLib::Type::Int16: builder.Append("buffer(\"i16\""); break;
-					case BufferLib::Type::Uint8: builder.Append("buffer(\"u8\"");; break;
+					case BufferLib::Type::Float32: builder.Append("buffer(f32"); break;
+					case BufferLib::Type::Int32: builder.Append("buffer(i32"); break;
+					case BufferLib::Type::Int16: builder.Append("buffer(i16"); break;
+					case BufferLib::Type::Uint8: builder.Append("buffer(u8");; break;
 				}
 				builder.AppendFormat(",%i,%i,\"", pBuf->width, pBuf->height);
 				switch(pBuf->type) {
-					case BufferLib::Type::Float64: {
-						f64* pFloats = (f64*)pBuf->pData;
-						for (int i = 0; i < pBuf->width*pBuf->height; i++) {
-							if (i+1 < pBuf->width*pBuf->height)
-								builder.AppendFormat("%f,", pFloats[i]);
-							else
-								builder.AppendFormat("%f", pFloats[i]);
-						}
-						break;
-					}
 					case BufferLib::Type::Float32: {
 						f32* pFloats = (f32*)pBuf->pData;
 						for (int i = 0; i < pBuf->width*pBuf->height; i++) {
@@ -118,12 +107,6 @@ void SerializeRecursive(lua_State* L, i32 depth, StringBuilder& builder) {
 							else
 								builder.AppendFormat("%f", pFloats[i]);
 						}
-						break;
-					}
-					case BufferLib::Type::Int64: {
-						i64* pInts = (i64*)pBuf->pData;
-						for (int i = 0; i < pBuf->width*pBuf->height; i++)
-							builder.AppendFormat("%016x", pInts[i]);
 						break;
 					}
 					case BufferLib::Type::Int32: {
@@ -273,7 +256,143 @@ void ParseTable(lua_State* L, Scan::ScanningState& scan) {
 // ***********************************************************************
 
 void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
+	// we assume the buffer word has been parsed already
+	// so match (
+	if (!Scan::Match(scan, '('))
+		luaL_error(L, "Expected '(' to start buffer");
 
+	// create the buffer
+	BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)lua_newuserdatadtor(L, sizeof(BufferLib::Buffer), [](void* pData) {
+		BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)pData;
+		if (pBuffer) {
+			g_Allocator.Free(pBuffer->pData);
+		}
+	});
+
+	// parse an identifier to get the type
+	byte* pStart = scan.pCurrent;
+	while (Scan::Peek(scan) != ',') 
+		Scan::Advance(scan);
+
+	String identifier;
+	identifier.pData = pStart;
+	identifier.length = scan.pCurrent - pStart;
+
+	i32 typeSize = 0;
+	if (identifier == "f32") {
+		pBuffer->type = BufferLib::Type::Float32;
+		typeSize = sizeof(f32);
+	}
+	else if (identifier == "i32") {
+		pBuffer->type = BufferLib::Type::Int32;
+		typeSize = sizeof(i32);
+	}
+	else if (identifier == "i16") {
+		pBuffer->type = BufferLib::Type::Int16;
+		typeSize = sizeof(i16);
+	}
+	else if (identifier == "u8") {
+		pBuffer->type = BufferLib::Type::Uint8;
+		typeSize = sizeof(u8);
+	}
+	else {
+		luaL_error(L, "Unexpected buffer value type");
+	}
+
+	Scan::Advance(scan); // ,
+	if (Scan::IsDigit(Scan::Advance(scan)))
+		pBuffer->width = (i32)ParseNumber(scan);
+	else 
+		luaL_error(L, "Expected number for width");
+
+	if (!Scan::Match(scan, ','))
+		luaL_error(L, "Expected ',' between arguments");
+
+	if (Scan::IsDigit(Scan::Advance(scan)))
+		pBuffer->height = (i32)ParseNumber(scan);
+	else
+		luaL_error(L, "Expected number for height");
+
+	// Actually alloc the buffer
+	i32 bufSize = pBuffer->width * pBuffer->height * typeSize;
+	pBuffer->pData = (char*)g_Allocator.Allocate(bufSize);
+	memset(pBuffer->pData, 0, bufSize); 
+
+	if (!Scan::Match(scan, ','))
+		luaL_error(L, "Expected ',' between arguments");
+
+	// then quote to start value string
+	if (!Scan::Match(scan, '\"'))
+		luaL_error(L, "Expected '\"' to start data block");
+
+	// switch on type
+	switch(pBuffer->type) {
+		case BufferLib::Type::Float32: {
+			f32* pData = (f32*)pBuffer->pData;
+			while (Scan::Peek(scan) != ')') {
+				scan.pCurrent++; // parse number expects that the first digit has been parsed
+				*pData = ParseNumber(scan);
+				if (Scan::Peek(scan) != '\"' && Scan::Peek(scan) != ',')
+					luaL_error(L, "Expected ',' between values");
+				else
+					Scan::Advance(scan);
+				pData++;
+			}
+			break;
+		}
+		case BufferLib::Type::Int32: {
+			char number[9];
+			number[8] = 0;
+			i32* pData = (i32*)pBuffer->pData;
+			while (Scan::Peek(scan) != '\"') {
+				number[0] = *scan.pCurrent++;
+				number[1] = *scan.pCurrent++;
+				number[2] = *scan.pCurrent++;
+				number[3] = *scan.pCurrent++;
+				number[4] = *scan.pCurrent++;
+				number[5] = *scan.pCurrent++;
+				number[6] = *scan.pCurrent++;
+				number[7] = *scan.pCurrent++;
+				*pData = (i32)strtol(number, nullptr, 16);
+				pData++;
+			}
+			Scan::Advance(scan);
+			break;
+		}
+		case BufferLib::Type::Int16: {
+			char number[5];
+			number[4] = 0;
+			i16* pData = (i16*)pBuffer->pData;
+			while (Scan::Peek(scan) != '\"') {
+				number[0] = *scan.pCurrent++;
+				number[1] = *scan.pCurrent++;
+				number[2] = *scan.pCurrent++;
+				number[3] = *scan.pCurrent++;
+				*pData = (i16)strtol(number, nullptr, 16);
+				pData++;
+			}
+			Scan::Advance(scan);
+			break;
+		}
+		case BufferLib::Type::Uint8: {
+			char number[3];
+			number[2] = 0;
+			u8* pData = (u8*)pBuffer->pData;
+			while (Scan::Peek(scan) != '\"') {
+				number[0] = *scan.pCurrent++;
+				number[1] = *scan.pCurrent++;
+				*pData = (u8)strtol(number, nullptr, 16);
+				pData++;
+			}
+			Scan::Advance(scan);
+			break;
+		}
+	}
+	if (!Scan::Match(scan, ')')) 
+		luaL_error(L, "Expected ')' to end buffer");
+
+	luaL_getmetatable(L, "Buffer");
+	lua_setmetatable(L, -2);
 }
 
 // ***********************************************************************
@@ -284,11 +403,11 @@ void ParseValue(lua_State* L, Scan::ScanningState& scan) {
         byte c = Scan::Advance(scan);
 
 		if (Scan::IsAlpha(c)) {
-			byte* start = scan.pCurrent - 1;
+			byte* pStart = scan.pCurrent - 1;
 			while (Scan::IsAlphaNumeric(Scan::Peek(scan)))
 				Scan::Advance(scan);
 
-			String identifier = CopyCStringRange(start, scan.pCurrent, &g_Allocator);
+			String identifier = CopyCStringRange(pStart, scan.pCurrent, &g_Allocator);
 			defer(FreeString(identifier));
 
 			if (identifier == "true")

@@ -19,7 +19,7 @@
 static const String polyboxDefinitions = R"POLY_LIBS(
 --- Serialization API
 
-@checked declare function serialize<V>(value: {V}): string
+@checked declare function serialize<V>(value: {V}, mode:number): string
 @checked declare function deserialize<V>(value: string): any
 
 --- Buffer API

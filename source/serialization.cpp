@@ -7,6 +7,7 @@
 #include <lua.h>
 #include <lualib.h>
 #include <string_builder.h>
+#include <resizable_array.inl>
 #include <light_string.h>
 #include <defer.h>
 #include <log.h>
@@ -17,7 +18,7 @@ namespace Serialization {
 
 // ***********************************************************************
 
-void SerializeRecursive(lua_State* L, i32 depth, StringBuilder& builder) {
+void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 	// TODO:
 	// Need to error if we encounter a cyclic table reference
 	// need to deal with userdatas and other types
@@ -41,15 +42,15 @@ void SerializeRecursive(lua_State* L, i32 depth, StringBuilder& builder) {
 
 			// array element
 			if (arrayCounter > 0) {
-				lua_pop(L, 1); // pop key copy
-				SerializeRecursive(L, 0, builder);
+			lua_pop(L, 1); // pop key copy
+				SerializeTextRecursive(L, builder);
 			}
 			// dictionary element
 			else {
 				const char *key = lua_tostring(L, -1);
 				if (lua_isnumber(L, -1)) {
 					f32 key = lua_tonumber(L, -1);
-					if (key == (i32)key) {
+				if (key == (i32)key) {
 						builder.AppendFormat("[%i]=", (i32)key);
 					}
 					else {
@@ -63,17 +64,17 @@ void SerializeRecursive(lua_State* L, i32 depth, StringBuilder& builder) {
 					char* c = (char*)key;
 					while (*c != 0) {
 						if (*c == '=')
-							needsEscape = true;
+						needsEscape = true;
 						c++;
 					}
-					if (needsEscape)
+				if (needsEscape)
 						builder.AppendFormat("[\"%s\"]=", key);
-					else
+						else
 						builder.AppendFormat("%s=", key);
 				}
 
-				lua_pop(L, 1); // pop key copy
-				SerializeRecursive(L, 0, builder);
+			lua_pop(L, 1); // pop key copy
+				SerializeTextRecursive(L, builder);
 			}
 
 			builder.AppendFormat(", ");
@@ -87,7 +88,7 @@ void SerializeRecursive(lua_State* L, i32 depth, StringBuilder& builder) {
 		if (lua_getmetatable(L, -1)) {
 			lua_getfield(L, LUA_REGISTRYINDEX, "Buffer"); 
 			if (lua_rawequal(L, -1, -2)) {
-				lua_pop(L, 2);
+			lua_pop(L, 2);
 				// value on stack is a buffer
 				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
 
@@ -104,21 +105,21 @@ void SerializeRecursive(lua_State* L, i32 depth, StringBuilder& builder) {
 						for (int i = 0; i < pBuf->width*pBuf->height; i++) {
 							if (i+1 < pBuf->width*pBuf->height)
 								builder.AppendFormat("%f,", pFloats[i]);
-							else
+								else
 								builder.AppendFormat("%f", pFloats[i]);
 						}
 						break;
 					}
 					case BufferLib::Type::Int32: {
 						// 8 hex digits
-						i32* pInts = (i32*)pBuf->pData;
+					i32* pInts = (i32*)pBuf->pData;
 						for (int i = 0; i < pBuf->width*pBuf->height; i++)
 							builder.AppendFormat("%08x", pInts[i]);
 						break;
 					}
 					case BufferLib::Type::Int16: {
 						// 4 hex digits
-						i16* pInts = (i16*)pBuf->pData;
+					i16* pInts = (i16*)pBuf->pData;
 						for (int i = 0; i < pBuf->width*pBuf->height; i++)
 							builder.AppendFormat("%04x", pInts[i]);
 						break;
@@ -163,16 +164,147 @@ void SerializeRecursive(lua_State* L, i32 depth, StringBuilder& builder) {
 
 // ***********************************************************************
 
+void CborEncode(ResizableArray<byte>& output, u8 majorType, byte* pData, size dataSize) {
+	u8 additionalInfo;
+	u8 followingBytes;
+
+	// check if upper 32 bits are set, therefore needs 8 bytes of space
+	if (dataSize & ~(0x100000000ull - 1)) {
+		additionalInfo = 27;
+		followingBytes = 8;
+	// upper 16 bits this time (4 bytes)
+	} else if (dataSize & ~(0x10000ull - 1)) {
+		additionalInfo = 26;
+		followingBytes = 4;
+	// upper 8 bits (2 bytes)
+	} else if (dataSize & ~(0x100ull - 1)) {
+		additionalInfo = 25;
+		followingBytes = 2;
+	// upper 4 bits set (1 byte)
+	} else if (dataSize >= 24) {
+		additionalInfo = 24;
+		followingBytes = 1;
+	// remainder 0 - 23
+	} else {
+		additionalInfo = (u8)dataSize;
+		followingBytes = 0;
+	}
+
+	size requiredSize = (size)dataSize + followingBytes + 1; // extra 1 for header
+	if (!(majorType == 2 || majorType == 3)) {
+		requiredSize -= (size)dataSize;
+	}
+
+	// Allocate more space in output if needed
+	output.Reserve(output.GrowCapacity(output.capacity + requiredSize));
+
+	output.pData[output.count] = (u8)majorType << 5 | additionalInfo;
+	memcpy(&output.pData[output.count+1], (u8*)&dataSize, followingBytes);
+	if (pData != nullptr) {
+		// copy pData to output
+	}
+
+	output.count += requiredSize;
+}
+
+// ***********************************************************************
+
+void SerializeCborRecursive(lua_State* L, ResizableArray<byte>& output) {
+
+	if (lua_istable(L, -1)) {
+		luaL_error(L, "tables not supported yet");
+	}
+	if (lua_isuserdata(L, -1)) {
+		luaL_error(L, "buffers not supported yet");
+	}
+	if (lua_isnumber(L, -1)) {
+		f32 value = lua_tonumber(L, -1);
+		// Dave, test ints next
+		if (value == (i32)value) {
+			if (value > 0) {
+				CborEncode(output, 0, nullptr, value);
+			} else {
+				CborEncode(output, 1, nullptr, (-value)-1);
+			}
+		}
+		else {
+			// float (major type 7)
+		}
+	}
+	else if(lua_isstring(L, -1)) {
+		luaL_error(L, "strings not supported yet");
+	}
+	else if (lua_isboolean(L, -1)) {
+		luaL_error(L, "bools not supported yet");
+	}
+	else if (lua_iscfunction(L, -1) || lua_isLfunction(L, -1)) {
+		luaL_error(L, "Cannot serialize functions");
+	}
+}
+
+// ***********************************************************************
+
 i32 Serialize(lua_State* L) {
-    StringBuilder builder;
 
-	SerializeRecursive(L, 0, builder);
+	i32 mode = (i32)luaL_checknumber(L, 2);
 
-	String result = builder.CreateString();
-	defer(FreeString(result));
+	// Text serialization
+	if (mode == 1) {
+		StringBuilder builder;
+		SerializeTextRecursive(L, builder);
 
-	// return string of serialized code
-	lua_pushstring(L, result.pData);
+		String result = builder.CreateString();
+		defer(FreeString(result));
+
+		// return string of serialized code
+		lua_pushstring(L, result.pData);
+
+		// Binary (cbor) serialization
+	} else if (mode == 2) {
+		ResizableArray<byte> result;
+		SerializeCborRecursive(L, result);
+
+		// Note, this is not a valid lua string? Will it cause issues?
+		// Will it cause corruptions? Probably it will strcopy up to a 0 then stop
+		// You could push it back as a buffer?
+
+		lua_pushstring(L, result.pData);
+		result.Free();
+
+		// Do cbor I guess?
+		// Ultimately this will still be a recursive walk of the lua values
+
+		// for each value we encode a cbor data item
+
+		// For number:
+		// if positive integer of zero: major type 0
+		// if less than 24, put in next 3 bytes
+		// Depending on size, but in next 1, 2, 4, 8 bytes and set previous 5 bytes to 24, 25, 26, 27 respectively
+		// if negative integer: major type 1
+		// calculate the value -1-val and then do as above
+		// if float: major type 7
+		// 26 in next 3 bytes
+		// the 32 bit float value
+
+		// for string:
+		// Major type 3, no escaping
+		// Place string length using integer encoding above
+		// The string, as is follows
+
+		// For table
+		// Major type 5
+		// Then serialize integer for number of elements in table
+		// then serialize pairs, key value using appropiate item encoding
+
+		// For boolean
+		// Major item 7,
+		// next 3 bytes are 20 for false, and 21 for true
+
+		// for buffer
+		// Major item 2,
+		// encode integer as above, with length of buffer struct size + pData size
+		// encode the buffer struct first, then the pData 
+	}
 	return 1;
 }
 
@@ -189,7 +321,7 @@ void ParseTable(lua_State* L, Scan::ScanningState& scan) {
 	// While loop over each table element
 	while (!Scan::IsAtEnd(scan)) {
 		Scan::AdvanceOverWhitespace(scan);
-        byte c = Scan::Advance(scan);
+		byte c = Scan::Advance(scan);
 
 		// Identifier
 		if (Scan::IsAlpha(c)) {
@@ -334,7 +466,7 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 				*pData = ParseNumber(scan);
 				if (Scan::Peek(scan) != '\"' && Scan::Peek(scan) != ',')
 					luaL_error(L, "Expected ',' between values");
-				else
+					else
 					Scan::Advance(scan);
 				pData++;
 			}
@@ -381,7 +513,7 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 			while (Scan::Peek(scan) != '\"') {
 				number[0] = *scan.pCurrent++;
 				number[1] = *scan.pCurrent++;
-				*pData = (u8)strtol(number, nullptr, 16);
+			*pData = (u8)strtol(number, nullptr, 16);
 				pData++;
 			}
 			Scan::Advance(scan);
@@ -400,7 +532,7 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 void ParseValue(lua_State* L, Scan::ScanningState& scan) {
 	while (!Scan::IsAtEnd(scan)) {
 		Scan::AdvanceOverWhitespace(scan);
-        byte c = Scan::Advance(scan);
+		byte c = Scan::Advance(scan);
 
 		if (Scan::IsAlpha(c)) {
 			byte* pStart = scan.pCurrent - 1;
@@ -412,9 +544,9 @@ void ParseValue(lua_State* L, Scan::ScanningState& scan) {
 
 			if (identifier == "true")
 				lua_pushboolean(L, 1);
-			else if (identifier == "false")
+				else if (identifier == "false")
 				lua_pushboolean(L, 0);
-			else if (identifier == "buffer") {
+				else if (identifier == "buffer") {
 				ParseBuffer(L, scan);
 			}
 			else {
@@ -451,8 +583,8 @@ void ParseValue(lua_State* L, Scan::ScanningState& scan) {
 // ***********************************************************************
 
 int Deserialize(lua_State* L) {
-    usize len;
-    const char* str = luaL_checklstring(L, 1, &len);
+	usize len;
+	const char* str = luaL_checklstring(L, 1, &len);
 
 	Scan::ScanningState scan;
 	scan.pTextStart = str;
@@ -461,7 +593,7 @@ int Deserialize(lua_State* L) {
 	scan.line = 1;
 
 	ParseValue(L, scan);
-	
+
 	return 1;
 }
 
@@ -469,15 +601,15 @@ int Deserialize(lua_State* L) {
 
 void BindSerialization(lua_State* L) {
 	// register global functions
-    const luaL_Reg globalFuncs[] = {
-        { "serialize", Serialize },
-        { "deserialize", Deserialize },
-        { NULL, NULL }
-    };
+	const luaL_Reg globalFuncs[] = {
+		{ "serialize", Serialize },
+		{ "deserialize", Deserialize },
+		{ NULL, NULL }
+	};
 
-    lua_pushvalue(L, LUA_GLOBALSINDEX);
-    luaL_register(L, NULL, globalFuncs);
-    lua_pop(L, 1);
+	lua_pushvalue(L, LUA_GLOBALSINDEX);
+	luaL_register(L, NULL, globalFuncs);
+	lua_pop(L, 1);
 }
 
 }

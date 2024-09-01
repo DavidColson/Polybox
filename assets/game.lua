@@ -73,24 +73,28 @@ function Start()
 	local bufferInts = NewBuffer("i16", 4)
 	bufferInts:Set(0, 32, 1, 44, 87)
 
-	local myTable = {
-		[55]=23,
-		value = 1337,
-		name = "david",
-		float = 3.1337,
-		bool = true,
-		43,
-		52,
-		["test="]="hello",
-		12,
-		intBuf = bufferInts,
-		intflot = bufferFloats
-	}
-	local str = serialize(myTable)
-	print(str)
-	local newTable = deserialize(str)
-	printTable(newTable)
-	print("This should be 44: " .. newTable.intBuf[2])
+	-- local myTable = {
+	-- 	[55]=23,
+	-- 	value = 1337,
+	-- 	name = "david",
+	-- 	float = 3.1337,
+	-- 	bool = true,
+	-- 	43,
+	-- 	52,
+	-- 	["test="]="hello",
+	-- 	12,
+	-- 	intBuf = bufferInts,
+	-- 	intflot = bufferFloats
+	-- }
+	-- local str = serialize(myTable)
+	-- print(str)
+	-- local newTable = deserialize(str)
+	-- printTable(newTable)
+	-- print("This should be 44: " .. newTable.intBuf[2])
+
+
+	print(serialize(88, 2))
+
     -- EnableMouseRelativeMode(true)
 end
 

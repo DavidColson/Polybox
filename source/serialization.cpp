@@ -186,7 +186,7 @@ size MemcpyLE(u8 *dst, u8 *src, size len)
 
 // ***********************************************************************
 
-void CborEncode(ResizableArray<u8>& output, u8 majorType, u8* pData, size dataSize) {
+void CborEncode(ResizableArray<u8>& output, u8 majorType, u8* pData, size dataSize, bool indefinite = false) {
 	u8 additionalInfo;
 	u8 followingBytes;
 
@@ -212,6 +212,11 @@ void CborEncode(ResizableArray<u8>& output, u8 majorType, u8* pData, size dataSi
 		followingBytes = 0;
 	}
 
+	if (indefinite) {
+		additionalInfo = 31;
+		followingBytes = 0;
+	}
+
 	size requiredSize = (size)dataSize + followingBytes + 1; // extra 1 for header
 	if (!(majorType == 2 || majorType == 3)) {
 		requiredSize -= (size)dataSize;
@@ -234,7 +239,49 @@ void CborEncode(ResizableArray<u8>& output, u8 majorType, u8* pData, size dataSi
 void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
 
 	if (lua_istable(L, -1)) {
-		luaL_error(L, "tables not supported yet");
+		// iterate over table checking keys, want to see if this is an array or map
+		lua_pushnil(L);
+		bool isArray = true;
+		i32 arrayLen = 1;
+		while (lua_next(L, -2)) {
+			lua_pushvalue(L, -2);
+
+			if (lua_isnumber(L, -1)) {
+				i32 key = (i32)lua_tonumber(L, -1);
+				if (key == arrayLen) {
+					arrayLen++;
+					lua_pop(L, 2);
+					continue;
+				}
+			}
+			isArray = false;
+			lua_pop(L, 3);
+			break;
+		}
+		arrayLen--;
+
+		if (isArray) {
+			CborEncode(output, 4, nullptr, arrayLen);
+			lua_pushnil(L);
+			while (lua_next(L, -2)) {
+				SerializeCborRecursive(L, output);
+				lua_pop(L, 1);
+			}
+		}
+		else {
+			CborEncode(output, 5, nullptr, 0, true);
+			lua_pushnil(L);
+			while (lua_next(L, -2)) {
+				lua_pushvalue(L, -2);
+				// key
+				SerializeCborRecursive(L, output);
+				lua_pop(L, 1);
+				// value
+				SerializeCborRecursive(L, output);
+				lua_pop(L, 1);
+			}
+			CborEncode(output, 7, nullptr, 0, true);
+		}
 	}
 	if (lua_isuserdata(L, -1)) {
 		luaL_error(L, "buffers not supported yet");

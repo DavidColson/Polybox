@@ -42,7 +42,7 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 
 			// array element
 			if (arrayCounter > 0) {
-			lua_pop(L, 1); // pop key copy
+				lua_pop(L, 1); // pop key copy
 				SerializeTextRecursive(L, builder);
 			}
 			// dictionary element
@@ -50,7 +50,7 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 				const char *key = lua_tostring(L, -1);
 				if (lua_isnumber(L, -1)) {
 					f32 key = lua_tonumber(L, -1);
-				if (key == (i32)key) {
+					if (key == (i32)key) {
 						builder.AppendFormat("[%i]=", (i32)key);
 					}
 					else {
@@ -64,16 +64,16 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 					char* c = (char*)key;
 					while (*c != 0) {
 						if (*c == '=')
-						needsEscape = true;
+							needsEscape = true;
 						c++;
 					}
-				if (needsEscape)
+					if (needsEscape)
 						builder.AppendFormat("[\"%s\"]=", key);
-						else
+					else
 						builder.AppendFormat("%s=", key);
 				}
 
-			lua_pop(L, 1); // pop key copy
+				lua_pop(L, 1); // pop key copy
 				SerializeTextRecursive(L, builder);
 			}
 
@@ -105,21 +105,21 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 						for (int i = 0; i < pBuf->width*pBuf->height; i++) {
 							if (i+1 < pBuf->width*pBuf->height)
 								builder.AppendFormat("%f,", pFloats[i]);
-								else
+							else
 								builder.AppendFormat("%f", pFloats[i]);
 						}
 						break;
 					}
 					case BufferLib::Type::Int32: {
 						// 8 hex digits
-					i32* pInts = (i32*)pBuf->pData;
+						i32* pInts = (i32*)pBuf->pData;
 						for (int i = 0; i < pBuf->width*pBuf->height; i++)
 							builder.AppendFormat("%08x", pInts[i]);
 						break;
 					}
 					case BufferLib::Type::Int16: {
 						// 4 hex digits
-					i16* pInts = (i16*)pBuf->pData;
+						i16* pInts = (i16*)pBuf->pData;
 						for (int i = 0; i < pBuf->width*pBuf->height; i++)
 							builder.AppendFormat("%04x", pInts[i]);
 						break;
@@ -150,7 +150,7 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 		}
 	}
 	else if(lua_isstring(L, -1)) {
-		const char *value = lua_tostring(L, -2);
+		const char *value = lua_tostring(L, -1);
 		builder.AppendFormat("\"%s\"", value);
 	}
 	else if (lua_isboolean(L, -1)) {
@@ -372,17 +372,14 @@ i32 Serialize(lua_State* L) {
 		// return string of serialized code
 		lua_pushstring(L, result.pData);
 
-		// Binary (cbor) serialization
+	// Binary (cbor) serialization
 	} else if (mode == 2) {
 		ResizableArray<u8> result;
 		SerializeCborRecursive(L, result);
-		// result.pData[result.count] = 0;
-		// Note, this is not a valid lua string? Will it cause issues?
-		// Will it cause corruptions? Probably it will strcopy up to a 0 then stop
-		// You could push it back as a buffer?
 
-		// another debug option would be to push it back as a hex encoded string
-
+		// for now we give back binary data formatted as hex. Ideally we'd probably want to give it back 
+		// as a buffer, then the user can do as they wish
+		// we should provide the ability to "print" buffers which will give you hex/floats as the serializer does
 		StringBuilder builder;
 		for (int i = 0; i < result.count; i++) {
 			builder.AppendFormat("%02X ", result.pData[i]);
@@ -392,40 +389,6 @@ i32 Serialize(lua_State* L) {
 		defer(FreeString(hex));
 		lua_pushstring(L, hex.pData);
 		result.Free();
-
-		// Do cbor I guess?
-		// Ultimately this will still be a recursive walk of the lua values
-
-		// for each value we encode a cbor data item
-
-		// For number:
-		// if positive integer of zero: major type 0
-		// if less than 24, put in next 3 bytes
-		// Depending on size, but in next 1, 2, 4, 8 bytes and set previous 5 bytes to 24, 25, 26, 27 respectively
-		// if negative integer: major type 1
-		// calculate the value -1-val and then do as above
-		// if float: major type 7
-		// 26 in next 3 bytes
-		// the 32 bit float value
-
-		// for string:
-		// Major type 3, no escaping
-		// Place string length using integer encoding above
-		// The string, as is follows
-
-		// For table
-		// Major type 5
-		// Then serialize integer for number of elements in table
-		// then serialize pairs, key value using appropiate item encoding
-
-		// For boolean
-		// Major item 7,
-		// next 3 bytes are 20 for false, and 21 for true
-
-		// for buffer
-		// Major item 2,
-		// encode integer as above, with length of buffer struct size + pData size
-		// encode the buffer struct first, then the pData 
 	}
 	return 1;
 }

@@ -102,7 +102,7 @@ function Start()
 	-- local parsedBinTable = deserialize(bin)
 
 	print("\nSerialized:")
-	local bin = serialize(2, { first=43, second=23, [77]="hello", mybool=true, floating=3.25, false, 878})
+	local bin = serialize(2, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
 	print(bin)
 	print("\nDeserialized:")
 	local parsed = deserialize(bin)

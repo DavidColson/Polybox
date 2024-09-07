@@ -725,7 +725,44 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 					state.pCurrent += followingBytes;
 				}
 				break;
-			case 2: // buffer
+			case 2: { // buffer
+				i32 dataLen = 0;
+				if (followingBytes == 0) {
+					dataLen = additionalInfo;
+				} else {
+					MemcpyBE((u8*)&dataLen, (u8*)state.pCurrent, followingBytes);
+					state.pCurrent += followingBytes;
+				}
+
+				BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)lua_newuserdatadtor(L, sizeof(BufferLib::Buffer), [](void* pData) {
+					BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)pData;
+					if (pBuffer) {
+						g_Allocator.Free(pBuffer->pData);
+					}
+				});
+
+				MemcpyLE((u8*)&pBuffer->width, (u8*)state.pCurrent, 4);
+				state.pCurrent += 4;
+				MemcpyLE((u8*)&pBuffer->height, (u8*)state.pCurrent, 4);
+				state.pCurrent += 4;
+				MemcpyLE((u8*)&pBuffer->type, (u8*)state.pCurrent, 1);
+				state.pCurrent += 1;
+
+				i32 bufSize = pBuffer->width * pBuffer->height;
+				switch(pBuffer->type) {
+					case BufferLib::Type::Float32: bufSize *= sizeof(f32); break;
+					case BufferLib::Type::Int32: bufSize *= sizeof(i32); break;
+					case BufferLib::Type::Int16: bufSize *= sizeof(i16); break;
+					case BufferLib::Type::Uint8: bufSize *= sizeof(u8); break;
+				}
+				pBuffer->pData = (char*)g_Allocator.Allocate(bufSize);
+				MemcpyLE((u8*)pBuffer->pData, (u8*)state.pCurrent, bufSize);
+				state.pCurrent += bufSize;
+
+				luaL_getmetatable(L, "Buffer");
+				lua_setmetatable(L, -2);
+				break;
+			}
 			case 3: { // string
 				i32 strlen = 0;
 				if (followingBytes == 0) {

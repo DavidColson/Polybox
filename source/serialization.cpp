@@ -377,17 +377,21 @@ i32 Serialize(lua_State* L) {
 		ResizableArray<u8> result;
 		SerializeCborRecursive(L, result);
 
-		// for now we give back binary data formatted as hex. Ideally we'd probably want to give it back 
-		// as a buffer, then the user can do as they wish
-		// we should provide the ability to "print" buffers which will give you hex/floats as the serializer does
-		StringBuilder builder;
-		for (int i = 0; i < result.count; i++) {
-			builder.AppendFormat("%02X ", result.pData[i]);
-		}
+		BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)lua_newuserdatadtor(L, sizeof(BufferLib::Buffer), [](void* pData) {
+			BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)pData;
+			if (pBuffer) {
+				g_Allocator.Free(pBuffer->pData);
+			}
+		});
+		pBuffer->width = result.count;
+		pBuffer->height = 1;
+		pBuffer->type = BufferLib::Type::Uint8;
+		i32 bufSize = result.count * sizeof(u8);
+		pBuffer->pData = (char*)g_Allocator.Allocate(bufSize);
+		memcpy(pBuffer->pData, result.pData, result.count);
+		luaL_getmetatable(L, "Buffer");
+		lua_setmetatable(L, -2);
 
-		String hex = builder.CreateString();
-		defer(FreeString(hex));
-		lua_pushstring(L, hex.pData);
 		result.Free();
 	}
 	return 1;
@@ -668,17 +672,32 @@ void ParseValue(lua_State* L, Scan::ScanningState& scan) {
 // ***********************************************************************
 
 int Deserialize(lua_State* L) {
-	usize len;
-	const char* str = luaL_checklstring(L, 1, &len);
+	if(lua_isstring(L, -1)) { 
+		usize len;
+		const char* str = luaL_checklstring(L, 1, &len);
 
-	Scan::ScanningState scan;
-	scan.pTextStart = str;
-	scan.pTextEnd = str + len;
-	scan.pCurrent = (byte*)scan.pTextStart;
-	scan.line = 1;
+		Scan::ScanningState scan;
+		scan.pTextStart = str;
+		scan.pTextEnd = str + len;
+		scan.pCurrent = (byte*)scan.pTextStart;
+		scan.line = 1;
 
-	ParseValue(L, scan);
+		ParseValue(L, scan);
 
+		return 1;
+	} else if (lua_isuserdata(L, -1)) {
+		if (lua_getmetatable(L, -1)) {
+			lua_getfield(L, LUA_REGISTRYINDEX, "Buffer"); 
+			if (lua_rawequal(L, -1, -2)) {
+				lua_pop(L, 2); 
+
+				luaL_error(L, "Not supported");
+			} 
+		}
+		return 1;
+	}
+
+	luaL_error(L, "Expected string or buffer to deserialize");
 	return 1;
 }
 

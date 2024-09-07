@@ -399,11 +399,11 @@ i32 Serialize(lua_State* L) {
 
 // ***********************************************************************
 
-void ParseValue(lua_State* L, Scan::ScanningState& scan);
+void ParseTextValue(lua_State* L, Scan::ScanningState& scan);
 
 // ***********************************************************************
 
-void ParseTable(lua_State* L, Scan::ScanningState& scan) {
+void ParseTextTable(lua_State* L, Scan::ScanningState& scan) {
 	lua_newtable(L);
 	i32 arrayIndex = 1;
 
@@ -422,7 +422,7 @@ void ParseTable(lua_State* L, Scan::ScanningState& scan) {
 			defer(FreeString(identifier));
 
 			if (identifier == "true" || identifier == "false" || identifier == "buffer") {
-				ParseValue(L, scan);
+				ParseTextValue(L, scan);
 
 				lua_rawseti(L, -2, arrayIndex);
 				arrayIndex++;
@@ -433,7 +433,7 @@ void ParseTable(lua_State* L, Scan::ScanningState& scan) {
 				luaL_error(L, "Expected '=' after table key", size(scan.pCurrent - scan.pTextStart));
 			}
 
-			ParseValue(L, scan);
+			ParseTextValue(L, scan);
 			lua_setfield(L, -2, identifier.pData);
 			continue;
 		}
@@ -441,7 +441,7 @@ void ParseTable(lua_State* L, Scan::ScanningState& scan) {
 		// Is value
 		if (Scan::IsDigit(c) || c == '\'' || c == '"') {
 			scan.pCurrent--;
-			ParseValue(L, scan);
+			ParseTextValue(L, scan);
 			lua_rawseti(L, -2, arrayIndex);
 			arrayIndex++;
 			continue;
@@ -450,7 +450,7 @@ void ParseTable(lua_State* L, Scan::ScanningState& scan) {
 		// Is string or number identifier
 		if (c == '[') {
 			// put key on stack
-			ParseValue(L, scan);
+			ParseTextValue(L, scan);
 
 			if (!Scan::Match(scan, ']')) {
 				luaL_error(L, "Expected ']' after table key", size(scan.pCurrent - scan.pTextStart));
@@ -459,7 +459,7 @@ void ParseTable(lua_State* L, Scan::ScanningState& scan) {
 				luaL_error(L, "Expected '=' after table key", size(scan.pCurrent - scan.pTextStart));
 			}
 
-			ParseValue(L, scan);
+			ParseTextValue(L, scan);
 
 			lua_settable(L, -3);
 			continue;
@@ -618,7 +618,7 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 
 // ***********************************************************************
 
-void ParseValue(lua_State* L, Scan::ScanningState& scan) {
+void ParseTextValue(lua_State* L, Scan::ScanningState& scan) {
 	while (!Scan::IsAtEnd(scan)) {
 		Scan::AdvanceOverWhitespace(scan);
 		byte c = Scan::Advance(scan);
@@ -661,11 +661,111 @@ void ParseValue(lua_State* L, Scan::ScanningState& scan) {
 
 		// table
 		if (c == '{') {
-			ParseTable(L, scan);
+			ParseTextTable(L, scan);
 			return;
 		}
 
 		luaL_error(L, "Unexpected character in data to serialize. At location %i", size(scan.pCurrent - scan.pTextStart));
+	}
+}
+
+// ***********************************************************************
+
+struct CborParserState {
+	u8* pData;
+	u8* pEnd;
+	u8* pCurrent;
+	i32 len;
+};
+
+// ***********************************************************************
+
+void ParseCborValue(lua_State* L, CborParserState& state) {
+	while (state.pCurrent < state.pEnd) {
+		u8 val = *state.pCurrent;
+
+		// get major type and additional information
+		u8 majorType = val >> 5; // top 3 bits
+		u8 additionalInfo = val & 0x1fu; // bottom 5 bits
+
+		u8 followingBytes = 1u << (additionalInfo - 24);
+		if (additionalInfo < 24)
+			followingBytes = 0;
+		else if (additionalInfo == 31)
+			followingBytes = u8(-1);
+		else if (additionalInfo >= 28)
+			followingBytes = u8(-2);
+
+		state.pCurrent++;
+
+		switch(majorType) {
+			case 0:{ // positive int
+				if (followingBytes == 0) {
+					lua_pushnumber(L, additionalInfo);
+				} else {
+					i32 result = 0;
+					MemcpyBE((u8*)&result, (u8*)state.pCurrent, followingBytes);
+					lua_pushnumber(L, result);
+					state.pCurrent += followingBytes;
+				}
+				break;
+			}
+			case 1: // negative int
+				if (followingBytes == 0) {
+					lua_pushnumber(L, -1-(i32)additionalInfo);
+				} else {
+					i32 result = 0;
+					MemcpyBE((u8*)&result, (u8*)state.pCurrent, followingBytes);
+					lua_pushnumber(L, -1-result);
+					state.pCurrent += followingBytes;
+				}
+				break;
+			case 2: // buffer
+			case 3: { // string
+				i32 strlen = 0;
+				if (followingBytes == 0) {
+					strlen = additionalInfo;
+				} else {
+					MemcpyBE((u8*)&strlen, (u8*)state.pCurrent, followingBytes);
+					state.pCurrent += followingBytes;
+				}
+				String str = CopyCStringRange((char*)state.pCurrent, (char*)state.pCurrent + strlen, &g_Allocator);
+				defer(FreeString(str));
+
+				lua_pushstring(L, str.pData);
+				state.pCurrent += strlen;
+				break;
+			}
+			case 4: // array
+			case 5:// table
+			case 6: // unsupported
+			case 7: { // floats and bools
+				if (additionalInfo == 20) {
+					lua_pushboolean(L, false);
+				}
+				else if (additionalInfo == 21) {
+					lua_pushboolean(L, true);
+				}
+				else if (additionalInfo == 26) {
+					f32 result = 0.f;
+					MemcpyBE((u8*)&result, (u8*)state.pCurrent, 4);
+					state.pCurrent += 4;
+					lua_pushnumber(L, result);
+				}
+				else if (additionalInfo == 27) {
+					f64 result = 0.0;
+					MemcpyBE((u8*)&result, (u8*)state.pCurrent, 8);
+					state.pCurrent += 8;
+					lua_pushnumber(L, result);
+				}
+				else {
+					luaL_error(L, "Unexpected data, potentially something is corrupt");
+				}
+				break;
+			}
+			default:
+				break;
+		}
 	}
 }
 
@@ -682,7 +782,7 @@ int Deserialize(lua_State* L) {
 		scan.pCurrent = (byte*)scan.pTextStart;
 		scan.line = 1;
 
-		ParseValue(L, scan);
+		ParseTextValue(L, scan);
 
 		return 1;
 	} else if (lua_isuserdata(L, -1)) {
@@ -691,7 +791,17 @@ int Deserialize(lua_State* L) {
 			if (lua_rawequal(L, -1, -2)) {
 				lua_pop(L, 2); 
 
-				luaL_error(L, "Not supported");
+				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
+				if (pBuf->height > 1 || pBuf->type != BufferLib::Type::Uint8)
+					luaL_error(L, "Buffer passed into deserialize is not suitable for parsing, must be u8 and one dimensional");
+
+				CborParserState state;
+				state.len = pBuf->width;
+				state.pData = (u8*)pBuf->pData;
+				state.pEnd = state.pData + state.len;
+				state.pCurrent = state.pData;
+
+				ParseCborValue(L, state);
 			} 
 		}
 		return 1;

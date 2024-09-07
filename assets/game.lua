@@ -93,8 +93,20 @@ function Start()
 
 	print(bufferInts)
 	print(bufferFloats)
-	print(serialize(2, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878}))
 	print(serialize(1, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878}))
+
+	-- print("\nSerialized:")
+	-- local bin = serialize(2, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	-- print(bin)
+	-- print("\nDeserialized:")
+	-- local parsedBinTable = deserialize(bin)
+
+	print("\nSerialized:")
+	local bin = serialize(2, -323.27985)
+	print(bin)
+	print("\nDeserialized:")
+	local parsed = deserialize(bin)
+	print(parsed)
 
     -- EnableMouseRelativeMode(true)
 end

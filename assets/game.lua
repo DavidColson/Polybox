@@ -93,7 +93,7 @@ function Start()
 	-- print("This should be 44: " .. newTable.intBuf[2])
 
 
-	print(serialize(88, 2))
+	print(serialize(2, "hello world"))
 
     -- EnableMouseRelativeMode(true)
 end

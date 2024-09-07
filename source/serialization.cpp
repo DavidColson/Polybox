@@ -164,7 +164,29 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 
 // ***********************************************************************
 
-void CborEncode(ResizableArray<byte>& output, u8 majorType, byte* pData, size dataSize) {
+size MemcpyBE(u8 *dst, u8 *src, size len)
+{
+	for (size_t i = 0; i < len; i++) {
+		dst[len - i - 1] = src[i];
+	}
+
+	return len;
+}
+
+// ***********************************************************************
+
+size MemcpyLE(u8 *dst, u8 *src, size len)
+{
+	for (size_t i = 0; i < len; i++) {
+		dst[i] = src[i];
+	}
+
+	return len;
+}
+
+// ***********************************************************************
+
+void CborEncode(ResizableArray<u8>& output, u8 majorType, u8* pData, size dataSize) {
 	u8 additionalInfo;
 	u8 followingBytes;
 
@@ -199,9 +221,9 @@ void CborEncode(ResizableArray<byte>& output, u8 majorType, byte* pData, size da
 	output.Reserve(output.GrowCapacity(output.capacity + requiredSize));
 
 	output.pData[output.count] = (u8)majorType << 5 | additionalInfo;
-	memcpy(&output.pData[output.count+1], (u8*)&dataSize, followingBytes);
+	MemcpyBE(&output.pData[output.count+1], (u8*)&dataSize, followingBytes);
 	if (pData != nullptr) {
-		// copy pData to output
+		MemcpyLE(&output.pData[output.count+1+followingBytes], pData, dataSize);
 	}
 
 	output.count += requiredSize;
@@ -209,7 +231,7 @@ void CborEncode(ResizableArray<byte>& output, u8 majorType, byte* pData, size da
 
 // ***********************************************************************
 
-void SerializeCborRecursive(lua_State* L, ResizableArray<byte>& output) {
+void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
 
 	if (lua_istable(L, -1)) {
 		luaL_error(L, "tables not supported yet");
@@ -218,8 +240,7 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<byte>& output) {
 		luaL_error(L, "buffers not supported yet");
 	}
 	if (lua_isnumber(L, -1)) {
-		f32 value = lua_tonumber(L, -1);
-		// Dave, test ints next
+		f64 value = lua_tonumber(L, -1);
 		if (value == (i32)value) {
 			if (value > 0) {
 				CborEncode(output, 0, nullptr, value);
@@ -228,14 +249,32 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<byte>& output) {
 			}
 		}
 		else {
-			// float (major type 7)
+			f32 single = (f32)value;	
+			u8 majorType = 7;
+			if ((f64)single == value) {
+				// can be safely stored in single
+				size requiredSize = 5;
+				output.Reserve(output.GrowCapacity(output.capacity + requiredSize));
+				output.pData[output.count] = majorType << 5 | 26;
+				MemcpyBE(&output.pData[output.count+1], (u8*)&single, 4);
+				output.count += requiredSize;
+			} else {
+				// Needs double precision
+				size requiredSize = 9;
+				output.Reserve(output.GrowCapacity(output.capacity + requiredSize));
+				output.pData[output.count] = majorType << 5 | 27;
+				MemcpyBE(&output.pData[output.count+1], (u8*)&value, 8);
+				output.count += requiredSize;
+			}
 		}
 	}
 	else if(lua_isstring(L, -1)) {
-		luaL_error(L, "strings not supported yet");
+		const char *str = lua_tostring(L, -1);
+		CborEncode(output, 3, (u8*)str, strlen(str));
 	}
 	else if (lua_isboolean(L, -1)) {
-		luaL_error(L, "bools not supported yet");
+		bool value = lua_toboolean(L, -1);
+		CborEncode(output, 7, nullptr, (u8)(value + 20));
 	}
 	else if (lua_iscfunction(L, -1) || lua_isLfunction(L, -1)) {
 		luaL_error(L, "Cannot serialize functions");
@@ -246,7 +285,7 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<byte>& output) {
 
 i32 Serialize(lua_State* L) {
 
-	i32 mode = (i32)luaL_checknumber(L, 2);
+	i32 mode = (i32)luaL_checknumber(L, 1);
 
 	// Text serialization
 	if (mode == 1) {
@@ -261,14 +300,23 @@ i32 Serialize(lua_State* L) {
 
 		// Binary (cbor) serialization
 	} else if (mode == 2) {
-		ResizableArray<byte> result;
+		ResizableArray<u8> result;
 		SerializeCborRecursive(L, result);
-
+		// result.pData[result.count] = 0;
 		// Note, this is not a valid lua string? Will it cause issues?
 		// Will it cause corruptions? Probably it will strcopy up to a 0 then stop
 		// You could push it back as a buffer?
 
-		lua_pushstring(L, result.pData);
+		// another debug option would be to push it back as a hex encoded string
+
+		StringBuilder builder;
+		for (int i = 0; i < result.count; i++) {
+			builder.AppendFormat("%02X ", result.pData[i]);
+		}
+
+		String hex = builder.CreateString();
+		defer(FreeString(hex));
+		lua_pushstring(L, hex.pData);
 		result.Free();
 
 		// Do cbor I guess?

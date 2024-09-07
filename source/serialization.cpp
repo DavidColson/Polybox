@@ -680,21 +680,26 @@ struct CborParserState {
 
 // ***********************************************************************
 
-void ParseCborValue(lua_State* L, CborParserState& state) {
-	while (state.pCurrent < state.pEnd) {
+bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
+	i32 items = 0;
+	while ((maxItems == -1 || items < maxItems) && state.pCurrent < state.pEnd) {
 		u8 val = *state.pCurrent;
+		items++;
 
 		// get major type and additional information
 		u8 majorType = val >> 5; // top 3 bits
 		u8 additionalInfo = val & 0x1fu; // bottom 5 bits
 
 		u8 followingBytes = 1u << (additionalInfo - 24);
-		if (additionalInfo < 24)
+
+		if (additionalInfo < 24) {
 			followingBytes = 0;
-		else if (additionalInfo == 31)
-			followingBytes = u8(-1);
-		else if (additionalInfo >= 28)
-			followingBytes = u8(-2);
+		}
+		else if (additionalInfo == 31 && majorType == 7) { 
+			// stop code of invalid info
+			state.pCurrent++;
+			return true;
+		}
 
 		state.pCurrent++;
 
@@ -736,8 +741,40 @@ void ParseCborValue(lua_State* L, CborParserState& state) {
 				state.pCurrent += strlen;
 				break;
 			}
-			case 4: // array
-			case 5:// table
+			case 4: { // array
+				lua_newtable(L);
+
+				i32 arrayLen = 0;
+				if (followingBytes == 0) {
+					arrayLen = additionalInfo;
+				} else {
+					MemcpyBE((u8*)&arrayLen, (u8*)state.pCurrent, followingBytes);
+					state.pCurrent += followingBytes;
+				}
+				
+				for (int i = 1; i < arrayLen + 1; i++) {
+					ParseCborValue(L, state, 1);
+					lua_rawseti(L, -2, i);
+				}
+				break;
+			}
+			case 5: { // table
+				lua_newtable(L);
+
+				// we always encode tables with a break at the end, so we don't care about this
+				if (additionalInfo != 31) {
+					luaL_error(L, "Map encoded without a stop code, this is unsupported here");
+				}
+
+				while (true) {
+					if (ParseCborValue(L, state, 1)) {
+						break;
+					}
+					ParseCborValue(L, state, 1);
+					lua_settable(L, -3);
+				}
+				break;
+			}
 			case 6: // unsupported
 			case 7: { // floats and bools
 				if (additionalInfo == 20) {
@@ -767,6 +804,7 @@ void ParseCborValue(lua_State* L, CborParserState& state) {
 				break;
 		}
 	}
+	return false;
 }
 
 // ***********************************************************************

@@ -91,7 +91,8 @@ function Start()
 	-- printTable(newTable)
 	-- print("This should be 44: " .. newTable.intBuf[2])
 
-
+	print(bufferInts)
+	print(bufferFloats)
 	print(serialize(2, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878}))
 	print(serialize(1, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878}))
 

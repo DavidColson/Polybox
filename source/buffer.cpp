@@ -6,6 +6,9 @@
 #include <memory.h>
 #include <string.h>
 #include <maths.h>
+#include <string_builder.h>
+#include <light_string.h>
+#include <defer.h>
 
 namespace BufferLib {
 
@@ -278,6 +281,61 @@ i32 NewIndex(lua_State* L) {
 
 // ***********************************************************************
 
+i32 ToString(lua_State* L) {
+	Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+
+	StringBuilder builder;
+
+	switch(pBuffer->type) {
+		case BufferLib::Type::Float32: builder.Append("buffer(f32"); break;
+		case BufferLib::Type::Int32: builder.Append("buffer(i32"); break;
+		case BufferLib::Type::Int16: builder.Append("buffer(i16"); break;
+		case BufferLib::Type::Uint8: builder.Append("buffer(u8");; break;
+	}
+	builder.AppendFormat(",%i,%i,\"", pBuffer->width, pBuffer->height);
+	switch(pBuffer->type) {
+		case BufferLib::Type::Float32: {
+			f32* pFloats = (f32*)pBuffer->pData;
+			for (int i = 0; i < pBuffer->width*pBuffer->height; i++) {
+				if (i+1 < pBuffer->width*pBuffer->height)
+					builder.AppendFormat("%f,", pFloats[i]);
+				else
+					builder.AppendFormat("%f", pFloats[i]);
+			}
+			break;
+		}
+		case BufferLib::Type::Int32: {
+			// 8 hex digits
+			i32* pInts = (i32*)pBuffer->pData;
+			for (int i = 0; i < pBuffer->width*pBuffer->height; i++)
+				builder.AppendFormat("%08x", pInts[i]);
+			break;
+		}
+		case BufferLib::Type::Int16: {
+			// 4 hex digits
+			i16* pInts = (i16*)pBuffer->pData;
+			for (int i = 0; i < pBuffer->width*pBuffer->height; i++)
+				builder.AppendFormat("%04x", pInts[i]);
+			break;
+		}
+		case BufferLib::Type::Uint8: {
+			// two hex digits == 1 byte
+			u8* pInts = (u8*)pBuffer->pData;
+			for (int i = 0; i < pBuffer->width*pBuffer->height; i++)
+				builder.AppendFormat("%02x", pInts[i]);
+			break;
+		}
+	}
+	builder.Append("\")");
+
+	String result = builder.CreateString();
+	defer(FreeString(result));
+	lua_pushstring(L, result.pData);
+	return 1;
+}
+
+// ***********************************************************************
+
 i32 Width(lua_State* L) {
     Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
 	lua_pushinteger(L, pBuffer->width);
@@ -490,6 +548,7 @@ void BindBuffer(lua_State* L) {
     const luaL_Reg bufferMethods[] = {
         { "__index", Index },
         { "__newindex", NewIndex },
+		{ "__tostring", ToString },
         { "__add", Add },
         { "__sub", Sub },
         { "__mul", Mul },

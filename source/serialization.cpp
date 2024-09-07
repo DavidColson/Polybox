@@ -88,7 +88,7 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 		if (lua_getmetatable(L, -1)) {
 			lua_getfield(L, LUA_REGISTRYINDEX, "Buffer"); 
 			if (lua_rawequal(L, -1, -2)) {
-			lua_pop(L, 2);
+				lua_pop(L, 2);
 				// value on stack is a buffer
 				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
 

@@ -237,7 +237,6 @@ void CborEncode(ResizableArray<u8>& output, u8 majorType, u8* pData, size dataSi
 // ***********************************************************************
 
 void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
-
 	if (lua_istable(L, -1)) {
 		// iterate over table checking keys, want to see if this is an array or map
 		lua_pushnil(L);
@@ -284,7 +283,35 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
 		}
 	}
 	if (lua_isuserdata(L, -1)) {
-		luaL_error(L, "buffers not supported yet");
+		if (lua_getmetatable(L, -1)) {
+			lua_getfield(L, LUA_REGISTRYINDEX, "Buffer"); 
+			if (lua_rawequal(L, -1, -2)) {
+			lua_pop(L, 2);
+				// value on stack is a buffer
+				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
+
+				size udataSize = pBuf->width * pBuf->height;
+				switch(pBuf->type) {
+					case BufferLib::Type::Float32: udataSize *= sizeof(f32); break;
+					case BufferLib::Type::Int32: udataSize *= sizeof(i32); break;
+					case BufferLib::Type::Int16: udataSize *= sizeof(i16); break;
+					case BufferLib::Type::Uint8: udataSize *= sizeof(u8); break;
+				}
+				size requiredSpace = udataSize + sizeof(i32) + sizeof(i32) + 1;
+
+				CborEncode(output, 2, nullptr, requiredSpace);
+				output.count -= requiredSpace;
+				MemcpyLE(&output.pData[output.count], (u8*)&pBuf->width, 4);
+				MemcpyLE(&output.pData[output.count + 4], (u8*)&pBuf->height, 4);
+				MemcpyLE(&output.pData[output.count + 8], (u8*)&pBuf->type, 1);
+				MemcpyLE(&output.pData[output.count + 9], (u8*)pBuf->pData, udataSize);
+				output.count += requiredSpace;
+			} else {
+				luaL_error(L, "Unrecognized lua data, cannot be serialized");
+			}
+		} else { 
+			luaL_error(L, "Unrecognized lua data, cannot be serialized");
+		}
 	}
 	if (lua_isnumber(L, -1)) {
 		f64 value = lua_tonumber(L, -1);

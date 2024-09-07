@@ -1,4 +1,3 @@
---!strict
 function RecursePrintNode(node:Node, stringEdge:string)
     local meshId = node:GetPropertyTable().meshId
     
@@ -93,7 +92,7 @@ function Start()
 	-- print("This should be 44: " .. newTable.intBuf[2])
 
 
-	print(serialize(2, "hello world"))
+	print(serialize(2, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878}))
 
     -- EnableMouseRelativeMode(true)
 end

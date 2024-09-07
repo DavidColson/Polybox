@@ -7,7 +7,7 @@ struct lua_State;
 // Considering renaming to userdata, it's just better
 namespace BufferLib {
  
-enum class Type {
+enum class Type:u8 {
 	Float32,
 	Int32,
 	Int16,

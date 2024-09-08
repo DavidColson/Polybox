@@ -76,36 +76,39 @@ function Start()
 	local data = --[[poly, type=2]]{i=432}
 	print(data.i)
 	
+	local testTable = { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878}
+	local testMeta = {metaType="test", size=33}
+
 	print("\nSerialized as text:")
-	local text = serialize(0x0, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	local text = serialize(0x0, testTable, testMeta)
 	print(text)
 	print("\nDeserialized from text:")
 	local parsed = deserialize(text)
 	printTable(parsed)
 
 	print("\nSerialized:")
-	local bin = serialize(0x1, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	local bin = serialize(0x1, testTable, testMeta)
 	print(bin)
 	print("\nDeserialized:")
 	local parsed = deserialize(bin)
 	printTable(parsed)
 
 	print("\nSerialized Compressed:")
-	local binSmall = serialize(0x3, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	local binSmall = serialize(0x3, testTable, testMeta)
 	print(binSmall)
 	print("\nDeserialized Compressed:")
 	parsed = deserialize(binSmall)
 	printTable(parsed)
 
 	print("\nSerialized Compressed b64:")
-	local binB64 = serialize(0x7, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	local binB64 = serialize(0x7, testTable, testMeta)
 	print(binB64)
 	print("\nDeserialized Compressed b64:")
 	parsed = deserialize(binB64)
 	printTable(parsed)
 
 	print("\nSerialized non compressed b64:")
-	local binDB64 = serialize(0x5, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	local binDB64 = serialize(0x5, testTable, testMeta)
 	print(binDB64)
 	print("\nDeserialized non compressed b64:")
 	parsed = deserialize(binDB64)

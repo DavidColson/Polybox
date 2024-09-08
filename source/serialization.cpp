@@ -20,12 +20,17 @@ namespace Serialization {
 
 // ***********************************************************************
 
-void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
+void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadata = false) {
 	// TODO:
 	// Need to error if we encounter a cyclic table reference
 
 	if (lua_istable(L, -1)) {
-		builder.Append("{");
+		if (isMetadata) {
+			builder.Append("--[[poly,");
+		}
+		else {
+			builder.Append("{");
+		}
 		lua_pushnil(L);
 		i32 arrayCounter = 0; // we'll set this to -1 if the sequence of indices breaks and we're in the hash part of the table
 		while (lua_next(L, -2)) {
@@ -83,7 +88,12 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 		}
 		// remove the final ", "
 		builder.length -= 2;
-		builder.Append("}");
+		if (isMetadata) {
+			builder.Append("]]");
+		}
+		else {
+			builder.Append("}");
+		}
 	}
 	if (lua_isuserdata(L, -1)) {
 		if (lua_getmetatable(L, -1)) {
@@ -362,7 +372,14 @@ i32 Serialize(lua_State* L) {
 
 	i32 mode = (i32)luaL_checknumber(L, 1);
 
+	String metaData;
+	defer(FreeString(metaData));
+
 	if (lua_gettop(L) == 3) {
+		StringBuilder builder;
+		SerializeTextRecursive(L, builder, true);
+		metaData = builder.CreateString();
+
 		// meta data passed in, so need to move the actual value to the top
 		lua_pushvalue(L, -2);
 	}
@@ -370,6 +387,10 @@ i32 Serialize(lua_State* L) {
 	// Text serialization
 	if (mode == 0x0) {
 		StringBuilder builder;
+
+		if (metaData.length != 0)
+			builder.Append(metaData);
+
 		SerializeTextRecursive(L, builder);
 
 		String result = builder.CreateString();
@@ -426,6 +447,13 @@ i32 Serialize(lua_State* L) {
 		const char* head = "b64:";
 		memcpy(output.pData, head, 4);
 		memcpy(output.pData + 4, encoded.pData, encoded.length);
+	}
+
+	if (metaData.length != 0) { 
+		output.Reserve(output.GrowCapacity(output.count + metaData.length));
+		memmove(output.pData + metaData.length, output.pData, output.count);
+		memcpy(output.pData, metaData.pData, metaData.length);
+		output.count += metaData.length;
 	}
 
 	lua_pushlstring(L, (byte*)output.pData, output.count);
@@ -902,20 +930,39 @@ int Deserialize(lua_State* L) {
 	usize len;
 	const char* str = luaL_checklstring(L, 1, &len);
 
+	char* start = (char*)str;
+	if (strncmp(str, "--[[poly,", 9) == 0) {
+
+		while (true) {
+			if (strncmp(start, "]]", 2) == 0) {
+				start += 2;
+				break;
+			}
+			start++;
+		}
+	}
+
+	i32 metaDataLen = start - str;
+	i32 dataLen = len - metaDataLen;
+
+	String metaData;
+	metaData.pData = (char*)str;
+	metaData.length = metaDataLen;
+
 	String decoded;
 	bool needsFree = false;
 
-	if (strncmp(str, "b64:", 4) == 0) {
+	if (strncmp(start, "b64:", 4) == 0) {
 		// base64
 		String base64;
-		base64.pData = (byte*)str + 4;
-		base64.length = len - 4;
+		base64.pData = (byte*)start + 4;
+		base64.length = dataLen - 4;
 
 		decoded = DecodeBase64(base64, &g_Allocator);
 		needsFree = true;
 	} else {
-		decoded.pData = (byte*)str;
-		decoded.length = len;
+		decoded.pData = (byte*)start;
+		decoded.length = dataLen;
 	}
 
 	if ((ubyte)decoded.pData[0] == 0xBD) {

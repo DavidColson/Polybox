@@ -94,10 +94,10 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
 
 				switch(pBuf->type) {
-					case BufferLib::Type::Float32: builder.Append("buffer(f32"); break;
-					case BufferLib::Type::Int32: builder.Append("buffer(i32"); break;
-					case BufferLib::Type::Int16: builder.Append("buffer(i16"); break;
-					case BufferLib::Type::Uint8: builder.Append("buffer(u8");; break;
+					case BufferLib::Type::Float32: builder.Append("buffer(\"f32\""); break;
+					case BufferLib::Type::Int32: builder.Append("buffer(\"i32\""); break;
+					case BufferLib::Type::Int16: builder.Append("buffer(\"i16\""); break;
+					case BufferLib::Type::Uint8: builder.Append("buffer(\"u8\"");; break;
 				}
 				builder.AppendFormat(",%i,%i,\"", pBuf->width, pBuf->height);
 				switch(pBuf->type) {
@@ -435,6 +435,7 @@ i32 Serialize(lua_State* L) {
 // ***********************************************************************
 
 void ParseTextValue(lua_State* L, Scan::ScanningState& scan);
+void ParseBuffer(lua_State* L, Scan::ScanningState& scan);
 
 // ***********************************************************************
 
@@ -456,12 +457,26 @@ void ParseTextTable(lua_State* L, Scan::ScanningState& scan) {
 			String identifier = CopyCStringRange(start, scan.pCurrent, &g_Allocator);
 			defer(FreeString(identifier));
 
-			if (identifier == "true" || identifier == "false" || identifier == "buffer") {
-				ParseTextValue(L, scan);
 
+			if (identifier == "true") {
+				lua_pushboolean(L, 1);
 				lua_rawseti(L, -2, arrayIndex);
 				arrayIndex++;
 				continue;
+			}
+			else if (identifier == "false") {
+				lua_pushboolean(L, 0);
+				lua_rawseti(L, -2, arrayIndex);
+				arrayIndex++;
+				continue;
+			}
+			else if (identifier == "buffer") {
+				if (Scan::Peek(scan) == '(') {
+					ParseBuffer(L, scan);
+					lua_rawseti(L, -2, arrayIndex);
+					arrayIndex++;
+					continue;
+				}
 			}
 
 			if (!Scan::Match(scan, '=')) {
@@ -535,19 +550,19 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 	identifier.length = scan.pCurrent - pStart;
 
 	i32 typeSize = 0;
-	if (identifier == "f32") {
+	if (identifier == "\"f32\"") {
 		pBuffer->type = BufferLib::Type::Float32;
 		typeSize = sizeof(f32);
 	}
-	else if (identifier == "i32") {
+	else if (identifier == "\"i32\"") {
 		pBuffer->type = BufferLib::Type::Int32;
 		typeSize = sizeof(i32);
 	}
-	else if (identifier == "i16") {
+	else if (identifier == "\"i16\"") {
 		pBuffer->type = BufferLib::Type::Int16;
 		typeSize = sizeof(i16);
 	}
-	else if (identifier == "u8") {
+	else if (identifier == "\"u8\"") {
 		pBuffer->type = BufferLib::Type::Uint8;
 		typeSize = sizeof(u8);
 	}
@@ -666,11 +681,11 @@ void ParseTextValue(lua_State* L, Scan::ScanningState& scan) {
 			String identifier = CopyCStringRange(pStart, scan.pCurrent, &g_Allocator);
 			defer(FreeString(identifier));
 
-			if (identifier == "true")
+			if (identifier == "true") 
 				lua_pushboolean(L, 1);
-				else if (identifier == "false")
+			else if (identifier == "false")
 				lua_pushboolean(L, 0);
-				else if (identifier == "buffer") {
+			else if (identifier == "buffer") {
 				ParseBuffer(L, scan);
 			}
 			else {

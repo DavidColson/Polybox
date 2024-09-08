@@ -72,36 +72,16 @@ function Start()
 	local bufferInts = NewBuffer("i16", 4)
 	bufferInts:Set(0, 32, 1, 44, 87)
 
-	-- local myTable = {
-	-- 	[55]=23,
-	-- 	value = 1337,
-	-- 	name = "david",
-	-- 	float = 3.1337,
-	-- 	bool = true,
-	-- 	43,
-	-- 	52,
-	-- 	["test="]="hello",
-	-- 	12,
-	-- 	intBuf = bufferInts,
-	-- 	intflot = bufferFloats
-	-- }
-	-- local str = serialize(myTable)
-	-- print(str)
-	-- local newTable = deserialize(str)
-	-- printTable(newTable)
-	-- print("This should be 44: " .. newTable.intBuf[2])
-
-	-- print(bufferInts)
-	-- print(bufferFloats)
-
-	-- print("\nSerialized:")
-	-- local bin = serialize(2, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
-	-- print(bin)
-	-- print("\nDeserialized:")
-	-- local parsedBinTable = deserialize(bin)
-
+	-- metadata test
 	local data = --[[poly, type=2]]{i=432}
 	print(data.i)
+	
+	print("\nSerialized as text:")
+	local text = serialize(0x0, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	print(text)
+	print("\nDeserialized from text:")
+	local parsed = deserialize(text)
+	printTable(parsed)
 
 	print("\nSerialized:")
 	local bin = serialize(0x1, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
@@ -109,7 +89,6 @@ function Start()
 	print("\nDeserialized:")
 	local parsed = deserialize(bin)
 	printTable(parsed)
-
 
 	print("\nSerialized Compressed:")
 	local binSmall = serialize(0x3, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})

@@ -287,10 +287,10 @@ i32 ToString(lua_State* L) {
 	StringBuilder builder;
 
 	switch(pBuffer->type) {
-		case BufferLib::Type::Float32: builder.Append("buffer(f32"); break;
-		case BufferLib::Type::Int32: builder.Append("buffer(i32"); break;
-		case BufferLib::Type::Int16: builder.Append("buffer(i16"); break;
-		case BufferLib::Type::Uint8: builder.Append("buffer(u8");; break;
+		case BufferLib::Type::Float32: builder.Append("buffer(\"f32\""); break;
+		case BufferLib::Type::Int32: builder.Append("buffer(\"i32\""); break;
+		case BufferLib::Type::Int16: builder.Append("buffer(\"i16\""); break;
+		case BufferLib::Type::Uint8: builder.Append("buffer(\"u8\"");; break;
 	}
 	builder.AppendFormat(",%i,%i,\"", pBuffer->width, pBuffer->height);
 	switch(pBuffer->type) {

@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
 		GraphicsInit(pWindow, winWidth, winHeight);
 		InputInit();
 
-		Cpu::CompileAndLoadProgram("assets/game.lua");
+		Cpu::CompileAndLoadProgram("assets/game.luau");
 		Cpu::Start();
 
 		bool gameRunning = true;

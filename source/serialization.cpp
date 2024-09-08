@@ -14,6 +14,7 @@
 #include <scanning.h>
 #include <cstring>
 #include <lz4.h>
+#include <base64.h>
 
 namespace Serialization {
 
@@ -22,7 +23,6 @@ namespace Serialization {
 void SerializeTextRecursive(lua_State* L, StringBuilder& builder) {
 	// TODO:
 	// Need to error if we encounter a cyclic table reference
-	// need to deal with userdatas and other types
 
 	if (lua_istable(L, -1)) {
 		builder.Append("{");
@@ -362,8 +362,13 @@ i32 Serialize(lua_State* L) {
 
 	i32 mode = (i32)luaL_checknumber(L, 1);
 
+	if (lua_gettop(L) == 3) {
+		// meta data passed in, so need to move the actual value to the top
+		lua_pushvalue(L, -2);
+	}
+
 	// Text serialization
-	if (mode == 1) {
+	if (mode == 0x0) {
 		StringBuilder builder;
 		SerializeTextRecursive(L, builder);
 
@@ -372,57 +377,58 @@ i32 Serialize(lua_State* L) {
 
 		// return string of serialized code
 		lua_pushstring(L, result.pData);
-
-	// Binary (cbor) serialization
-	} else if (mode == 2 || mode == 3) {
-		ResizableArray<u8> result;
-		SerializeCborRecursive(L, result);
-
-		BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)lua_newuserdatadtor(L, sizeof(BufferLib::Buffer), [](void* pData) {
-			BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)pData;
-			if (pBuffer) {
-				g_Allocator.Free(pBuffer->pData);
-			}
-		});
-		pBuffer->height = 1;
-		pBuffer->type = BufferLib::Type::Uint8;
-
-		if (mode == 3) {
-			i32 srcSize = result.count;
-
-			if (srcSize >= LZ4_MAX_INPUT_SIZE) {
-				luaL_error(L, "Data is too large to compress, what are you doing with 2gb of data?");
-			}
-
-			size compressBound = LZ4_compressBound(srcSize);
-			u8* stagingBuffer = (u8*)g_Allocator.Allocate(compressBound);
-			i32 compressedSize = LZ4_compress_default((char*)result.pData, (char*)stagingBuffer, srcSize, compressBound);
-			if (compressedSize == 0) {
-				g_Allocator.Free(stagingBuffer);
-				luaL_error(L, "Compression failed");
-			}	
-
-			pBuffer->width = compressedSize + 1 + 4 + 4;
-			pBuffer->pData = (ubyte*)g_Allocator.Allocate(pBuffer->width);
-
-			pBuffer->pData[0] = 0xBC;									// write magic number to identify compressed data
-			MemcpyLE((u8*)pBuffer->pData+1, (u8*)&compressedSize, 4); 		// write compressed size
-			MemcpyLE((u8*)pBuffer->pData+5, (u8*)&srcSize, 4); 				// write original size
-			MemcpyLE((u8*)pBuffer->pData+9, stagingBuffer, compressedSize); 	// write compressed data
-			g_Allocator.Free(stagingBuffer);
-		}
-		else {
-			pBuffer->width = result.count + 1;
-			pBuffer->pData = (ubyte*)g_Allocator.Allocate(pBuffer->width);
-
-			pBuffer->pData[0] = 0xBD;									// write magic number to identify uncompressed data
-			MemcpyLE((u8*)pBuffer->pData+1, result.pData, result.count); 	// write uncompressed data
-		}
-
-		luaL_getmetatable(L, "Buffer");
-		lua_setmetatable(L, -2);
-		result.Free();
+		return 1;
 	}
+
+	ResizableArray<u8> output;
+	defer(output.Free());
+
+	// if binary, then serialize to cbor into output
+	if (mode & 0x1 || mode & 0x2 || mode & 0x4) {
+		output.Reserve(output.GrowCapacity(1));
+		output.PushBack(0xBD); // identifier
+
+		SerializeCborRecursive(L, output);
+	}
+
+	// if compressed, then compress output and resize
+	if (mode & 0x2) {
+		size srcSize = output.count - 1;
+		size compressBound = LZ4_compressBound(srcSize);
+		u8* pData = output.pData + 1; // skip the binary identifier bit
+
+		u8* stagingBuffer = (u8*)g_Allocator.Allocate(compressBound);
+		defer(g_Allocator.Free(stagingBuffer));
+
+		i32 compressedSize = LZ4_compress_default((char*)pData, (char*)stagingBuffer, srcSize, compressBound);
+		if (compressedSize == 0) {
+			g_Allocator.Free(stagingBuffer);
+			luaL_error(L, "Compression failed");
+		}	
+
+		output.Reserve(output.GrowCapacity(9 + compressedSize));
+
+		output.count = 0;
+		output.PushBack(0xBC);
+		MemcpyLE((u8*)output.pData+1, (u8*)&compressedSize, 4); 			// write compressed size
+		MemcpyLE((u8*)output.pData+5, (u8*)&srcSize, 4); 				// write original size
+		MemcpyLE((u8*)output.pData+9, stagingBuffer, compressedSize); 	// write compressed data
+		output.count += 8 + compressedSize;
+	}
+
+	// base 64 encoded binary
+	if (mode & 0x4) {
+		String encoded = EncodeBase64(output.count, output.pData, &g_Allocator);
+		defer(FreeString(encoded));
+
+		output.count = 4 + encoded.length;
+		output.Reserve(output.GrowCapacity(output.count));
+		const char* head = "b64:";
+		memcpy(output.pData, head, 4);
+		memcpy(output.pData + 4, encoded.pData, encoded.length);
+	}
+
+	lua_pushlstring(L, (byte*)output.pData, output.count);
 	return 1;
 }
 
@@ -842,6 +848,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 				break;
 			}
 			case 6: // unsupported
+				luaL_error(L, "Unsupported cbor type encountered when deserializing (6)");
 				break;
 			case 7: { // floats and bools
 				if (additionalInfo == 20) {
@@ -877,69 +884,72 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 // ***********************************************************************
 
 int Deserialize(lua_State* L) {
-	if(lua_isstring(L, -1)) { 
-		usize len;
-		const char* str = luaL_checklstring(L, 1, &len);
+	usize len;
+	const char* str = luaL_checklstring(L, 1, &len);
 
+	String decoded;
+	bool needsFree = false;
+
+	if (strncmp(str, "b64:", 4) == 0) {
+		// base64
+		String base64;
+		base64.pData = (byte*)str + 4;
+		base64.length = len - 4;
+
+		decoded = DecodeBase64(base64, &g_Allocator);
+		needsFree = true;
+	} else {
+		decoded.pData = (byte*)str;
+		decoded.length = len;
+	}
+
+	if ((ubyte)decoded.pData[0] == 0xBD) {
+		// binary file
+		CborParserState state;
+		state.len = decoded.length - 1;
+		state.pData = (u8*)decoded.pData+1;
+		state.pEnd = state.pData + state.len;
+		state.pCurrent = state.pData;
+
+		ParseCborValue(L, state);
+	}
+	else if ((ubyte)decoded.pData[0] == 0xBC) {
+		// compressed file
+		i32 compressedSize;
+		i32 originalSize;
+		ubyte* pData;
+
+		MemcpyLE((u8*)&compressedSize, (u8*)decoded.pData+1, 4);
+		MemcpyLE((u8*)&originalSize, (u8*)decoded.pData+5, 4);
+		pData = (ubyte*)decoded.pData+9;
+
+		u8* pDecompressedData = (u8*)g_Allocator.Allocate(originalSize);
+		defer(g_Allocator.Free(pDecompressedData));
+
+		LZ4_decompress_safe((char*)pData, (char*)pDecompressedData, compressedSize, originalSize);
+
+		CborParserState state;
+		state.len = originalSize;
+		state.pData = pDecompressedData;
+		state.pEnd = pDecompressedData + state.len;
+		state.pCurrent = state.pData;
+
+		ParseCborValue(L, state);
+	}
+	else {
+		// text
 		Scan::ScanningState scan;
-		scan.pTextStart = str;
-		scan.pTextEnd = str + len;
+		scan.pTextStart = decoded.pData;
+		scan.pTextEnd = decoded.pData + decoded.length;
 		scan.pCurrent = (char*)scan.pTextStart;
 		scan.line = 1;
 
 		ParseTextValue(L, scan);
-
-		return 1;
-	} else if (lua_isuserdata(L, -1)) {
-		if (lua_getmetatable(L, -1)) {
-			lua_getfield(L, LUA_REGISTRYINDEX, "Buffer"); 
-			if (lua_rawequal(L, -1, -2)) {
-				lua_pop(L, 2); 
-
-				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
-				if (pBuf->height > 1 || pBuf->type != BufferLib::Type::Uint8)
-					luaL_error(L, "Buffer passed into deserialize is not suitable for parsing, must be u8 and one dimensional");
-
-				if (pBuf->pData[0] == 0xBD) {
-					CborParserState state;
-					state.len = pBuf->width-1;
-					state.pData = (u8*)pBuf->pData+1;
-					state.pEnd = state.pData + state.len;
-					state.pCurrent = state.pData;
-
-					ParseCborValue(L, state);
-				} 
-				else if (pBuf->pData[0] == 0xBC) {
-					i32 compressedSize;
-					i32 originalSize;
-					ubyte* pData;
-
-					MemcpyLE((u8*)&compressedSize, (u8*)pBuf->pData+1, 4);
-					MemcpyLE((u8*)&originalSize, (u8*)pBuf->pData+5, 4);
-					pData = pBuf->pData+9;
-
-					u8* pDecompressedData = (u8*)g_Allocator.Allocate(originalSize);
-					defer(g_Allocator.Free(pDecompressedData));
-
-					LZ4_decompress_safe((char*)pData, (char*)pDecompressedData, compressedSize, originalSize);
-
-					CborParserState state;
-					state.len = originalSize;
-					state.pData = pDecompressedData;
-					state.pEnd = pDecompressedData + state.len;
-					state.pCurrent = state.pData;
-
-					ParseCborValue(L, state);
-				}
-				else {
-					luaL_error(L, "Unexpected data for deserializing, corrupt or not made from polybox serialization?");
-				}
-			} 
-		}
-		return 1;
 	}
 
-	luaL_error(L, "Expected string or buffer to deserialize");
+	if (needsFree) {
+		FreeString(decoded);
+	}
 	return 1;
 }
 

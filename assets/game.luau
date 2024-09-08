@@ -100,8 +100,11 @@ function Start()
 	-- print("\nDeserialized:")
 	-- local parsedBinTable = deserialize(bin)
 
+	local data = --[[poly, type=2]]{i=432}
+	print(data.i)
+
 	print("\nSerialized:")
-	local bin = serialize(2, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	local bin = serialize(0x1, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
 	print(bin)
 	print("\nDeserialized:")
 	local parsed = deserialize(bin)
@@ -109,10 +112,24 @@ function Start()
 
 
 	print("\nSerialized Compressed:")
-	local binSmall = serialize(3, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	local binSmall = serialize(0x3, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
 	print(binSmall)
 	print("\nDeserialized Compressed:")
 	parsed = deserialize(binSmall)
+	printTable(parsed)
+
+	print("\nSerialized Compressed b64:")
+	local binB64 = serialize(0x7, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	print(binB64)
+	print("\nDeserialized Compressed b64:")
+	parsed = deserialize(binB64)
+	printTable(parsed)
+
+	print("\nSerialized non compressed b64:")
+	local binDB64 = serialize(0x5, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	print(binDB64)
+	print("\nDeserialized non compressed b64:")
+	parsed = deserialize(binDB64)
 	printTable(parsed)
 
     -- EnableMouseRelativeMode(true)

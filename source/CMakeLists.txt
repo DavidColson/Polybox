@@ -44,6 +44,7 @@ target_link_libraries(polybox PUBLIC
 	Luau.VM
 	Luau.Analysis
 	common_lib 
+	lz4
 	FreeType 
 	SDL2 
 	SDL2main
@@ -60,6 +61,7 @@ target_include_directories(polybox PUBLIC
 	"${PROJ_ROOT_PATH}/source/third_party/SDL2/include/"
 	"${PROJ_ROOT_PATH}/source/third_party/sokol/"
 	"${PROJ_ROOT_PATH}/source/third_party/stb/"
+	"${PROJ_ROOT_PATH}/source/third_party/lz4/"
 	"${PROJ_ROOT_PATH}/source/common_lib/source")
 
 target_link_directories(polybox PUBLIC

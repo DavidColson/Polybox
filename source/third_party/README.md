@@ -41,3 +41,10 @@ Removed the fips files and some extraneous text files
 - Version: Pulled at change f75e8d1
 
 Just stb_image used here, everything else removed
+
+## lz4
+
+- Source: https://github.com/lz4/lz4/
+- Version: v1.10.0
+
+Just the base lz4 files here, everything else removed and a custom cmakelists for it

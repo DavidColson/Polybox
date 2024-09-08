@@ -13,6 +13,7 @@
 #include <log.h>
 #include <scanning.h>
 #include <cstring>
+#include <lz4.h>
 
 namespace Serialization {
 
@@ -373,7 +374,7 @@ i32 Serialize(lua_State* L) {
 		lua_pushstring(L, result.pData);
 
 	// Binary (cbor) serialization
-	} else if (mode == 2) {
+	} else if (mode == 2 || mode == 3) {
 		ResizableArray<u8> result;
 		SerializeCborRecursive(L, result);
 
@@ -383,15 +384,43 @@ i32 Serialize(lua_State* L) {
 				g_Allocator.Free(pBuffer->pData);
 			}
 		});
-		pBuffer->width = result.count;
 		pBuffer->height = 1;
 		pBuffer->type = BufferLib::Type::Uint8;
-		i32 bufSize = result.count * sizeof(u8);
-		pBuffer->pData = (char*)g_Allocator.Allocate(bufSize);
-		memcpy(pBuffer->pData, result.pData, result.count);
+
+		if (mode == 3) {
+			i32 srcSize = result.count;
+
+			if (srcSize >= LZ4_MAX_INPUT_SIZE) {
+				luaL_error(L, "Data is too large to compress, what are you doing with 2gb of data?");
+			}
+
+			size compressBound = LZ4_compressBound(srcSize);
+			u8* stagingBuffer = (u8*)g_Allocator.Allocate(compressBound);
+			i32 compressedSize = LZ4_compress_default((char*)result.pData, (char*)stagingBuffer, srcSize, compressBound);
+			if (compressedSize == 0) {
+				g_Allocator.Free(stagingBuffer);
+				luaL_error(L, "Compression failed");
+			}	
+
+			pBuffer->width = compressedSize + 1 + 4 + 4;
+			pBuffer->pData = (ubyte*)g_Allocator.Allocate(pBuffer->width);
+
+			pBuffer->pData[0] = 0xBC;									// write magic number to identify compressed data
+			MemcpyLE((u8*)pBuffer->pData+1, (u8*)&compressedSize, 4); 		// write compressed size
+			MemcpyLE((u8*)pBuffer->pData+5, (u8*)&srcSize, 4); 				// write original size
+			MemcpyLE((u8*)pBuffer->pData+9, stagingBuffer, compressedSize); 	// write compressed data
+			g_Allocator.Free(stagingBuffer);
+		}
+		else {
+			pBuffer->width = result.count + 1;
+			pBuffer->pData = (ubyte*)g_Allocator.Allocate(pBuffer->width);
+
+			pBuffer->pData[0] = 0xBD;									// write magic number to identify uncompressed data
+			MemcpyLE((u8*)pBuffer->pData+1, result.pData, result.count); 	// write uncompressed data
+		}
+
 		luaL_getmetatable(L, "Buffer");
 		lua_setmetatable(L, -2);
-
 		result.Free();
 	}
 	return 1;
@@ -536,7 +565,7 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 
 	// Actually alloc the buffer
 	i32 bufSize = pBuffer->width * pBuffer->height * typeSize;
-	pBuffer->pData = (char*)g_Allocator.Allocate(bufSize);
+	pBuffer->pData = (ubyte*)g_Allocator.Allocate(bufSize);
 	memset(pBuffer->pData, 0, bufSize); 
 
 	if (!Scan::Match(scan, ','))
@@ -755,7 +784,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 					case BufferLib::Type::Int16: bufSize *= sizeof(i16); break;
 					case BufferLib::Type::Uint8: bufSize *= sizeof(u8); break;
 				}
-				pBuffer->pData = (char*)g_Allocator.Allocate(bufSize);
+				pBuffer->pData = (ubyte*)g_Allocator.Allocate(bufSize);
 				MemcpyLE((u8*)pBuffer->pData, (u8*)state.pCurrent, bufSize);
 				state.pCurrent += bufSize;
 
@@ -813,6 +842,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 				break;
 			}
 			case 6: // unsupported
+				break;
 			case 7: { // floats and bools
 				if (additionalInfo == 20) {
 					lua_pushboolean(L, false);
@@ -854,7 +884,7 @@ int Deserialize(lua_State* L) {
 		Scan::ScanningState scan;
 		scan.pTextStart = str;
 		scan.pTextEnd = str + len;
-		scan.pCurrent = (byte*)scan.pTextStart;
+		scan.pCurrent = (char*)scan.pTextStart;
 		scan.line = 1;
 
 		ParseTextValue(L, scan);
@@ -870,13 +900,40 @@ int Deserialize(lua_State* L) {
 				if (pBuf->height > 1 || pBuf->type != BufferLib::Type::Uint8)
 					luaL_error(L, "Buffer passed into deserialize is not suitable for parsing, must be u8 and one dimensional");
 
-				CborParserState state;
-				state.len = pBuf->width;
-				state.pData = (u8*)pBuf->pData;
-				state.pEnd = state.pData + state.len;
-				state.pCurrent = state.pData;
+				if (pBuf->pData[0] == 0xBD) {
+					CborParserState state;
+					state.len = pBuf->width-1;
+					state.pData = (u8*)pBuf->pData+1;
+					state.pEnd = state.pData + state.len;
+					state.pCurrent = state.pData;
 
-				ParseCborValue(L, state);
+					ParseCborValue(L, state);
+				} 
+				else if (pBuf->pData[0] == 0xBC) {
+					i32 compressedSize;
+					i32 originalSize;
+					ubyte* pData;
+
+					MemcpyLE((u8*)&compressedSize, (u8*)pBuf->pData+1, 4);
+					MemcpyLE((u8*)&originalSize, (u8*)pBuf->pData+5, 4);
+					pData = pBuf->pData+9;
+
+					u8* pDecompressedData = (u8*)g_Allocator.Allocate(originalSize);
+					defer(g_Allocator.Free(pDecompressedData));
+
+					LZ4_decompress_safe((char*)pData, (char*)pDecompressedData, compressedSize, originalSize);
+
+					CborParserState state;
+					state.len = originalSize;
+					state.pData = pDecompressedData;
+					state.pEnd = pDecompressedData + state.len;
+					state.pCurrent = state.pData;
+
+					ParseCborValue(L, state);
+				}
+				else {
+					luaL_error(L, "Unexpected data for deserializing, corrupt or not made from polybox serialization?");
+				}
 			} 
 		}
 		return 1;

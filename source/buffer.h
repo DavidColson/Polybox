@@ -18,7 +18,7 @@ struct Buffer {
 	i32 width;
 	i32 height;
 	Type type;
-	char* pData;
+	ubyte* pData;
 };
 
 void BindBuffer(lua_State* L);

@@ -133,7 +133,7 @@ i32 NewBufferImpl(lua_State* L, const char* type, i32 width, i32 height) {
 	}
 
 	i32 bufSize = width * height * typeSize;
-	pBuffer->pData = (char*)g_Allocator.Allocate(bufSize);
+	pBuffer->pData = (ubyte*)g_Allocator.Allocate(bufSize);
 	memset(pBuffer->pData, 0, bufSize); 
 
 	pBuffer->width = width;

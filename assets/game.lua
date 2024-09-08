@@ -91,9 +91,8 @@ function Start()
 	-- printTable(newTable)
 	-- print("This should be 44: " .. newTable.intBuf[2])
 
-	print(bufferInts)
-	print(bufferFloats)
-	print(serialize(1, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878}))
+	-- print(bufferInts)
+	-- print(bufferFloats)
 
 	-- print("\nSerialized:")
 	-- local bin = serialize(2, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
@@ -106,6 +105,14 @@ function Start()
 	print(bin)
 	print("\nDeserialized:")
 	local parsed = deserialize(bin)
+	printTable(parsed)
+
+
+	print("\nSerialized Compressed:")
+	local binSmall = serialize(3, { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878})
+	print(binSmall)
+	print("\nDeserialized Compressed:")
+	parsed = deserialize(binSmall)
 	printTable(parsed)
 
     -- EnableMouseRelativeMode(true)

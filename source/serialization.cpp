@@ -234,7 +234,7 @@ void CborEncode(ResizableArray<u8>& output, u8 majorType, u8* pData, size dataSi
 	}
 
 	// Allocate more space in output if needed
-	output.Reserve(output.GrowCapacity(output.capacity + requiredSize));
+	output.Reserve(output.GrowCapacity(output.count + requiredSize));
 
 	output.pData[output.count] = (u8)majorType << 5 | additionalInfo;
 	MemcpyBE(&output.pData[output.count+1], (u8*)&dataSize, followingBytes);
@@ -339,14 +339,14 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
 			if ((f64)single == value) {
 				// can be safely stored in single
 				size requiredSize = 5;
-				output.Reserve(output.GrowCapacity(output.capacity + requiredSize));
+				output.Reserve(output.GrowCapacity(output.count + requiredSize));
 				output.pData[output.count] = majorType << 5 | 26;
 				MemcpyBE(&output.pData[output.count+1], (u8*)&single, 4);
 				output.count += requiredSize;
 			} else {
 				// Needs double precision
 				size requiredSize = 9;
-				output.Reserve(output.GrowCapacity(output.capacity + requiredSize));
+				output.Reserve(output.GrowCapacity(output.count + requiredSize));
 				output.pData[output.count] = majorType << 5 | 27;
 				MemcpyBE(&output.pData[output.count+1], (u8*)&value, 8);
 				output.count += requiredSize;

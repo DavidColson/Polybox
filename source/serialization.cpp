@@ -467,7 +467,7 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan);
 
 // ***********************************************************************
 
-void ParseTextTable(lua_State* L, Scan::ScanningState& scan) {
+void ParseTextTable(lua_State* L, Scan::ScanningState& scan, bool isMetadata = false) {
 	lua_newtable(L);
 	i32 arrayIndex = 1;
 
@@ -544,7 +544,10 @@ void ParseTextTable(lua_State* L, Scan::ScanningState& scan) {
 		}
 
 		if (c != ',') {
-			if (c == '}') {
+			if (isMetadata && strcmp(scan.pCurrent-1, "]]")) {
+				return; // end of metadata table
+			}
+			else if (c == '}') {
 				return; // table should already be top of stack
 			}
 			luaL_error(L, "Expected '}' to end table", size(scan.pCurrent - scan.pTextStart));
@@ -742,6 +745,7 @@ void ParseTextValue(lua_State* L, Scan::ScanningState& scan) {
 			ParseTextTable(L, scan);
 			return;
 		}
+	
 
 		luaL_error(L, "Unexpected character in data to serialize. At location %i", size(scan.pCurrent - scan.pTextStart));
 	}
@@ -930,9 +934,9 @@ int Deserialize(lua_State* L) {
 	usize len;
 	const char* str = luaL_checklstring(L, 1, &len);
 
+	// find metadata if possible
 	char* start = (char*)str;
 	if (strncmp(str, "--[[poly,", 9) == 0) {
-
 		while (true) {
 			if (strncmp(start, "]]", 2) == 0) {
 				start += 2;
@@ -946,8 +950,8 @@ int Deserialize(lua_State* L) {
 	i32 dataLen = len - metaDataLen;
 
 	String metaData;
-	metaData.pData = (char*)str;
-	metaData.length = metaDataLen;
+	metaData.pData = (char*)str + 9; // 9 is the length of '--[[poly,'
+	metaData.length = metaDataLen - 9;
 
 	String decoded;
 	bool needsFree = false;
@@ -1009,10 +1013,21 @@ int Deserialize(lua_State* L) {
 		ParseTextValue(L, scan);
 	}
 
+	// parse metadata
+	if (metaData.length > 0) {
+		Scan::ScanningState scan;
+		scan.pTextStart = metaData.pData;
+		scan.pTextEnd = metaData.pData + metaData.length;
+		scan.pCurrent = (char*)scan.pTextStart;
+		scan.line = 1;
+
+		ParseTextTable(L, scan, true);
+	}
+
 	if (needsFree) {
 		FreeString(decoded);
 	}
-	return 1;
+	return metaData.length > 0 ? 2 : 1;
 }
 
 // ***********************************************************************

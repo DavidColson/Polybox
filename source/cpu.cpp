@@ -19,8 +19,11 @@
 static const String polyboxDefinitions = R"POLY_LIBS(
 --- Serialization API
 
-@checked declare function serialize(format: number, value: any, metadata: any?): string
+@checked declare function serialize(value: any, format: number, metadata: any?): string
 @checked declare function deserialize(value: string): (any, any?)
+
+@checked declare function store(filename: string, value: any, format: number, metadata: any?)
+@checked declare function load(filename: string): (any, any?)
 
 --- Buffer API
 

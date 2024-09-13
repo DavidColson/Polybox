@@ -15,6 +15,7 @@
 #include <cstring>
 #include <lz4.h>
 #include <base64.h>
+#include <SDL_rwops.h>
 
 namespace Serialization {
 
@@ -369,20 +370,23 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
 // ***********************************************************************
 
 i32 Serialize(lua_State* L) {
+	bool isStore = false;
+	if (lua_isstring(L, 1))
+		isStore = true;
 
-	i32 mode = (i32)luaL_checknumber(L, 1);
+	i32 mode = (i32)luaL_checknumber(L, isStore ? 3 : 2);
 
 	String metaData;
 	defer(FreeString(metaData));
 
-	if (lua_gettop(L) == 3) {
+	if (lua_gettop(L) >= 3) {
 		StringBuilder builder;
 		SerializeTextRecursive(L, builder, true);
 		metaData = builder.CreateString();
-
-		// meta data passed in, so need to move the actual value to the top
-		lua_pushvalue(L, -2);
 	}
+
+	// put the value on the top of the stack for the following functions
+	lua_pushvalue(L, isStore ? 2:1);
 
 	// Text serialization
 	if (mode == 0x0) {
@@ -932,7 +936,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 
 int Deserialize(lua_State* L) {
 	usize len;
-	const char* str = luaL_checklstring(L, 1, &len);
+	const char* str = luaL_checklstring(L, -1, &len);
 
 	// find metadata if possible
 	char* start = (char*)str;
@@ -1032,11 +1036,49 @@ int Deserialize(lua_State* L) {
 
 // ***********************************************************************
 
+int Store(lua_State* L) {
+	usize filenameLen;
+	const char* filename = luaL_checklstring(L, 1, &filenameLen);
+
+	Serialize(L);
+
+	// string is now on the stack
+	usize contentLen;
+	const char* content = lua_tolstring(L, -1, &contentLen);
+
+	SDL_RWops* pFile = SDL_RWFromFile(filename, "wb");
+	SDL_RWwrite(pFile, content, contentLen, 1);
+	SDL_RWclose(pFile);
+	return 0;
+}
+
+// ***********************************************************************
+
+int Load(lua_State* L) {
+	usize filenameLen;
+	const char* filename = luaL_checklstring(L, 1, &filenameLen);
+
+    SDL_RWops* pFile = SDL_RWFromFile(filename, "rb");
+
+    u64 fileSize = SDL_RWsize(pFile);
+    char* pFileContent = (char*)g_Allocator.Allocate(fileSize * sizeof(char));
+	defer(g_Allocator.Free(pFileContent));
+    SDL_RWread(pFile, pFileContent, fileSize, 1);
+    SDL_RWclose(pFile);
+
+	lua_pushlstring(L, pFileContent, fileSize);
+	return Deserialize(L);
+}
+
+// ***********************************************************************
+
 void BindSerialization(lua_State* L) {
 	// register global functions
 	const luaL_Reg globalFuncs[] = {
 		{ "serialize", Serialize },
 		{ "deserialize", Deserialize },
+		{ "store", Store },
+		{ "load", Load },
 		{ NULL, NULL }
 	};
 

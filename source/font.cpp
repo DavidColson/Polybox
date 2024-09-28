@@ -19,6 +19,13 @@ FT_Library* Get();
 
 // ***********************************************************************
 
+Font::~Font() {
+	if (pArena)
+		ArenaFinished(pArena);
+}
+
+// ***********************************************************************
+
 void FontTextureFreeCallback(void* ptr, void* userData) {
     byte* pTextureData = (byte*)ptr;
     delete[] pTextureData;  // TODO: replace with our allocators
@@ -26,7 +33,10 @@ void FontTextureFreeCallback(void* ptr, void* userData) {
 
 // ***********************************************************************
 
-Font::Font(String path, bool antialiasing, f32 weight) {
+void Font::Initialize(String path, bool antialiasing, f32 weight) {
+	// temporary solution, the font data will eventually be stored in lua as a table
+	characters.pArena = pArena;
+
     FT_Library freetype;
     FT_Init_FreeType(&freetype);
 
@@ -65,8 +75,7 @@ Font::Font(String path, bool antialiasing, f32 weight) {
     pTextureDataAsR8 = new byte[texHeight * texWidth];  // TODO: replace with our allocators
     memset(pTextureDataAsR8, 0, texHeight * texWidth);
 
-    ResizableArray<Packing::Rect> rects;
-    defer(rects.Free());
+    ResizableArray<Packing::Rect> rects(g_pArenaFrame);
 
     FT_Set_Char_Size(face, 32 * 64, 32 * 64, 0, 0);
 
@@ -78,7 +87,7 @@ Font::Font(String path, bool antialiasing, f32 weight) {
         newRect.h = face->glyph->bitmap.rows + 1;
         rects.PushBack(newRect);
     }
-    Packing::SkylinePackRects(rects, texWidth, texHeight);
+    Packing::SkylinePackRects(g_pArenaFrame, rects, texWidth, texHeight);
 
     for (int i = 0; i < 128; i++) {
         Packing::Rect& rect = rects[i];

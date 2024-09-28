@@ -325,6 +325,7 @@ declare Key: {
 namespace Cpu {
 
 struct State {
+	Arena* pArena;
 	lua_State* pProgramState;
 };
 
@@ -374,21 +375,22 @@ struct LuaFileResolver : Luau::FileResolver {
 
 // ***********************************************************************
 
-static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize)
-{
+static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize) {
+	// TODO: lua VM memory tracking?
     if (nsize == 0) {
-		free(ptr);
+		RawFree(ptr);
         return nullptr;
     } else {
-        return realloc(ptr, nsize);
+        return RawRealloc(ptr, nsize, osize, true);
     }
 }
 
 // ***********************************************************************
 
 void Init() {
-	pState = (State*)g_Allocator.Allocate(sizeof(State));
-    SYS_P_NEW(pState) State();
+	Arena* pArena = ArenaCreate();
+	pState = New(pArena, State);
+	pState->pArena = pArena;
 }
 
 // ***********************************************************************
@@ -468,7 +470,7 @@ void CompileAndLoadProgram(String path) {
 	if (wasError == false) {
 		SDL_RWops* pFileRead = SDL_RWFromFile(path.pData, "rb");
 		u64 sourceSize = SDL_RWsize(pFileRead);
-		char* pSource = (char*)g_Allocator.Allocate(sourceSize * sizeof(char));
+		char* pSource = New(g_pArenaFrame, char, sourceSize);
 		SDL_RWread(pFileRead, pSource, sourceSize, 1);
 		pSource[sourceSize] = '\0';
 		SDL_RWclose(pFileRead);
@@ -487,8 +489,6 @@ void CompileAndLoadProgram(String path) {
 			lua_pop(L, 1);
 		}
 	}
-
-
 }
 
 // ***********************************************************************

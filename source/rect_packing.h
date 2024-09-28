@@ -18,5 +18,5 @@ struct Rect {
 };
 
 void RowPackRects(ResizableArray<Rect>& rects, i32 width, i32 height);
-void SkylinePackRects(ResizableArray<Rect>& rects, i32 width, i32 height);
+void SkylinePackRects(Arena* pScratchMem, ResizableArray<Rect>& rects, i32 width, i32 height);
 }

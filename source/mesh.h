@@ -27,12 +27,14 @@ struct Primitive : public LuaObject {
 struct Mesh : public LuaObject {
     virtual ~Mesh();
 
+	Arena* pArena;
+
     String name;
     ResizableArray<Primitive> primitives;
 
     i32 GetNumPrimitives();
     Primitive* GetPrimitive(int index);
 
-    static ResizableArray<Mesh*> LoadMeshes(const char* filePath);
-    static ResizableArray<Image*> LoadTextures(const char* filePath);
+    static ResizableArray<Mesh*> LoadMeshes(Arena* pArena, const char* filePath);
+    static ResizableArray<Image*> LoadTextures(Arena* pArena, const char* filePath);
 };

@@ -1,5 +1,8 @@
 #include "graphics_platform.h"
 
+// windows headers don't compile with conformant preprocessor enabled
+// absolute nonesense I know
+#pragma warning (disable : 5105)
 #include "d3d11.h"
 #include "dxgi.h"
 

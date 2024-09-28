@@ -40,13 +40,15 @@ struct DrawCommand {
 };
 
 struct RenderState {
-	Vec2f targetResolution { Vec2f(320.0f, 240.0f) };
+	Arena* pArena;
+
+	Vec2f targetResolution;
 
 	// Drawing state
 	ERenderMode mode { ERenderMode::None };
 	EPrimitiveType typeState;
 	ResizableArray<VertexData> vertexState;
-	Vec4f vertexColorState { Vec4f(1.0f, 1.0f, 1.0f, 1.0f) };
+	Vec4f vertexColorState { Vec4f(0.0f, 0.0f, 0.0f, 0.0f) };
 	Vec2f vertexTexCoordState { Vec2f(0.0f, 0.0f) };
 	Vec3f vertexNormalState { Vec3f(0.0f, 0.0f, 0.0f) };
 
@@ -60,8 +62,8 @@ struct RenderState {
 	Vec3f lightAmbientState { Vec3f(0.0f, 0.0f, 0.0f) };
 
 	bool fogState { false };
-	Vec2f fogDepths { Vec2f(1.0f, 10.0f) };
-	Vec3f fogColor { Vec3f(0.25f, 0.25f, 0.25f) };
+	Vec2f fogDepths { Vec2f(0.0f, 0.0f) };
+	Vec3f fogColor { Vec3f(0.f, 0.f, 0.f) };
 
 	Image* pTextureState;
 
@@ -71,7 +73,6 @@ struct RenderState {
 	ResizableArray<DrawCommand> drawList2D;
 	ResizableArray<VertexData> perFrameVertexBuffer;
 	ResizableArray<u16> perFrameIndexBuffer;
-
 	
 	// Sokol rendering data
 	
@@ -237,8 +238,17 @@ void CreateFullScreenQuad(f32 _textureWidth, f32 _textureHeight, f32 _texelHalf,
 // ***********************************************************************
 
 void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
-	pState = (RenderState*)g_Allocator.Allocate(sizeof(RenderState));
-    SYS_P_NEW(pState) RenderState();
+	Arena* pArena = ArenaCreate();
+	pState = New(pArena, RenderState);
+	pState->pArena = pArena;
+
+	pState->vertexState.pArena = pArena;
+	pState->drawList3D.pArena = pArena;
+	pState->drawList2D.pArena = pArena;
+	pState->perFrameVertexBuffer.pArena = pArena;
+	pState->perFrameIndexBuffer.pArena = pArena;
+
+	pState->targetResolution = Vec2f(320.0f, 240.0f);
 
 	// init_backend stuff
 	GraphicsBackendInit(pWindow, winWidth, winHeight);
@@ -247,7 +257,9 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 	};
 	sg_setup(&desc);
 
-	pState->defaultFont = Font("assets/Roboto-Bold.ttf");
+	PlacementNew(&pState->defaultFont) Font();
+	pState->defaultFont.pArena = pArena;
+	pState->defaultFont.Initialize("assets/Roboto-Bold.ttf");
 
 	// Create white texture for non textured draws
 	{
@@ -612,8 +624,7 @@ void EndObject2D() {
     }
 	pState->drawList2D.PushBack(cmd);
 
-	// TODO: can probably reuse this memory, don't need to free
-    pState->vertexState.Free();
+    pState->vertexState.count = 0;
     pState->vertexColorState = Vec4f(1.0f);
     pState->vertexTexCoordState = Vec2f();
     pState->vertexNormalState = Vec3f();
@@ -670,10 +681,8 @@ void EndObject3D() {
 				// the purpose of this is to make same vertices share the same normal vector that gets averaged from the nearby polygons
                 // Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list.
 
-                ResizableArray<VertexData> uniqueVerts;
-                defer(uniqueVerts.Free());
-                ResizableArray<u16> indices;
-                defer(indices.Free());
+                ResizableArray<VertexData> uniqueVerts(g_pArenaFrame);
+                ResizableArray<u16> indices(g_pArenaFrame);
                 for (size i = 0; i < pState->vertexState.count; i++) {
                     VertexData* pVertData = uniqueVerts.Find(pState->vertexState[i]);
                     if (pVertData == uniqueVerts.end()) {
@@ -768,8 +777,7 @@ void EndObject3D() {
     }
 	pState->drawList3D.PushBack(cmd);
 
-	// TODO: can probably reuse this memory, don't need to free
-    pState->vertexState.Free();
+    pState->vertexState.count = 0;
     pState->vertexColorState = Vec4f(1.0f);
     pState->vertexTexCoordState = Vec2f();
     pState->vertexNormalState = Vec3f();

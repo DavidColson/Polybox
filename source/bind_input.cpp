@@ -89,7 +89,6 @@ int LuaGetKeyUp(lua_State* pLua) {
 
 int LuaInputString(lua_State* pLua) {
     String input = InputString();
-    defer(FreeString(input));
     lua_pushstring(pLua, input.pData);
     return 1;
 }

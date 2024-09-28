@@ -16,6 +16,7 @@
 #include <lz4.h>
 #include <base64.h>
 #include <SDL_rwops.h>
+#include <stdlib.h>
 
 namespace Serialization {
 
@@ -377,12 +378,11 @@ i32 Serialize(lua_State* L) {
 	i32 mode = (i32)luaL_checknumber(L, isStore ? 3 : 2);
 
 	String metaData;
-	defer(FreeString(metaData));
 
 	if (lua_gettop(L) >= 3) {
-		StringBuilder builder;
+		StringBuilder builder(g_pArenaFrame);
 		SerializeTextRecursive(L, builder, true);
-		metaData = builder.CreateString();
+		metaData = builder.CreateString(g_pArenaFrame);
 	}
 
 	// put the value on the top of the stack for the following functions
@@ -390,23 +390,21 @@ i32 Serialize(lua_State* L) {
 
 	// Text serialization
 	if (mode == 0x0) {
-		StringBuilder builder;
+		StringBuilder builder(g_pArenaFrame);
 
 		if (metaData.length != 0)
 			builder.Append(metaData);
 
 		SerializeTextRecursive(L, builder);
 
-		String result = builder.CreateString();
-		defer(FreeString(result));
+		String result = builder.CreateString(g_pArenaFrame);
 
 		// return string of serialized code
 		lua_pushstring(L, result.pData);
 		return 1;
 	}
 
-	ResizableArray<u8> output;
-	defer(output.Free());
+	ResizableArray<u8> output(g_pArenaFrame);
 
 	// if binary, then serialize to cbor into output
 	if (mode & 0x1 || mode & 0x2 || mode & 0x4) {
@@ -422,12 +420,10 @@ i32 Serialize(lua_State* L) {
 		size compressBound = LZ4_compressBound(srcSize);
 		u8* pData = output.pData + 1; // skip the binary identifier bit
 
-		u8* stagingBuffer = (u8*)g_Allocator.Allocate(compressBound);
-		defer(g_Allocator.Free(stagingBuffer));
+		u8* stagingBuffer = New(g_pArenaFrame, u8, compressBound);
 
 		i32 compressedSize = LZ4_compress_default((char*)pData, (char*)stagingBuffer, srcSize, compressBound);
 		if (compressedSize == 0) {
-			g_Allocator.Free(stagingBuffer);
 			luaL_error(L, "Compression failed");
 		}	
 
@@ -443,8 +439,7 @@ i32 Serialize(lua_State* L) {
 
 	// base 64 encoded binary
 	if (mode & 0x4) {
-		String encoded = EncodeBase64(output.count, output.pData, &g_Allocator);
-		defer(FreeString(encoded));
+		String encoded = EncodeBase64(g_pArenaFrame, output.count, output.pData);
 
 		output.count = 4 + encoded.length;
 		output.Reserve(output.GrowCapacity(output.count));
@@ -486,9 +481,7 @@ void ParseTextTable(lua_State* L, Scan::ScanningState& scan, bool isMetadata = f
 			while (Scan::IsAlphaNumeric(Scan::Peek(scan)))
 				Scan::Advance(scan);
 
-			String identifier = CopyCStringRange(start, scan.pCurrent, &g_Allocator);
-			defer(FreeString(identifier));
-
+			String identifier = CopyCStringRange(start, scan.pCurrent, g_pArenaFrame);
 
 			if (identifier == "true") {
 				lua_pushboolean(L, 1);
@@ -571,7 +564,7 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 	BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)lua_newuserdatadtor(L, sizeof(BufferLib::Buffer), [](void* pData) {
 		BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)pData;
 		if (pBuffer) {
-			g_Allocator.Free(pBuffer->pData);
+			RawFree(pBuffer->pData);
 		}
 	});
 
@@ -621,7 +614,7 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 
 	// Actually alloc the buffer
 	i32 bufSize = pBuffer->width * pBuffer->height * typeSize;
-	pBuffer->pData = (ubyte*)g_Allocator.Allocate(bufSize);
+	pBuffer->pData = RawNew(ubyte, bufSize);
 	memset(pBuffer->pData, 0, bufSize); 
 
 	if (!Scan::Match(scan, ','))
@@ -713,8 +706,7 @@ void ParseTextValue(lua_State* L, Scan::ScanningState& scan) {
 			while (Scan::IsAlphaNumeric(Scan::Peek(scan)))
 				Scan::Advance(scan);
 
-			String identifier = CopyCStringRange(pStart, scan.pCurrent, &g_Allocator);
-			defer(FreeString(identifier));
+			String identifier = CopyCStringRange(pStart, scan.pCurrent, g_pArenaFrame);
 
 			if (identifier == "true") 
 				lua_pushboolean(L, 1);
@@ -738,9 +730,8 @@ void ParseTextValue(lua_State* L, Scan::ScanningState& scan) {
 
 		//string
 		if (c == '\'' || c == '"') {
-			String string = ParseString(&g_Allocator, scan, '\"');
+			String string = ParseString(g_pArenaFrame, scan, '\"');
 			lua_pushstring(L, string.pData);
-			FreeString(string);
 			return;
 		}
 
@@ -823,7 +814,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 				BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)lua_newuserdatadtor(L, sizeof(BufferLib::Buffer), [](void* pData) {
 					BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)pData;
 					if (pBuffer) {
-						g_Allocator.Free(pBuffer->pData);
+						RawFree(pBuffer->pData);
 					}
 				});
 
@@ -841,7 +832,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 					case BufferLib::Type::Int16: bufSize *= sizeof(i16); break;
 					case BufferLib::Type::Uint8: bufSize *= sizeof(u8); break;
 				}
-				pBuffer->pData = (ubyte*)g_Allocator.Allocate(bufSize);
+				pBuffer->pData = RawNew(ubyte, bufSize);
 				MemcpyLE((u8*)pBuffer->pData, (u8*)state.pCurrent, bufSize);
 				state.pCurrent += bufSize;
 
@@ -857,8 +848,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 					MemcpyBE((u8*)&strlen, (u8*)state.pCurrent, followingBytes);
 					state.pCurrent += followingBytes;
 				}
-				String str = CopyCStringRange((char*)state.pCurrent, (char*)state.pCurrent + strlen, &g_Allocator);
-				defer(FreeString(str));
+				String str = CopyCStringRange((char*)state.pCurrent, (char*)state.pCurrent + strlen, g_pArenaFrame);
 
 				lua_pushstring(L, str.pData);
 				state.pCurrent += strlen;
@@ -958,7 +948,6 @@ int Deserialize(lua_State* L) {
 	metaData.length = metaDataLen - 9;
 
 	String decoded;
-	bool needsFree = false;
 
 	if (strncmp(start, "b64:", 4) == 0) {
 		// base64
@@ -966,8 +955,7 @@ int Deserialize(lua_State* L) {
 		base64.pData = (byte*)start + 4;
 		base64.length = dataLen - 4;
 
-		decoded = DecodeBase64(base64, &g_Allocator);
-		needsFree = true;
+		decoded = DecodeBase64(g_pArenaFrame, base64);
 	} else {
 		decoded.pData = (byte*)start;
 		decoded.length = dataLen;
@@ -993,8 +981,7 @@ int Deserialize(lua_State* L) {
 		MemcpyLE((u8*)&originalSize, (u8*)decoded.pData+5, 4);
 		pData = (ubyte*)decoded.pData+9;
 
-		u8* pDecompressedData = (u8*)g_Allocator.Allocate(originalSize);
-		defer(g_Allocator.Free(pDecompressedData));
+		u8* pDecompressedData = New(g_pArenaFrame, u8, originalSize);
 
 		LZ4_decompress_safe((char*)pData, (char*)pDecompressedData, compressedSize, originalSize);
 
@@ -1028,9 +1015,6 @@ int Deserialize(lua_State* L) {
 		ParseTextTable(L, scan, true);
 	}
 
-	if (needsFree) {
-		FreeString(decoded);
-	}
 	return metaData.length > 0 ? 2 : 1;
 }
 
@@ -1061,8 +1045,7 @@ int Load(lua_State* L) {
     SDL_RWops* pFile = SDL_RWFromFile(filename, "rb");
 
     u64 fileSize = SDL_RWsize(pFile);
-    char* pFileContent = (char*)g_Allocator.Allocate(fileSize * sizeof(char));
-	defer(g_Allocator.Free(pFileContent));
+    char* pFileContent = New(g_pArenaFrame, char, fileSize);
     SDL_RWread(pFile, pFileContent, fileSize, 1);
     SDL_RWclose(pFile);
 

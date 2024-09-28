@@ -106,7 +106,7 @@ i32 NewBufferImpl(lua_State* L, const char* type, i32 width, i32 height) {
 	Buffer* pBuffer = (Buffer*)lua_newuserdatadtor(L, sizeof(Buffer), [](void* pData) {
 		Buffer* pBuffer = (Buffer*)pData;
 		if (pBuffer) {
-			g_Allocator.Free(pBuffer->pData);
+			RawFree(pBuffer->pData);
 		}
 	});
 
@@ -133,7 +133,7 @@ i32 NewBufferImpl(lua_State* L, const char* type, i32 width, i32 height) {
 	}
 
 	i32 bufSize = width * height * typeSize;
-	pBuffer->pData = (ubyte*)g_Allocator.Allocate(bufSize);
+	pBuffer->pData = RawNew(ubyte, bufSize);
 	memset(pBuffer->pData, 0, bufSize); 
 
 	pBuffer->width = width;
@@ -284,7 +284,7 @@ i32 NewIndex(lua_State* L) {
 i32 ToString(lua_State* L) {
 	Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
 
-	StringBuilder builder;
+	StringBuilder builder(g_pArenaFrame);
 
 	switch(pBuffer->type) {
 		case BufferLib::Type::Float32: builder.Append("buffer(\"f32\""); break;
@@ -328,8 +328,7 @@ i32 ToString(lua_State* L) {
 	}
 	builder.Append("\")");
 
-	String result = builder.CreateString();
-	defer(FreeString(result));
+	String result = builder.CreateString(g_pArenaFrame);
 	lua_pushstring(L, result.pData);
 	return 1;
 }

@@ -105,7 +105,7 @@ i32 CanRectFit(ResizableArray<SkylineNode>& nodes, i32 atNode, i32 rectWidth, i3
 
 // ***********************************************************************
 
-void Packing::SkylinePackRects(ResizableArray<Rect>& rects, i32 width, i32 height) {
+void Packing::SkylinePackRects(Arena* pScratchMem, ResizableArray<Rect>& rects, i32 width, i32 height) {
     for (size i = 0; i < rects.count; i++) {
         rects[i].ordering = (int)i;
     }
@@ -117,8 +117,7 @@ void Packing::SkylinePackRects(ResizableArray<Rect>& rects, i32 width, i32 heigh
     i32 maxY = 0;
     i32 totalArea = 0;
 
-    ResizableArray<SkylineNode> nodes;
-    defer(nodes.Free());
+    ResizableArray<SkylineNode> nodes(pScratchMem);
 
     nodes.PushBack({ 0, 0, width });
 

@@ -12,6 +12,9 @@
 #include <platform_debug.h>
 #include <string_builder.h>
 #include <light_string.h>
+#include <memory_tracker.h>
+
+#include <stdlib.h>
 #undef DrawText
 #undef DrawTextEx
 
@@ -26,7 +29,7 @@ int ShowAssertDialog(String errorMsg) {
         { 0, 2, "Continue" },
     };
 
-    StringBuilder builder;
+    StringBuilder builder(g_pArenaFrame);
 
     builder.Append(errorMsg);
     builder.Append("\n");
@@ -34,11 +37,10 @@ int ShowAssertDialog(String errorMsg) {
 
     void* trace[100];
     usize frames = PlatformDebug::CollectStackTrace(trace, 100, 2);
-    String stackTrace = PlatformDebug::PrintStackTraceToString(trace, frames);
+    String stackTrace = PlatformDebug::PrintStackTraceToString(trace, frames, g_pArenaFrame);
     builder.Append(stackTrace);
 
-    String message = builder.CreateString();
-    defer(FreeString(message));
+    String message = builder.CreateString(g_pArenaFrame);
 
     const SDL_MessageBoxData messageboxdata = {
         SDL_MESSAGEBOX_ERROR,
@@ -76,6 +78,9 @@ void AssertHandler(Log::LogLevel level, String message) {
 
 int main(int argc, char* argv[]) {
 	{
+		g_pArenaFrame = ArenaCreate();
+		g_pArenaPermenant = ArenaCreate();
+
 		Log::LogConfig log;
 		log.critCrashes = false;
 		log.customHandler1 = AssertHandler;
@@ -145,13 +150,18 @@ int main(int argc, char* argv[]) {
 			DrawFrame(winWidth, winHeight);
 
 			deltaTime = f32(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();
+
+			ArenaReset(g_pArenaFrame);
 		}
 
 		Cpu::End();
 		Shutdown();
+
 	}
 	i32 n = ReportMemoryLeaks();
 	Log::Info("Memory Leak Reports %i leaks", n);
 
+	ArenaFinished(g_pArenaFrame);
+	ArenaFinished(g_pArenaPermenant);
 	return 0;
 }

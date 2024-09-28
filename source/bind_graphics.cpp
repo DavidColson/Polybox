@@ -526,7 +526,11 @@ int LuaNewFont(lua_State* pLua) {
 		}
 	});
 
-    *ppFont = new Font(path, antialiasing, weight);
+	Arena* pArena = ArenaCreate();
+	*ppFont = New(pArena, Font);
+	PlacementNew(*ppFont) Font();
+	(*ppFont)->pArena = pArena;
+    (*ppFont)->Initialize(path, antialiasing, weight);
 
     // Sets the metatable of this new userdata to the type's table
     luaL_getmetatable(pLua, "Font");

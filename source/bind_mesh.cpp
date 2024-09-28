@@ -120,8 +120,7 @@ int Mesh_GetPrimitive(lua_State* pLua) {
 int LoadMeshes(lua_State* pLua) {
     usize len;
     const char* path = luaL_checklstring(pLua, 1, &len);
-    ResizableArray<Mesh*> meshes = Mesh::LoadMeshes(path);
-    defer(meshes.Free());
+    ResizableArray<Mesh*> meshes = Mesh::LoadMeshes(g_pArenaFrame, path);
 
     // Create a table, and put all these mesh userdatas in there.
     lua_createtable(pLua, (int)meshes.count, 0);
@@ -153,8 +152,7 @@ int LoadMeshes(lua_State* pLua) {
 int LoadTextures(lua_State* pLua) {
     usize len;
     const char* path = luaL_checklstring(pLua, 1, &len);
-    ResizableArray<Image*> images = Mesh::LoadTextures(path);
-    defer(images.Free());
+    ResizableArray<Image*> images = Mesh::LoadTextures(g_pArenaFrame, path);
 
     // Create a table, and put all these mesh userdatas in there.
     lua_createtable(pLua, (int)images.count, 0);

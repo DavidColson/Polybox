@@ -50,10 +50,8 @@ int Primitive::GetMaterialTextureId() {
 // ***********************************************************************
 
 Mesh::~Mesh() {
-    primitives.Free([](Primitive& prim) {
-        prim.vertices.Free();
-    });
-    FreeString(name);
+	// releases all the primitive memory as well
+	ArenaFinished(pArena);
 }
 
 // ***********************************************************************
@@ -111,43 +109,42 @@ struct Accessor {
 
 // ***********************************************************************
 
-ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
-    ResizableArray<Mesh*> outMeshes;
+ResizableArray<Mesh*> Mesh::LoadMeshes(Arena* pArena, const char* filePath) {
+	// there's two uses of memory here, temporary working stuff, free'd inside this function
+	// and stuff that's returned. The returned stuff should use the give arena, everything else should use temp
+    ResizableArray<Mesh*> outMeshes(pArena);
 
     // Consider caching loaded json files somewhere since LoadScene and LoadMeshes are doing duplicate work here
     SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
     u64 size = SDL_RWsize(pFileRead);
-    char* pData = (char*)g_Allocator.Allocate(size * sizeof(char));
+	char* pData = New(g_pArenaFrame, char, size);
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
     String file;
-    defer(FreeString(file));
     file.pData = pData;
     file.length = size;
-    ;
-    JsonValue parsed = ParseJsonFile(file);
-    defer(parsed.Free());
+	
+    JsonValue parsed = ParseJsonFile(g_pArenaFrame, file);
 
     bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
     if (!validGltf)
         return ResizableArray<Mesh*>();
 
-    ResizableArray<Buffer> rawDataBuffers;
+    ResizableArray<Buffer> rawDataBuffers(g_pArenaFrame);
     JsonValue& jsonBuffers = parsed["buffers"];
     for (int i = 0; i < jsonBuffers.Count(); i++) {
         Buffer buf;
         buf.byteLength = jsonBuffers[i]["byteLength"].ToInt();
 
         String encodedBuffer = jsonBuffers[i]["uri"].ToString();
-        String decoded = DecodeBase64(encodedBuffer.SubStr(37));
+        String decoded = DecodeBase64(g_pArenaFrame, encodedBuffer.SubStr(37));
         buf.pBytes = decoded.pData;
 
         rawDataBuffers.PushBack(buf);
     }
 
-    ResizableArray<BufferView> bufferViews;
-    defer(bufferViews.Free());
+    ResizableArray<BufferView> bufferViews(g_pArenaFrame);
     JsonValue& jsonBufferViews = parsed["bufferViews"];
 
     for (int i = 0; i < jsonBufferViews.Count(); i++) {
@@ -160,8 +157,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
         bufferViews.PushBack(view);
     }
 
-    ResizableArray<Accessor> accessors;
-    defer(accessors.Free());
+    ResizableArray<Accessor> accessors(g_pArenaFrame);
     JsonValue& jsonAccessors = parsed["accessors"];
     accessors.Reserve(jsonAccessors.Count());
 
@@ -208,13 +204,20 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
     for (int i = 0; i < parsed["meshes"].Count(); i++) {
         JsonValue& jsonMesh = parsed["meshes"][i];
 
-        Mesh* pMesh = new Mesh();
+		Arena* pMeshArena = ArenaCreate();
+        Mesh* pMesh = New(pMeshArena, Mesh);
+		PlacementNew(pMesh) Mesh();
+		pMesh->pArena = pMeshArena;
+		pMesh->primitives.pArena = pMesh->pArena;
+        pMesh->primitives.Reserve(parsed["primitives"].Count());
+
         String meshName = jsonMesh.HasKey("name") ? jsonMesh["name"].ToString() : String("");
-        pMesh->name = CopyString(meshName);
+        pMesh->name = CopyString(meshName, pMesh->pArena);
 
         for (int j = 0; j < jsonMesh["primitives"].Count(); j++) {
             JsonValue& jsonPrimitive = jsonMesh["primitives"][j];
             Primitive prim;
+			prim.vertices.pArena = pMesh->pArena;
 
             if (jsonPrimitive.HasKey("mode")) {
                 if (jsonPrimitive["mode"].ToInt() != 4) {
@@ -243,8 +246,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
             Vec2f* vertTexCoordBuffer = jsonAttr.HasKey("TEXCOORD_0") ? (Vec2f*)accessors[jsonAttr["TEXCOORD_0"].ToInt()].pBuffer : nullptr;
 
             // i32erlace vertex data
-            ResizableArray<VertexData> indexedVertexData;
-            defer(indexedVertexData.Free());
+            ResizableArray<VertexData> indexedVertexData(g_pArenaFrame);
             indexedVertexData.Reserve(nVerts);
             if (jsonAttr.HasKey("COLOR_0")) {
                 Vec4f* vertColBuffer = (Vec4f*)accessors[jsonAttr["COLOR_0"].ToInt()].pBuffer;
@@ -272,32 +274,28 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(const char* filePath) {
         outMeshes.PushBack(pMesh);
     }
 
-    rawDataBuffers.Free([](Buffer& buf) {
-        g_Allocator.Free(buf.pBytes);
-    });
-    return outMeshes;
+      return outMeshes;
 }
 
 // ***********************************************************************
 
-ResizableArray<Image*> Mesh::LoadTextures(const char* filePath) {
-    ResizableArray<Image*> outImages;
+ResizableArray<Image*> Mesh::LoadTextures(Arena* pArena, const char* filePath) {
+	// there's two uses of memory here, temporary working stuff, free'd inside this function
+	// and stuff that's returned. The returned stuff should use the give arena, everything else should use temp
+    ResizableArray<Image*> outImages(pArena);
 
     // Consider caching loaded json files somewhere since LoadScene/LoadMeshes/LoadImages are doing duplicate work here
     SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
     u64 size = SDL_RWsize(pFileRead);
-    char* pData = (char*)g_Allocator.Allocate(size * sizeof(char));
+	char* pData = New(g_pArenaFrame, char, size);
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
     String file;
-    defer(FreeString(file));
     file.pData = pData;
     file.length = size;
-    ;
 
-    JsonValue parsed = ParseJsonFile(file);
-    defer(parsed.Free());
+    JsonValue parsed = ParseJsonFile(g_pArenaFrame, file);
 
     bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
     if (!validGltf)
@@ -309,14 +307,14 @@ ResizableArray<Image*> Mesh::LoadTextures(const char* filePath) {
             JsonValue& jsonImage = parsed["images"][i];
             String type = jsonImage["mimeType"].ToString();
 
-            StringBuilder builder;
+            StringBuilder builder(g_pArenaFrame);
             builder.Append("assets/");
             builder.Append(jsonImage["name"].ToString());
             builder.Append(".");
             builder.Append(type.SubStr(6, 4));
 
-            String imagePath = builder.CreateString();
-            defer(FreeString(imagePath));
+            String imagePath = builder.CreateString(g_pArenaFrame);
+			// bad, don't use new, fix this
             Image* pImage = new Image(imagePath);
             outImages.PushBack(pImage);
         }

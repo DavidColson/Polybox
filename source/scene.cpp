@@ -117,10 +117,7 @@ void Node::UpdateWorldTransforms() {
 // ***********************************************************************
 
 Scene::~Scene() {
-    nodes.Free([](Node& node) {
-        FreeString(node.name);
-        node.children.Free();
-    });
+	ArenaFinished(pArena);
 }
 
 // ***********************************************************************
@@ -145,9 +142,10 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& o
         // extract the nodes
         outNodes.PushBack(Node());
         Node& node = outNodes[outNodes.count - 1];
+		node.children.pArena = pScene->pArena;
 
         String nodeName = jsonNode.HasKey("name") ? jsonNode["name"].ToString() : String("");
-        node.name = CopyString(nodeName);
+        node.name = CopyString(nodeName, pScene->pArena);
 
         node.meshId = UINT32_MAX;
 
@@ -202,20 +200,22 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& o
 Scene* Scene::LoadScene(const char* filePath) {
     SDL_RWops* pFileRead = SDL_RWFromFile(filePath, "rb");
 
-    Scene* pScene = new Scene();  // TODO: Use our allocators
+	Arena* pArena = ArenaCreate();
+	Scene* pScene = New(pArena, Scene);
+	PlacementNew(pScene) Scene();
+	pScene->pArena = pArena;
+	pScene->nodes.pArena = pArena;
 
     u64 size = SDL_RWsize(pFileRead);
-    char* pData = (char*)g_Allocator.Allocate(size * sizeof(char));
+    char* pData = New(g_pArenaFrame, char, size);
     SDL_RWread(pFileRead, pData, size, 1);
     SDL_RWclose(pFileRead);
 
     String file;
-    defer(FreeString(file));
     file.pData = pData;
     file.length = size;
 
-    JsonValue parsed = ParseJsonFile(file);
-    defer(parsed.Free());
+    JsonValue parsed = ParseJsonFile(g_pArenaFrame, file);
 
     bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
     if (!validGltf)

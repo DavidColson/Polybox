@@ -57,6 +57,8 @@ struct Node : public LuaObject {
 struct Scene : public LuaObject {
     virtual ~Scene();
 
+	Arena* pArena;
+
     i32 GetNumNodes();
     Node* GetNode(int index);
 

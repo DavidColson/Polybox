@@ -153,6 +153,7 @@ function Update(deltaTime: number)
     EnableFog(true)
     SetFogStart(3.0)
     SetFogEnd(15.0)
+	SetFogColor(0.25, 0.25, 0.25)
 
     for i = 1, state.tankScene:GetNumNodes(), 1 do
         local node: Node = state.tankScene:GetNode(i)

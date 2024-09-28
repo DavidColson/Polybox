@@ -19,9 +19,12 @@ struct Character {
 };
 
 struct Font : public LuaObject {
-    Font() {}
-    Font(String path, bool antialiasing = true, f32 weight = 0.0f);
+	Font() {}
+	virtual ~Font();
 
+	void Initialize(String path, bool antialiasing = true, f32 weight = 0.0f);
+
+	Arena* pArena;
     Image fontTexture;
     ResizableArray<Character> characters;
 };

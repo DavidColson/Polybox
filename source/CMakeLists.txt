@@ -1,4 +1,8 @@
 
+if(MSVC)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:preprocessor")
+endif()
+
 set(SOURCES 
 	"bind_input.cpp"
 	"bind_input.h"
@@ -72,6 +76,8 @@ target_compile_definitions(polybox PUBLIC
 	__STDC_LIMIT_MACROS
 	__STDC_FORMAT_MACROS
 	__STDC_CONSTANT_MACROS)
+
+target_compile_definitions(polybox PRIVATE $<$<CONFIG:Debug>:STAMP_RESET_ARENAS>)
 
 target_compile_shaders(polybox
 	core3d.shader

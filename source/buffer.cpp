@@ -102,67 +102,64 @@ i32 GetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 count) {
 
 // ***********************************************************************
 
-i32 NewBufferImpl(lua_State* L, const char* type, i32 width, i32 height) {
-	Buffer* pBuffer = (Buffer*)lua_newuserdatadtor(L, sizeof(Buffer), [](void* pData) {
-		Buffer* pBuffer = (Buffer*)pData;
-		if (pBuffer) {
-			RawFree(pBuffer->pData);
-		}
-	});
-
+Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height) {
 	i32 typeSize = 0;
-	if (strcmp(type, "f32") == 0) {
-		pBuffer->type = Type::Float32;
-		typeSize = sizeof(f32);
-	}
-	else if (strcmp(type, "i32") == 0) {
-		pBuffer->type = Type::Int32;
-		typeSize = sizeof(i32);
-	}
-	else if (strcmp(type, "i16") == 0) {
-		pBuffer->type = Type::Int16;
-		typeSize = sizeof(i16);
-	}
-	else if (strcmp(type, "u8") == 0) {
-		pBuffer->type = Type::Uint8;
-		typeSize = sizeof(u8);
-	}
-	else {
-		luaL_error(L, "invalid type given to NewBuffer %s", type);
-		return 0;
+	switch (type) {
+		case Type::Float32: typeSize = sizeof(f32); break;
+		case Type::Int32: typeSize = sizeof(i32); break;
+		case Type::Int16: typeSize = sizeof(i16); break;
+		case Type::Uint8: typeSize = sizeof(u8); break;
 	}
 
 	i32 bufSize = width * height * typeSize;
-	pBuffer->pData = RawNew(ubyte, bufSize);
-	memset(pBuffer->pData, 0, bufSize); 
-
+	Buffer* pBuffer = (Buffer*)lua_newuserdata(L, sizeof(Buffer) + bufSize);
+	pBuffer->pData = (u8*)pBuffer + sizeof(Buffer);
 	pBuffer->width = width;
 	pBuffer->height = height;
+	pBuffer->type = type;
  
 	luaL_getmetatable(L, "Buffer");
 	lua_setmetatable(L, -2);
-	return 1;
+	return pBuffer;
 }
 
 // ***********************************************************************
 
 i32 NewBuffer(lua_State* L) {
     usize len;
-    const char* type = luaL_checklstring(L, 1, &len);
+    const char* typeStr = luaL_checklstring(L, 1, &len);
     i32 width = (i32)luaL_checkinteger(L, 2);
 	i32 height = 1;
 	if (lua_isnoneornil(L, 3) == 0) {
 		height = (i32)luaL_checkinteger(L, 3);
 	}
-	return NewBufferImpl(L, type, width, height);
+
+	Type type;
+	if (strcmp(typeStr, "f32") == 0) {
+		type = Type::Float32;
+	}
+	else if (strcmp(typeStr, "i32") == 0) {
+		type = Type::Int32;
+	}
+	else if (strcmp(typeStr, "i16") == 0) {
+		type = Type::Int16;
+	}
+	else if (strcmp(typeStr, "u8") == 0) {
+		type = Type::Uint8;
+	}
+	else {
+		luaL_error(L, "invalid type given to buffer creation %s", typeStr);
+		return 0;
+	}
+	AllocBuffer(L, type, width, height);
+	return 1;
 }
 
 // ***********************************************************************
 
 i32 NewVec(lua_State* L) {
 	i32 nArgs = lua_gettop(L);
-	NewBufferImpl(L, "f32", 3, 1);
-    Buffer* pBuffer = (Buffer*)lua_touserdata(L, -1);
+	Buffer* pBuffer = AllocBuffer(L, Type::Float32, 3, 1);
 	if (nArgs > 0)
 		SetImpl(L, pBuffer, 0, 1);
 	return 1;
@@ -371,15 +368,7 @@ i32 name(lua_State* L) {													\
 	i32 buf2Size = pBuffer2->width * pBuffer2->height;						\
 	i32 resultSize = min(buf1Size, buf2Size);								\
 																			\
-	const char* typeStr = "f32";											\
-	switch(pBuffer1->type) {												\
-		case Type::Float32: typeStr = "f32"; break;							\
-		case Type::Int32: typeStr = "i32"; break;							\
-		case Type::Int16: typeStr = "i16"; break;							\
-		case Type::Uint8: typeStr = "u8"; break;							\
-	}																		\
-	NewBufferImpl(L, typeStr, pBuffer1->width, pBuffer1->height);			\
-    Buffer* pBuffer = (Buffer*)lua_touserdata(L, -1);						\
+	Buffer* pBuffer = AllocBuffer(L, pBuffer1->type, pBuffer1->width, pBuffer1->height);\
 																			\
 	switch(pBuffer->type) {													\
 		case Type::Float32: {												\

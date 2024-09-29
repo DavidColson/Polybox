@@ -21,5 +21,6 @@ struct Buffer {
 	ubyte* pData;
 };
 
+Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height);
 void BindBuffer(lua_State* L);
 }

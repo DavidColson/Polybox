@@ -560,13 +560,9 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 	if (!Scan::Match(scan, '('))
 		luaL_error(L, "Expected '(' to start buffer");
 
-	// create the buffer
-	BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)lua_newuserdatadtor(L, sizeof(BufferLib::Buffer), [](void* pData) {
-		BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)pData;
-		if (pBuffer) {
-			RawFree(pBuffer->pData);
-		}
-	});
+	i32 bufferWidth = 0;
+	i32 bufferHeight = 0;
+	BufferLib::Type bufferType = BufferLib::Type::Int32;
 
 	// parse an identifier to get the type
 	byte* pStart = scan.pCurrent;
@@ -579,19 +575,19 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 
 	i32 typeSize = 0;
 	if (identifier == "\"f32\"") {
-		pBuffer->type = BufferLib::Type::Float32;
+		bufferType = BufferLib::Type::Float32;
 		typeSize = sizeof(f32);
 	}
 	else if (identifier == "\"i32\"") {
-		pBuffer->type = BufferLib::Type::Int32;
+		bufferType = BufferLib::Type::Int32;
 		typeSize = sizeof(i32);
 	}
 	else if (identifier == "\"i16\"") {
-		pBuffer->type = BufferLib::Type::Int16;
+		bufferType = BufferLib::Type::Int16;
 		typeSize = sizeof(i16);
 	}
 	else if (identifier == "\"u8\"") {
-		pBuffer->type = BufferLib::Type::Uint8;
+		bufferType = BufferLib::Type::Uint8;
 		typeSize = sizeof(u8);
 	}
 	else {
@@ -600,7 +596,7 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 
 	Scan::Advance(scan); // ,
 	if (Scan::IsDigit(Scan::Advance(scan)))
-		pBuffer->width = (i32)ParseNumber(scan);
+		bufferWidth = (i32)ParseNumber(scan);
 	else 
 		luaL_error(L, "Expected number for width");
 
@@ -608,14 +604,12 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 		luaL_error(L, "Expected ',' between arguments");
 
 	if (Scan::IsDigit(Scan::Advance(scan)))
-		pBuffer->height = (i32)ParseNumber(scan);
+		bufferHeight = (i32)ParseNumber(scan);
 	else
 		luaL_error(L, "Expected number for height");
 
 	// Actually alloc the buffer
-	i32 bufSize = pBuffer->width * pBuffer->height * typeSize;
-	pBuffer->pData = RawNew(ubyte, bufSize);
-	memset(pBuffer->pData, 0, bufSize); 
+	BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, bufferType, bufferWidth, bufferHeight);
 
 	if (!Scan::Match(scan, ','))
 		luaL_error(L, "Expected ',' between arguments");
@@ -689,9 +683,6 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 	}
 	if (!Scan::Match(scan, ')')) 
 		luaL_error(L, "Expected ')' to end buffer");
-
-	luaL_getmetatable(L, "Buffer");
-	lua_setmetatable(L, -2);
 }
 
 // ***********************************************************************
@@ -811,20 +802,17 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 					state.pCurrent += followingBytes;
 				}
 
-				BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)lua_newuserdatadtor(L, sizeof(BufferLib::Buffer), [](void* pData) {
-					BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)pData;
-					if (pBuffer) {
-						RawFree(pBuffer->pData);
-					}
-				});
-
-				MemcpyLE((u8*)&pBuffer->width, (u8*)state.pCurrent, 4);
+				i32 bufferWidth = 0;
+				i32 bufferHeight = 0;
+				BufferLib::Type bufferType = BufferLib::Type::Int32;
+				MemcpyLE((u8*)&bufferWidth, (u8*)state.pCurrent, 4);
 				state.pCurrent += 4;
-				MemcpyLE((u8*)&pBuffer->height, (u8*)state.pCurrent, 4);
+				MemcpyLE((u8*)&bufferHeight, (u8*)state.pCurrent, 4);
 				state.pCurrent += 4;
-				MemcpyLE((u8*)&pBuffer->type, (u8*)state.pCurrent, 1);
+				MemcpyLE((u8*)&bufferType, (u8*)state.pCurrent, 1);
 				state.pCurrent += 1;
 
+				BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, bufferType, bufferWidth, bufferHeight);
 				i32 bufSize = pBuffer->width * pBuffer->height;
 				switch(pBuffer->type) {
 					case BufferLib::Type::Float32: bufSize *= sizeof(f32); break;
@@ -832,12 +820,8 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 					case BufferLib::Type::Int16: bufSize *= sizeof(i16); break;
 					case BufferLib::Type::Uint8: bufSize *= sizeof(u8); break;
 				}
-				pBuffer->pData = RawNew(ubyte, bufSize);
 				MemcpyLE((u8*)pBuffer->pData, (u8*)state.pCurrent, bufSize);
 				state.pCurrent += bufSize;
-
-				luaL_getmetatable(L, "Buffer");
-				lua_setmetatable(L, -2);
 				break;
 			}
 			case 3: { // string

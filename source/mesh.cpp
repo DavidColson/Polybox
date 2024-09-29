@@ -207,6 +207,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(Arena* pArena, const char* filePath) {
 		Arena* pMeshArena = ArenaCreate();
         Mesh* pMesh = New(pMeshArena, Mesh);
 		PlacementNew(pMesh) Mesh();
+		pMesh->Retain();
 		pMesh->pArena = pMeshArena;
 		pMesh->primitives.pArena = pMesh->pArena;
         pMesh->primitives.Reserve(parsed["primitives"].Count());

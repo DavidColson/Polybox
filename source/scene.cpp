@@ -203,6 +203,7 @@ Scene* Scene::LoadScene(const char* filePath) {
 	Arena* pArena = ArenaCreate();
 	Scene* pScene = New(pArena, Scene);
 	PlacementNew(pScene) Scene();
+	pScene->Retain();
 	pScene->pArena = pArena;
 	pScene->nodes.pArena = pArena;
 

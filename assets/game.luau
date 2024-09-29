@@ -66,17 +66,17 @@ function Start()
 	local time = os.clock()
 	print(math.sin(1.24))
 
-	local bufferFloats = NewBuffer("f32", 5)
-	bufferFloats:Set(0, 22.1, 54.2, 87.51213, 99999.1337, 2.43)
+	local bufferFloats = buffer("f32", 5)
+	bufferFloats:set(0, 22.1, 54.2, 87.51213, 99999.1337, 2.43)
 
-	local bufferInts = NewBuffer("i16", 4)
-	bufferInts:Set(0, 32, 1, 44, 87)
+	local bufferInts = buffer("i16", 4)
+	bufferInts:set(0, 32, 1, 44, 87)
 
 	-- metadata test
 	local data = --[[poly, type=2]]{i=432}
 	print(data.i)
 	
-	local testTable = { first=43, second=23, [77]="hello", buffer=bufferInts, mybool=true, floating=3.25, false, 878}
+	local testTable = { first=43, second=23, [77]="hello", buffer=bufferFloats, mybool=true, floating=3.25, false, 878}
 	local testMeta = {metaType="test", size=33}
 
 	-- print("\nSerialized as text:")
@@ -111,6 +111,8 @@ function Start()
 	printTable(result)
 	printTable(meta)
 
+	local pastedBuffer = buffer("f32",5,1,"22.100000,54.200001,87.512131,99999.132812,2.430000")
+	print(pastedBuffer)
 	-- print("\nSerialized Compressed b64:")
 	-- local binB64 = serialize(testTable, 0x7, testMeta)
 	-- print(binB64)

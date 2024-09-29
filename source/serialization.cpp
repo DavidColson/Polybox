@@ -560,8 +560,8 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 	if (!Scan::Match(scan, '('))
 		luaL_error(L, "Expected '(' to start buffer");
 
-	i32 bufferWidth = 0;
-	i32 bufferHeight = 0;
+	i32 bufferWidth = 1;
+	i32 bufferHeight = 1;
 	BufferLib::Type bufferType = BufferLib::Type::Int32;
 
 	// parse an identifier to get the type
@@ -618,69 +618,14 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 	if (!Scan::Match(scan, '\"'))
 		luaL_error(L, "Expected '\"' to start data block");
 
-	// switch on type
-	switch(pBuffer->type) {
-		case BufferLib::Type::Float32: {
-			f32* pData = (f32*)pBuffer->pData;
-			while (Scan::Peek(scan) != ')') {
-				scan.pCurrent++; // parse number expects that the first digit has been parsed
-				*pData = ParseNumber(scan);
-				if (Scan::Peek(scan) != '\"' && Scan::Peek(scan) != ',')
-					luaL_error(L, "Expected ',' between values");
-					else
-					Scan::Advance(scan);
-				pData++;
-			}
-			break;
-		}
-		case BufferLib::Type::Int32: {
-			char number[9];
-			number[8] = 0;
-			i32* pData = (i32*)pBuffer->pData;
-			while (Scan::Peek(scan) != '\"') {
-				number[0] = *scan.pCurrent++;
-				number[1] = *scan.pCurrent++;
-				number[2] = *scan.pCurrent++;
-				number[3] = *scan.pCurrent++;
-				number[4] = *scan.pCurrent++;
-				number[5] = *scan.pCurrent++;
-				number[6] = *scan.pCurrent++;
-				number[7] = *scan.pCurrent++;
-				*pData = (i32)strtol(number, nullptr, 16);
-				pData++;
-			}
-			Scan::Advance(scan);
-			break;
-		}
-		case BufferLib::Type::Int16: {
-			char number[5];
-			number[4] = 0;
-			i16* pData = (i16*)pBuffer->pData;
-			while (Scan::Peek(scan) != '\"') {
-				number[0] = *scan.pCurrent++;
-				number[1] = *scan.pCurrent++;
-				number[2] = *scan.pCurrent++;
-				number[3] = *scan.pCurrent++;
-				*pData = (i16)strtol(number, nullptr, 16);
-				pData++;
-			}
-			Scan::Advance(scan);
-			break;
-		}
-		case BufferLib::Type::Uint8: {
-			char number[3];
-			number[2] = 0;
-			u8* pData = (u8*)pBuffer->pData;
-			while (Scan::Peek(scan) != '\"') {
-				number[0] = *scan.pCurrent++;
-				number[1] = *scan.pCurrent++;
-			*pData = (u8)strtol(number, nullptr, 16);
-				pData++;
-			}
-			Scan::Advance(scan);
-			break;
-		}
-	}
+	// parse data string
+	String dataString;
+	dataString.pData = scan.pCurrent;
+	dataString.length = 0;
+	while (Scan::Advance(scan) != '\"')
+		dataString.length++;
+	BufferLib::ParseBufferDataString(L, dataString, pBuffer);
+
 	if (!Scan::Match(scan, ')')) 
 		luaL_error(L, "Expected ')' to end buffer");
 }

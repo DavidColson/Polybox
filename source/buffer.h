@@ -3,6 +3,7 @@
 #include <types.h>
 
 struct lua_State;
+struct String;
 
 // Considering renaming to userdata, it's just better
 namespace BufferLib {
@@ -22,5 +23,6 @@ struct Buffer {
 };
 
 Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height);
+void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer);
 void BindBuffer(lua_State* L);
 }

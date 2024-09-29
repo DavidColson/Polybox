@@ -8,7 +8,8 @@
 #include <maths.h>
 #include <string_builder.h>
 #include <light_string.h>
-#include <defer.h>
+#include <scanning.h>
+#include <stdlib.h>
 
 namespace BufferLib {
 
@@ -125,13 +126,105 @@ Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height) {
 
 // ***********************************************************************
 
+void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer) {
+	if (dataString.length <= 0) 
+		return;
+
+	Scan::ScanningState scan;
+	scan.pTextStart = dataString.pData;
+	scan.pTextEnd = dataString.pData + dataString.length;
+	scan.pCurrent = (char*)dataString.pData;
+	scan.line = 1;
+
+	switch(pBuffer->type) {
+		case BufferLib::Type::Float32: {
+			f32* pData = (f32*)pBuffer->pData;
+			while (!Scan::IsAtEnd(scan)) {
+				scan.pCurrent++; // parse number expects that the first digit has been parsed
+				*pData = ParseNumber(scan);
+				if (!Scan::IsAtEnd(scan) && Scan::Peek(scan) != ',')
+					luaL_error(L, "Expected ',' between values");
+				else
+					Scan::Advance(scan);
+				pData++;
+			}
+			break;
+		}
+		case BufferLib::Type::Int32: {
+			char number[9];
+			number[8] = 0;
+			i32* pData = (i32*)pBuffer->pData;
+			while(!Scan::IsAtEnd(scan)) {
+				number[0] = *scan.pCurrent++;
+				number[1] = *scan.pCurrent++;
+				number[2] = *scan.pCurrent++;
+				number[3] = *scan.pCurrent++;
+				number[4] = *scan.pCurrent++;
+				number[5] = *scan.pCurrent++;
+				number[6] = *scan.pCurrent++;
+				number[7] = *scan.pCurrent++;
+				*pData = (i32)strtol(number, nullptr, 16);
+				pData++;
+			}
+			Scan::Advance(scan);
+			break;
+		}
+		case BufferLib::Type::Int16: {
+			char number[5];
+			number[4] = 0;
+			i16* pData = (i16*)pBuffer->pData;
+			while (!Scan::IsAtEnd(scan)) {
+				number[0] = *scan.pCurrent++;
+				number[1] = *scan.pCurrent++;
+				number[2] = *scan.pCurrent++;
+				number[3] = *scan.pCurrent++;
+				*pData = (i16)strtol(number, nullptr, 16);
+				pData++;
+			}
+			Scan::Advance(scan);
+			break;
+		}
+		case BufferLib::Type::Uint8: {
+			char number[3];
+			number[2] = 0;
+			u8* pData = (u8*)pBuffer->pData;
+			while (!Scan::IsAtEnd(scan)) {
+				number[0] = *scan.pCurrent++;
+				number[1] = *scan.pCurrent++;
+				*pData = (u8)strtol(number, nullptr, 16);
+				pData++;
+			}
+			Scan::Advance(scan);
+			break;
+		}
+	}
+}
+
+// ***********************************************************************
+
 i32 NewBuffer(lua_State* L) {
-    usize len;
-    const char* typeStr = luaL_checklstring(L, 1, &len);
+	i32 nArgs = lua_gettop(L);
+    const char* typeStr = luaL_checkstring(L, 1);
     i32 width = (i32)luaL_checkinteger(L, 2);
 	i32 height = 1;
-	if (lua_isnoneornil(L, 3) == 0) {
-		height = (i32)luaL_checkinteger(L, 3);
+	String dataStr;
+
+	if (nArgs > 2) {
+		if (lua_isnumber(L, 3)) {
+			height = (i32)lua_tointeger(L, 3);
+		}
+		else if (lua_isstring(L, 3)) {
+			dataStr = lua_tostring(L, 3);
+		}
+		else {
+			luaL_error(L, "Unexpected 3rd argument to buffer, should be integer or string");
+		}
+	}
+
+	if (nArgs > 3) {
+		usize len;
+		dataStr.pData = (byte*)luaL_checklstring(L, 4, &len);
+		dataStr.length = (size)len;
 	}
 
 	Type type;
@@ -151,7 +244,11 @@ i32 NewBuffer(lua_State* L) {
 		luaL_error(L, "invalid type given to buffer creation %s", typeStr);
 		return 0;
 	}
-	AllocBuffer(L, type, width, height);
+	Buffer* pBuffer = AllocBuffer(L, type, width, height);
+
+	if (dataStr.length > 0) {
+		ParseBufferDataString(L, dataStr, pBuffer); 
+	}
 	return 1;
 }
 
@@ -520,8 +617,8 @@ void BindBuffer(lua_State* L) {
 
 	// register global functions
     const luaL_Reg globalFuncs[] = {
-        { "NewBuffer", NewBuffer },
-        { "NewVec", NewVec },
+        { "buffer", NewBuffer },
+        { "vec", NewVec },
         { NULL, NULL }
     };
 
@@ -541,16 +638,16 @@ void BindBuffer(lua_State* L) {
         { "__sub", Sub },
         { "__mul", Mul },
         { "__div", Div },
-        { "Set", Set },
-        { "Set2D", Set2D },
-        { "Get", Get },
-        { "Get2D", Get2D },
-        { "Width", Width },
-        { "Height", Height },
-        { "Size", Size },
-        { "Magnitude", VecMagnitude },
-        { "Distance", VecDistance },
-        { "Dot", VecDot },
+        { "set", Set },
+        { "set2D", Set2D },
+        { "get", Get },
+        { "get2D", Get2D },
+        { "width", Width },
+        { "height", Height },
+        { "size", Size },
+        { "magnitude", VecMagnitude },
+        { "distance", VecDistance },
+        { "dot", VecDot },
         { NULL, NULL }
     };
 

@@ -309,7 +309,8 @@ ResizableArray<Image*> Mesh::LoadTextures(Arena* pArena, const char* filePath) {
             String type = jsonImage["mimeType"].ToString();
 
             StringBuilder builder(g_pArenaFrame);
-            builder.Append("assets/");
+			// todo: replace when we have VFS
+            builder.Append("systemroot/tank_demo/");
             builder.Append(jsonImage["name"].ToString());
             builder.Append(".");
             builder.Append(type.SubStr(6, 4));

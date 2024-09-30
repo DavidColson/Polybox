@@ -259,7 +259,7 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 
 	PlacementNew(&pState->defaultFont) Font();
 	pState->defaultFont.pArena = pArena;
-	pState->defaultFont.Initialize("assets/Roboto-Bold.ttf");
+	pState->defaultFont.Initialize("systemroot/shared/Roboto-Bold.ttf");
 
 	// Create white texture for non textured draws
 	{

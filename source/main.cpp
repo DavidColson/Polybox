@@ -5,6 +5,7 @@
 #include "input.h"
 #include "graphics.h"
 #include "cpu.h"
+#include "asset_importer.h"
 
 #include <SDL.h>
 #include <defer.h>
@@ -13,6 +14,7 @@
 #include <string_builder.h>
 #include <light_string.h>
 #include <memory_tracker.h>
+#include <string.h>
 
 #include <stdlib.h>
 #undef DrawText
@@ -77,15 +79,29 @@ void AssertHandler(Log::LogLevel level, String message) {
 // ***********************************************************************
 
 int main(int argc, char* argv[]) {
-	{
-		g_pArenaFrame = ArenaCreate();
-		g_pArenaPermenant = ArenaCreate();
+	g_pArenaFrame = ArenaCreate();
+	g_pArenaPermenant = ArenaCreate();
 
-		Log::LogConfig log;
-		log.critCrashes = false;
-		log.customHandler1 = AssertHandler;
-		Log::SetConfig(log);
+	Log::LogConfig log;
+	log.critCrashes = false;
+	log.customHandler1 = AssertHandler;
+	Log::SetConfig(log);
 
+	if (argc > 1) {
+		if (strcmp(argv[1], "-import") == 0) {
+			if (argc != 4) {
+				Log::Info("required format for import is \"-import path/source_filename.file path/output_path\"");
+				return 1;
+			}
+
+			return AssetImporter::Import(String(argv[2]), String(argv[3]));
+		}
+		else {
+			Log::Info("Supported commands are currently just \"-import\", enter it without args to get help");
+			return 1;
+		}
+	}
+	else {
 		i32 winWidth = 1280;
 		i32 winHeight = 960;
 
@@ -101,7 +117,7 @@ int main(int argc, char* argv[]) {
 		GraphicsInit(pWindow, winWidth, winHeight);
 		InputInit();
 
-		Cpu::CompileAndLoadProgram("assets/game.luau");
+		Cpu::CompileAndLoadProgram("systemroot/tank_demo/game.luau");
 		Cpu::Start();
 
 		bool gameRunning = true;
@@ -159,7 +175,6 @@ int main(int argc, char* argv[]) {
 
 	}
 	i32 n = ReportMemoryLeaks();
-	Log::Info("Memory Leak Reports %i leaks", n);
 
 	ArenaFinished(g_pArenaFrame);
 	ArenaFinished(g_pArenaPermenant);

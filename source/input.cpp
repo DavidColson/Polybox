@@ -431,7 +431,7 @@ void InputInit() {
 
 
     // Load json mapping file
-    SDL_RWops* pFileRead = SDL_RWFromFile("assets/ControllerMapping.json", "rb");
+    SDL_RWops* pFileRead = SDL_RWFromFile("systemroot/shared/base_controller_mapping.json", "rb");
     u64 size = SDL_RWsize(pFileRead);
     char* pData = New(g_pArenaFrame, char, size);
     SDL_RWread(pFileRead, pData, size, 1);

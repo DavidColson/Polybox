@@ -30,6 +30,8 @@ set(SOURCES
 	"buffer.cpp"
 	"serialization.h"
 	"serialization.cpp"
+	"asset_importer.h"
+	"asset_importer.cpp"
 	"lua_common.h"
 	"lua_common.cpp"
 	"mesh.h"
@@ -91,11 +93,5 @@ add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${PROJ_ROOT_PATH}/source/third_party/SDL2/lib/x64/SDL2.dll"
 		"$<TARGET_FILE_DIR:polybox>")
-
-add_custom_command(
-        TARGET polybox POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-		"${PROJ_ROOT_PATH}/assets/"
-		"$<TARGET_FILE_DIR:polybox>/assets/")
 
 BGFXCompat(polybox)

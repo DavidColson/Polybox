@@ -55,9 +55,9 @@ state.camY = 3.6
 state.text = ""
 
 function Start()
-	state.tankMeshes = LoadMeshes("assets/tank.gltf")
-	state.tankImages = LoadTextures("assets/tank.gltf")
-	state.tankScene = LoadScene("assets/tank.gltf")
+	state.tankMeshes = LoadMeshes("systemroot/tank_demo/tank.gltf")
+	state.tankImages = LoadTextures("systemroot/tank_demo/tank.gltf")
+	state.tankScene = LoadScene("systemroot/tank_demo/tank.gltf")
 
     state.x = 50
     state.y = 50

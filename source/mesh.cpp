@@ -69,7 +69,7 @@ Primitive* Mesh::GetPrimitive(int index) {
 // ***********************************************************************
 
 // Actually owns the data
-struct Buffer {
+struct MeshBuffer {
     char* pBytes { nullptr };
     usize byteLength { 0 };
 };
@@ -131,10 +131,10 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(Arena* pArena, const char* filePath) {
     if (!validGltf)
         return ResizableArray<Mesh*>();
 
-    ResizableArray<Buffer> rawDataBuffers(g_pArenaFrame);
+    ResizableArray<MeshBuffer> rawDataBuffers(g_pArenaFrame);
     JsonValue& jsonBuffers = parsed["buffers"];
     for (int i = 0; i < jsonBuffers.Count(); i++) {
-        Buffer buf;
+        MeshBuffer buf;
         buf.byteLength = jsonBuffers[i]["byteLength"].ToInt();
 
         String encodedBuffer = jsonBuffers[i]["uri"].ToString();
@@ -246,7 +246,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(Arena* pArena, const char* filePath) {
             Vec3f* vertNormBuffer = jsonAttr.HasKey("NORMAL") ? (Vec3f*)accessors[jsonAttr["NORMAL"].ToInt()].pBuffer : nullptr;
             Vec2f* vertTexCoordBuffer = jsonAttr.HasKey("TEXCOORD_0") ? (Vec2f*)accessors[jsonAttr["TEXCOORD_0"].ToInt()].pBuffer : nullptr;
 
-            // i32erlace vertex data
+            // interlace vertex data
             ResizableArray<VertexData> indexedVertexData(g_pArenaFrame);
             indexedVertexData.Reserve(nVerts);
             if (jsonAttr.HasKey("COLOR_0")) {

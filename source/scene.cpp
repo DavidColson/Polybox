@@ -189,6 +189,7 @@ void ParseNodesRecursively(Scene* pScene, Node* pParent, ResizableArray<Node>& o
             node.SetLocalScale(Vec3f(1.0f));
         }
 
+		// this is duplicating entries!!!!!
         if (jsonNode.HasKey("children")) {
             ParseNodesRecursively(pScene, &node, outNodes, jsonNode["children"], nodesData);
         }

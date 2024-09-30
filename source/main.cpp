@@ -88,13 +88,17 @@ int main(int argc, char* argv[]) {
 	Log::SetConfig(log);
 
 	if (argc > 1) {
-		if (strcmp(argv[1], "-import") == 0) {
+		if (strcmp(argv[1], "import") == 0) {
 			if (argc != 4) {
-				Log::Info("required format for import is \"-import path/source_filename.file path/output_path\"");
+				Log::Info("required format for import is \"import path/source_filename.file path/output_path\"");
 				return 1;
 			}
 
-			return AssetImporter::Import(String(argv[2]), String(argv[3]));
+			// TODO: if argv[2] is a path not a file, then go through all files in that directory and import them all
+			Arena* pArena = ArenaCreate();
+			i32 result = AssetImporter::Import(pArena, String(argv[2]), String(argv[3]));
+			ArenaFinished(pArena);
+			return result;
 		}
 		else {
 			Log::Info("Supported commands are currently just \"-import\", enter it without args to get help");

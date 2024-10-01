@@ -94,7 +94,7 @@ void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, JsonValue& nodeToPa
 
 // ***********************************************************************
 
-int Import(Arena* pScratchArena, String source, String output) {
+int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	// we'll do the scene first
 
 	// Load file
@@ -120,6 +120,8 @@ int Import(Arena* pScratchArena, String source, String output) {
 	lua_State* L = lua_newstate(LuaAllocator, nullptr);
 	Serialization::BindSerialization(L);
 
+	lua_getglobal(L, "serialize");
+
 	lua_newtable(L);
 
 	// note that the nodelist in the top level scene does not include child nodes
@@ -133,6 +135,17 @@ int Import(Arena* pScratchArena, String source, String output) {
 	}
 
 	// once complete output in the desired format, need to make that an argument
+	lua_pushnumber(L, format);
+	lua_pcall(L, 2, 1, 0);
+
+	String result;
+	size_t len;
+	result.pData = (char*)lua_tolstring(L, -1, &len); 
+	result.length = (size)len;
+
+	SDL_RWops* pOutFile = SDL_RWFromFile(output.pData, "wb");
+	SDL_RWwrite(pOutFile, result.pData, result.length, 1);
+	SDL_RWclose(pOutFile);
 
 	// then the meshes
 

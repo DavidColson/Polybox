@@ -1,9 +1,11 @@
 
+#include <types.h>
+
 struct String;
 struct Arena;
 
 namespace AssetImporter {
 
-int Import(Arena* pScratchArena, String source, String output);
+int Import(Arena* pScratchArena, u8 format, String source, String output);
 
 };

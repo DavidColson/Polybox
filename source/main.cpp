@@ -89,14 +89,33 @@ int main(int argc, char* argv[]) {
 
 	if (argc > 1) {
 		if (strcmp(argv[1], "import") == 0) {
-			if (argc != 4) {
-				Log::Info("required format for import is \"import path/source_filename.file path/output_path\"");
+			if (argc < 4) {
+				Log::Info("required format for import is \"import [-t|-b|-c|-bt] path/source_filename.file path/output_filename.file\"");
+				Log::Info("-t: text     -b: binary uncompressed      -c: binary compressed  -bt: base64 encoded binary");
+				Log::Info("will default to -c");
 				return 1;
 			}
+			u8 format = 0x3;
+			u8 fileArg = 3;
+			if (strcmp(argv[2], "-t") == 0) {
+				format = 0;
+			}
+			else if (strcmp(argv[2], "-b") == 0) {
+				format = 0x1;
+			}
+			else if (strcmp(argv[2], "-c") == 0) {
+				format = 0x3;
+			}
+			else if (strcmp(argv[2], "-bt") == 0) {
+				format = 0x7;
+			}
+			else {
+				fileArg = 2;
+			}
 
-			// TODO: if argv[2] is a path not a file, then go through all files in that directory and import them all
+			// TODO: if paths are given instead of files, process the whole folder instead
 			Arena* pArena = ArenaCreate();
-			i32 result = AssetImporter::Import(pArena, String(argv[2]), String(argv[3]));
+			i32 result = AssetImporter::Import(pArena, format, String(argv[fileArg]), String(argv[fileArg+1]));
 			ArenaFinished(pArena);
 			return result;
 		}

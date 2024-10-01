@@ -71,7 +71,7 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadat
 					bool needsEscape = false;
 					char* c = (char*)key;
 					while (*c != 0) {
-						if (*c == '=')
+						if (*c == '=' || *c == '.')
 							needsEscape = true;
 						c++;
 					}

@@ -24,7 +24,7 @@ static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize) {
 
 // ***********************************************************************
 
-void ParseJsonNodeRecursively(lua_State* L, ResizableArray<i32>& skipList, JsonValue& nodeToParse) {
+void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, JsonValue& nodeToParse) {
 	String nodeName = nodeToParse.HasKey("name") ? nodeToParse["name"].ToString() : String("");
 	lua_pushlstring(L, nodeName.pData, nodeName.length);
 
@@ -32,7 +32,6 @@ void ParseJsonNodeRecursively(lua_State* L, ResizableArray<i32>& skipList, JsonV
 	lua_newtable(L);
 
 	// position
-	// TODO: may not have position 
 	if (nodeToParse.HasKey("translation")) {
 		lua_newtable(L);
 		lua_pushnumber(L, nodeToParse["translation"][0].ToFloat());
@@ -45,10 +44,49 @@ void ParseJsonNodeRecursively(lua_State* L, ResizableArray<i32>& skipList, JsonV
 	}
 
 	// rotation
+	if (nodeToParse.HasKey("rotation")) {
+		lua_newtable(L);
+		lua_pushnumber(L, nodeToParse["rotation"][0].ToFloat());
+		lua_setfield(L, -2, "x");
+		lua_pushnumber(L, nodeToParse["rotation"][1].ToFloat());
+		lua_setfield(L, -2, "y");
+		lua_pushnumber(L, nodeToParse["rotation"][2].ToFloat());
+		lua_setfield(L, -2, "z");
+		lua_pushnumber(L, nodeToParse["rotation"][3].ToFloat());
+		lua_setfield(L, -2, "w");
+		lua_setfield(L, -2, "rotation");
+	}
+
 	// scale
+	if (nodeToParse.HasKey("scale")) {
+		lua_newtable(L);
+		lua_pushnumber(L, nodeToParse["scale"][0].ToFloat());
+		lua_setfield(L, -2, "x");
+		lua_pushnumber(L, nodeToParse["scale"][1].ToFloat());
+		lua_setfield(L, -2, "y");
+		lua_pushnumber(L, nodeToParse["scale"][2].ToFloat());
+		lua_setfield(L, -2, "z");
+		lua_setfield(L, -2, "scale");
+	}
+
 	// mesh identifier
+	if (nodeToParse.HasKey("mesh")) {
+		i32 meshId = nodeToParse["mesh"].ToInt();
+		String meshName = gltf["meshes"][meshId]["name"].ToString();
+		lua_pushlstring(L, meshName.pData, meshName.length);
+		lua_setfield(L, -2, "mesh");
+	}
 
 	// children
+	if (nodeToParse.HasKey("children")) {
+		lua_newtable(L);
+		i32 childCount = nodeToParse["children"].Count();
+		for (int i = 0; i < childCount; i++) {
+			i32 childId = nodeToParse["children"][i].ToInt();
+			ParseJsonNodeRecursively(L, gltf, gltf["nodes"][childId]);
+		}
+		lua_setfield(L, -2, "children");
+	}
 
 	// set the node element in the table above this i.e. parent.nodename = node
 	lua_settable(L, -3);
@@ -84,28 +122,15 @@ int Import(Arena* pScratchArena, String source, String output) {
 
 	lua_newtable(L);
 
-	// Loop through the list of all nodes flatly, as this is how it's stored in gltf
-	ResizableArray<i32> nodesToSkip(pScratchArena);
-	i32 totalNodeCount = parsed["nodes"].Count();
-    for (int i = 0; i < totalNodeCount; i++) {
-		// if a node has children, it will add them to the skip list, and we'll skip them in 
-		// this top level for loop
-		if (nodesToSkip.Find(i) == nullptr)
-			ParseJsonNodeRecursively(L, nodesToSkip, parsed["nodes"][i]);
+	// note that the nodelist in the top level scene does not include child nodes
+	// so they are not included in this list, but will be parsed recursively
+	JsonValue& topLevelNodeList = parsed["scenes"][0]["nodes"];
+	i32 topLevelNodesCount = topLevelNodeList.Count();
+    for (int i = 0; i < topLevelNodesCount; i++) {
+		i32 nodeId = topLevelNodeList[i].ToInt();
+		JsonValue& node = parsed["nodes"][nodeId];
+		ParseJsonNodeRecursively(L, parsed, node);
 	}
-
-	// option 1:
-	// store list of nodes to skip
-
-	// option 2: 
-	// Parse the whole list then go through looking for children to connect
-
-	// table where keys are object names
-	// objects have child list with more objects in them
-	// i.e. we will NOT flatten the heirarcy as is done in gltf
-	// somewhat arbitrary decision, maybe it's wrong I dunno
-	// but I feel intuitively it'll be simpler for the user
-	// models are stored as strings to their eventual file names
 
 	// once complete output in the desired format, need to make that an argument
 

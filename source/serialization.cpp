@@ -329,7 +329,7 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
 	if (lua_isnumber(L, -1)) {
 		f64 value = lua_tonumber(L, -1);
 		if (value == (i32)value) {
-			if (value > 0) {
+			if (value >= 0) {
 				CborEncode(output, 0, nullptr, value);
 			} else {
 				CborEncode(output, 1, nullptr, (-value)-1);
@@ -514,7 +514,7 @@ void ParseTextTable(lua_State* L, Scan::ScanningState& scan, bool isMetadata = f
 		}
 
 		// Is value
-		if (Scan::IsDigit(c) || c == '\'' || c == '"') {
+		if (Scan::IsDigit(c) || c == '-' || c == '.' || c == '\'' || c == '"') {
 			scan.pCurrent--;
 			ParseTextValue(L, scan);
 			lua_rawseti(L, -2, arrayIndex);
@@ -658,7 +658,7 @@ void ParseTextValue(lua_State* L, Scan::ScanningState& scan) {
 		}
 
 		// number
-		if (Scan::IsDigit(c)) {
+		if (Scan::IsDigit(c) || c == '-' || c == '.') {
 			f64 num = ParseNumber(scan);
 			lua_pushnumber(L, num);
 			return;

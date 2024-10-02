@@ -53,8 +53,17 @@ local state = {}
 state.camX = 0.0
 state.camY = 3.6
 state.text = ""
-
+-- import -b assets_source/tank_demo/tank.gltf systemroot/tank_demo/tank.scene
 function Start()
+	-- bug, the cbor is corrupt in this file and it can't be loaded!! 
+	-- this is the next thing to solve
+	state.scene = load("systemroot/tank_demo/tank.scene")
+
+	print("tank shadow position: ")
+	print(state.scene.Tank.children.Plane.position.x)
+	print(state.scene.Tank.children.Plane.position.y)
+	print(state.scene.Tank.children.Plane.position.z)
+
 	state.tankMeshes = LoadMeshes("systemroot/tank_demo/tank.gltf")
 	state.tankImages = LoadTextures("systemroot/tank_demo/tank.gltf")
 	state.tankScene = LoadScene("systemroot/tank_demo/tank.gltf")

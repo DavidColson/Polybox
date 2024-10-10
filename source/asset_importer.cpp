@@ -8,6 +8,7 @@
 #include <log.h>
 #include <resizable_array.inl>
 #include <json.h>
+#include <base64.h>
 
 namespace AssetImporter {
 
@@ -94,7 +95,59 @@ void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, JsonValue& nodeToPa
 
 // ***********************************************************************
 
+// Actually owns the data
+struct GltfBuffer {
+    char* pBytes { nullptr };
+    usize byteLength { 0 };
+};
+
+// Does not actually own the data
+struct GltfBufferView {
+    // pointer to some place in a buffer
+    char* pBuffer { nullptr };
+    usize length { 0 };
+};
+
+struct GltfAccessor {
+    // pointer to some place in a buffer view
+    char* pBuffer { nullptr };
+    i32 count { 0 };
+    enum ComponentType {
+        Byte,
+        UByte,
+        Short,
+        UShort,
+        UInt,
+        f32
+    };
+    ComponentType componentType;
+
+    enum Type {
+        Scalar,
+        Vec2,
+        Vec3,
+        Vec4,
+        Mat2,
+        Mat3,
+        Mat4
+    };
+    Type type;
+};
+
+
+// ***********************************************************************
+
 int Import(Arena* pScratchArena, u8 format, String source, String output) {
+
+	// TODO: take the file extension as an indication of what the file is
+	// below we are doing gltf only. 
+
+	// if first few bytes is "gltf" in ascii, then it's a binary, glb file, you can verify this with the extension
+
+	// note that if we import a whole folder, we may accidentally import files referenced by the
+	// gltf, so when importing seperate gltf files, don't import stuff we already may have picked up, such as images
+	// they'll be done individually
+
 	// we'll do the scene first
 
 	// Load file
@@ -147,7 +200,100 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	SDL_RWwrite(pOutFile, result.pData, result.length, 1);
 	SDL_RWclose(pOutFile);
 
+	lua_pop(L, 1); // pop the scene table, we're done with it now
+
+	// then load the buffers and buffer information
+    ResizableArray<GltfBuffer> rawDataBuffers(pScratchArena);
+    JsonValue& jsonBuffers = parsed["buffers"];
+    for (int i = 0; i < jsonBuffers.Count(); i++) {
+        GltfBuffer buf;
+        buf.byteLength = jsonBuffers[i]["byteLength"].ToInt();
+
+        String encodedBuffer = jsonBuffers[i]["uri"].ToString();
+		// todo: the substr 37 tells us which type of gltf file this is, glb, bin as separate file, or base 64
+		// these should be the options:
+		// data:dontcaretext;base64,
+			// this of course is what we have here, a base64 encoded string, embedded in the uri
+		// filename.bin
+			// this will be another file to load, with the binary data directly there
+		// no entry other than byte length, then it is glb and the binary is in the next chunk or chunks
+        String decoded = DecodeBase64(pScratchArena, encodedBuffer.SubStr(37));
+        buf.pBytes = decoded.pData;
+
+        rawDataBuffers.PushBack(buf);
+    }
+
+    ResizableArray<GltfBufferView> bufferViews(pScratchArena);
+    JsonValue& jsonGltfBufferViews = parsed["bufferViews"];
+
+    for (int i = 0; i < jsonGltfBufferViews.Count(); i++) {
+        GltfBufferView view;
+
+        i32 bufIndex = jsonGltfBufferViews[i]["buffer"].ToInt();
+        view.pBuffer = rawDataBuffers[bufIndex].pBytes + jsonGltfBufferViews[i]["byteOffset"].ToInt();  //@Incomplete, byte offset could not be provided, in which case we assume 0
+
+        view.length = jsonGltfBufferViews[i]["byteLength"].ToInt();
+        bufferViews.PushBack(view);
+    }
+
+    ResizableArray<GltfAccessor> accessors(pScratchArena);
+    JsonValue& jsonAccessors = parsed["accessors"];
+    accessors.Reserve(jsonAccessors.Count());
+
+    for (int i = 0; i < jsonAccessors.Count(); i++) {
+        GltfAccessor acc;
+        JsonValue& jsonAcc = jsonAccessors[i];
+
+        i32 idx = jsonAcc["bufferView"].ToInt();
+        acc.pBuffer = bufferViews[idx].pBuffer;
+
+        acc.count = jsonAcc["count"].ToInt();
+
+        i32 compType = jsonAcc["componentType"].ToInt();
+        switch (compType) {
+            case 5120: acc.componentType = GltfAccessor::Byte; break;
+            case 5121: acc.componentType = GltfAccessor::UByte; break;
+            case 5122: acc.componentType = GltfAccessor::Short; break;
+            case 5123: acc.componentType = GltfAccessor::UShort; break;
+            case 5125: acc.componentType = GltfAccessor::UInt; break;
+            case 5126: acc.componentType = GltfAccessor::f32; break;
+            default: break;
+        }
+
+        String type = jsonAcc["type"].ToString();
+        if (type == "SCALAR")
+            acc.type = GltfAccessor::Scalar;
+        else if (type == "VEC2")
+            acc.type = GltfAccessor::Vec2;
+        else if (type == "VEC3")
+            acc.type = GltfAccessor::Vec3;
+        else if (type == "VEC4")
+            acc.type = GltfAccessor::Vec4;
+        else if (type == "MAT2")
+            acc.type = GltfAccessor::Mat2;
+        else if (type == "MAT3")
+            acc.type = GltfAccessor::Mat3;
+        else if (type == "MAT4")
+            acc.type = GltfAccessor::Mat4;
+
+        accessors.PushBack(acc);
+    }
+
 	// then the meshes
+	for (int i = 0; i < parsed["meshes"].Count(); i++) {
+        JsonValue& jsonMesh = parsed["meshes"][i];
+
+		// what do we do here?
+		// push serialization function
+		// make a table for the mesh
+		// push data format, probably just a number for now, need to do enums
+		// load, and interlace mesh data, flatten indices
+		// push buffer with size for all the vertex data
+		// memcpy the mesh data
+		// call serialize
+	}
+
+	// then images
 
 	// Load the mesh and convert into our interleaved data format, flattening indices
 	// merge primitives into one, and give a warning if there are more than one

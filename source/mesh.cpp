@@ -138,6 +138,13 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(Arena* pArena, const char* filePath) {
         buf.byteLength = jsonBuffers[i]["byteLength"].ToInt();
 
         String encodedBuffer = jsonBuffers[i]["uri"].ToString();
+		// todo: the substr 37 tells us which type of gltf file this is, glb, bin as separate file, or base 64
+		// these should be the options:
+		// data:dontcaretext;base64,
+			// this of course is what we have here, a base64 encoded string, embedded in the uri
+		// filename.bin
+			// this will be another file to load, with the binary data directly there
+		// no entry other than byte length, then it is glb and the binary is in the next chunk or chunks
         String decoded = DecodeBase64(g_pArenaFrame, encodedBuffer.SubStr(37));
         buf.pBytes = decoded.pData;
 
@@ -249,6 +256,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(Arena* pArena, const char* filePath) {
             // interlace vertex data
             ResizableArray<VertexData> indexedVertexData(g_pArenaFrame);
             indexedVertexData.Reserve(nVerts);
+			// TODO: color may be vec3 or vec4, you need to check the accessor type first
             if (jsonAttr.HasKey("COLOR_0")) {
                 Vec4f* vertColBuffer = (Vec4f*)accessors[jsonAttr["COLOR_0"].ToInt()].pBuffer;
                 for (int i = 0; i < nVerts; i++) {
@@ -307,6 +315,10 @@ ResizableArray<Image*> Mesh::LoadTextures(Arena* pArena, const char* filePath) {
         for (usize i = 0; i < parsed["images"].Count(); i++) {
             JsonValue& jsonImage = parsed["images"][i];
             String type = jsonImage["mimeType"].ToString();
+
+			// TODO: if the image has a bufferView property, then it's in the buffer
+			// either a nearby bin, or base64, so load it from there explicitely, rather than finding a file
+			// only load a file if there is a uri, which you can interpret as a file path, relative to the parent file
 
             StringBuilder builder(g_pArenaFrame);
 			// todo: replace when we have VFS

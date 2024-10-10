@@ -38,32 +38,17 @@ void Font::Initialize(String path, bool antialiasing, f32 weight) {
 	characters.pArena = pArena;
 
     FT_Library freetype;
-    FT_Init_FreeType(&freetype);
-
-    FT_Face face;
-
-    FT_Error err = FT_New_Face(freetype, path.pData, 0, &face);
+    FT_Error err = FT_Init_FreeType(&freetype);
     if (err) {
         Log::Warn("FreeType Error: %s", FT_Error_String(err));
     }
 
-    // Modify weight for variable fonts
-    FT_MM_Var* pVar = new FT_MM_Var;  // TODO: Replace with our allocators
-    FT_Get_MM_Var(face, &pVar);
+    FT_Face face;
 
-    i32 weightIndex = -1;
-    for (int i = 0; i < (int)pVar->num_axis; i++) {
-        if (pVar->axis[i].name == "Weight")
-            weightIndex = i;
+    err = FT_New_Face(freetype, path.pData, 0, &face);
+    if (err) {
+        Log::Warn("FreeType Error: %s", FT_Error_String(err));
     }
-
-    if (weightIndex > -1) {
-        FT_Fixed coords[16];
-        FT_Get_Var_Design_Coordinates(face, pVar->num_axis, coords);
-        coords[weightIndex] = (int)weight * 65536;
-        FT_Set_Var_Design_Coordinates(face, pVar->num_axis, coords);
-    }
-    delete pVar;
 
     // Rasterize the entire font to a texture atlas
     // **********************************************

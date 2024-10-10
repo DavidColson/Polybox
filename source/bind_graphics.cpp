@@ -12,6 +12,7 @@
 #include <lualib.h>
 #include <light_string.h>
 #include <string.h>
+#include <resizable_array.inl>
 
 namespace Bind {
 // ***********************************************************************

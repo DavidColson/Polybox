@@ -2,11 +2,6 @@
 
 #pragma once
 
-#include "lua_common.h"
-#include "mesh.h"
-
-#include <light_string.h>
-
 template<typename T>
 struct Quat;
 typedef Quat<f32> Quatf;

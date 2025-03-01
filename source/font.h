@@ -2,12 +2,6 @@
 
 #pragma once
 
-#include <resizable_array.h>
-#include <vec2.h>
-
-#include "image.h"
-#include "lua_common.h"
-
 struct String;
 
 struct Character {

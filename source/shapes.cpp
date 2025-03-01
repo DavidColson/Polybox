@@ -1,10 +1,5 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "shapes.h"
-
-#include "graphics.h"
-#include "vec3.inl"
-
 // ***********************************************************************
 
 void DrawBox(f32 x, f32 y, f32 z, f32 width, f32 height, f32 depth) {

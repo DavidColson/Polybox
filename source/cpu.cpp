@@ -1,21 +1,5 @@
 // Copyright David Colson. All rights reserved.
 
-#include "bind_input.h"
-#include "bind_graphics.h"
-#include "bind_mesh.h"
-#include "bind_scene.h"
-#include "buffer.h"
-#include "serialization.h"
-
-#include <SDL.h>
-#include <lua.h>
-#include <luacode.h>
-#include <lualib.h>
-#include <Luau/Frontend.h>
-#include <Luau/BuiltinDefinitions.h>
-#include <light_string.h>
-#include <log.h>
-
 static const String polyboxDefinitions = R"POLY_LIBS(
 --- Serialization API
 
@@ -475,7 +459,7 @@ void CompileAndLoadProgram(String path) {
 		pSource[sourceSize] = '\0';
 		SDL_RWclose(pFileRead);
 
-		usize bytecodeSize = 0;
+		u64 bytecodeSize = 0;
 		char* pBytecode = luau_compile(pSource, sourceSize, nullptr, &bytecodeSize);
 		int result = luau_load(L, "assets/game.lua", pBytecode, bytecodeSize, 0);
 

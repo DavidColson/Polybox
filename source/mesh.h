@@ -2,12 +2,6 @@
 
 #pragma once
 
-#include "graphics.h"
-#include "lua_common.h"
-
-#include <light_string.h>
-#include <resizable_array.h>
-
 struct Primitive : public LuaObject {
     ResizableArray<VertexData> vertices;
 

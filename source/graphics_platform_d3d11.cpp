@@ -1,16 +1,3 @@
-#include "graphics_platform.h"
-
-// windows headers don't compile with conformant preprocessor enabled
-// absolute nonesense I know
-#pragma warning (disable : 5105)
-#include "d3d11.h"
-#include "dxgi.h"
-
-#include <SDL_syswm.h>
-
-#define SOKOL_GFX_IMPL
-#define SOKOL_D3D11
-#include <sokol_gfx.h>
 
 namespace {
 ID3D11Device* pDevice = nullptr;

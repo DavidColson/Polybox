@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include <vec2.h>
-
 enum class ControllerButton {
     Invalid,
     FaceBottom,

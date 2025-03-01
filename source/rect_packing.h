@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include <resizable_array.h>
-
 namespace Packing {
 struct Rect {
     i32 x { 0 };

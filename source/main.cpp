@@ -1,25 +1,112 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "main.h"
-
-#include "input.h"
-#include "graphics.h"
-#include "cpu.h"
-#include "asset_importer.h"
-
-#include <SDL.h>
-#include <defer.h>
-#include <log.h>
-#include <platform_debug.h>
-#include <string_builder.h>
-#include <light_string.h>
-#include <memory_tracker.h>
-#include <string.h>
-
-#include <stdlib.h>
+// platform
+#pragma warning (disable : 5105)
+#include "Windows.h"
+#include "dbghelp.h"
+#include "d3d11.h"
+#include "dxgi.h"
+#undef min
+#undef max
 #undef DrawText
 #undef DrawTextEx
+#undef DrawTextExA
+#pragma comment(lib, "gdi32")
+#pragma comment(lib, "kernel32")
+#pragma comment(lib, "psapi")
+#pragma comment(lib, "dbghelp")
 
+// stdlib
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <ctype.h>
+#include <stdint.h>
+
+// common_lib
+#include "common_lib.h"
+#include "common_lib.cpp"
+
+// lz4
+#include "lz4.h"
+#include "lz4.c"
+
+// freetype
+#include <ft2build.h>
+#include <freetype/ftmm.h>
+#include FT_FREETYPE_H
+#pragma comment(lib, "freetype.lib")
+
+// luau
+#include <lua.h>
+#include <lualib.h>
+#include <luacode.h>
+#include <Luau/Frontend.h>
+#include <Luau/BuiltinDefinitions.h>
+#pragma comment(lib, "Luau.Compiler.lib")
+#pragma comment(lib, "Luau.Analysis.lib")
+#pragma comment(lib, "Luau.VM.lib")
+#pragma comment(lib, "Luau.Config.lib")
+#pragma comment(lib, "Luau.Ast.lib")
+#pragma comment(lib, "Luau.CLI.lib.lib")
+#pragma comment(lib, "Luau.EqSat.lib")
+
+// SDL
+#include <SDL.h>
+#include <SDL_syswm.h>
+#pragma comment(lib, "SDL2main")
+#pragma comment(lib, "SDL2")
+
+// Sokol
+#define SOKOL_GFX_IMPL
+#define SOKOL_D3D11
+#include <sokol_gfx.h>
+
+// stbimage
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+// includes
+#include "asset_importer.h"
+#include "bind_graphics.h"
+#include "bind_input.h"
+#include "bind_mesh.h"
+#include "bind_scene.h"
+#include "buffer.h"
+#include "cpu.h"
+#include "lua_common.h"
+#include "image.h"
+#include "font.h"
+#include "graphics.h"
+#include "graphics_platform.h"
+#include "input.h"
+#include "mesh.h"
+#include "rect_packing.h"
+#include "scene.h"
+#include "serialization.h"
+#include "shapes.h"
+
+// code
+#include "asset_importer.cpp"
+#include "bind_graphics.cpp"
+#include "bind_input.cpp"
+#include "bind_mesh.cpp"
+#include "bind_scene.cpp"
+#include "buffer.cpp"
+#include "cpu.cpp"
+#include "font.cpp"
+#include "graphics.cpp"
+#include "graphics_platform_d3d11.cpp"
+#include "image.cpp"
+#include "input.cpp"
+#include "lua_common.cpp"
+#include "mesh.cpp"
+#include "rect_packing.cpp"
+#include "scene.cpp"
+#include "serialization.cpp"
+#include "shapes.cpp"
 
 
 // ***********************************************************************
@@ -38,7 +125,7 @@ int ShowAssertDialog(String errorMsg) {
     builder.Append("Trace: \n");
 
     void* trace[100];
-    usize frames = PlatformDebug::CollectStackTrace(trace, 100, 2);
+    u64 frames = PlatformDebug::CollectStackTrace(trace, 100, 2);
     String stackTrace = PlatformDebug::PrintStackTraceToString(trace, frames, g_pArenaFrame);
     builder.Append(stackTrace);
 
@@ -126,7 +213,7 @@ int main(int argc, char* argv[]) {
 	}
 	else {
 		i32 winWidth = 1280;
-		i32 winHeight = 960;
+		i32 winHeight = 720;
 
 		SDL_Window* pWindow = SDL_CreateWindow(
 			"Polybox",

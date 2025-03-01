@@ -1,19 +1,5 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "bind_graphics.h"
-
-#include "graphics.h"
-#include "lua_common.h"
-#include "image.h"
-#include "font.h"
-#include "shapes.h"
-
-#include <lua.h>
-#include <lualib.h>
-#include <light_string.h>
-#include <string.h>
-#include <resizable_array.inl>
-
 namespace Bind {
 // ***********************************************************************
 
@@ -322,7 +308,7 @@ int LuaDrawSpriteRect(lua_State* pLua) {
 // ***********************************************************************
 
 int LuaDrawText(lua_State* pLua) {
-    usize len;
+    u64 len;
     const char* str = luaL_checklstring(pLua, 1, &len);
     Vec2f position;
     position.x = (f32)luaL_checknumber(pLua, 2);
@@ -336,7 +322,7 @@ int LuaDrawText(lua_State* pLua) {
 // ***********************************************************************
 
 int LuaDrawTextEx(lua_State* pLua) {
-    usize len;
+    u64 len;
     const char* str = luaL_checklstring(pLua, 1, &len);
     Vec2f position;
     position.x = (f32)luaL_checknumber(pLua, 2);
@@ -474,7 +460,7 @@ int LuaDrawIcosahedron(lua_State* pLua) {
 // ***********************************************************************
 
 int LuaNewImage(lua_State* pLua) {
-    usize len;
+    u64 len;
     const char* str = luaL_checklstring(pLua, 1, &len);
     String path(str);
 
@@ -514,7 +500,7 @@ int LuaImage_GetHeight(lua_State* pLua) {
 // ***********************************************************************
 
 int LuaNewFont(lua_State* pLua) {
-    usize len;
+    u64 len;
     const char* path = luaL_checklstring(pLua, 1, &len);
     bool antialiasing = luax_checkboolean(pLua, 2);
     f32 weight = (f32)luaL_checknumber(pLua, 3);

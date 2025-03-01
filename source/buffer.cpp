@@ -1,15 +1,4 @@
 // Copyright David Colson. All rights reserved.
-#include "buffer.h"
-
-#include <lua.h>
-#include <lualib.h>
-#include <memory.h>
-#include <string.h>
-#include <maths.h>
-#include <string_builder.h>
-#include <light_string.h>
-#include <scanning.h>
-#include <stdlib.h>
 
 namespace BufferLib {
 
@@ -222,9 +211,9 @@ i32 NewBuffer(lua_State* L) {
 	}
 
 	if (nArgs > 3) {
-		usize len;
-		dataStr.pData = (byte*)luaL_checklstring(L, 4, &len);
-		dataStr.length = (size)len;
+		u64 len;
+		dataStr.pData = (char*)luaL_checklstring(L, 4, &len);
+		dataStr.length = (i64)len;
 	}
 
 	Type type;
@@ -322,7 +311,7 @@ i32 Index(lua_State* L) {
 		return GetImpl(L, pBuffer, lua_tointeger(L, 2), 1);
 	}
 
-    usize len;
+    u64 len;
     const char* str = luaL_checklstring(L, 2, &len);
 
 	i32 index = -1;
@@ -352,7 +341,7 @@ i32 NewIndex(lua_State* L) {
 		SetImpl(L, pBuffer, lua_tointeger(L, 2), 3);
 	}
 
-    usize len;
+    u64 len;
     const char* str = luaL_checklstring(L, 2, &len);
 
 	i32 index = -1;

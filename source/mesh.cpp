@@ -1,16 +1,5 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "Mesh.h"
-
-#include "base64.h"
-#include "defer.h"
-#include "json.h"
-#include "string_builder.h"
-#include "image.h"
-
-#include <SDL_rwops.h>
-#include <resizable_array.inl>
-
 // ***********************************************************************
 
 int Primitive::GetNumVertices() {
@@ -71,14 +60,14 @@ Primitive* Mesh::GetPrimitive(int index) {
 // Actually owns the data
 struct MeshBuffer {
     char* pBytes { nullptr };
-    usize byteLength { 0 };
+    u64 byteLength { 0 };
 };
 
 // Does not actually own the data
 struct BufferView {
     // pointer to some place in a buffer
     char* pBuffer { nullptr };
-    usize length { 0 };
+    u64 length { 0 };
 };
 
 struct Accessor {
@@ -222,6 +211,8 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(Arena* pArena, const char* filePath) {
         String meshName = jsonMesh.HasKey("name") ? jsonMesh["name"].ToString() : String("");
         pMesh->name = CopyString(meshName, pMesh->pArena);
 
+		// todo, give a warning if more than one, and then merge them into one mesh
+		// just tack on more space in the buffer and put it at the end
         for (int j = 0; j < jsonMesh["primitives"].Count(); j++) {
             JsonValue& jsonPrimitive = jsonMesh["primitives"][j];
             Primitive prim;
@@ -230,6 +221,8 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(Arena* pArena, const char* filePath) {
             if (jsonPrimitive.HasKey("mode")) {
                 if (jsonPrimitive["mode"].ToInt() != 4) {
                     return ResizableArray<Mesh*>();  // Unsupported topology type
+					// todo find out how common this is, and if we need to implement a converter
+					// for now give an error
                 }
             }
 
@@ -312,7 +305,7 @@ ResizableArray<Image*> Mesh::LoadTextures(Arena* pArena, const char* filePath) {
 
     if (parsed.HasKey("images")) {
         outImages.Reserve(parsed["images"].Count());
-        for (usize i = 0; i < parsed["images"].Count(); i++) {
+        for (u64 i = 0; i < parsed["images"].Count(); i++) {
             JsonValue& jsonImage = parsed["images"][i];
             String type = jsonImage["mimeType"].ToString();
 

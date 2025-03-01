@@ -1,18 +1,5 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "Scene.h"
-
-
-#include "base64.h"
-#include "defer.h"
-#include "json.h"
-#include "light_string.h"
-
-#include <quat.inl>
-#include <matrix.inl>
-#include <SDL_rwops.h>
-#include <resizable_array.inl>
-
 u64 Node::s_nodeIdCounter = 0;
 
 // ***********************************************************************

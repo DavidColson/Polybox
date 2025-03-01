@@ -1,23 +1,5 @@
 // Copyright David Colson. All rights reserved.
 
-#include "serialization.h"
-
-#include "buffer.h"
-
-#include <lua.h>
-#include <lualib.h>
-#include <string_builder.h>
-#include <resizable_array.inl>
-#include <light_string.h>
-#include <defer.h>
-#include <log.h>
-#include <scanning.h>
-#include <cstring>
-#include <lz4.h>
-#include <base64.h>
-#include <SDL_rwops.h>
-#include <stdlib.h>
-
 namespace Serialization {
 
 // ***********************************************************************
@@ -177,9 +159,9 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadat
 
 // ***********************************************************************
 
-size MemcpyBE(u8 *dst, u8 *src, size len)
+i64 MemcpyBE(u8 *dst, u8 *src, i64 len)
 {
-	for (size_t i = 0; i < len; i++) {
+	for (i64 i = 0; i < len; i++) {
 		dst[len - i - 1] = src[i];
 	}
 
@@ -188,9 +170,9 @@ size MemcpyBE(u8 *dst, u8 *src, size len)
 
 // ***********************************************************************
 
-size MemcpyLE(u8 *dst, u8 *src, size len)
+i64 MemcpyLE(u8 *dst, u8 *src, i64 len)
 {
-	for (size_t i = 0; i < len; i++) {
+	for (i64 i = 0; i < len; i++) {
 		dst[i] = src[i];
 	}
 
@@ -199,7 +181,7 @@ size MemcpyLE(u8 *dst, u8 *src, size len)
 
 // ***********************************************************************
 
-void CborEncode(ResizableArray<u8>& output, u8 majorType, u8* pData, size dataSize, bool indefinite = false) {
+void CborEncode(ResizableArray<u8>& output, u8 majorType, u8* pData, i64 dataSize, bool indefinite = false) {
 	u8 additionalInfo;
 	u8 followingBytes;
 
@@ -230,9 +212,9 @@ void CborEncode(ResizableArray<u8>& output, u8 majorType, u8* pData, size dataSi
 		followingBytes = 0;
 	}
 
-	size requiredSize = (size)dataSize + followingBytes + 1; // extra 1 for header
+	i64 requiredSize = (i64)dataSize + followingBytes + 1; // extra 1 for header
 	if (!(majorType == 2 || majorType == 3)) {
-		requiredSize -= (size)dataSize;
+		requiredSize -= (i64)dataSize;
 	}
 
 	// Allocate more space in output if needed
@@ -303,14 +285,14 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
 				// value on stack is a buffer
 				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
 
-				size udataSize = pBuf->width * pBuf->height;
+				i64 udataSize = pBuf->width * pBuf->height;
 				switch(pBuf->type) {
 					case BufferLib::Type::Float32: udataSize *= sizeof(f32); break;
 					case BufferLib::Type::Int32: udataSize *= sizeof(i32); break;
 					case BufferLib::Type::Int16: udataSize *= sizeof(i16); break;
 					case BufferLib::Type::Uint8: udataSize *= sizeof(u8); break;
 				}
-				size requiredSpace = udataSize + sizeof(i32) + sizeof(i32) + 1;
+				i64 requiredSpace = udataSize + sizeof(i32) + sizeof(i32) + 1;
 
 				CborEncode(output, 2, nullptr, requiredSpace);
 				output.count -= requiredSpace;
@@ -340,14 +322,14 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
 			u8 majorType = 7;
 			if ((f64)single == value) {
 				// can be safely stored in single
-				size requiredSize = 5;
+				i64 requiredSize = 5;
 				output.Reserve(output.GrowCapacity(output.count + requiredSize));
 				output.pData[output.count] = majorType << 5 | 26;
 				MemcpyBE(&output.pData[output.count+1], (u8*)&single, 4);
 				output.count += requiredSize;
 			} else {
 				// Needs double precision
-				size requiredSize = 9;
+				i64 requiredSize = 9;
 				output.Reserve(output.GrowCapacity(output.count + requiredSize));
 				output.pData[output.count] = majorType << 5 | 27;
 				MemcpyBE(&output.pData[output.count+1], (u8*)&value, 8);
@@ -416,8 +398,8 @@ i32 Serialize(lua_State* L) {
 
 	// if compressed, then compress output and resize
 	if (mode & 0x2) {
-		size srcSize = output.count - 1;
-		size compressBound = LZ4_compressBound(srcSize);
+		i64 srcSize = output.count - 1;
+		i64 compressBound = LZ4_compressBound(srcSize);
 		u8* pData = output.pData + 1; // skip the binary identifier bit
 
 		u8* stagingBuffer = New(g_pArenaFrame, u8, compressBound);
@@ -455,7 +437,7 @@ i32 Serialize(lua_State* L) {
 		output.count += metaData.length;
 	}
 
-	lua_pushlstring(L, (byte*)output.pData, output.count);
+	lua_pushlstring(L, (char*)output.pData, output.count);
 	return 1;
 }
 
@@ -473,11 +455,11 @@ void ParseTextTable(lua_State* L, Scan::ScanningState& scan, bool isMetadata = f
 	// While loop over each table element
 	while (!Scan::IsAtEnd(scan)) {
 		Scan::AdvanceOverWhitespace(scan);
-		byte c = Scan::Advance(scan);
+		char c = Scan::Advance(scan);
 
 		// Identifier
 		if (Scan::IsAlpha(c)) {
-			byte* start = scan.pCurrent - 1;
+			char* start = scan.pCurrent - 1;
 			while (Scan::IsAlphaNumeric(Scan::Peek(scan)))
 				Scan::Advance(scan);
 
@@ -505,7 +487,7 @@ void ParseTextTable(lua_State* L, Scan::ScanningState& scan, bool isMetadata = f
 			}
 
 			if (!Scan::Match(scan, '=')) {
-				luaL_error(L, "Expected '=' after table key", size(scan.pCurrent - scan.pTextStart));
+				luaL_error(L, "Expected '=' after table key", i64(scan.pCurrent - scan.pTextStart));
 			}
 
 			ParseTextValue(L, scan);
@@ -528,10 +510,10 @@ void ParseTextTable(lua_State* L, Scan::ScanningState& scan, bool isMetadata = f
 			ParseTextValue(L, scan);
 
 			if (!Scan::Match(scan, ']')) {
-				luaL_error(L, "Expected ']' after table key", size(scan.pCurrent - scan.pTextStart));
+				luaL_error(L, "Expected ']' after table key", i64(scan.pCurrent - scan.pTextStart));
 			}
 			if (!Scan::Match(scan, '=')) {
-				luaL_error(L, "Expected '=' after table key", size(scan.pCurrent - scan.pTextStart));
+				luaL_error(L, "Expected '=' after table key", i64(scan.pCurrent - scan.pTextStart));
 			}
 
 			ParseTextValue(L, scan);
@@ -547,7 +529,7 @@ void ParseTextTable(lua_State* L, Scan::ScanningState& scan, bool isMetadata = f
 			else if (c == '}') {
 				return; // table should already be top of stack
 			}
-			luaL_error(L, "Expected '}' to end table", size(scan.pCurrent - scan.pTextStart));
+			luaL_error(L, "Expected '}' to end table", i64(scan.pCurrent - scan.pTextStart));
 		}
 	}
 }
@@ -565,7 +547,7 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 	BufferLib::Type bufferType = BufferLib::Type::Int32;
 
 	// parse an identifier to get the type
-	byte* pStart = scan.pCurrent;
+	char* pStart = scan.pCurrent;
 	while (Scan::Peek(scan) != ',') 
 		Scan::Advance(scan);
 
@@ -635,10 +617,10 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 void ParseTextValue(lua_State* L, Scan::ScanningState& scan) {
 	while (!Scan::IsAtEnd(scan)) {
 		Scan::AdvanceOverWhitespace(scan);
-		byte c = Scan::Advance(scan);
+		char c = Scan::Advance(scan);
 
 		if (Scan::IsAlpha(c)) {
-			byte* pStart = scan.pCurrent - 1;
+			char* pStart = scan.pCurrent - 1;
 			while (Scan::IsAlphaNumeric(Scan::Peek(scan)))
 				Scan::Advance(scan);
 
@@ -678,7 +660,7 @@ void ParseTextValue(lua_State* L, Scan::ScanningState& scan) {
 		}
 	
 
-		luaL_error(L, "Unexpected character in data to serialize. At location %i", size(scan.pCurrent - scan.pTextStart));
+		luaL_error(L, "Unexpected character in data to serialize. At location %i", i64(scan.pCurrent - scan.pTextStart));
 	}
 }
 
@@ -854,7 +836,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 // ***********************************************************************
 
 int Deserialize(lua_State* L) {
-	usize len;
+	u64 len;
 	const char* str = luaL_checklstring(L, -1, &len);
 
 	// find metadata if possible
@@ -881,16 +863,16 @@ int Deserialize(lua_State* L) {
 	if (strncmp(start, "b64:", 4) == 0) {
 		// base64
 		String base64;
-		base64.pData = (byte*)start + 4;
+		base64.pData = (char*)start + 4;
 		base64.length = dataLen - 4;
 
 		decoded = DecodeBase64(g_pArenaFrame, base64);
 	} else {
-		decoded.pData = (byte*)start;
+		decoded.pData = (char*)start;
 		decoded.length = dataLen;
 	}
 
-	if ((ubyte)decoded.pData[0] == 0xBD) {
+	if ((u8)decoded.pData[0] == 0xBD) {
 		// binary file
 		CborParserState state;
 		state.len = decoded.length - 1;
@@ -900,15 +882,15 @@ int Deserialize(lua_State* L) {
 
 		ParseCborValue(L, state);
 	}
-	else if ((ubyte)decoded.pData[0] == 0xBC) {
+	else if ((u8)decoded.pData[0] == 0xBC) {
 		// compressed file
 		i32 compressedSize;
 		i32 originalSize;
-		ubyte* pData;
+		u8* pData;
 
 		MemcpyLE((u8*)&compressedSize, (u8*)decoded.pData+1, 4);
 		MemcpyLE((u8*)&originalSize, (u8*)decoded.pData+5, 4);
-		pData = (ubyte*)decoded.pData+9;
+		pData = (u8*)decoded.pData+9;
 
 		u8* pDecompressedData = New(g_pArenaFrame, u8, originalSize);
 
@@ -950,13 +932,13 @@ int Deserialize(lua_State* L) {
 // ***********************************************************************
 
 int Store(lua_State* L) {
-	usize filenameLen;
+	u64 filenameLen;
 	const char* filename = luaL_checklstring(L, 1, &filenameLen);
 
 	Serialize(L);
 
 	// string is now on the stack
-	usize contentLen;
+	u64 contentLen;
 	const char* content = lua_tolstring(L, -1, &contentLen);
 
 	SDL_RWops* pFile = SDL_RWFromFile(filename, "wb");
@@ -968,7 +950,7 @@ int Store(lua_State* L) {
 // ***********************************************************************
 
 int Load(lua_State* L) {
-	usize filenameLen;
+	u64 filenameLen;
 	const char* filename = luaL_checklstring(L, 1, &filenameLen);
 
     SDL_RWops* pFile = SDL_RWFromFile(filename, "rb");

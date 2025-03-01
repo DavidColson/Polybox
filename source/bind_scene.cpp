@@ -228,7 +228,7 @@ int Scene_GetNode(lua_State* pLua) {
 // ***********************************************************************
 
 int LoadScene(lua_State* pLua) {
-    usize len;
+    u64 len;
     const char* path = luaL_checklstring(pLua, 1, &len);
     Scene* pScene = Scene::LoadScene(path);
 

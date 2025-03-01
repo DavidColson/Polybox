@@ -1,16 +1,5 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "bind_input.h"
-
-#include "input.h"
-#include "light_string.h"
-#include "lua_common.h"
-
-#include <lua.h>
-#include <lualib.h>
-#include <defer.h>
-
-
 namespace Bind {
 // ***********************************************************************
 

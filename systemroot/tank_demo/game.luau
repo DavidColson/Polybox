@@ -147,7 +147,7 @@ function Update(deltaTime: number)
     SetClearColor(0.25, 0.25, 0.25, 1.0)
 
     MatrixMode("Projection")
-    Perspective(320, 240, 1, 20, 60)
+    Perspective(320, 180, 1, 20, 60)
 
     state.camX = state.camX + deltaTime * GetAxis(Axis.RightY)
     state.camY = state.camY + deltaTime * GetAxis(Axis.RightX)

@@ -1,14 +1,5 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "lua_common.h"
-
-#include "image.h"
-#include "mesh.h"
-
-#include <lua.h>
-#include <lualib.h>
-#include <log.h>
-
 #undef DrawText
 #undef DrawTextEx
 

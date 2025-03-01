@@ -2,11 +2,6 @@
 
 #pragma once
 
-#include <light_string.h>
-#include <sokol_gfx.h>
-
-#include "lua_common.h"
-
 struct Image : public LuaObject {
     Image() {}
     Image(String path);

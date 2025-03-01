@@ -1,27 +1,7 @@
 // Copyright 2020-2024 David Colson. All rights reserved.
-
-#include "graphics.h"
-
-#include "font.h"
-#include "image.h"
-#include "graphics_platform.h"
-
-#include <SDL_timer.h>
-#include <sokol_gfx.h>
-#include <resizable_array.inl>
-#include <maths.h>
-#include <matrix.inl>
-#include <vec4.inl>
-#include <vec3.inl>
-#include <vec2.inl>
-#include <defer.h>
-
 // shaders
 #include "core3d.h"
 #include "compositor.h"
-
-// please excuse the dirty trick to block the windows headers messing up my API
-#define DrawTextExA 0 
 
 // this is derived from the ps1's supposed 90k poly's per second with lighting and mapping
 // probably will want to increase this at some point
@@ -53,7 +33,7 @@ struct RenderState {
 	Vec3f vertexNormalState { Vec3f(0.0f, 0.0f, 0.0f) };
 
 	EMatrixMode matrixModeState;
-	Matrixf matrixStates[(usize)EMatrixMode::Count];
+	Matrixf matrixStates[(u64)EMatrixMode::Count];
 
 	ENormalsMode normalsModeState;
 	bool lightingState { false };
@@ -101,16 +81,14 @@ struct RenderState {
 	sg_image whiteTexture;
 };
 
-namespace {
-	RenderState* pState;
-}
+RenderState* pRenderState;
 
 // ***********************************************************************
 
 sg_pipeline& GetPipeline(bool indexed, EPrimitiveType primitive, bool writeAlpha) {
 	u32 index = (i32)indexed + (i32)primitive + (i32)writeAlpha;
-	if (pState->pipeMain[index].id != SG_INVALID_ID) {
-		return pState->pipeMain[index];
+	if (pRenderState->pipeMain[index].id != SG_INVALID_ID) {
+		return pRenderState->pipeMain[index];
 	}
 
 	sg_pipeline_desc pipelineDesc = {
@@ -175,8 +153,8 @@ sg_pipeline& GetPipeline(bool indexed, EPrimitiveType primitive, bool writeAlpha
 		pipelineDesc.colors[0].write_mask = SG_COLORMASK_RGB;
 	}
 
-	pState->pipeMain[index] = sg_make_pipeline(pipelineDesc);
-	return pState->pipeMain[index];
+	pRenderState->pipeMain[index] = sg_make_pipeline(pipelineDesc);
+	return pRenderState->pipeMain[index];
 }
 
 // ***********************************************************************
@@ -231,7 +209,7 @@ void CreateFullScreenQuad(f32 _textureWidth, f32 _textureHeight, f32 _texelHalf,
 	sg_buffer_desc vbufferDesc = {
 		.data = SG_RANGE(vertices)
 	};
-	pState->fullscreenTriangle = sg_make_buffer(&vbufferDesc);
+	pRenderState->fullscreenTriangle = sg_make_buffer(&vbufferDesc);
 }
 
 
@@ -239,16 +217,16 @@ void CreateFullScreenQuad(f32 _textureWidth, f32 _textureHeight, f32 _texelHalf,
 
 void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 	Arena* pArena = ArenaCreate();
-	pState = New(pArena, RenderState);
-	pState->pArena = pArena;
+	pRenderState = New(pArena, RenderState);
+	pRenderState->pArena = pArena;
 
-	pState->vertexState.pArena = pArena;
-	pState->drawList3D.pArena = pArena;
-	pState->drawList2D.pArena = pArena;
-	pState->perFrameVertexBuffer.pArena = pArena;
-	pState->perFrameIndexBuffer.pArena = pArena;
+	pRenderState->vertexState.pArena = pArena;
+	pRenderState->drawList3D.pArena = pArena;
+	pRenderState->drawList2D.pArena = pArena;
+	pRenderState->perFrameVertexBuffer.pArena = pArena;
+	pRenderState->perFrameIndexBuffer.pArena = pArena;
 
-	pState->targetResolution = Vec2f(320.0f, 240.0f);
+	pRenderState->targetResolution = Vec2f(320.0f, 240.0f);
 
 	// init_backend stuff
 	GraphicsBackendInit(pWindow, winWidth, winHeight);
@@ -257,9 +235,9 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 	};
 	sg_setup(&desc);
 
-	PlacementNew(&pState->defaultFont) Font();
-	pState->defaultFont.pArena = pArena;
-	pState->defaultFont.Initialize("systemroot/shared/Roboto-Bold.ttf");
+	PlacementNew(&pRenderState->defaultFont) Font();
+	pRenderState->defaultFont.pArena = pArena;
+	pRenderState->defaultFont.Initialize("systemroot/shared/Roboto-Bold.ttf");
 
 	// Create white texture for non textured draws
 	{
@@ -276,7 +254,7 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 
 		imageDesc.data.subimage[0][0].ptr = (void*)pixels;
 		imageDesc.data.subimage[0][0].size = sizeof(pixels);
-		pState->whiteTexture = sg_make_image(&imageDesc);
+		pRenderState->whiteTexture = sg_make_image(&imageDesc);
 	}
 
 	// Compositor Pipeline
@@ -309,7 +287,7 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 			.index_type = SG_INDEXTYPE_NONE,
 			.cull_mode = SG_CULLMODE_BACK
 		};
-		pState->pipeCompositor = sg_make_pipeline(pipelineDesc);
+		pRenderState->pipeCompositor = sg_make_pipeline(pipelineDesc);
 	}
 
 	// Create persistent buffers
@@ -320,14 +298,14 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 			.size = MAX_VERTICES_PER_FRAME * sizeof(VertexData),
 			.usage = SG_USAGE_STREAM
 		};
-		pState->transientVertexBuffer = sg_make_buffer(&vertexBufferDesc);
+		pRenderState->transientVertexBuffer = sg_make_buffer(&vertexBufferDesc);
 
 		sg_buffer_desc indexBufferDesc = {
 			.size = MAX_VERTICES_PER_FRAME * sizeof(u16),
 			.type = SG_BUFFERTYPE_INDEXBUFFER,
 			.usage = SG_USAGE_STREAM
 		};
-		pState->transientIndexBuffer = sg_make_buffer(&indexBufferDesc);
+		pRenderState->transientIndexBuffer = sg_make_buffer(&indexBufferDesc);
 
 	}
 
@@ -339,17 +317,17 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 			.height = 240,
 			.sample_count = 1
 		};
-		pState->fbCore3DScene = sg_make_image(&viewDesc);
+		pRenderState->fbCore3DScene = sg_make_image(&viewDesc);
 
 		viewDesc.pixel_format = SG_PIXELFORMAT_DEPTH;
 		sg_image depth = sg_make_image(&viewDesc);
 
 		sg_attachments_desc attachmentsDesc = {
-			.colors = { {.image = pState->fbCore3DScene } },
+			.colors = { {.image = pRenderState->fbCore3DScene } },
 			.depth_stencil = { .image = depth }
 		};
 
-		pState->passCore3DScene = { 
+		pRenderState->passCore3DScene = { 
 			.action = {
 				.colors = {
 					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.25f, 0.25f, 1.0f } } 
@@ -367,17 +345,17 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 			.height = 240,
 			.sample_count = 1
 		};
-		pState->fbCore2DScene = sg_make_image(&viewDesc);
+		pRenderState->fbCore2DScene = sg_make_image(&viewDesc);
 
 		viewDesc.pixel_format = SG_PIXELFORMAT_DEPTH;
 		sg_image depth = sg_make_image(&viewDesc);
 
 		sg_attachments_desc attachmentsDesc = {
-			.colors = { {.image = pState->fbCore2DScene } },
+			.colors = { {.image = pRenderState->fbCore2DScene } },
 			.depth_stencil = { .image = depth }
 		};
 
-		pState->passCore2DScene = { 
+		pRenderState->passCore2DScene = { 
 			.action = {
 				.colors = {
 					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 1.f, 1.f, 1.f, 0.0f } } 
@@ -389,7 +367,7 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 
 	// Create compositor
 	{
-		pState->passCompositor = { 
+		pRenderState->passCompositor = { 
 			.action = {
 				.colors = {
 					{ .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.25f, 0.25f, 0.25f, 1.0f } } 
@@ -405,14 +383,14 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 			.min_filter = SG_FILTER_NEAREST,
 			.mag_filter = SG_FILTER_NEAREST
 		};
-		pState->samplerNearest = sg_make_sampler(&samplerDesc);
+		pRenderState->samplerNearest = sg_make_sampler(&samplerDesc);
 	}
 
-	pState->perFrameVertexBuffer.Reserve(MAX_VERTICES_PER_FRAME);
-	pState->perFrameIndexBuffer.Reserve(MAX_VERTICES_PER_FRAME);
+	pRenderState->perFrameVertexBuffer.Reserve(MAX_VERTICES_PER_FRAME);
+	pRenderState->perFrameIndexBuffer.Reserve(MAX_VERTICES_PER_FRAME);
 
-	for (usize i = 0; i < 3; i++) {
-        pState->matrixStates[i] = Matrixf::Identity();
+	for (u64 i = 0; i < 3; i++) {
+        pRenderState->matrixStates[i] = Matrixf::Identity();
     }
 }
 
@@ -422,42 +400,42 @@ void DrawFrame(i32 w, i32 h) {
 	// TODO: Sort the draw list to minimise state changes
 
 	// Update the global vertex buffer
-	if (pState->perFrameVertexBuffer.count > 0) {
+	if (pRenderState->perFrameVertexBuffer.count > 0) {
 		sg_range vtxData;
-		vtxData.ptr = (void*)pState->perFrameVertexBuffer.pData;
-		vtxData.size = pState->perFrameVertexBuffer.count * sizeof(VertexData);
-		sg_update_buffer(pState->transientVertexBuffer, &vtxData);
+		vtxData.ptr = (void*)pRenderState->perFrameVertexBuffer.pData;
+		vtxData.size = pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
+		sg_update_buffer(pRenderState->transientVertexBuffer, &vtxData);
 	}
 
-	if (pState->perFrameIndexBuffer.count > 0) {
+	if (pRenderState->perFrameIndexBuffer.count > 0) {
 		sg_range idxData;
-		idxData.ptr = (void*)pState->perFrameIndexBuffer.pData;
-		idxData.size = pState->perFrameIndexBuffer.count * sizeof(u16);
-		sg_update_buffer(pState->transientIndexBuffer, &idxData);
+		idxData.ptr = (void*)pRenderState->perFrameIndexBuffer.pData;
+		idxData.size = pRenderState->perFrameIndexBuffer.count * sizeof(u16);
+		sg_update_buffer(pRenderState->transientIndexBuffer, &idxData);
 	}
 
 	// Draw 3D view into texture
 	{
-		sg_begin_pass(&pState->passCore3DScene);
+		sg_begin_pass(&pRenderState->passCore3DScene);
 
-		sg_apply_viewport(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
-		sg_apply_scissor_rect(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
+		sg_apply_viewport(0, 0, pRenderState->targetResolution.x, pRenderState->targetResolution.y, true);
+		sg_apply_scissor_rect(0, 0, pRenderState->targetResolution.x, pRenderState->targetResolution.y, true);
 
-		for(i32 i = 0; i < pState->drawList3D.count; i++) {
-			DrawCommand& cmd = pState->drawList3D[i];
+		for(i32 i = 0; i < pRenderState->drawList3D.count; i++) {
+			DrawCommand& cmd = pRenderState->drawList3D[i];
 
 			sg_pipeline& pipeline = GetPipeline(cmd.indexedDraw, cmd.type, false);
 			sg_apply_pipeline(pipeline);
 			
 			sg_bindings bind{0};
-			bind.vertex_buffers[0] = pState->transientVertexBuffer;
+			bind.vertex_buffers[0] = pRenderState->transientVertexBuffer;
 			bind.fs = {
-				.images = { pState->whiteTexture },
-				.samplers = { pState->samplerNearest }
+				.images = { pRenderState->whiteTexture },
+				.samplers = { pRenderState->samplerNearest }
 			};
 
 			if (cmd.indexedDraw) {
-				bind.index_buffer = pState->transientIndexBuffer;
+				bind.index_buffer = pRenderState->transientIndexBuffer;
 				bind.index_buffer_offset = cmd.indexBufferOffset;
 			}
 
@@ -478,27 +456,27 @@ void DrawFrame(i32 w, i32 h) {
 	}
 
 	// experimental code to readback 3D view for cpu editing
-	// ReadbackImagePixels(pState->fbCore3DScene, pState->pPixelsData);
-	// memset(pState->pPixelsData + 8000 * 4 * sizeof(u8), 0, 640); 
+	// ReadbackImagePixels(pRenderState->fbCore3DScene, pRenderState->pPixelsData);
+	// memset(pRenderState->pPixelsData + 8000 * 4 * sizeof(u8), 0, 640); 
 
 	// Draw 2D view into texture
 	{
-		sg_begin_pass(&pState->passCore2DScene);
+		sg_begin_pass(&pRenderState->passCore2DScene);
 
-		sg_apply_viewport(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
-		sg_apply_scissor_rect(0, 0, pState->targetResolution.x, pState->targetResolution.y, true);
+		sg_apply_viewport(0, 0, pRenderState->targetResolution.x, pRenderState->targetResolution.y, true);
+		sg_apply_scissor_rect(0, 0, pRenderState->targetResolution.x, pRenderState->targetResolution.y, true);
 
-		for(i32 i = 0; i < pState->drawList2D.count; i++) {
-			DrawCommand& cmd = pState->drawList2D[i];
+		for(i32 i = 0; i < pRenderState->drawList2D.count; i++) {
+			DrawCommand& cmd = pRenderState->drawList2D[i];
 
 			sg_pipeline& pipeline = GetPipeline(cmd.indexedDraw, cmd.type, true);
 			sg_apply_pipeline(pipeline);
 
 			sg_bindings bind{0};
-			bind.vertex_buffers[0] = pState->transientVertexBuffer;
+			bind.vertex_buffers[0] = pRenderState->transientVertexBuffer;
 			bind.fs = {
-				.images = { pState->whiteTexture },
-				.samplers = { pState->samplerNearest }
+				.images = { pRenderState->whiteTexture },
+				.samplers = { pRenderState->samplerNearest }
 			};
 
 			if (cmd.texturedDraw) {
@@ -521,18 +499,18 @@ void DrawFrame(i32 w, i32 h) {
 
 	// Draw framebuffer to swapchain, upscaling in the process
 	{
-		sg_begin_pass(&pState->passCompositor);
-		sg_apply_pipeline(pState->pipeCompositor);
+		sg_begin_pass(&pRenderState->passCompositor);
+		sg_apply_pipeline(pRenderState->pipeCompositor);
 
 		// paramaterize this, the true screen resolution
-		sg_apply_viewport(0, 0, 1280, 960, true);
-		sg_apply_scissor_rect(0, 0, 1280, 960, true);
+		sg_apply_viewport(0, 0, 1280, 720, true);
+		sg_apply_scissor_rect(0, 0, 1280, 720, true);
 
 		sg_bindings bind = { 
-			.vertex_buffers = { pState->fullscreenTriangle },
+			.vertex_buffers = { pRenderState->fullscreenTriangle },
 			.fs = {
-				.images = { { pState->fbCore2DScene }, { pState->fbCore3DScene } },
-				.samplers = { { pState->samplerNearest } }
+				.images = { { pRenderState->fbCore2DScene }, { pRenderState->fbCore3DScene } },
+				.samplers = { { pRenderState->samplerNearest } }
 			}
 		};
 		sg_apply_bindings(&bind);
@@ -543,7 +521,7 @@ void DrawFrame(i32 w, i32 h) {
 		sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &vsUniformsRange);
 
 		fs_compositor_params_t fsUniforms;
-		fsUniforms.screenResolution = Vec2f(1280, 960);
+		fsUniforms.screenResolution = Vec2f(1280, 720);
 		fsUniforms.time = f32(SDL_GetTicks()) / 1000.0f;
 		sg_range fsUniformsRange = SG_RANGE_REF(fsUniforms);
 		sg_apply_uniforms(SG_SHADERSTAGE_FS, 0, &fsUniformsRange);
@@ -558,49 +536,49 @@ void DrawFrame(i32 w, i32 h) {
 	sg_commit();
 	SokolPresent();	
 	// prepare for next frame
-	pState->perFrameVertexBuffer.count = 0;
-	pState->perFrameIndexBuffer.count = 0;
-	pState->drawList3D.count=0;
-	pState->drawList2D.count = 0;
+	pRenderState->perFrameVertexBuffer.count = 0;
+	pRenderState->perFrameIndexBuffer.count = 0;
+	pRenderState->drawList3D.count=0;
+	pRenderState->drawList2D.count = 0;
 
-	for (usize i = 0; i < (int)EMatrixMode::Count; i++) {
-        pState->matrixStates[i] = Matrixf::Identity();
+	for (u64 i = 0; i < (int)EMatrixMode::Count; i++) {
+        pRenderState->matrixStates[i] = Matrixf::Identity();
     }
 }
 
 // ***********************************************************************
 
 void BeginObject2D(EPrimitiveType type) {
-    pState->typeState = type;
-    pState->mode = ERenderMode::Mode2D;
+    pRenderState->typeState = type;
+    pRenderState->mode = ERenderMode::Mode2D;
 }
 
 // ***********************************************************************
 
 void EndObject2D() {
-    if (pState->mode == ERenderMode::None)  // TODO Call errors when this is incorrect
+    if (pRenderState->mode == ERenderMode::None)  // TODO Call errors when this is incorrect
         return;
 
 	DrawCommand cmd;
 	
-	cmd.type = pState->typeState;
+	cmd.type = pRenderState->typeState;
 
 	// fill vertex buffer
 	// TODO: this pattern is repeated, could refactor out into function such as FillTransientBuffer
-	u32 numVertices = (u32)pState->vertexState.count;
-	VertexData* pDestBuffer = pState->perFrameVertexBuffer.pData + pState->perFrameVertexBuffer.count;
-	if (pState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
+	u32 numVertices = (u32)pRenderState->vertexState.count;
+	VertexData* pDestBuffer = pRenderState->perFrameVertexBuffer.pData + pRenderState->perFrameVertexBuffer.count;
+	if (pRenderState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
 		return;
-	memcpy(pDestBuffer, pState->vertexState.pData, numVertices * sizeof(VertexData));
-	cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+	memcpy(pDestBuffer, pRenderState->vertexState.pData, numVertices * sizeof(VertexData));
+	cmd.vertexBufferOffset = pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
 	cmd.numElements = numVertices;
-	pState->perFrameVertexBuffer.count += numVertices;
+	pRenderState->perFrameVertexBuffer.count += numVertices;
 
     // Submit draw call
-    Matrixf ortho = Matrixf::Orthographic(0.0f, pState->targetResolution.x, 0.0f, pState->targetResolution.y, -100.0f, 100.0f);
-	cmd.vsUniforms.mvp = ortho * pState->matrixStates[(usize)EMatrixMode::Model];
-	cmd.vsUniforms.model = pState->matrixStates[(usize)EMatrixMode::Model];
-	cmd.vsUniforms.modelView = pState->matrixStates[(usize)EMatrixMode::View] * pState->matrixStates[(usize)EMatrixMode::Model];
+    Matrixf ortho = Matrixf::Orthographic(0.0f, pRenderState->targetResolution.x, 0.0f, pRenderState->targetResolution.y, -100.0f, 100.0f);
+	cmd.vsUniforms.mvp = ortho * pRenderState->matrixStates[(u64)EMatrixMode::Model];
+	cmd.vsUniforms.model = pRenderState->matrixStates[(u64)EMatrixMode::Model];
+	cmd.vsUniforms.modelView = pRenderState->matrixStates[(u64)EMatrixMode::View] * pRenderState->matrixStates[(u64)EMatrixMode::Model];
 	cmd.vsUniforms.lightingEnabled = 0;
 	cmd.vsUniforms.lightDirection[0] = 0.f;
 	cmd.vsUniforms.lightDirection[1] = 0.f;
@@ -609,85 +587,85 @@ void EndObject2D() {
 	cmd.vsUniforms.lightColor[1] = 0.f;
 	cmd.vsUniforms.lightColor[2] = 0.f;
 	cmd.vsUniforms.lightAmbient = Vec3f(0.0);
-	cmd.vsUniforms.targetResolution = pState->targetResolution;
+	cmd.vsUniforms.targetResolution = pRenderState->targetResolution;
 	cmd.vsUniforms.fogEnabled = 0;
 	cmd.vsUniforms.fogDepths = Vec2f(0.0);
 	cmd.fsUniforms.fogColor = Vec4f(0.0);
 
 	cmd.indexedDraw = false;
 
-    if (pState->pTextureState) {
+    if (pRenderState->pTextureState) {
 		cmd.texturedDraw = true;
-		cmd.texture = pState->pTextureState->handle;
+		cmd.texture = pRenderState->pTextureState->handle;
     } else {
 		cmd.texturedDraw = false;
     }
-	pState->drawList2D.PushBack(cmd);
+	pRenderState->drawList2D.PushBack(cmd);
 
-    pState->vertexState.count = 0;
-    pState->vertexColorState = Vec4f(1.0f);
-    pState->vertexTexCoordState = Vec2f();
-    pState->vertexNormalState = Vec3f();
-    pState->mode = ERenderMode::None;
+    pRenderState->vertexState.count = 0;
+    pRenderState->vertexColorState = Vec4f(1.0f);
+    pRenderState->vertexTexCoordState = Vec2f();
+    pRenderState->vertexNormalState = Vec3f();
+    pRenderState->mode = ERenderMode::None;
 }
 
 // ***********************************************************************
 
 void BeginObject3D(EPrimitiveType type) {
     // Set draw topology type
-    pState->typeState = type;
-    pState->mode = ERenderMode::Mode3D;
+    pRenderState->typeState = type;
+    pRenderState->mode = ERenderMode::Mode3D;
 }
 
 // ***********************************************************************
 
 void EndObject3D() {
-    if (pState->mode == ERenderMode::None)  // TODO Call errors when this is incorrect
+    if (pRenderState->mode == ERenderMode::None)  // TODO Call errors when this is incorrect
         return;
 
 	DrawCommand cmd;
 
 	i32 numIndices;
-	cmd.type = pState->typeState;
+	cmd.type = pRenderState->typeState;
 	bool buffersFilled = false;
-    switch (pState->typeState) {
+    switch (pRenderState->typeState) {
         case EPrimitiveType::Points:
 		case EPrimitiveType::Lines:
 		case EPrimitiveType::LineStrip:
 			break;
         case EPrimitiveType::Triangles: {
-            if (pState->normalsModeState == ENormalsMode::Flat) {
-                for (size i = 0; i < pState->vertexState.count; i += 3) {
-                    Vec3f v1 = pState->vertexState[i + 1].pos - pState->vertexState[i].pos;
-                    Vec3f v2 = pState->vertexState[i + 2].pos - pState->vertexState[i].pos;
+            if (pRenderState->normalsModeState == ENormalsMode::Flat) {
+                for (i64 i = 0; i < pRenderState->vertexState.count; i += 3) {
+                    Vec3f v1 = pRenderState->vertexState[i + 1].pos - pRenderState->vertexState[i].pos;
+                    Vec3f v2 = pRenderState->vertexState[i + 2].pos - pRenderState->vertexState[i].pos;
                     Vec3f faceNormal = Vec3f::Cross(v1, v2).GetNormalized();
 
-                    pState->vertexState[i].norm = faceNormal;
-                    pState->vertexState[i + 1].norm = faceNormal;
-                    pState->vertexState[i + 2].norm = faceNormal;
+                    pRenderState->vertexState[i].norm = faceNormal;
+                    pRenderState->vertexState[i + 1].norm = faceNormal;
+                    pRenderState->vertexState[i + 2].norm = faceNormal;
                 }
 
-				u32 numVertices = (u32)pState->vertexState.count;
-				VertexData* pDestBuffer = pState->perFrameVertexBuffer.pData + pState->perFrameVertexBuffer.count;
-				if (pState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
+				u32 numVertices = (u32)pRenderState->vertexState.count;
+				VertexData* pDestBuffer = pRenderState->perFrameVertexBuffer.pData + pRenderState->perFrameVertexBuffer.count;
+				if (pRenderState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
 					return;
-				memcpy(pDestBuffer, pState->vertexState.pData, numVertices * sizeof(VertexData));
+				memcpy(pDestBuffer, pRenderState->vertexState.pData, numVertices * sizeof(VertexData));
 
-				cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+				cmd.vertexBufferOffset = pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
 				cmd.numElements = numVertices;
-				pState->perFrameVertexBuffer.count += numVertices;
+				pRenderState->perFrameVertexBuffer.count += numVertices;
 				buffersFilled = true;
-            } else if (pState->normalsModeState == ENormalsMode::Smooth) {
+            } else if (pRenderState->normalsModeState == ENormalsMode::Smooth) {
 				// the purpose of this is to make same vertices share the same normal vector that gets averaged from the nearby polygons
                 // Convert to indexed list, loop through, saving verts into vector, each new one you search for in vector, if you find it, save index in index list.
 
                 ResizableArray<VertexData> uniqueVerts(g_pArenaFrame);
                 ResizableArray<u16> indices(g_pArenaFrame);
-                for (size i = 0; i < pState->vertexState.count; i++) {
-                    VertexData* pVertData = uniqueVerts.Find(pState->vertexState[i]);
+                for (i64 i = 0; i < pRenderState->vertexState.count; i++) {
+                    VertexData* pVertData = uniqueVerts.Find(pRenderState->vertexState[i]);
                     if (pVertData == uniqueVerts.end()) {
                         // New vertex
-                        uniqueVerts.PushBack(pState->vertexState[i]);
+                        uniqueVerts.PushBack(pRenderState->vertexState[i]);
                         indices.PushBack((u16)uniqueVerts.count - 1);
                     } else {
                         indices.PushBack((u16)uniqueVerts.IndexFromPointer(pVertData));
@@ -695,7 +673,7 @@ void EndObject3D() {
                 }
 
                 // Then run your flat shading algo on the list of vertices looping through index list. If you have a new normal for a vert, then average with the existing one
-                for (size i = 0; i < indices.count; i += 3) {
+                for (i64 i = 0; i < indices.count; i += 3) {
                     Vec3f v1 = uniqueVerts[indices[i + 1]].pos - uniqueVerts[indices[i]].pos;
                     Vec3f v2 = uniqueVerts[indices[i + 2]].pos - uniqueVerts[indices[i]].pos;
                     Vec3f faceNormal = Vec3f::Cross(v1, v2);
@@ -705,27 +683,27 @@ void EndObject3D() {
                     uniqueVerts[indices[i + 2]].norm += faceNormal;
                 }
 
-                for (size i = 0; i < uniqueVerts.count; i++) {
+                for (i64 i = 0; i < uniqueVerts.count; i++) {
                     uniqueVerts[i].norm = uniqueVerts[i].norm.GetNormalized();
                 }
 
                 // fill vertex buffer
 				u32 numVertices = (u32)uniqueVerts.count;
-				VertexData* pDestBuffer = pState->perFrameVertexBuffer.pData + pState->perFrameVertexBuffer.count;
-				if (pState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
+				VertexData* pDestBuffer = pRenderState->perFrameVertexBuffer.pData + pRenderState->perFrameVertexBuffer.count;
+				if (pRenderState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
 					return;
 				memcpy(pDestBuffer, uniqueVerts.pData, numVertices * sizeof(VertexData));
-				cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
-				pState->perFrameVertexBuffer.count += numVertices;
+				cmd.vertexBufferOffset = pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
+				pRenderState->perFrameVertexBuffer.count += numVertices;
 
                 // fill index buffer
                 numIndices = (u32)indices.count;
-				u16* pDestIndexBuffer = pState->perFrameIndexBuffer.pData + pState->perFrameIndexBuffer.count;
-				if (pState->perFrameIndexBuffer.count + numIndices > MAX_VERTICES_PER_FRAME)
+				u16* pDestIndexBuffer = pRenderState->perFrameIndexBuffer.pData + pRenderState->perFrameIndexBuffer.count;
+				if (pRenderState->perFrameIndexBuffer.count + numIndices > MAX_VERTICES_PER_FRAME)
 					return;
 				memcpy(pDestIndexBuffer, indices.pData, numIndices * sizeof(u16));
-				cmd.indexBufferOffset = pState->perFrameIndexBuffer.count * sizeof(u16);
-				pState->perFrameIndexBuffer.count += numIndices;
+				cmd.indexBufferOffset = pRenderState->perFrameIndexBuffer.count * sizeof(u16);
+				pRenderState->perFrameIndexBuffer.count += numIndices;
 
 				cmd.numElements = numIndices;
 				buffersFilled = true;
@@ -737,153 +715,153 @@ void EndObject3D() {
 
     if (buffersFilled == false) {
         // fill vertex buffer
-		u32 numVertices = (u32)pState->vertexState.count;
-		VertexData* pDestBuffer = pState->perFrameVertexBuffer.pData + pState->perFrameVertexBuffer.count;
-		if (pState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
+		u32 numVertices = (u32)pRenderState->vertexState.count;
+		VertexData* pDestBuffer = pRenderState->perFrameVertexBuffer.pData + pRenderState->perFrameVertexBuffer.count;
+		if (pRenderState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
 			return;
-		memcpy(pDestBuffer, pState->vertexState.pData, numVertices * sizeof(VertexData));
-		cmd.vertexBufferOffset = pState->perFrameVertexBuffer.count * sizeof(VertexData);
+		memcpy(pDestBuffer, pRenderState->vertexState.pData, numVertices * sizeof(VertexData));
+		cmd.vertexBufferOffset = pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
 		cmd.numElements = numVertices;
-		pState->perFrameVertexBuffer.count += numVertices;
+		pRenderState->perFrameVertexBuffer.count += numVertices;
     }
 
     // Submit draw call
-	cmd.vsUniforms.mvp = pState->matrixStates[(usize)EMatrixMode::Projection] * pState->matrixStates[(usize)EMatrixMode::View] * pState->matrixStates[(usize)EMatrixMode::Model];
-	cmd.vsUniforms.model = pState->matrixStates[(usize)EMatrixMode::Model];
-	cmd.vsUniforms.modelView = pState->matrixStates[(usize)EMatrixMode::View] * pState->matrixStates[(usize)EMatrixMode::Model];
-	cmd.vsUniforms.lightingEnabled = (i32)pState->lightingState;
-	cmd.vsUniforms.lightDirection[0] = pState->lightDirectionsStates[0];
-	cmd.vsUniforms.lightDirection[1] = pState->lightDirectionsStates[1];
-	cmd.vsUniforms.lightDirection[2] = pState->lightDirectionsStates[2];
-	cmd.vsUniforms.lightColor[0] = pState->lightColorStates[0];
-	cmd.vsUniforms.lightColor[1] = pState->lightColorStates[1];
-	cmd.vsUniforms.lightColor[2] = pState->lightColorStates[2];
-	cmd.vsUniforms.lightAmbient = pState->lightAmbientState;
-	cmd.vsUniforms.targetResolution = pState->targetResolution;
-	cmd.vsUniforms.fogEnabled = (i32)pState->fogState;
-	cmd.vsUniforms.fogDepths = pState->fogDepths;
-	cmd.fsUniforms.fogColor = Vec4f::Embed3D(pState->fogColor);
+	cmd.vsUniforms.mvp = pRenderState->matrixStates[(u64)EMatrixMode::Projection] * pRenderState->matrixStates[(u64)EMatrixMode::View] * pRenderState->matrixStates[(u64)EMatrixMode::Model];
+	cmd.vsUniforms.model = pRenderState->matrixStates[(u64)EMatrixMode::Model];
+	cmd.vsUniforms.modelView = pRenderState->matrixStates[(u64)EMatrixMode::View] * pRenderState->matrixStates[(u64)EMatrixMode::Model];
+	cmd.vsUniforms.lightingEnabled = (i32)pRenderState->lightingState;
+	cmd.vsUniforms.lightDirection[0] = pRenderState->lightDirectionsStates[0];
+	cmd.vsUniforms.lightDirection[1] = pRenderState->lightDirectionsStates[1];
+	cmd.vsUniforms.lightDirection[2] = pRenderState->lightDirectionsStates[2];
+	cmd.vsUniforms.lightColor[0] = pRenderState->lightColorStates[0];
+	cmd.vsUniforms.lightColor[1] = pRenderState->lightColorStates[1];
+	cmd.vsUniforms.lightColor[2] = pRenderState->lightColorStates[2];
+	cmd.vsUniforms.lightAmbient = pRenderState->lightAmbientState;
+	cmd.vsUniforms.targetResolution = pRenderState->targetResolution;
+	cmd.vsUniforms.fogEnabled = (i32)pRenderState->fogState;
+	cmd.vsUniforms.fogDepths = pRenderState->fogDepths;
+	cmd.fsUniforms.fogColor = Vec4f::Embed3D(pRenderState->fogColor);
 
-    if (pState->normalsModeState == ENormalsMode::Smooth && cmd.type == EPrimitiveType::Triangles)
+    if (pRenderState->normalsModeState == ENormalsMode::Smooth && cmd.type == EPrimitiveType::Triangles)
         cmd.indexedDraw = true;
 	else
 		cmd.indexedDraw = false;
 
-    if (pState->pTextureState) {
+    if (pRenderState->pTextureState) {
 		cmd.texturedDraw = true;
-		cmd.texture = pState->pTextureState->handle;
+		cmd.texture = pRenderState->pTextureState->handle;
     } else {
 		cmd.texturedDraw = false;
     }
-	pState->drawList3D.PushBack(cmd);
+	pRenderState->drawList3D.PushBack(cmd);
 
-    pState->vertexState.count = 0;
-    pState->vertexColorState = Vec4f(1.0f);
-    pState->vertexTexCoordState = Vec2f();
-    pState->vertexNormalState = Vec3f();
-    pState->mode = ERenderMode::None;
+    pRenderState->vertexState.count = 0;
+    pRenderState->vertexColorState = Vec4f(1.0f);
+    pRenderState->vertexTexCoordState = Vec2f();
+    pRenderState->vertexNormalState = Vec3f();
+    pRenderState->mode = ERenderMode::None;
 }
 
 // ***********************************************************************
 
 void Vertex(Vec3f vec) {
-    pState->vertexState.PushBack({ vec, pState->vertexColorState, pState->vertexTexCoordState, pState->vertexNormalState });
+    pRenderState->vertexState.PushBack({ vec, pRenderState->vertexColorState, pRenderState->vertexTexCoordState, pRenderState->vertexNormalState });
 }
 
 // ***********************************************************************
 
 void Vertex(Vec2f vec) {
-    pState->vertexState.PushBack({ Vec3f::Embed2D(vec), pState->vertexColorState, pState->vertexTexCoordState, Vec3f() });
+    pRenderState->vertexState.PushBack({ Vec3f::Embed2D(vec), pRenderState->vertexColorState, pRenderState->vertexTexCoordState, Vec3f() });
 }
 
 // ***********************************************************************
 
 void Color(Vec4f col) {
-    pState->vertexColorState = col;
+    pRenderState->vertexColorState = col;
 }
 
 // ***********************************************************************
 
 void TexCoord(Vec2f tex) {
-    pState->vertexTexCoordState = tex;
+    pRenderState->vertexTexCoordState = tex;
 }
 
 // ***********************************************************************
 
 void Normal(Vec3f norm) {
-    pState->vertexNormalState = norm;
+    pRenderState->vertexNormalState = norm;
 }
 
 // ***********************************************************************
 
 void SetClearColor(Vec4f color) {
-	pState->passCore3DScene.action.colors[0].clear_value = { color.x, color.y, color.z, color.w }; 
+	pRenderState->passCore3DScene.action.colors[0].clear_value = { color.x, color.y, color.z, color.w }; 
 }
 
 // ***********************************************************************
 
 void MatrixMode(EMatrixMode mode) {
-    pState->matrixModeState = mode;
+    pRenderState->matrixModeState = mode;
 }
 
 // ***********************************************************************
 
 void Perspective(f32 screenWidth, f32 screenHeight, f32 nearPlane, f32 farPlane, f32 fov) {
-    pState->matrixStates[(usize)pState->matrixModeState] *= Matrixf::Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);
+    pRenderState->matrixStates[(u64)pRenderState->matrixModeState] *= Matrixf::Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);
 }
 
 // ***********************************************************************
 
 void Translate(Vec3f translation) {
-    pState->matrixStates[(usize)pState->matrixModeState] *= Matrixf::MakeTranslation(translation);
+    pRenderState->matrixStates[(u64)pRenderState->matrixModeState] *= Matrixf::MakeTranslation(translation);
 }
 
 // ***********************************************************************
 
 void Rotate(Vec3f rotation) {
-    pState->matrixStates[(usize)pState->matrixModeState] *= Matrixf::MakeRotation(rotation);
+    pRenderState->matrixStates[(u64)pRenderState->matrixModeState] *= Matrixf::MakeRotation(rotation);
 }
 
 // ***********************************************************************
 
 void Scale(Vec3f scaling) {
-    pState->matrixStates[(usize)pState->matrixModeState] *= Matrixf::MakeScale(scaling);
+    pRenderState->matrixStates[(u64)pRenderState->matrixModeState] *= Matrixf::MakeScale(scaling);
 }
 
 // ***********************************************************************
 
 void Identity() {
-    pState->matrixStates[(usize)pState->matrixModeState] = Matrixf::Identity();
+    pRenderState->matrixStates[(u64)pRenderState->matrixModeState] = Matrixf::Identity();
 }
 
 // ***********************************************************************
 
 void BindTexture(Image* pImage) {
-    if (pState->pTextureState != nullptr)
+    if (pRenderState->pTextureState != nullptr)
         UnbindTexture();
 
     // Save as current texture state for binding in endObject
-    pState->pTextureState = pImage;
-    pState->pTextureState->Retain();
+    pRenderState->pTextureState = pImage;
+    pRenderState->pTextureState->Retain();
 }
 
 // ***********************************************************************
 
 void UnbindTexture() {
-    pState->pTextureState->Release();
-    pState->pTextureState = nullptr;
+    pRenderState->pTextureState->Release();
+    pRenderState->pTextureState = nullptr;
 }
 
 // ***********************************************************************
 
 void NormalsMode(ENormalsMode mode) {
-    pState->normalsModeState = mode;
+    pRenderState->normalsModeState = mode;
 }
 
 // ***********************************************************************
 
 void EnableLighting(bool enabled) {
-    pState->lightingState = enabled;
+    pRenderState->lightingState = enabled;
 }
 
 // ***********************************************************************
@@ -892,38 +870,38 @@ void Light(int id, Vec3f direction, Vec3f color) {
     if (id > 2)
         return;
 
-    pState->lightDirectionsStates[id] = Vec4f::Embed3D(direction);
-    pState->lightColorStates[id] = Vec4f::Embed3D(color);
+    pRenderState->lightDirectionsStates[id] = Vec4f::Embed3D(direction);
+    pRenderState->lightColorStates[id] = Vec4f::Embed3D(color);
 }
 
 // ***********************************************************************
 
 void Ambient(Vec3f color) {
-    pState->lightAmbientState = color;
+    pRenderState->lightAmbientState = color;
 }
 
 // ***********************************************************************
 
 void EnableFog(bool enabled) {
-    pState->fogState = enabled;
+    pRenderState->fogState = enabled;
 }
 
 // ***********************************************************************
 
 void SetFogStart(f32 start) {
-    pState->fogDepths.x = start;
+    pRenderState->fogDepths.x = start;
 }
 
 // ***********************************************************************
 
 void SetFogEnd(f32 end) {
-    pState->fogDepths.y = end;
+    pRenderState->fogDepths.y = end;
 }
 
 // ***********************************************************************
 
 void SetFogColor(Vec3f color) {
-    pState->fogColor = color;
+    pRenderState->fogColor = color;
 }
 
 /*
@@ -972,7 +950,7 @@ void DrawSpriteRect(Image* pImage, Vec4f rect, Vec2f position) {
 // ***********************************************************************
 
 void DrawText(const char* text, Vec2f position, f32 size) {
-    DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), &pState->defaultFont, size);
+    DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), &pRenderState->defaultFont, size);
 }
 
 // ***********************************************************************
@@ -986,7 +964,7 @@ void DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, f32 
     Vec2f scale = Vec2f(fontSize / baseSize, fontSize / baseSize);
 
     String stringText(text);
-    for (size i = 0; i < stringText.length; i++) {
+    for (i64 i = 0; i < stringText.length; i++) {
         char c = *(stringText.pData + i);
         Character ch = pFont->characters[c];
         textWidth += ch.advance * scale.x;
@@ -994,7 +972,7 @@ void DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, f32 
 
     BindTexture(&pFont->fontTexture);
     BeginObject2D(EPrimitiveType::Triangles);
-    for (size i = 0; i < stringText.length; i++) {
+    for (i64 i = 0; i < stringText.length; i++) {
         char c = *(stringText.pData + i);
         Character ch = pFont->characters[c];
 
@@ -1099,7 +1077,7 @@ void DrawRectangleOutline(Vec2f bottomLeft, Vec2f topRight, Vec4f color) {
 void DrawCircle(Vec2f center, f32 radius, Vec4f color) {
     BeginObject2D(EPrimitiveType::Triangles);
     constexpr f32 segments = 24;
-    for (usize i = 0; i < segments; i++) {
+    for (u64 i = 0; i < segments; i++) {
         f32 x1 = (PI2 / segments) * i;
         f32 x2 = (PI2 / segments) * (i + 1);
         Color(color);
@@ -1115,7 +1093,7 @@ void DrawCircle(Vec2f center, f32 radius, Vec4f color) {
 void DrawCircleOutline(Vec2f center, f32 radius, Vec4f color) {
     BeginObject2D(EPrimitiveType::Lines);
     constexpr f32 segments = 24;
-    for (usize i = 0; i < segments; i++) {
+    for (u64 i = 0; i < segments; i++) {
         f32 x1 = (PI2 / segments) * i;
         f32 x2 = (PI2 / segments) * (i + 1);
         Color(color);

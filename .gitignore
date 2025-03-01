@@ -1,4 +1,4 @@
 # Specify filepatterns you want git to ignore.
 
-intermediate/
+build/
 *.log

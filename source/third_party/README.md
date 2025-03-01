@@ -5,7 +5,7 @@
 - Source: https://www.freetype.org
 - Version: 2.11.1
 
-Files stripped down to just `include/`, `src/` except Jamfiles and tools subfolder, and license files. Have chosen FreeType License for this project. Custom premake lua file being used to build.
+Files stripped down to just `include/`, `src/` except Jamfiles and tools subfolder, and license files. Have chosen FreeType License for this project. Provided freetype_all.c as a unity build to include or compile easily
 
 ## SDL2
 

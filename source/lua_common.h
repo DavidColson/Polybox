@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "types.h"
-
 struct lua_State;
 struct luaL_Reg;
 

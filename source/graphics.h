@@ -2,11 +2,6 @@
 
 #pragma once
 
-#include <matrix.h>
-#include <vec2.h>
-#include <vec3.h>
-#include <vec4.h>
-
 #define MAX_TEXTURES 8
 #define MAX_LIGHTS 3
 

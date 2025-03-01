@@ -1,15 +1,5 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "Image.h"
-
-#include <light_string.h>
-
-#include <SDL_rwops.h>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
-
 // ***********************************************************************
 
 Image::Image(String path) {

@@ -1,18 +1,5 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "Font.h"
-
-#include "rect_packing.h"
-
-#include <light_string.h>
-#include <defer.h>
-#include <freetype/ftmm.h>
-#include <log.h>
-#include <maths.h>
-#include <resizable_array.inl>
-#include <ft2build.h>
-#include FT_FREETYPE_H
-
 namespace FreeType {
 FT_Library* Get();
 }
@@ -27,7 +14,7 @@ Font::~Font() {
 // ***********************************************************************
 
 void FontTextureFreeCallback(void* ptr, void* userData) {
-    byte* pTextureData = (byte*)ptr;
+    char* pTextureData = (char*)ptr;
     delete[] pTextureData;  // TODO: replace with our allocators
 }
 
@@ -56,8 +43,8 @@ void Font::Initialize(String path, bool antialiasing, f32 weight) {
     // Texture data
     i32 texHeight = 512;
     i32 texWidth = 512;
-    byte* pTextureDataAsR8 { nullptr };
-    pTextureDataAsR8 = new byte[texHeight * texWidth];  // TODO: replace with our allocators
+    char* pTextureDataAsR8 { nullptr };
+    pTextureDataAsR8 = new char[texHeight * texWidth];  // TODO: replace with our allocators
     memset(pTextureDataAsR8, 0, texHeight * texWidth);
 
     ResizableArray<Packing::Rect> rects(g_pArenaFrame);
@@ -96,23 +83,23 @@ void Font::Initialize(String path, bool antialiasing, f32 weight) {
 
         if (antialiasing == false) {
             // Blit the glyph's image into our texture atlas, but converting from 8 pixels per bit to 1 byte per pixel (monochrome)
-            byte* pDestination = pTextureDataAsR8 + rect.y * texWidth + rect.x;
-            for (usize y = 0; y < face->glyph->bitmap.rows; y++) {
-                for (byte byte_index = 0; byte_index < face->glyph->bitmap.pitch; byte_index++) {
-                    byte b = face->glyph->bitmap.buffer[y * face->glyph->bitmap.pitch + byte_index];
-                    byte bitsDone = byte_index * 8;
+            char* pDestination = pTextureDataAsR8 + rect.y * texWidth + rect.x;
+            for (u64 y = 0; y < face->glyph->bitmap.rows; y++) {
+                for (char byte_index = 0; byte_index < face->glyph->bitmap.pitch; byte_index++) {
+                    char b = face->glyph->bitmap.buffer[y * face->glyph->bitmap.pitch + byte_index];
+                    char bitsDone = byte_index * 8;
                     u32 rowStart = (u32)y * texWidth + bitsDone;
 
-                    for (usize bit_index = 0; bit_index < fmin(face->glyph->bitmap.width - bitsDone, 8); bit_index++) {
-                        byte bit = (b & (1 << (7 - bit_index)));
+                    for (u64 bit_index = 0; bit_index < fmin(face->glyph->bitmap.width - bitsDone, 8); bit_index++) {
+                        char bit = (b & (1 << (7 - bit_index)));
                         pDestination[rowStart + bit_index] = bit ? 255 : 0;
                     }
                 }
             }
         } else {
             // Blit the glyph's image into our texture atlas
-            byte* pSourceData = (byte*)face->glyph->bitmap.buffer;
-            byte* pDestination = pTextureDataAsR8 + rect.y * texWidth + rect.x;
+            char* pSourceData = (char*)face->glyph->bitmap.buffer;
+            char* pDestination = pTextureDataAsR8 + rect.y * texWidth + rect.x;
             i32 sourceDataPitch = face->glyph->bitmap.pitch;
             for (u32 y = 0; y < face->glyph->bitmap.rows; y++, pSourceData += sourceDataPitch, pDestination += texWidth) {
                 memcpy(pDestination, pSourceData, face->glyph->bitmap.width);
@@ -124,13 +111,13 @@ void Font::Initialize(String path, bool antialiasing, f32 weight) {
     }
 
     // Convert texture atlas to RGBA8 format so it works with general 2D shaders
-    byte* pTextureDataAsRGBA8 { nullptr };
-    const byte dstBpp = 32;
+    char* pTextureDataAsRGBA8 { nullptr };
+    const char dstBpp = 32;
     const u32 dstPitch = texWidth * dstBpp / 8;
     const u32 dstSize = texHeight * dstPitch;
-    pTextureDataAsRGBA8 = new byte[dstSize];
+    pTextureDataAsRGBA8 = new char[dstSize];
     memset(pTextureDataAsRGBA8, 0, dstSize);
-    for (usize i = 0; i < dstSize; i += 4) {
+    for (u64 i = 0; i < dstSize; i += 4) {
         pTextureDataAsRGBA8[i] = pTextureDataAsR8[i / 4];
         pTextureDataAsRGBA8[i + 1] = pTextureDataAsR8[i / 4];
         pTextureDataAsRGBA8[i + 2] = pTextureDataAsR8[i / 4];

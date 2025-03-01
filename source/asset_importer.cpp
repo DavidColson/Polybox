@@ -1,20 +1,8 @@
-#include "asset_importer.h"
-
-#include "serialization.h"
-
-#include <light_string.h>
-#include <lua.h>
-#include <SDL_rwops.h>
-#include <log.h>
-#include <resizable_array.inl>
-#include <json.h>
-#include <base64.h>
-
 namespace AssetImporter {
 
 // ***********************************************************************
 
-static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize) {
+static void* LuaAllocator(void* ud, void* ptr, u64 osize, u64 nsize) {
     if (nsize == 0) {
 		RawFree(ptr);
         return nullptr;
@@ -98,14 +86,14 @@ void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, JsonValue& nodeToPa
 // Actually owns the data
 struct GltfBuffer {
     char* pBytes { nullptr };
-    usize byteLength { 0 };
+    u64 byteLength { 0 };
 };
 
 // Does not actually own the data
 struct GltfBufferView {
     // pointer to some place in a buffer
     char* pBuffer { nullptr };
-    usize length { 0 };
+    u64 length { 0 };
 };
 
 struct GltfAccessor {
@@ -194,7 +182,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	String result;
 	size_t len;
 	result.pData = (char*)lua_tolstring(L, -1, &len); 
-	result.length = (size)len;
+	result.length = (i64)len;
 
 	SDL_RWops* pOutFile = SDL_RWFromFile(output.pData, "wb");
 	SDL_RWwrite(pOutFile, result.pData, result.length, 1);

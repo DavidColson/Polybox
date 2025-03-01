@@ -1,6 +1,5 @@
 // Copyright David Colson. All rights reserved.
-
-#include <types.h>
+#pragma once
 
 struct lua_State;
 struct String;
@@ -19,7 +18,7 @@ struct Buffer {
 	i32 width;
 	i32 height;
 	Type type;
-	ubyte* pData;
+	u8* pData;
 };
 
 Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height);

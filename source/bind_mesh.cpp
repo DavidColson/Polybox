@@ -1,14 +1,5 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
-#include "Bind_Mesh.h"
-
-#include "Mesh.h"
-
-#include <lua.h>
-#include <lualib.h>
-#include <defer.h>
-#include <resizable_array.inl>
-
 namespace Bind {
 // ***********************************************************************
 
@@ -118,14 +109,14 @@ int Mesh_GetPrimitive(lua_State* pLua) {
 // ***********************************************************************
 
 int LoadMeshes(lua_State* pLua) {
-    usize len;
+    u64 len;
     const char* path = luaL_checklstring(pLua, 1, &len);
     ResizableArray<Mesh*> meshes = Mesh::LoadMeshes(g_pArenaFrame, path);
 
     // Create a table, and put all these mesh userdatas in there.
     lua_createtable(pLua, (int)meshes.count, 0);
 
-    for (size i = 0; i < meshes.count; i++) {
+    for (i64 i = 0; i < meshes.count; i++) {
         // Create a new userdata for our object
 		Mesh** ppMesh = (Mesh**)lua_newuserdatadtor(pLua, sizeof(Mesh*), [](void* pData) {
 			LuaObject* pObject = *(LuaObject**)pData;
@@ -150,14 +141,14 @@ int LoadMeshes(lua_State* pLua) {
 // ***********************************************************************
 
 int LoadTextures(lua_State* pLua) {
-    usize len;
+    u64 len;
     const char* path = luaL_checklstring(pLua, 1, &len);
     ResizableArray<Image*> images = Mesh::LoadTextures(g_pArenaFrame, path);
 
     // Create a table, and put all these mesh userdatas in there.
     lua_createtable(pLua, (int)images.count, 0);
 
-    for (size i = 0; i < images.count; i++) {
+    for (i64 i = 0; i < images.count; i++) {
         // Create a new userdata for our object
 		Image** ppImage = (Image**)lua_newuserdatadtor(pLua, sizeof(Image*), [](void* pData) {
 			LuaObject* pObject = *(LuaObject**)pData;

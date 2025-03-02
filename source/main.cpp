@@ -232,7 +232,7 @@ int main(int argc, char* argv[]) {
 		GraphicsInit(pWindow, winWidth, winHeight);
 		InputInit();
 
-		Cpu::CompileAndLoadProgram("systemroot/tank_demo/game.luau");
+		Cpu::CompileAndLoadProgram("systemroot/mesh_test/game.luau");
 		Cpu::Start();
 
 		bool gameRunning = true;

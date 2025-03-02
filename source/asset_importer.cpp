@@ -85,20 +85,20 @@ void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, JsonValue& nodeToPa
 
 // Actually owns the data
 struct GltfBuffer {
-    char* pBytes { nullptr };
+    u8* pBytes { nullptr };
     u64 byteLength { 0 };
 };
 
 // Does not actually own the data
 struct GltfBufferView {
     // pointer to some place in a buffer
-    char* pBuffer { nullptr };
+    u8* pBuffer { nullptr };
     u64 length { 0 };
 };
 
 struct GltfAccessor {
     // pointer to some place in a buffer view
-    char* pBuffer { nullptr };
+    u8* pBuffer { nullptr };
     i32 count { 0 };
     enum ComponentType {
         Byte,
@@ -135,6 +135,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	// gltf, so when importing seperate gltf files, don't import stuff we already may have picked up, such as images
 	// they'll be done individually
 
+	Log::Info("Importing %s", source.pData);
 
 	String outputPath = output;
 	for (i32 i = outputPath.length-1; i>=0; i--) {
@@ -196,12 +197,12 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		SDL_RWops* pOutFile = SDL_RWFromFile(output.pData, "wb");
 		SDL_RWwrite(pOutFile, result.pData, result.length, 1);
 		SDL_RWclose(pOutFile);
-
+		Log::Info("	Exported %s", output.pData);
 	}
 	lua_pop(L, 1); // pop the scene table, we're done with it now
 
 	// -------------------------------------
-	// Import Meshes
+	// Load buffer data
 
     ResizableArray<GltfBuffer> rawDataBuffers(pScratchArena);
     JsonValue& jsonBuffers = parsed["buffers"];
@@ -218,7 +219,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			// this will be another file to load, with the binary data directly there
 		// no entry other than byte length, then it is glb and the binary is in the next chunk or chunks
         String decoded = DecodeBase64(pScratchArena, encodedBuffer.SubStr(37));
-        buf.pBytes = decoded.pData;
+        buf.pBytes = (u8*)decoded.pData;
 
         rawDataBuffers.PushBack(buf);
     }
@@ -279,6 +280,9 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
         accessors.PushBack(acc);
     }
 
+	// -------------------------------------
+	// Import Meshes
+
 	i32 meshCount = parsed["meshes"].Count();
 	for (i32 i = 0; i < meshCount; i++) {
         JsonValue& jsonMesh = parsed["meshes"][i];
@@ -291,6 +295,21 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		// push mesh format (i.e. flat, smooth etc), probably just a number for now, need to do enums
 		lua_pushnumber(L, 1);
 		lua_setfield(L, -2, "format");
+
+		// push texture
+		if (jsonMesh.HasKey("material")) {
+			i32 materialId = jsonMesh["material"].ToInt();
+			JsonValue& jsonMaterial = parsed["materials"][materialId];
+			JsonValue& pbr = jsonMaterial["pbrMetallicRoughness"];
+
+			if (pbr.HasKey("baseColorTexture")) {
+				i32 textureId = pbr["baseColorTexture"]["index"].ToInt();
+				i32 imageId = parsed["textures"][textureId]["source"].ToInt();
+				String imageName = parsed["images"][textureId]["name"].ToString();
+				lua_pushlstring(L, imageName.pData, imageName.length);
+				lua_setfield(L, -2, "texture");
+			}
+		}
 
 		if (jsonMesh["primitives"].Count() > 1)
 		{
@@ -355,19 +374,93 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		builder.Append(outputPath);
 		builder.Append(meshName);
 		builder.Append(".mesh");
-		SDL_RWops* pOutFile = SDL_RWFromFile(builder.CreateString(pScratchArena).pData, "wb");
+		String outputFileName = builder.CreateString(pScratchArena);
+		SDL_RWops* pOutFile = SDL_RWFromFile(outputFileName.pData, "wb");
 		SDL_RWwrite(pOutFile, result.pData, result.length, 1);
 		SDL_RWclose(pOutFile);
 
+		Log::Info("	Exported %s", outputFileName.pData);
 		lua_pop(L, 1); // pop the mesh table, we're done with it now
 	}
 
 	// -------------------------------------
 	// Import Textures
 
-	// @todo
+	i32 imageCount = parsed["images"].Count();
+	for (i32 i = 0; i < imageCount; i++) {
+		JsonValue& jsonImage = parsed["images"][i];
+		String imageName = jsonImage["name"].ToString();
 
-	Log::Info("Imported %s", source.pData);
+		if (jsonImage.HasKey("bufferView")) {
+			lua_getglobal(L, "serialize");
+			lua_newtable(L);
+
+			i32 n;
+			i32 width;
+			i32 height;
+			i32 bufferId = jsonImage["bufferView"].ToInt(); 
+			u8* pData = stbi_load_from_memory((const unsigned char*)bufferViews[bufferId].pBuffer, bufferViews[bufferId].length, &width, &height, &n, 4);
+			if (pData == nullptr) {
+				Log::Warn("Failed to load image %s: %s", imageName.pData, stbi_failure_reason());
+				continue;
+			}
+
+			// @todo: convert to palette based texture with max 16 bits per pixel
+			// should halve the memory usage since we are currently using more space than a real png
+
+			lua_pushnumber(L, width);
+			lua_setfield(L, -2, "width");
+			lua_pushnumber(L, height);
+			lua_setfield(L, -2, "height");
+
+			BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, BufferLib::Type::Int32, width*height, 1);
+			i32 bufSize = BufferLib::GetBufferSize(pBuffer);
+			memcpy((u8*)pBuffer->pData, pData, bufSize);
+			lua_setfield(L, -2, "data");
+
+			// call serialize to make a file for the image
+			lua_pushnumber(L, format);
+			lua_pcall(L, 2, 1, 0);
+
+			String result;
+			size_t len;
+			result.pData = (char*)lua_tolstring(L, -1, &len); 
+			result.length = (i64)len;
+
+			StringBuilder builder(pScratchArena);
+			builder.Append(outputPath);
+			builder.Append(imageName);
+			builder.Append(".texture");
+			String outputFileName = builder.CreateString(pScratchArena);
+			SDL_RWops* pOutFile = SDL_RWFromFile(outputFileName.pData, "wb");
+			SDL_RWwrite(pOutFile, result.pData, result.length, 1);
+			SDL_RWclose(pOutFile);
+
+			Log::Info("	Exported %s",outputFileName.pData);
+			stbi_image_free(pData);
+			lua_pop(L, 1);
+
+			// Upload to gpu, need to do this on load (bind?)
+
+			// sg_image_desc imageDesc = {
+			// 	.width = width,
+			// 	.height = height,
+			// 	.pixel_format = SG_PIXELFORMAT_RGBA8,
+			// 	.label = imageName.pData,
+			// 	// .usage = SG_USAGE_DEFAULT
+			// };
+			// sg_range pixelsData;
+			// pixelsData.ptr = (void*)pData;
+			// pixelsData.size = width * height * 4 * sizeof(u8);
+			// imageDesc.data.subimage[0][0] = pixelsData;
+			// pBuffer->img = sg_make_image(&imageDesc);
+
+		}
+		else {
+			Log::Warn("Unable to import image %s, we don't yet support separate gltf files", jsonImage["name"].ToString().pData);
+		}
+	}
+
 	return 0;
 }
 

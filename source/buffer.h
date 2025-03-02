@@ -19,6 +19,11 @@ struct Buffer {
 	i32 height;
 	Type type;
 	u8* pData;
+
+	// used when the buffer contains an image
+	sg_image img;
+	bool dirty;
+	bool dynamic;
 };
 
 Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height);

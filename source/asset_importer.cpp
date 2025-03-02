@@ -140,7 +140,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	Log::Info("Importing %s", source.pData);
 
 	String outputPath = output;
-	for (i32 i = outputPath.length-1; i>=0; i--) {
+	for (i64 i = outputPath.length-1; i>=0; i--) {
 		if (outputPath.pData[i] == '\\' || outputPath.pData[i] == '/') {
 			break;
 		}
@@ -359,7 +359,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		// push buffer with size for all the vertex data
 		i32 floatsPerVertex = sizeof(VertexData) / sizeof(f32);
 		BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, BufferLib::Type::Float32, floatsPerVertex*nIndices, 1);
-		i32 bufSize = BufferLib::GetBufferSize(pBuffer);
+		i64 bufSize = BufferLib::GetBufferSize(pBuffer);
 		memcpy((u8*)pBuffer->pData, (u8*)vertices.pData, bufSize);
 		lua_setfield(L, -2, "vertices");
 
@@ -401,7 +401,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			i32 width;
 			i32 height;
 			i32 bufferId = jsonImage["bufferView"].ToInt(); 
-			u8* pData = stbi_load_from_memory((const unsigned char*)bufferViews[bufferId].pBuffer, bufferViews[bufferId].length, &width, &height, &n, 4);
+			u8* pData = stbi_load_from_memory((const unsigned char*)bufferViews[bufferId].pBuffer, (int)bufferViews[bufferId].length, &width, &height, &n, 4);
 			if (pData == nullptr) {
 				Log::Warn("Failed to load image %s: %s", imageName.pData, stbi_failure_reason());
 				continue;
@@ -416,7 +416,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			lua_setfield(L, -2, "height");
 
 			BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, BufferLib::Type::Int32, width, height);
-			i32 bufSize = BufferLib::GetBufferSize(pBuffer);
+			i64 bufSize = BufferLib::GetBufferSize(pBuffer);
 			memcpy((u8*)pBuffer->pData, pData, bufSize);
 			lua_setfield(L, -2, "data");
 

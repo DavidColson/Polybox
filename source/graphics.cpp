@@ -292,7 +292,7 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 
 	// Create persistent buffers
 	{
-		CreateFullScreenQuad(winWidth, winHeight, 0.0f, true, 0.0f);
+		CreateFullScreenQuad((f32)winWidth, (f32)winHeight, 0.0f, true, 0.0f);
 
 		sg_buffer_desc vertexBufferDesc = {
 			.size = MAX_VERTICES_PER_FRAME * sizeof(VertexData),
@@ -419,8 +419,8 @@ void DrawFrame(i32 w, i32 h) {
 	{
 		sg_begin_pass(&pRenderState->passCore3DScene);
 
-		sg_apply_viewport(0, 0, pRenderState->targetResolution.x, pRenderState->targetResolution.y, true);
-		sg_apply_scissor_rect(0, 0, pRenderState->targetResolution.x, pRenderState->targetResolution.y, true);
+		sg_apply_viewport(0, 0, (i32)pRenderState->targetResolution.x, (i32)pRenderState->targetResolution.y, true);
+		sg_apply_scissor_rect(0, 0, (i32)pRenderState->targetResolution.x, (i32)pRenderState->targetResolution.y, true);
 
 		for(i32 i = 0; i < pRenderState->drawList3D.count; i++) {
 			DrawCommand& cmd = pRenderState->drawList3D[i];
@@ -464,8 +464,8 @@ void DrawFrame(i32 w, i32 h) {
 	{
 		sg_begin_pass(&pRenderState->passCore2DScene);
 
-		sg_apply_viewport(0, 0, pRenderState->targetResolution.x, pRenderState->targetResolution.y, true);
-		sg_apply_scissor_rect(0, 0, pRenderState->targetResolution.x, pRenderState->targetResolution.y, true);
+		sg_apply_viewport(0, 0, (i32)pRenderState->targetResolution.x, (i32)pRenderState->targetResolution.y, true);
+		sg_apply_scissor_rect(0, 0, (i32)pRenderState->targetResolution.x, (i32)pRenderState->targetResolution.y, true);
 
 		for(i32 i = 0; i < pRenderState->drawList2D.count; i++) {
 			DrawCommand& cmd = pRenderState->drawList2D[i];
@@ -572,7 +572,7 @@ void EndObject2D() {
 	if (pRenderState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
 		return;
 	memcpy(pDestBuffer, pRenderState->vertexState.pData, numVertices * sizeof(VertexData));
-	cmd.vertexBufferOffset = pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
+	cmd.vertexBufferOffset = (i32)pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
 	cmd.numElements = numVertices;
 	pRenderState->perFrameVertexBuffer.count += numVertices;
 
@@ -653,7 +653,7 @@ void EndObject3D() {
 					return;
 				memcpy(pDestBuffer, pRenderState->vertexState.pData, numVertices * sizeof(VertexData));
 
-				cmd.vertexBufferOffset = pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
+				cmd.vertexBufferOffset = (i32)pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
 				cmd.numElements = numVertices;
 				pRenderState->perFrameVertexBuffer.count += numVertices;
 				buffersFilled = true;
@@ -695,7 +695,7 @@ void EndObject3D() {
 				if (pRenderState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
 					return;
 				memcpy(pDestBuffer, uniqueVerts.pData, numVertices * sizeof(VertexData));
-				cmd.vertexBufferOffset = pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
+				cmd.vertexBufferOffset = (i32)pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
 				pRenderState->perFrameVertexBuffer.count += numVertices;
 
                 // fill index buffer
@@ -704,7 +704,7 @@ void EndObject3D() {
 				if (pRenderState->perFrameIndexBuffer.count + numIndices > MAX_VERTICES_PER_FRAME)
 					return;
 				memcpy(pDestIndexBuffer, indices.pData, numIndices * sizeof(u16));
-				cmd.indexBufferOffset = pRenderState->perFrameIndexBuffer.count * sizeof(u16);
+				cmd.indexBufferOffset = (i32)pRenderState->perFrameIndexBuffer.count * sizeof(u16);
 				pRenderState->perFrameIndexBuffer.count += numIndices;
 
 				cmd.numElements = numIndices;
@@ -722,7 +722,7 @@ void EndObject3D() {
 		if (pRenderState->perFrameVertexBuffer.count + numVertices > MAX_VERTICES_PER_FRAME)
 			return;
 		memcpy(pDestBuffer, pRenderState->vertexState.pData, numVertices * sizeof(VertexData));
-		cmd.vertexBufferOffset = pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
+		cmd.vertexBufferOffset = (i32)pRenderState->perFrameVertexBuffer.count * sizeof(VertexData);
 		cmd.numElements = numVertices;
 		pRenderState->perFrameVertexBuffer.count += numVertices;
     }

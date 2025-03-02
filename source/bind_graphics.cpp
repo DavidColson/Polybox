@@ -491,8 +491,7 @@ int LuaDrawBox(lua_State* pLua) {
 }
 
 int LuaDrawIcosahedron(lua_State* pLua) {
-	
-	f32 maxDepth = (f32)luaL_checknumber(pLua, 1);
+	i32 maxDepth = (i32)luaL_checknumber(pLua, 1);
 
 	DrawIcosahedron(maxDepth);
     return 0;

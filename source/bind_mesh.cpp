@@ -131,7 +131,7 @@ int LoadMeshes(lua_State* pLua) {
         luaL_getmetatable(pLua, "Mesh");
         lua_setmetatable(pLua, -2);
 
-        lua_rawseti(pLua, -2, i + 1);  // Sets the userdata to index i in the table, and removes the udata from the stack
+        lua_rawseti(pLua, -2, (i32)i + 1);  // Sets the userdata to index i in the table, and removes the udata from the stack
     }
 
     // Returns out table of meshes we left on the stack
@@ -163,7 +163,7 @@ int LoadTextures(lua_State* pLua) {
         luaL_getmetatable(pLua, "Image");
         lua_setmetatable(pLua, -2);
 
-        lua_rawseti(pLua, -2, i + 1);  // Sets the userdata to index i in the table, and removes the udata from the stack
+        lua_rawseti(pLua, -2, (i32)i + 1);  // Sets the userdata to index i in the table, and removes the udata from the stack
     }
 
     // Returns out table of meshes we left on the stack

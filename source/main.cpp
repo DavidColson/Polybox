@@ -1,5 +1,8 @@
 // Copyright 2020-2022 David Colson. All rights reserved.
 
+#define _CRT_SECURE_NO_WARNINGS
+#define LZ4_DISABLE_DEPRECATE_WARNINGS
+
 // platform
 #pragma warning (disable : 5105)
 #include "Windows.h"

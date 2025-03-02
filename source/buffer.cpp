@@ -28,7 +28,7 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 			}
 			break;
 		}
-		case Type::Int16: {
+		case Type::Int16: {  
 			i16* pData = (i16*)pBuffer->pData;
 			pData += index;
 			while (lua_isnumber(L, paramCounter) == 1) {
@@ -192,7 +192,7 @@ void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer) {
 			f32* pData = (f32*)pBuffer->pData;
 			while (!Scan::IsAtEnd(scan)) {
 				scan.pCurrent++; // parse number expects that the first digit has been parsed
-				*pData = ParseNumber(scan);
+				*pData = (f32)ParseNumber(scan);
 				if (!Scan::IsAtEnd(scan) && Scan::Peek(scan) != ',')
 					luaL_error(L, "Expected ',' between values");
 				else
@@ -571,7 +571,7 @@ T CalcMagnitude(Buffer* pBuffer) {
 		T elem = pData[i];
 		sum += elem*elem;
 	}
-	return sqrt(sum);
+	return (T)sqrtf((f32)sum);
 }
 
 // ***********************************************************************
@@ -600,7 +600,7 @@ T CalcDistance(Buffer* pBuffer, Buffer* pOther) {
 		T diff = pOtherData[i] - pData[i];
 		sum += diff*diff;
 	}
-	return sqrt(sum);
+	return (T)sqrtf((f32)sum);
 }
 
 // ***********************************************************************

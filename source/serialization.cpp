@@ -22,7 +22,7 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadat
 
 			// first decide if we're dealing with an array element or not
 			if (arrayCounter >= 0 && lua_isnumber(L, -1)) {
-				f32 key = lua_tonumber(L, -1);
+				f32 key = (f32)lua_tonumber(L, -1);
 				if (key != (i32)key || (i32)key != ++arrayCounter) {
 					arrayCounter = -1;
 				}
@@ -39,7 +39,7 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadat
 			else {
 				const char *key = lua_tostring(L, -1);
 				if (lua_isnumber(L, -1)) {
-					f32 key = lua_tonumber(L, -1);
+					f32 key = (f32)lua_tonumber(L, -1);
 					if (key == (i32)key) {
 						builder.AppendFormat("[%i]=", (i32)key);
 					}
@@ -136,7 +136,7 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadat
 		}
 	}
 	if (lua_isnumber(L, -1)) {
-		f32 value = lua_tonumber(L, -1);
+		f32 value = (f32)lua_tonumber(L, -1);
 		if (value == (i32)value) {
 			builder.AppendFormat("%i", (i32)value);
 		}
@@ -312,9 +312,9 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
 		f64 value = lua_tonumber(L, -1);
 		if (value == (i32)value) {
 			if (value >= 0) {
-				CborEncode(output, 0, nullptr, value);
+				CborEncode(output, 0, nullptr, (i64)value);
 			} else {
-				CborEncode(output, 1, nullptr, (-value)-1);
+				CborEncode(output, 1, nullptr, (i64)(-value)-1);
 			}
 		}
 		else {
@@ -399,12 +399,12 @@ i32 Serialize(lua_State* L) {
 	// if compressed, then compress output and resize
 	if (mode & 0x2) {
 		i64 srcSize = output.count - 1;
-		i64 compressBound = LZ4_compressBound(srcSize);
+		i64 compressBound = LZ4_compressBound((i32)srcSize);
 		u8* pData = output.pData + 1; // skip the binary identifier bit
 
 		u8* stagingBuffer = New(g_pArenaFrame, u8, compressBound);
 
-		i32 compressedSize = LZ4_compress_default((char*)pData, (char*)stagingBuffer, srcSize, compressBound);
+		i32 compressedSize = LZ4_compress_default((char*)pData, (char*)stagingBuffer, (i32)srcSize, (i32)compressBound);
 		if (compressedSize == 0) {
 			luaL_error(L, "Compression failed");
 		}	
@@ -670,7 +670,7 @@ struct CborParserState {
 	u8* pData;
 	u8* pEnd;
 	u8* pCurrent;
-	i32 len;
+	i64 len;
 };
 
 // ***********************************************************************
@@ -740,7 +740,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 				state.pCurrent += 1;
 
 				BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, bufferType, bufferWidth, bufferHeight);
-				i32 bufSize = BufferLib::GetBufferSize(pBuffer);
+				i64 bufSize = BufferLib::GetBufferSize(pBuffer);
 				MemcpyLE((u8*)pBuffer->pData, (u8*)state.pCurrent, bufSize);
 				state.pCurrent += bufSize;
 				break;
@@ -845,8 +845,8 @@ int Deserialize(lua_State* L) {
 		}
 	}
 
-	i32 metaDataLen = start - str;
-	i32 dataLen = len - metaDataLen;
+	i64 metaDataLen = start - str;
+	i64 dataLen = len - metaDataLen;
 
 	String metaData;
 	metaData.pData = (char*)str + 9; // 9 is the length of '--[[poly,'

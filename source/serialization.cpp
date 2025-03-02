@@ -948,6 +948,10 @@ int Load(lua_State* L) {
 	const char* filename = luaL_checklstring(L, 1, &filenameLen);
 
     SDL_RWops* pFile = SDL_RWFromFile(filename, "rb");
+	if (pFile == nullptr) {
+		Log::Warn("Unable to load %s", filename);
+		return 0;
+	}
 
     u64 fileSize = SDL_RWsize(pFile);
     char* pFileContent = New(g_pArenaFrame, char, fileSize);

@@ -80,7 +80,7 @@ void Identity();
 
 // Texturing
 // Enable/Disable texturing
-void BindTexture(Image* pImage);
+void BindTexture(sg_image image);
 void UnbindTexture();
 
 // Lighting
@@ -96,8 +96,8 @@ void SetFogEnd(f32 end);
 void SetFogColor(Vec3f color);
 
 // Extended Graphics API
-void DrawSprite(Image* pImage, Vec2f position);
-void DrawSpriteRect(Image* pImage, Vec4f rect, Vec2f position);
+void DrawSprite(sg_image image, Vec2f position);
+void DrawSpriteRect(sg_image image, Vec4f rect, Vec2f position);
 void DrawText(const char* text, Vec2f position, f32 size);
 void DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, f32 size);
 void DrawPixel(Vec2f position, Vec4f color);

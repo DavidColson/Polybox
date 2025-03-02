@@ -107,6 +107,9 @@ Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height) {
 	pBuffer->width = width;
 	pBuffer->height = height;
 	pBuffer->type = type;
+	pBuffer->img.id = SG_INVALID_ID;
+	pBuffer->dirty = false;
+	pBuffer->dynamic = false;
  
 	luaL_getmetatable(L, "Buffer");
 	lua_setmetatable(L, -2);
@@ -125,6 +128,51 @@ i64 GetBufferSize(Buffer* pBuffer) {
 	}
 
 	return pBuffer->width * pBuffer->height * typeSize;
+}
+
+// ***********************************************************************
+
+void UpdateBufferImage(Buffer* pBuffer) {
+	// @todo: error if buffer type is not suitable for image data
+	// i.e. must be int32 etc and 2D
+
+	if (pBuffer->img.id == SG_INVALID_ID ||
+		(pBuffer->dirty && pBuffer->dynamic == false))
+	{
+		sg_image_desc imageDesc = {
+			.width = pBuffer->width,
+			.height = pBuffer->height,
+			.pixel_format = SG_PIXELFORMAT_RGBA8,
+		};
+
+		// make dynamic if someone is editing this
+		// image after creation
+		pBuffer->dynamic = false;
+		if (pBuffer->img.id != SG_INVALID_ID) {
+			sg_destroy_image(pBuffer->img);
+			imageDesc.usage = SG_USAGE_STREAM;
+			pBuffer->dynamic = true;
+		}
+
+		sg_range pixelsData;
+		pixelsData.ptr = (void*)pBuffer->pData;
+		pixelsData.size = pBuffer->width * pBuffer->height * 4 * sizeof(u8);
+		imageDesc.data.subimage[0][0] = pixelsData;
+		pBuffer->img = sg_make_image(&imageDesc);
+		pBuffer->dirty = false;
+	}
+
+	// @todo: only allow one edit per frame, somehow block this
+	if (pBuffer->dirty && pBuffer->dynamic) {
+		// already dynamic, so we can just update it
+		sg_range range;
+		range.ptr = (void*)pBuffer->pData;
+		range.size = pBuffer->width * pBuffer->height * 4 * sizeof(u8);
+		sg_image_data data;
+		data.subimage[0][0] = range;
+		sg_update_image(pBuffer->img, data);  
+	}
+
 }
 
 // ***********************************************************************

@@ -413,7 +413,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			lua_pushnumber(L, height);
 			lua_setfield(L, -2, "height");
 
-			BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, BufferLib::Type::Int32, width*height, 1);
+			BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, BufferLib::Type::Int32, width, height);
 			i32 bufSize = BufferLib::GetBufferSize(pBuffer);
 			memcpy((u8*)pBuffer->pData, pData, bufSize);
 			lua_setfield(L, -2, "data");
@@ -454,7 +454,6 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			// pixelsData.size = width * height * 4 * sizeof(u8);
 			// imageDesc.data.subimage[0][0] = pixelsData;
 			// pBuffer->img = sg_make_image(&imageDesc);
-
 		}
 		else {
 			Log::Warn("Unable to import image %s, we don't yet support separate gltf files", jsonImage["name"].ToString().pData);

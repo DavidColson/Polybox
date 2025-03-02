@@ -176,8 +176,9 @@ int LuaIdentity(lua_State* pLua) {
 // ***********************************************************************
 
 int LuaBindTexture(lua_State* pLua) {
-    Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
-    BindTexture(pImage);
+	BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)luaL_checkudata(pLua, 1, "Buffer");
+	BufferLib::UpdateBufferImage(pBuffer);
+    BindTexture(pBuffer->img);
     return 0;
 }
 
@@ -281,18 +282,20 @@ int LuaSetFogColor(lua_State* pLua) {
 // ***********************************************************************
 
 int LuaDrawSprite(lua_State* pLua) {
-    Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
+	BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)luaL_checkudata(pLua, 1, "Buffer");
+	BufferLib::UpdateBufferImage(pBuffer);
     Vec2f position;
     position.x = (f32)luaL_checknumber(pLua, 2);
     position.y = (f32)luaL_checknumber(pLua, 3);
-    DrawSprite(pImage, position);
+    DrawSprite(pBuffer->img, position);
     return 0;
 }
 
 // ***********************************************************************
 
 int LuaDrawSpriteRect(lua_State* pLua) {
-    Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
+	BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)luaL_checkudata(pLua, 1, "Buffer");
+	BufferLib::UpdateBufferImage(pBuffer);
     Vec4f rect;
     rect.x = (f32)luaL_checknumber(pLua, 2);
     rect.y = (f32)luaL_checknumber(pLua, 3);
@@ -301,7 +304,7 @@ int LuaDrawSpriteRect(lua_State* pLua) {
     Vec2f position;
     position.x = (f32)luaL_checknumber(pLua, 6);
     position.y = (f32)luaL_checknumber(pLua, 7);
-    DrawSpriteRect(pImage, rect, position);
+    DrawSpriteRect(pBuffer->img, rect, position);
     return 0;
 }
 

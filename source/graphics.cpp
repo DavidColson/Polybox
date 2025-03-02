@@ -45,7 +45,7 @@ struct RenderState {
 	Vec2f fogDepths { Vec2f(0.0f, 0.0f) };
 	Vec3f fogColor { Vec3f(0.f, 0.f, 0.f) };
 
-	Image* pTextureState;
+	sg_image textureState;
 
 	Font defaultFont;
 
@@ -594,9 +594,9 @@ void EndObject2D() {
 
 	cmd.indexedDraw = false;
 
-    if (pRenderState->pTextureState) {
+    if (pRenderState->textureState.id != SG_INVALID_ID) {
 		cmd.texturedDraw = true;
-		cmd.texture = pRenderState->pTextureState->handle;
+		cmd.texture = pRenderState->textureState;
     } else {
 		cmd.texturedDraw = false;
     }
@@ -747,9 +747,9 @@ void EndObject3D() {
 	else
 		cmd.indexedDraw = false;
 
-    if (pRenderState->pTextureState) {
+    if (pRenderState->textureState.id != SG_INVALID_ID) {
 		cmd.texturedDraw = true;
-		cmd.texture = pRenderState->pTextureState->handle;
+		cmd.texture = pRenderState->textureState;
     } else {
 		cmd.texturedDraw = false;
     }
@@ -836,20 +836,18 @@ void Identity() {
 
 // ***********************************************************************
 
-void BindTexture(Image* pImage) {
-    if (pRenderState->pTextureState != nullptr)
+void BindTexture(sg_image image) {
+    if (pRenderState->textureState.id != SG_INVALID_ID)
         UnbindTexture();
 
     // Save as current texture state for binding in endObject
-    pRenderState->pTextureState = pImage;
-    pRenderState->pTextureState->Retain();
+    pRenderState->textureState = image;
 }
 
 // ***********************************************************************
 
 void UnbindTexture() {
-    pRenderState->pTextureState->Release();
-    pRenderState->pTextureState = nullptr;
+    pRenderState->textureState.id = SG_INVALID_ID;
 }
 
 // ***********************************************************************
@@ -912,19 +910,19 @@ void SetFogColor(Vec3f color) {
 
 // ***********************************************************************
 
-void DrawSprite(Image* pImage, Vec2f position) {
-    DrawSpriteRect(pImage, Vec4f(0.0f, 0.0f, 1.0f, 1.0f), position);
+void DrawSprite(sg_image image, Vec2f position) {
+    DrawSpriteRect(image, Vec4f(0.0f, 0.0f, 1.0f, 1.0f), position);
 }
 
 // ***********************************************************************
 
-void DrawSpriteRect(Image* pImage, Vec4f rect, Vec2f position) {
-    f32 w = (f32)pImage->width * (rect.z - rect.x);
-    f32 h = (f32)pImage->height * (rect.w - rect.y);
+void DrawSpriteRect(sg_image image, Vec4f rect, Vec2f position) {
+    f32 w = (f32)(rect.z - rect.x);
+    f32 h = (f32)(rect.w - rect.y);
 
     Translate(Vec3f::Embed2D(position));
 
-    BindTexture(pImage);
+    BindTexture(image);
     BeginObject2D(EPrimitiveType::Triangles);
     TexCoord(Vec2f(rect.x, rect.w));
     Vertex(Vec2f(0.0f, 0.0f));
@@ -970,7 +968,7 @@ void DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, f32 
         textWidth += ch.advance * scale.x;
     }
 
-    BindTexture(&pFont->fontTexture);
+    // BindTexture(&pFont->fontTexture);
     BeginObject2D(EPrimitiveType::Triangles);
     for (i64 i = 0; i < stringText.length; i++) {
         char c = *(stringText.pData + i);
@@ -1016,7 +1014,7 @@ void DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, f32 
         x += ch.advance * scale.x;
     }
     EndObject2D();
-    UnbindTexture();
+    // UnbindTexture();
 }
 
 // ***********************************************************************

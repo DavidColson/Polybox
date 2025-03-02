@@ -28,6 +28,7 @@ struct Buffer {
 
 Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height);
 i64 GetBufferSize(Buffer* pBuffer);
+void UpdateBufferImage(Buffer* pBuffer);
 void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer);
 void BindBuffer(lua_State* L);
 }

@@ -822,6 +822,20 @@ void PopMatrix() {
 
 // ***********************************************************************
 
+void LoadMatrix(Matrixf mat) {
+	u64 mode = (u64)pRenderState->matrixModeState;
+	pRenderState->matrixStates[mode].Top() = mat;
+}
+
+// ***********************************************************************
+
+Matrixf GetMatrix() {
+	u64 mode = (u64)pRenderState->matrixModeState;
+	return pRenderState->matrixStates[mode].Top();
+}
+
+// ***********************************************************************
+
 void Perspective(f32 screenWidth, f32 screenHeight, f32 nearPlane, f32 farPlane, f32 fov) {
 	u64 mode = (u64)pRenderState->matrixModeState;
     pRenderState->matrixStates[mode].Top() *= Matrixf::Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);

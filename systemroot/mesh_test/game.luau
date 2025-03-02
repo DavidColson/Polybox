@@ -77,22 +77,6 @@ function Start()
 	state.Palette = load("systemroot/tank_demo/Palette.texture")
 	state.NewNewTexture = load("systemroot/tank_demo/NewNewTexture.texture")
 	state.blob = load("systemroot/tank_demo/blob.texture")
-
-	-- testing matrices
-	local mat = buffer("f32", 4, 4)
-	mat:set2D(0, 0,
-		1, 0, 0, 0,
-		0, 1, 0, 0,
-		0, 0, 1, 0,
-		0, 0, 0, 1)
-
-	print(mat)
-
-	local vertices = state.tankMesh.vertices
-	local floatsPerVertex = 12
-	local nVertices = vertices:size() / floatsPerVertex
-	print("nVertices " .. nVertices)
-	print("vertices:size " .. vertices:size())
 end
 
 function quatToEuler(q:{x:number,y:number,z:number,w:number}): (number,number,number)
@@ -117,33 +101,23 @@ function Update()
     Ambient(0.4, 0.4, 0.4)
     Light(0, -1, 1, 0, 1, 1, 1)
 
-	-- couple of interesting issues
-	-- we have parent child relationships now in the scene
-	-- but we don't have any global matrix calculation?
-	-- how do you draw the scene now? Can't loop through all objects
-
-	-- start simple iterate the scene
-	-- can easily draw all the top level items
-	-- if there are children iterate the children
-	-- need to create a matrix from their transform data
-	-- pass it into recursive draw object function
-
-	-- how do we order the drawing? We want the blob shadows to be drawn second
-
-	-- two ideas
-	-- create an iterate scene function which takes a function to call for every object
-	-- passes the object and it's parent transform matrix
-	-- can again then just iterate twice
-
-	-- better idea for blobs
-	-- as you encounter them in your iteration, put them in a passTwo table in state
-	-- iterate that at the end
+    EnableFog(true)
+    SetFogStart(3.0)
+    SetFogEnd(15.0)
+	SetFogColor(0.25, 0.25, 0.25)
 
 	local floatsPerVertex = 12
+	state.lateDraw = {}
 
 	iterate_scene(state.scene, function(name:string, obj: any)
+		if obj.mesh == "BlobShadow" then
+			local lateDrawObj = {obj=obj, mat=GetMatrix()}
+			table.insert(state.lateDraw, lateDrawObj)
+			return
+		end
 		local texture = state[state[obj.mesh].texture]
 		BindTexture(texture.data)
+
 		BeginObject3D("Triangles")
 		local vertices = state[obj.mesh].vertices
 		for i = 0, vertices:size(), floatsPerVertex do
@@ -158,6 +132,35 @@ function Update()
 		end
 		EndObject3D()
 	end)
+
+	-- the blob shadows have transpancy, so we must draw them after everything else
+	-- from front to back
+	local frontToBack = function(a, b)
+		local aPos = vec(a.obj.position.x, a.obj.position.y, a.obj.position.z)
+		local bPos = vec(b.obj.position.x, b.obj.position.y, b.obj.position.z)
+		local camPos = vec(-1, 2.5, -6.5)
+		local aCamDist = camPos:distance(aPos)
+		local bCamDist = camPos:distance(bPos)
+		return aCamDist > bCamDist
+	end
+	table.sort(state.lateDraw, frontToBack)
+
+	for k, v in state.lateDraw do
+		LoadMatrix(v.mat)
+
+		local texture = state[state[v.obj.mesh].texture]
+		BindTexture(texture.data)
+
+		BeginObject3D("Triangles")
+		local vertices = state[v.obj.mesh].vertices
+		for i = 0, vertices:size(), floatsPerVertex do
+			Normal(vertices:get(i+9, 3))
+			Color(vertices:get(i+3, 4))
+			TexCoord(vertices:get(i+7, 2))
+			Vertex(vertices:get(i, 3))
+		end
+		EndObject3D()
+	end
 end
 
 function End()

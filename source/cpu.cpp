@@ -87,6 +87,8 @@ type Font = {
 @checked declare function MatrixMode(mode: string)
 @checked declare function PushMatrix()
 @checked declare function PopMatrix()
+@checked declare function LoadMatrix(mat: Buffer)
+@checked declare function GetMatrix(): Buffer
 @checked declare function Perspective(screenWidth: number, screenHeight: number, nearPlane: number, farPlane: number, fov: number)
 @checked declare function Translate(x: number, y: number, z: number)
 @checked declare function Rotate(x: number, y: number, z: number)

@@ -140,6 +140,30 @@ int LuaPopMatrix(lua_State* pLua) {
 
 // ***********************************************************************
 
+int LuaLoadMatrix(lua_State* pLua) {
+	BufferLib::Buffer* pBuffer = (BufferLib::Buffer*)luaL_checkudata(pLua, 1, "Buffer");
+	if (pBuffer->type != BufferLib::Type::Float32 || pBuffer->width != 4 || pBuffer->height != 4) {
+		luaL_error(pLua, "Invalid matrix provided, need to be f32 type 4x4 matrix");
+		return 0;
+	}
+	Matrixf mat;
+	memcpy(mat.m, pBuffer->pData, 16*sizeof(f32));
+    LoadMatrix(mat);
+    return 0;
+}
+
+// ***********************************************************************
+
+int LuaGetMatrix(lua_State* pLua) {
+    Matrixf mat = GetMatrix();
+
+	BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(pLua, BufferLib::Type::Float32, 4, 4);
+	memcpy((u8*)pBuffer->pData, mat.m, 16*sizeof(f32));
+    return 1;
+}
+
+// ***********************************************************************
+
 int LuaPerspective(lua_State* pLua) {
     f32 screenWidth = (f32)luaL_checknumber(pLua, 1);
     f32 screenHeight = (f32)luaL_checknumber(pLua, 2);
@@ -563,6 +587,8 @@ int BindGraphics(lua_State* pLua) {
         { "MatrixMode", LuaMatrixMode },
         { "PushMatrix", LuaPushMatrix },
         { "PopMatrix", LuaPopMatrix },
+        { "LoadMatrix", LuaLoadMatrix },
+        { "GetMatrix", LuaGetMatrix },
         { "Perspective", LuaPerspective },
         { "Translate", LuaTranslate },
         { "Rotate", LuaRotate },

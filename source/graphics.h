@@ -79,6 +79,8 @@ void Translate(Vec3f translation);
 void Rotate(Vec3f rotation);
 void Scale(Vec3f scaling);
 void Identity();
+void LoadMatrix(Matrixf mat);
+Matrixf GetMatrix();
 
 // Texturing
 // Enable/Disable texturing
@@ -98,6 +100,7 @@ void SetFogEnd(f32 end);
 void SetFogColor(Vec3f color);
 
 // Extended Graphics API
+// @todo: will be replaced with 2D rendering api
 void DrawSprite(sg_image image, Vec2f position);
 void DrawSpriteRect(sg_image image, Vec4f rect, Vec2f position);
 void DrawText(const char* text, Vec2f position, f32 size);

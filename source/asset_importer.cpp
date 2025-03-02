@@ -126,7 +126,6 @@ struct GltfAccessor {
 // ***********************************************************************
 
 int Import(Arena* pScratchArena, u8 format, String source, String output) {
-
 	// TODO: take the file extension as an indication of what the file is
 	// below we are doing gltf only. 
 
@@ -136,7 +135,14 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	// gltf, so when importing seperate gltf files, don't import stuff we already may have picked up, such as images
 	// they'll be done individually
 
-	// we'll do the scene first
+
+	String outputPath = output;
+	for (i32 i = outputPath.length-1; i>=0; i--) {
+		if (outputPath.pData[i] == '\\' || outputPath.pData[i] == '/') {
+			break;
+		}
+		outputPath.length--;
+	}
 
 	// Load file
 	String fileContents;
@@ -160,9 +166,12 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	// on lua tables, and so we're just using the lua state to hold those tables, won't actually run any lua code really
 	lua_State* L = lua_newstate(LuaAllocator, nullptr);
 	Serialization::BindSerialization(L);
+	BufferLib::BindBuffer(L);
+
+	// -------------------------------------
+	// Import Scene
 
 	lua_getglobal(L, "serialize");
-
 	lua_newtable(L);
 
 	// note that the nodelist in the top level scene does not include child nodes
@@ -178,19 +187,22 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	// once complete output in the desired format, need to make that an argument
 	lua_pushnumber(L, format);
 	lua_pcall(L, 2, 1, 0);
+	{
+		String result;
+		size_t len;
+		result.pData = (char*)lua_tolstring(L, -1, &len); 
+		result.length = (i64)len;
 
-	String result;
-	size_t len;
-	result.pData = (char*)lua_tolstring(L, -1, &len); 
-	result.length = (i64)len;
+		SDL_RWops* pOutFile = SDL_RWFromFile(output.pData, "wb");
+		SDL_RWwrite(pOutFile, result.pData, result.length, 1);
+		SDL_RWclose(pOutFile);
 
-	SDL_RWops* pOutFile = SDL_RWFromFile(output.pData, "wb");
-	SDL_RWwrite(pOutFile, result.pData, result.length, 1);
-	SDL_RWclose(pOutFile);
-
+	}
 	lua_pop(L, 1); // pop the scene table, we're done with it now
 
-	// then load the buffers and buffer information
+	// -------------------------------------
+	// Import Meshes
+
     ResizableArray<GltfBuffer> rawDataBuffers(pScratchArena);
     JsonValue& jsonBuffers = parsed["buffers"];
     for (int i = 0; i < jsonBuffers.Count(); i++) {
@@ -198,7 +210,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
         buf.byteLength = jsonBuffers[i]["byteLength"].ToInt();
 
         String encodedBuffer = jsonBuffers[i]["uri"].ToString();
-		// todo: the substr 37 tells us which type of gltf file this is, glb, bin as separate file, or base 64
+		// @todo: the substr 37 tells us which type of gltf file this is, glb, bin as separate file, or base 64
 		// these should be the options:
 		// data:dontcaretext;base64,
 			// this of course is what we have here, a base64 encoded string, embedded in the uri
@@ -267,28 +279,95 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
         accessors.PushBack(acc);
     }
 
-	// then the meshes
-	for (int i = 0; i < parsed["meshes"].Count(); i++) {
+	i32 meshCount = parsed["meshes"].Count();
+	for (i32 i = 0; i < meshCount; i++) {
         JsonValue& jsonMesh = parsed["meshes"][i];
+		String meshName = jsonMesh["name"].ToString();
 
-		// what do we do here?
-		// push serialization function
 		// make a table for the mesh
-		// push data format, probably just a number for now, need to do enums
+		lua_getglobal(L, "serialize");
+		lua_newtable(L);
+
+		// push mesh format (i.e. flat, smooth etc), probably just a number for now, need to do enums
+		lua_pushnumber(L, 1);
+		lua_setfield(L, -2, "format");
+
+		if (jsonMesh["primitives"].Count() > 1)
+		{
+			Log::Warn("Mesh %s has more than one primitive, this is not supported, only the first will be imported", meshName);
+		}
+		JsonValue& jsonPrimitive = jsonMesh["primitives"][0];
+
+		if (jsonPrimitive.HasKey("mode")) {
+			if (jsonPrimitive["mode"].ToInt() != 4) {
+				Log::Warn("Mesh %s uses unsupported topology type, will not be imported", meshName);
+			}
+		}
+
 		// load, and interlace mesh data, flatten indices
+		i32 nVerts = accessors[jsonPrimitive["attributes"]["POSITION"].ToInt()].count;
+
+		JsonValue& jsonAttr = jsonPrimitive["attributes"];
+		Vec3f* vertPositionBuffer = (Vec3f*)accessors[jsonAttr["POSITION"].ToInt()].pBuffer;
+		Vec3f* vertNormBuffer = jsonAttr.HasKey("NORMAL") ? (Vec3f*)accessors[jsonAttr["NORMAL"].ToInt()].pBuffer : nullptr;
+		Vec2f* vertTexCoordBuffer = jsonAttr.HasKey("TEXCOORD_0") ? (Vec2f*)accessors[jsonAttr["TEXCOORD_0"].ToInt()].pBuffer : nullptr;
+		Vec4f* vertColBuffer = jsonAttr.HasKey("COLOR_0") ? (Vec4f*)accessors[jsonAttr["COLOR_0"].ToInt()].pBuffer : nullptr;
+
+		// interlace vertex data
+		ResizableArray<VertexData> indexedVertexData(g_pArenaFrame);
+		indexedVertexData.Reserve(nVerts);
+		for (int i = 0; i < nVerts; i++) {
+			indexedVertexData.PushBack({
+				vertPositionBuffer[i], 
+				vertColBuffer ?	vertColBuffer[i] : Vec4f(1.0f, 1.0f, 1.0f, 1.0f),
+				vertTexCoordBuffer ? vertTexCoordBuffer[i] : Vec2f(1.0f, 1.0f),
+				vertNormBuffer ? vertNormBuffer[i] : Vec3f(1.0f, 1.0f, 1.0f)});
+		}
+
+		// Flatten indices
+		i32 nIndices = accessors[jsonPrimitive["indices"].ToInt()].count;
+		u16* indexBuffer = (u16*)accessors[jsonPrimitive["indices"].ToInt()].pBuffer;
+
+		ResizableArray<VertexData> vertices(pScratchArena);
+		vertices.Reserve(nIndices);
+		for (int i = 0; i < nIndices; i++) {
+			u16 index = indexBuffer[i];
+			vertices.PushBack(indexedVertexData[index]);
+		}
+
 		// push buffer with size for all the vertex data
-		// memcpy the mesh data
-		// call serialize
+		i32 floatsPerVertex = sizeof(VertexData) / sizeof(f32);
+		BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, BufferLib::Type::Float32, floatsPerVertex*nIndices, 1);
+		i32 bufSize = BufferLib::GetBufferSize(pBuffer);
+		memcpy((u8*)pBuffer->pData, (u8*)vertices.pData, bufSize);
+		lua_setfield(L, -2, "vertices");
+
+		// call serialize to make a file for the mesh
+		lua_pushnumber(L, format);
+		lua_pcall(L, 2, 1, 0);
+
+		String result;
+		size_t len;
+		result.pData = (char*)lua_tolstring(L, -1, &len); 
+		result.length = (i64)len;
+
+		StringBuilder builder(pScratchArena);
+		builder.Append(outputPath);
+		builder.Append(meshName);
+		builder.Append(".mesh");
+		SDL_RWops* pOutFile = SDL_RWFromFile(builder.CreateString(pScratchArena).pData, "wb");
+		SDL_RWwrite(pOutFile, result.pData, result.length, 1);
+		SDL_RWclose(pOutFile);
+
+		lua_pop(L, 1); // pop the mesh table, we're done with it now
 	}
 
-	// then images
+	// -------------------------------------
+	// Import Textures
 
-	// Load the mesh and convert into our interleaved data format, flattening indices
-	// merge primitives into one, and give a warning if there are more than one
-	// put the final output data into a buffer object in the lua state
-	// create a table with format stored in it plus the buffer
-	// output a file for each mesh
+	// @todo
 
+	Log::Info("Imported %s", source.pData);
 	return 0;
 }
 

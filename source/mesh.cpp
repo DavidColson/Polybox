@@ -206,7 +206,7 @@ ResizableArray<Mesh*> Mesh::LoadMeshes(Arena* pArena, const char* filePath) {
 		pMesh->Retain();
 		pMesh->pArena = pMeshArena;
 		pMesh->primitives.pArena = pMesh->pArena;
-        pMesh->primitives.Reserve(parsed["primitives"].Count());
+        pMesh->primitives.Reserve(jsonMesh["primitives"].Count());
 
         String meshName = jsonMesh.HasKey("name") ? jsonMesh["name"].ToString() : String("");
         pMesh->name = CopyString(meshName, pMesh->pArena);

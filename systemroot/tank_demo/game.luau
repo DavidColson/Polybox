@@ -76,7 +76,7 @@ function Start()
 	print(math.sin(1.24))
 
 	local bufferFloats = buffer("f32", 5)
-	bufferFloats:set(0, 22.1, 54.2, 87.51213, 99999.1337, 2.43)
+	bufferFloats:set(0, 22.0, 54.2, 87.51213, 99999.1337, 2.43)
 
 	local bufferInts = buffer("i16", 4)
 	bufferInts:set(0, 32, 1, 44, 87)

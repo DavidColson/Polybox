@@ -44,7 +44,7 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadat
 						builder.AppendFormat("[%i]=", (i32)key);
 					}
 					else {
-						builder.AppendFormat("[%f]=", key);
+						builder.AppendFormat("[%.17g]=", key);
 					}
 				}
 				else {
@@ -99,9 +99,9 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadat
 						f32* pFloats = (f32*)pBuf->pData;
 						for (int i = 0; i < pBuf->width*pBuf->height; i++) {
 							if (i+1 < pBuf->width*pBuf->height)
-								builder.AppendFormat("%f,", pFloats[i]);
+								builder.AppendFormat("%.9g,", pFloats[i]);
 							else
-								builder.AppendFormat("%f", pFloats[i]);
+								builder.AppendFormat("%.9g", pFloats[i]);
 						}
 						break;
 					}
@@ -141,7 +141,7 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadat
 			builder.AppendFormat("%i", (i32)value);
 		}
 		else {
-			builder.AppendFormat("%f", value);
+			builder.AppendFormat("%.17g", value);
 		}
 	}
 	else if(lua_isstring(L, -1)) {
@@ -740,13 +740,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 				state.pCurrent += 1;
 
 				BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, bufferType, bufferWidth, bufferHeight);
-				i32 bufSize = pBuffer->width * pBuffer->height;
-				switch(pBuffer->type) {
-					case BufferLib::Type::Float32: bufSize *= sizeof(f32); break;
-					case BufferLib::Type::Int32: bufSize *= sizeof(i32); break;
-					case BufferLib::Type::Int16: bufSize *= sizeof(i16); break;
-					case BufferLib::Type::Uint8: bufSize *= sizeof(u8); break;
-				}
+				i32 bufSize = BufferLib::GetBufferSize(pBuffer);
 				MemcpyLE((u8*)pBuffer->pData, (u8*)state.pCurrent, bufSize);
 				state.pCurrent += bufSize;
 				break;

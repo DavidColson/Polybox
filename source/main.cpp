@@ -187,14 +187,14 @@ int main(int argc, char* argv[]) {
 			if (strcmp(argv[2], "-t") == 0) {
 				format = 0;
 			}
+			else if (strcmp(argv[2], "-bt") == 0) {
+				format = 0x7;
+			}
 			else if (strcmp(argv[2], "-b") == 0) {
 				format = 0x1;
 			}
 			else if (strcmp(argv[2], "-c") == 0) {
 				format = 0x3;
-			}
-			else if (strcmp(argv[2], "-bt") == 0) {
-				format = 0x7;
 			}
 			else {
 				fileArg = 2;
@@ -203,6 +203,11 @@ int main(int argc, char* argv[]) {
 			// TODO: if paths are given instead of files, process the whole folder instead
 			Arena* pArena = ArenaCreate();
 			i32 result = AssetImporter::Import(pArena, format, String(argv[fileArg]), String(argv[fileArg+1]));
+			if (result >= 0) 
+				Log::Info("Import succeeded");
+			else 
+				Log::Info("Import failed");
+
 			ArenaFinished(pArena);
 			return result;
 		}

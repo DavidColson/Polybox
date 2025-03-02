@@ -37,7 +37,7 @@ set cl_libs= !cl_libs! /libpath:..\source\third_party\luau\cmake\%cmake_config%\
 set cl_common= %cl_includes% /Zc:preprocessor /std:c++20 /Bt /GR-
 set cl_debug= call cl /Od /Ob0 /Zi /MDd %cl_common%
 set cl_release= call cl /O2 /Ob2 /MD /DNDEBUG %cl_common%
-set cl_link= /link /subsystem:windows %cl_libs%
+set cl_link= /link /subsystem:console %cl_libs% /natvis:..\source\third_party\luau\tools\natvis\VM.natvis
 if "%debug%"=="1"     set compile=%cl_debug%
 if "%release%"=="1"   set compile=%cl_release%
 

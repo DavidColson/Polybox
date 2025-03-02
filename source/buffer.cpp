@@ -115,6 +115,20 @@ Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height) {
 
 // ***********************************************************************
 
+i64 GetBufferSize(Buffer* pBuffer) {
+	i32 typeSize = 0;
+	switch (pBuffer->type) {
+		case Type::Float32: typeSize = sizeof(f32); break;
+		case Type::Int32: typeSize = sizeof(i32); break;
+		case Type::Int16: typeSize = sizeof(i16); break;
+		case Type::Uint8: typeSize = sizeof(u8); break;
+	}
+
+	return pBuffer->width * pBuffer->height * typeSize;
+}
+
+// ***********************************************************************
+
 void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer) {
 	if (dataString.length <= 0) 
 		return;
@@ -381,9 +395,9 @@ i32 ToString(lua_State* L) {
 			f32* pFloats = (f32*)pBuffer->pData;
 			for (int i = 0; i < pBuffer->width*pBuffer->height; i++) {
 				if (i+1 < pBuffer->width*pBuffer->height)
-					builder.AppendFormat("%f,", pFloats[i]);
+					builder.AppendFormat("%.9g,", pFloats[i]);
 				else
-					builder.AppendFormat("%f", pFloats[i]);
+					builder.AppendFormat("%.9g", pFloats[i]);
 			}
 			break;
 		}

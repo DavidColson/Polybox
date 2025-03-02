@@ -20,6 +20,8 @@ void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, JsonValue& nodeToPa
 	// table for the node itself
 	lua_newtable(L);
 
+	// @todo: might want to add 0 transforms to things that do not provide them?
+
 	// position
 	if (nodeToParse.HasKey("translation")) {
 		lua_newtable(L);
@@ -296,21 +298,6 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		lua_pushnumber(L, 1);
 		lua_setfield(L, -2, "format");
 
-		// push texture
-		if (jsonMesh.HasKey("material")) {
-			i32 materialId = jsonMesh["material"].ToInt();
-			JsonValue& jsonMaterial = parsed["materials"][materialId];
-			JsonValue& pbr = jsonMaterial["pbrMetallicRoughness"];
-
-			if (pbr.HasKey("baseColorTexture")) {
-				i32 textureId = pbr["baseColorTexture"]["index"].ToInt();
-				i32 imageId = parsed["textures"][textureId]["source"].ToInt();
-				String imageName = parsed["images"][textureId]["name"].ToString();
-				lua_pushlstring(L, imageName.pData, imageName.length);
-				lua_setfield(L, -2, "texture");
-			}
-		}
-
 		if (jsonMesh["primitives"].Count() > 1)
 		{
 			Log::Warn("Mesh %s has more than one primitive, this is not supported, only the first will be imported", meshName);
@@ -320,6 +307,21 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		if (jsonPrimitive.HasKey("mode")) {
 			if (jsonPrimitive["mode"].ToInt() != 4) {
 				Log::Warn("Mesh %s uses unsupported topology type, will not be imported", meshName);
+			}
+		}
+
+		// push texture
+		if (jsonPrimitive.HasKey("material")) {
+			i32 materialId = jsonPrimitive["material"].ToInt();
+			JsonValue& jsonMaterial = parsed["materials"][materialId];
+			JsonValue& pbr = jsonMaterial["pbrMetallicRoughness"];
+
+			if (pbr.HasKey("baseColorTexture")) {
+				i32 textureId = pbr["baseColorTexture"]["index"].ToInt();
+				i32 imageId = parsed["textures"][textureId]["source"].ToInt();
+				String imageName = parsed["images"][imageId]["name"].ToString();
+				lua_pushlstring(L, imageName.pData, imageName.length);
+				lua_setfield(L, -2, "texture");
 			}
 		}
 

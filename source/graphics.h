@@ -72,6 +72,8 @@ void SetClearColor(Vec4f color);
 
 // Transforms
 void MatrixMode(EMatrixMode mode);
+void PushMatrix();
+void PopMatrix();
 void Perspective(f32 screenWidth, f32 screenHeight, f32 nearPlane, f32 farPlane, f32 fov);
 void Translate(Vec3f translation);
 void Rotate(Vec3f rotation);

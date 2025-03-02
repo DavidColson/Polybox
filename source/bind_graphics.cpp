@@ -126,6 +126,20 @@ int LuaMatrixMode(lua_State* pLua) {
 
 // ***********************************************************************
 
+int LuaPushMatrix(lua_State* pLua) {
+    PushMatrix();
+    return 0;
+}
+
+// ***********************************************************************
+
+int LuaPopMatrix(lua_State* pLua) {
+    PopMatrix();
+    return 0;
+}
+
+// ***********************************************************************
+
 int LuaPerspective(lua_State* pLua) {
     f32 screenWidth = (f32)luaL_checknumber(pLua, 1);
     f32 screenHeight = (f32)luaL_checknumber(pLua, 2);
@@ -547,6 +561,8 @@ int BindGraphics(lua_State* pLua) {
         { "Normal", LuaNormal },
         { "SetClearColor", LuaSetClearColor },
         { "MatrixMode", LuaMatrixMode },
+        { "PushMatrix", LuaPushMatrix },
+        { "PopMatrix", LuaPopMatrix },
         { "Perspective", LuaPerspective },
         { "Translate", LuaTranslate },
         { "Rotate", LuaRotate },

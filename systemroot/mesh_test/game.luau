@@ -36,12 +36,22 @@ end
 local state = {}
 
 -- iterate over a heirarchy of objects (with children table) as though it was a flat array
-function flat_iterate(scene:any, iter: (string,any)->())
+-- concatenating transforms of parents and children as you go
+function iterate_scene(scene:any, iter: (string,any)->())
 	for k, v in scene do
+        MatrixMode("Model")
+		PushMatrix()
+
+		if v.position ~= nil then Translate(v.position.x, v.position.y, v.position.z) end
+		if v.scale ~= nil then Scale(v.scale.x, v.scale.y, v.scale.z) end
+        if v.rotation ~= nil then Rotate(quatToEuler(v.rotation)) end
+
 		iter(k,v)
 		if v.children ~= nil then
-			flat_iterate(v.children, iter)
+			iterate_scene(v.children, iter)
 		end
+
+		PopMatrix()
 	end
 end
 
@@ -55,14 +65,6 @@ function Start()
 	-- scene
 	state.scene = load("systemroot/tank_demo/tank.scene")
 	
-	-- print out all the objects
-	flat_iterate(state.scene, function(name:string, obj: any)
-		print("scene object: " .. name)
-		if obj.mesh ~= nil then
-			print("        mesh: " .. obj.mesh)
-		end
-	end)
-
 	-- meshes
 	state.hangarMesh = load("systemroot/tank_demo/hangarMesh.mesh")
 	state.tankMesh = load("systemroot/tank_demo/tankMesh.mesh")
@@ -71,7 +73,7 @@ function Start()
 	state.BlobShadow = load("systemroot/tank_demo/BlobShadow.mesh")
 
 	-- textures
-	state.Shed = load("systemroot/tank_demo/shed.texture")
+	state.Shed = load("systemroot/tank_demo/Shed.texture")
 	state.Palette = load("systemroot/tank_demo/Palette.texture")
 	state.NewNewTexture = load("systemroot/tank_demo/NewNewTexture.texture")
 	state.blob = load("systemroot/tank_demo/blob.texture")
@@ -93,6 +95,13 @@ function Start()
 	print("vertices:size " .. vertices:size())
 end
 
+function quatToEuler(q:{x:number,y:number,z:number,w:number}): (number,number,number)
+	local x = math.atan2(2* (q.w*q.x + q.y*q.z), 1 - 2*(q.x*q.x+q.y*q.y))
+	local y = math.asin(2*(q.w*q.y-q.z*q.x))
+	local z = math.atan2(2* (q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y+q.z*q.z))
+	return x, y, z
+end
+
 function Update()
     SetClearColor(0.25, 0.25, 0.25, 1.0)
 
@@ -100,7 +109,8 @@ function Update()
     Perspective(320, 180, 1, 20, 60)
 
     MatrixMode("View")
-    Translate(0, -1, -5)
+    Rotate(0, 3.6, 0)
+    Translate(1, -2.5, 6.5)
 
     NormalsMode("Custom")
     EnableLighting(true)
@@ -129,29 +139,25 @@ function Update()
 	-- as you encounter them in your iteration, put them in a passTwo table in state
 	-- iterate that at the end
 
-	MatrixMode("Model")
-	Identity()
-
-	local vertices = state.tankMesh.vertices
 	local floatsPerVertex = 12
-	
-	MatrixMode("Model")
-	Identity()
-	Rotate(0, 2.2, 0)
 
-	BindTexture(state.NewNewTexture.data)
-	BeginObject3D("Triangles")
-	for i = 0, vertices:size(), floatsPerVertex do
-		-- 0-2 is position
-		-- 3-6 is color
-		-- 7-8 is texcoord
-		-- 9-11 is normal
-		Normal(vertices:get(i+9, 3))
-		Color(vertices:get(i+3, 4))
-		TexCoord(vertices:get(i+7, 2))
-		Vertex(vertices:get(i, 3))
-	end
-	EndObject3D()
+	iterate_scene(state.scene, function(name:string, obj: any)
+		local texture = state[state[obj.mesh].texture]
+		BindTexture(texture.data)
+		BeginObject3D("Triangles")
+		local vertices = state[obj.mesh].vertices
+		for i = 0, vertices:size(), floatsPerVertex do
+			-- 0-2 is position
+			-- 3-6 is color
+			-- 7-8 is texcoord
+			-- 9-11 is normal
+			Normal(vertices:get(i+9, 3))
+			Color(vertices:get(i+3, 4))
+			TexCoord(vertices:get(i+7, 2))
+			Vertex(vertices:get(i, 3))
+		end
+		EndObject3D()
+	end)
 end
 
 function End()

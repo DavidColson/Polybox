@@ -33,7 +33,7 @@ struct RenderState {
 	Vec3f vertexNormalState { Vec3f(0.0f, 0.0f, 0.0f) };
 
 	EMatrixMode matrixModeState;
-	Matrixf matrixStates[(u64)EMatrixMode::Count];
+	Stack<Matrixf> matrixStates[(u64)EMatrixMode::Count];
 
 	ENormalsMode normalsModeState;
 	bool lightingState { false };
@@ -390,8 +390,9 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 	pRenderState->perFrameIndexBuffer.Reserve(MAX_VERTICES_PER_FRAME);
 
 	for (u64 i = 0; i < 3; i++) {
-        pRenderState->matrixStates[i] = Matrixf::Identity();
-    }
+		pRenderState->matrixStates[i].array.pArena = pArena;
+        pRenderState->matrixStates[i].Push(Matrixf::Identity());
+	}
 }
 
 // ***********************************************************************
@@ -542,7 +543,8 @@ void DrawFrame(i32 w, i32 h) {
 	pRenderState->drawList2D.count = 0;
 
 	for (u64 i = 0; i < (int)EMatrixMode::Count; i++) {
-        pRenderState->matrixStates[i] = Matrixf::Identity();
+        pRenderState->matrixStates[i].array.count = 1;
+        pRenderState->matrixStates[i][0] = Matrixf::Identity();
     }
 }
 
@@ -576,9 +578,9 @@ void EndObject2D() {
 
     // Submit draw call
     Matrixf ortho = Matrixf::Orthographic(0.0f, pRenderState->targetResolution.x, 0.0f, pRenderState->targetResolution.y, -100.0f, 100.0f);
-	cmd.vsUniforms.mvp = ortho * pRenderState->matrixStates[(u64)EMatrixMode::Model];
-	cmd.vsUniforms.model = pRenderState->matrixStates[(u64)EMatrixMode::Model];
-	cmd.vsUniforms.modelView = pRenderState->matrixStates[(u64)EMatrixMode::View] * pRenderState->matrixStates[(u64)EMatrixMode::Model];
+	cmd.vsUniforms.mvp = ortho * pRenderState->matrixStates[(u64)EMatrixMode::Model][-1];
+	cmd.vsUniforms.model = pRenderState->matrixStates[(u64)EMatrixMode::Model][-1];
+	cmd.vsUniforms.modelView = pRenderState->matrixStates[(u64)EMatrixMode::View][-1] * pRenderState->matrixStates[(u64)EMatrixMode::Model][-1];
 	cmd.vsUniforms.lightingEnabled = 0;
 	cmd.vsUniforms.lightDirection[0] = 0.f;
 	cmd.vsUniforms.lightDirection[1] = 0.f;
@@ -726,9 +728,9 @@ void EndObject3D() {
     }
 
     // Submit draw call
-	cmd.vsUniforms.mvp = pRenderState->matrixStates[(u64)EMatrixMode::Projection] * pRenderState->matrixStates[(u64)EMatrixMode::View] * pRenderState->matrixStates[(u64)EMatrixMode::Model];
-	cmd.vsUniforms.model = pRenderState->matrixStates[(u64)EMatrixMode::Model];
-	cmd.vsUniforms.modelView = pRenderState->matrixStates[(u64)EMatrixMode::View] * pRenderState->matrixStates[(u64)EMatrixMode::Model];
+	cmd.vsUniforms.mvp = pRenderState->matrixStates[(u64)EMatrixMode::Projection][-1] * pRenderState->matrixStates[(u64)EMatrixMode::View][-1] * pRenderState->matrixStates[(u64)EMatrixMode::Model][-1];
+	cmd.vsUniforms.model = pRenderState->matrixStates[(u64)EMatrixMode::Model][-1];
+	cmd.vsUniforms.modelView = pRenderState->matrixStates[(u64)EMatrixMode::View][-1] * pRenderState->matrixStates[(u64)EMatrixMode::Model][-1];
 	cmd.vsUniforms.lightingEnabled = (i32)pRenderState->lightingState;
 	cmd.vsUniforms.lightDirection[0] = pRenderState->lightDirectionsStates[0];
 	cmd.vsUniforms.lightDirection[1] = pRenderState->lightDirectionsStates[1];
@@ -806,32 +808,51 @@ void MatrixMode(EMatrixMode mode) {
 
 // ***********************************************************************
 
+void PushMatrix() {
+	u64 mode = (u64)pRenderState->matrixModeState;
+	pRenderState->matrixStates[mode].Push(pRenderState->matrixStates[mode].Top());
+}
+
+// ***********************************************************************
+
+void PopMatrix() {
+	u64 mode = (u64)pRenderState->matrixModeState;
+	pRenderState->matrixStates[mode].Pop();
+}
+
+// ***********************************************************************
+
 void Perspective(f32 screenWidth, f32 screenHeight, f32 nearPlane, f32 farPlane, f32 fov) {
-    pRenderState->matrixStates[(u64)pRenderState->matrixModeState] *= Matrixf::Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);
+	u64 mode = (u64)pRenderState->matrixModeState;
+    pRenderState->matrixStates[mode].Top() *= Matrixf::Perspective(screenWidth, screenHeight, nearPlane, farPlane, fov);
 }
 
 // ***********************************************************************
 
 void Translate(Vec3f translation) {
-    pRenderState->matrixStates[(u64)pRenderState->matrixModeState] *= Matrixf::MakeTranslation(translation);
+	u64 mode = (u64)pRenderState->matrixModeState;
+    pRenderState->matrixStates[mode].Top() *= Matrixf::MakeTranslation(translation);
 }
 
 // ***********************************************************************
 
 void Rotate(Vec3f rotation) {
-    pRenderState->matrixStates[(u64)pRenderState->matrixModeState] *= Matrixf::MakeRotation(rotation);
+	u64 mode = (u64)pRenderState->matrixModeState;
+    pRenderState->matrixStates[mode].Top() *= Matrixf::MakeRotation(rotation);
 }
 
 // ***********************************************************************
 
 void Scale(Vec3f scaling) {
-    pRenderState->matrixStates[(u64)pRenderState->matrixModeState] *= Matrixf::MakeScale(scaling);
+	u64 mode = (u64)pRenderState->matrixModeState;
+    pRenderState->matrixStates[mode].Top() *= Matrixf::MakeScale(scaling);
 }
 
 // ***********************************************************************
 
 void Identity() {
-    pRenderState->matrixStates[(u64)pRenderState->matrixModeState] = Matrixf::Identity();
+	u64 mode = (u64)pRenderState->matrixModeState;
+    pRenderState->matrixStates[mode].Top() = Matrixf::Identity();
 }
 
 // ***********************************************************************

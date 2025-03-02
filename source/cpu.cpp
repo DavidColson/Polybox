@@ -85,6 +85,8 @@ type Font = {
 @checked declare function Normal(x: number, y: number, z: number)
 @checked declare function SetClearColor(r: number, g: number, b: number, a: number)
 @checked declare function MatrixMode(mode: string)
+@checked declare function PushMatrix()
+@checked declare function PopMatrix()
 @checked declare function Perspective(screenWidth: number, screenHeight: number, nearPlane: number, farPlane: number, fov: number)
 @checked declare function Translate(x: number, y: number, z: number)
 @checked declare function Rotate(x: number, y: number, z: number)

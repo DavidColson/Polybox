@@ -245,7 +245,8 @@ int LuaNormalsMode(lua_State* pLua) {
 // ***********************************************************************
 
 int LuaEnableLighting(lua_State* pLua) {
-    bool enabled = luax_checkboolean(pLua, 1);
+	luaL_checktype(pLua, -1, LUA_TBOOLEAN);
+    bool enabled = lua_toboolean(pLua, -1) != 0;
     EnableLighting(enabled);
     return 0;
 }
@@ -285,7 +286,8 @@ int LuaAmbient(lua_State* pLua) {
 // ***********************************************************************
 
 int LuaEnableFog(lua_State* pLua) {
-    bool enabled = luax_checkboolean(pLua, 1);
+	luaL_checktype(pLua, -1, LUA_TBOOLEAN);
+    bool enabled = lua_toboolean(pLua, -1) != 0; 
     EnableFog(enabled);
     return 0;
 }
@@ -343,40 +345,6 @@ int LuaDrawSpriteRect(lua_State* pLua) {
     position.x = (f32)luaL_checknumber(pLua, 6);
     position.y = (f32)luaL_checknumber(pLua, 7);
     DrawSpriteRect(pBuffer->img, rect, position);
-    return 0;
-}
-
-// ***********************************************************************
-
-int LuaDrawText(lua_State* pLua) {
-    u64 len;
-    const char* str = luaL_checklstring(pLua, 1, &len);
-    Vec2f position;
-    position.x = (f32)luaL_checknumber(pLua, 2);
-    position.y = (f32)luaL_checknumber(pLua, 3);
-    f32 size = (f32)luaL_checknumber(pLua, 4);
-
-    DrawText(str, position, size);
-    return 0;
-}
-
-// ***********************************************************************
-
-int LuaDrawTextEx(lua_State* pLua) {
-    u64 len;
-    const char* str = luaL_checklstring(pLua, 1, &len);
-    Vec2f position;
-    position.x = (f32)luaL_checknumber(pLua, 2);
-    position.y = (f32)luaL_checknumber(pLua, 3);
-    Vec4f color;
-    color.x = (f32)luaL_checknumber(pLua, 4);
-    color.y = (f32)luaL_checknumber(pLua, 5);
-    color.z = (f32)luaL_checknumber(pLua, 6);
-    color.w = (f32)luaL_checknumber(pLua, 7);
-    Font* pFont = *(Font**)luaL_checkudata(pLua, 8, "Font");
-    f32 size = (f32)luaL_checknumber(pLua, 9);
-
-    DrawTextEx(str, position, color, pFont, size);
     return 0;
 }
 
@@ -499,75 +467,6 @@ int LuaDrawIcosahedron(lua_State* pLua) {
 
 // ***********************************************************************
 
-int LuaNewImage(lua_State* pLua) {
-    u64 len;
-    const char* str = luaL_checklstring(pLua, 1, &len);
-    String path(str);
-
-    // Create a new userdata for our object
-    Image** ppImage = (Image**)lua_newuserdatadtor(pLua, sizeof(Image*), [](void* pData) {
-		LuaObject* pObject = *(LuaObject**)pData;
-		if (pObject) {
-			pObject->Release();
-		}
-	});
-
-    *ppImage = new Image(path);
-
-    // Sets the metatable of this new userdata to the type's table
-    luaL_getmetatable(pLua, "Image");
-    lua_setmetatable(pLua, -2);
-
-    return 1;
-}
-
-// ***********************************************************************
-
-int LuaImage_GetWidth(lua_State* pLua) {
-    Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
-    lua_pushinteger(pLua, pImage->width);
-    return 1;
-}
-
-// ***********************************************************************
-
-int LuaImage_GetHeight(lua_State* pLua) {
-    Image* pImage = *(Image**)luaL_checkudata(pLua, 1, "Image");
-    lua_pushinteger(pLua, pImage->height);
-    return 1;
-}
-
-// ***********************************************************************
-
-int LuaNewFont(lua_State* pLua) {
-    u64 len;
-    const char* path = luaL_checklstring(pLua, 1, &len);
-    bool antialiasing = luax_checkboolean(pLua, 2);
-    f32 weight = (f32)luaL_checknumber(pLua, 3);
-
-    // Create a new userdata for our object
-    Font** ppFont = (Font**)lua_newuserdatadtor(pLua, sizeof(Font*), [](void* pData) {
-		LuaObject* pObject = *(LuaObject**)pData;
-		if (pObject) {
-			pObject->Release();
-		}
-	});
-
-	Arena* pArena = ArenaCreate();
-	*ppFont = New(pArena, Font);
-	PlacementNew(*ppFont) Font();
-	(*ppFont)->pArena = pArena;
-    (*ppFont)->Initialize(path, antialiasing, weight);
-
-    // Sets the metatable of this new userdata to the type's table
-    luaL_getmetatable(pLua, "Font");
-    lua_setmetatable(pLua, -2);
-
-    return 1;
-}
-
-// ***********************************************************************
-
 int BindGraphics(lua_State* pLua) {
 
     // Global functions
@@ -605,8 +504,6 @@ int BindGraphics(lua_State* pLua) {
         { "SetFogColor", LuaSetFogColor },
         { "DrawSprite", LuaDrawSprite },
         { "DrawSpriteRect", LuaDrawSpriteRect },
-        { "DrawText", LuaDrawText },
-        { "DrawTextEx", LuaDrawTextEx },
         { "DrawPixel", LuaDrawPixel },
         { "DrawLine", LuaDrawLine },
         { "DrawCircle", LuaDrawCircle },
@@ -615,26 +512,12 @@ int BindGraphics(lua_State* pLua) {
         { "DrawRectangleOutline", LuaDrawRectangleOutline },
         { "DrawBox", LuaDrawBox },
         { "DrawIcosahedron", LuaDrawIcosahedron },
-        { "NewImage", LuaNewImage },
-        { "NewFont", LuaNewFont },
         { NULL, NULL }
     };
 
     lua_pushvalue(pLua, LUA_GLOBALSINDEX);
     luaL_register(pLua, NULL, graphicsFuncs);
     lua_pop(pLua, 1);
-
-    // Types
-    ////////
-
-    const luaL_Reg imageMethods[] = {
-        { "GetWidth", LuaImage_GetWidth },
-        { "GetHeight", LuaImage_GetHeight },
-        { NULL, NULL }
-    };
-    luax_registertype(pLua, "Image", imageMethods);
-
-    luax_registertype(pLua, "Font", nullptr);
 
     // // push enum tables to global
     // lua_newtable(pLua);

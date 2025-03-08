@@ -46,35 +46,6 @@ end
 
 --- Graphics API
 
-type Primitive = {
-	GetNumVertices: (self: Primitive) -> number,
-	GetVertexPosition: (self: Primitive, index: number) -> (number, number, number),
-	GetVertexColor: (self: Primitive, index: number) -> (number, number, number, number),
-	GetVertexTexCoord: (self: Primitive, index: number) -> (number, number),
-	GetVertexNormal: (self: Primitive, index: number) -> (number, number, number),
-	GetMaterialTextureId: (self: Primitive) -> number,
- 	GetType: (self: Primitive) -> string,
-}
-
-type Mesh = {
- 	GetName: (self: Mesh) -> string,
-	GetNumPrimitives: (self: Mesh) -> number,
-	GetPrimitive: (self: Mesh, index: number) -> Primitive,
- 	GetType: (self: Mesh) -> string,
-}
-
-type Image = {
- 	GetWidth: (self: Image) -> number,
-	GetHeight: (self: Image) -> number,
- 	GetType: (self: Image) -> string,
-}
-
-type Font = {
- 	GetType: (self: Font) -> string,
-}
-
-@checked declare function LoadMeshes(path: string): { [number]: Mesh }
-@checked declare function LoadTextures(path: string): { [number]: Image }
 @checked declare function BeginObject2D(primitiveType: string)
 @checked declare function EndObject2D(primitiveType: string)
 @checked declare function Vertex(x: number, y: number, z: number?)
@@ -94,7 +65,7 @@ type Font = {
 @checked declare function Rotate(x: number, y: number, z: number)
 @checked declare function Scale(x: number, y: number, z: number)
 @checked declare function Identity()
-@checked declare function BindTexture(texture: Image)
+@checked declare function BindTexture(textureData: Buffer)
 @checked declare function UnbindTexture()
 @checked declare function NormalsMode(mode: string)
 @checked declare function EnableLighting(enable: boolean)
@@ -104,10 +75,8 @@ type Font = {
 @checked declare function SetFogStart(fogStart: number)
 @checked declare function SetFogEnd(fogEnd: number)
 @checked declare function SetFogColor(r: number, g: number, b: number)
-@checked declare function DrawSprite(sprite: Image, x: number, y: number)
-@checked declare function DrawSpriteRect(sprite: Image, x: number, y: number, z: number, w: number, posX: number, posY: number)
-@checked declare function DrawText(text: string, x: number, y: number, size: number)
-@checked declare function DrawTextEx(text: string, x: number, y: number, r: number, g: number, b: number, a: number, font: Font, size: number)
+@checked declare function DrawSprite(spriteData: Buffer, x: number, y: number)
+@checked declare function DrawSpriteRect(spriteData: Buffer, x: number, y: number, z: number, w: number, posX: number, posY: number)
 @checked declare function DrawPixel(x: number, y: number, r: number, g: number, b: number, a: number)
 @checked declare function DrawLine(startx: number, starty: number, endx: number, endy: number, r: number, g: number, b: number, a: number)
 @checked declare function DrawCircle(x: number, y: number, radius: number, r: number, g: number, b: number, a: number)
@@ -116,32 +85,6 @@ type Font = {
 @checked declare function DrawRectangleOutline(bottomLeftx: number, bottomeLeftx: number, topRightx: number, topRighty: number, r: number, g: number, b: number, a: number)
 @checked declare function DrawBox(x: number, y: number, z: number, width: number, height: number, depth: number)
 @checked declare function DrawIcosahedron(maxDepth: number)
-
---- Scene API
-
-export type Node = {
-	GetNumChildren: (self: Node) -> number,
-	GetChild: (self: Node, index: number) -> Node,
-	GetPropertyTable: (self: Node) -> any,
-	GetLocalPosition: (self: Node) -> (number, number, number),
-	GetWorldPosition: (self: Node) -> (number, number, number),
-	SetLocalPosition: (self: Node, number, number, number) -> (),	
-	GetLocalRotation: (self: Node) -> (number, number, number),
-	GetWorldRotation: (self: Node) -> (number, number, number),
-	SetLocalRotation: (self: Node, number, number, number) -> (),
-	GetLocalScale: (self: Node) -> (number, number, number),
-	GetWorldScale: (self: Node) -> (number, number, number),
-	SetLocalScale: (self: Node, number, number, number) -> (),
-	GetType: (self: Node) -> string,
-}
-
-export type Scene = {
-	GetNumNodes: (self: Scene) -> number,
-	GetNode: (self: Scene, index: number) -> Node,
-	GetType: (self: Scene) -> string,
-}
-
-@checked declare function LoadScene(path: string): Scene
 
 --- Input API
 
@@ -393,8 +336,6 @@ void CompileAndLoadProgram(String path) {
 	// expose builtin libraries
 	luaL_openlibs(L);
 	Bind::BindGraphics(L);
-	Bind::BindMesh(L);
-	Bind::BindScene(L);
 	Bind::BindInput(L);
 	BufferLib::BindBuffer(L);
 	Serialization::BindSerialization(L);

@@ -45,7 +45,8 @@ int LuaGetMousePosition(lua_State* pLua) {
 // ***********************************************************************
 
 int LuaEnableMouseRelativeMode(lua_State* pLua) {
-    bool enable = luax_checkboolean(pLua, 1);
+	luaL_checktype(pLua, -1, LUA_TBOOLEAN);
+    bool enable = lua_toboolean(pLua, -1) != 0; 
     EnableMouseRelativeMode(enable);
     return 0;
 }

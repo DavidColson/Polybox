@@ -75,19 +75,12 @@
 #include "asset_importer.h"
 #include "bind_graphics.h"
 #include "bind_input.h"
-#include "bind_mesh.h"
-#include "bind_scene.h"
 #include "buffer.h"
 #include "cpu.h"
-#include "lua_common.h"
-#include "image.h"
-#include "font.h"
 #include "graphics.h"
 #include "graphics_platform.h"
 #include "input.h"
-#include "mesh.h"
 #include "rect_packing.h"
-#include "scene.h"
 #include "serialization.h"
 #include "shapes.h"
 
@@ -95,19 +88,12 @@
 #include "asset_importer.cpp"
 #include "bind_graphics.cpp"
 #include "bind_input.cpp"
-#include "bind_mesh.cpp"
-#include "bind_scene.cpp"
 #include "buffer.cpp"
 #include "cpu.cpp"
-#include "font.cpp"
 #include "graphics.cpp"
 #include "graphics_platform_d3d11.cpp"
-#include "image.cpp"
 #include "input.cpp"
-#include "lua_common.cpp"
-#include "mesh.cpp"
 #include "rect_packing.cpp"
-#include "scene.cpp"
 #include "serialization.cpp"
 #include "shapes.cpp"
 
@@ -235,7 +221,7 @@ int main(int argc, char* argv[]) {
 		GraphicsInit(pWindow, winWidth, winHeight);
 		InputInit();
 
-		Cpu::CompileAndLoadProgram("systemroot/mesh_test/game.luau");
+		Cpu::CompileAndLoadProgram("systemroot/tank_demo/game.luau");
 		Cpu::Start();
 
 		bool gameRunning = true;

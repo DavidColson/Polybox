@@ -47,8 +47,6 @@ struct RenderState {
 
 	sg_image textureState;
 
-	Font defaultFont;
-
 	ResizableArray<DrawCommand> drawList3D;
 	ResizableArray<DrawCommand> drawList2D;
 	ResizableArray<VertexData> perFrameVertexBuffer;
@@ -234,10 +232,6 @@ void GraphicsInit(SDL_Window* pWindow, i32 winWidth, i32 winHeight) {
 		.environment = SokolGetEnvironment()
 	};
 	sg_setup(&desc);
-
-	PlacementNew(&pRenderState->defaultFont) Font();
-	pRenderState->defaultFont.pArena = pArena;
-	pRenderState->defaultFont.Initialize("systemroot/shared/Roboto-Bold.ttf");
 
 	// Create white texture for non textured draws
 	{
@@ -978,78 +972,6 @@ void DrawSpriteRect(sg_image image, Vec4f rect, Vec2f position) {
     Vertex(Vec2f(0.f, h));
     EndObject2D();
     UnbindTexture();
-}
-
-// ***********************************************************************
-
-void DrawText(const char* text, Vec2f position, f32 size) {
-    DrawTextEx(text, position, Vec4f(1.0f, 1.0f, 1.0f, 1.0f), &pRenderState->defaultFont, size);
-}
-
-// ***********************************************************************
-
-void DrawTextEx(const char* text, Vec2f position, Vec4f color, Font* pFont, f32 fontSize) {
-    constexpr f32 baseSize = 32.0f;
-
-    f32 textWidth = 0.0f;
-    f32 x = position.x;
-    f32 y = position.y;
-    Vec2f scale = Vec2f(fontSize / baseSize, fontSize / baseSize);
-
-    String stringText(text);
-    for (i64 i = 0; i < stringText.length; i++) {
-        char c = *(stringText.pData + i);
-        Character ch = pFont->characters[c];
-        textWidth += ch.advance * scale.x;
-    }
-
-    // BindTexture(&pFont->fontTexture);
-    BeginObject2D(EPrimitiveType::Triangles);
-    for (i64 i = 0; i < stringText.length; i++) {
-        char c = *(stringText.pData + i);
-        Character ch = pFont->characters[c];
-
-        // Center alignment
-        // f32 xpos = (x + ch.bearing.x * scale.x) - textWidth * 0.5f;
-        f32 xpos = (x + ch.bearing.x * scale.x);
-        f32 ypos = y - (ch.size.y - ch.bearing.y) * scale.y;
-        f32 w = (f32)ch.size.x * scale.x;
-        f32 h = (f32)ch.size.y * scale.y;
-
-        // 0
-        Color(color);
-        TexCoord(Vec2f(ch.UV0.x, ch.UV1.y));
-        Vertex(Vec2f(xpos, ypos));
-
-        // 1
-        Color(color);
-        TexCoord(Vec2f(ch.UV1.x, ch.UV0.y));
-        Vertex(Vec2f(xpos + w, ypos + h));
-
-        // 2
-        Color(color);
-        TexCoord(Vec2f(ch.UV0.x, ch.UV0.y));
-        Vertex(Vec2f(xpos, ypos + h));
-
-        // 0
-        Color(color);
-        TexCoord(Vec2f(ch.UV0.x, ch.UV1.y));
-        Vertex(Vec2f(xpos, ypos));
-
-        // 3
-        Color(color);
-        TexCoord(Vec2f(ch.UV1.x, ch.UV1.y));
-        Vertex(Vec2f(xpos + w, ypos));
-
-        // 1
-        Color(color);
-        TexCoord(Vec2f(ch.UV1.x, ch.UV0.y));
-        Vertex(Vec2f(xpos + w, ypos + h));
-
-        x += ch.advance * scale.x;
-    }
-    EndObject2D();
-    // UnbindTexture();
 }
 
 // ***********************************************************************

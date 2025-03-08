@@ -1,18 +1,3 @@
-function RecursePrintNode(node:Node, stringEdge:string)
-    local meshId = node:GetPropertyTable().meshId
-    
-    if meshId == nil then
-        print(stringEdge .. node:GetPropertyTable().name .. " meshId: nil")
-    else
-        print(stringEdge .. node:GetPropertyTable().name .. " meshId: " .. meshId)
-    end
-    
-    for i = 1, node:GetNumChildren(), 1 do
-        local child = node:GetChild(i)
-        RecursePrintNode(child, stringEdge .. "- ")
-    end
-end
-
 local function printTable( t:any)
     local printTable_cache = {}
     local function sub_printTable( t:any, indent:any )
@@ -50,110 +35,65 @@ end
 
 local state = {}
 
-state.camX = 0.0
-state.camY = 3.6
-state.text = ""
--- import -b assets_source/tank_demo/tank.gltf systemroot/tank_demo/tank.scene
-function Start()
-	-- bug, the cbor is corrupt in this file and it can't be loaded!! 
-	-- this is the next thing to solve
-	state.scene = load("systemroot/tank_demo/tank.scene")
+-- iterate over a heirarchy of objects (with children table) as though it was a flat array
+-- concatenating transforms of parents and children as you go
+function iterate_scene(scene:any, iter: (string,any)->())
+	for k, v in scene do
+        MatrixMode("Model")
+		PushMatrix()
 
-	print("tank shadow position: ")
-	print(state.scene.Tank.children.Plane.position.x)
-	print(state.scene.Tank.children.Plane.position.y)
-	print(state.scene.Tank.children.Plane.position.z)
+		if v.position ~= nil then Translate(v.position.x, v.position.y, v.position.z) end
+		if v.scale ~= nil then Scale(v.scale.x, v.scale.y, v.scale.z) end
+        if v.rotation ~= nil then Rotate(quatToEuler(v.rotation)) end
 
-	state.tankMeshes = LoadMeshes("systemroot/tank_demo/tank.gltf")
-	state.tankImages = LoadTextures("systemroot/tank_demo/tank.gltf")
-	state.tankScene = LoadScene("systemroot/tank_demo/tank.gltf")
+		iter(k,v)
+		if v.children ~= nil then
+			iterate_scene(v.children, iter)
+		end
 
-    state.x = 50
-    state.y = 50
-
-	local num = math.asin(0.234)
-	local time = os.clock()
-	print(math.sin(1.24))
-
-	local bufferFloats = buffer("f32", 5)
-	bufferFloats:set(0, 22.0, 54.2, 87.51213, 99999.1337, 2.43)
-
-	local bufferInts = buffer("i16", 4)
-	bufferInts:set(0, 32, 1, 44, 87)
-
-	-- metadata test
-	local data = --[[poly, type=2]]{i=432}
-	print(data.i)
-	
-	local testTable = { first=43, second=23, [77]="hello", buffer=bufferFloats, mybool=true, floating=3.25, false, 878}
-	local testMeta = {metaType="test", size=33}
-
-	-- print("\nSerialized as text:")
-	-- local text = serialize(testTable, 0x0, testMeta)
-	-- print(text)
-	-- print("\nDeserialized from text:")
-	-- local parsed, meta = deserialize(text)
-	-- printTable(parsed)
-	-- print("metadata:")
-	-- printTable(meta)
-	--
-	-- print("\nSerialized:")
-	-- local bin = serialize(testTable, 0x1, testMeta)
-	-- print(bin)
-	-- print("\nDeserialized:")
-	-- local parsed, meta = deserialize(bin)
-	-- printTable(parsed)
-	-- print("metadata:")
-	-- printTable(meta)
-	--
-	-- print("\nSerialized Compressed:")
-	-- local binSmall = serialize(testTable, 0x3, testMeta)
-	-- print(binSmall)
-	-- print("\nDeserialized Compressed:")
-	-- parsed, meta = deserialize(binSmall)
-	-- printTable(parsed)
-	-- print("metadata:")
-	-- printTable(meta)
-
-	store("test.pff", testTable, 0x0, testMeta)
-	local result, meta = load("test.pff")
-	printTable(result)
-	printTable(meta)
-
-	local pastedBuffer = buffer("f32",5,1,"22.100000,54.200001,87.512131,99999.132812,2.430000")
-	print(pastedBuffer)
-	-- print("\nSerialized Compressed b64:")
-	-- local binB64 = serialize(testTable, 0x7, testMeta)
-	-- print(binB64)
-	-- print("\nDeserialized Compressed b64:")
-	-- parsed, meta = deserialize(binB64)
-	-- printTable(parsed)
-	-- print("metadata:")
-	-- printTable(meta)
-	--
-	-- print("\nSerialized non compressed b64:")
-	-- local binDB64 = serialize(testTable, 0x5, testMeta)
-	-- print(binDB64)
-	-- print("\nDeserialized non compressed b64:")
-	-- parsed, meta = deserialize(binDB64)
-	-- printTable(parsed)
-	-- print("metadata:")
-	-- printTable(meta)
-	--
-    -- EnableMouseRelativeMode(true)
+		PopMatrix()
+	end
 end
 
-function Update(deltaTime: number)
+function Start()
+	print("Starting mesh test")
+
+	-- @todo: potentially you can call load on a directory
+	-- it will put all the entries it can load into one table
+	-- will also help when we have VFS, so you need smaller paths
+
+	-- scene
+	state.scene = load("systemroot/tank_demo/tank.scene")
+	
+	-- meshes
+	state.hangarMesh = load("systemroot/tank_demo/hangarMesh.mesh")
+	state.tankMesh = load("systemroot/tank_demo/tankMesh.mesh")
+	state.crateMesh = load("systemroot/tank_demo/crateMesh.mesh")
+	state.paletteMesh = load("systemroot/tank_demo/paletteMesh.mesh")
+	state.BlobShadow = load("systemroot/tank_demo/BlobShadow.mesh")
+
+	-- textures
+	state.Shed = load("systemroot/tank_demo/Shed.texture")
+	state.Palette = load("systemroot/tank_demo/Palette.texture")
+	state.NewNewTexture = load("systemroot/tank_demo/NewNewTexture.texture")
+	state.blob = load("systemroot/tank_demo/blob.texture")
+end
+
+function quatToEuler(q:{x:number,y:number,z:number,w:number}): (number,number,number)
+	local x = math.atan2(2* (q.w*q.x + q.y*q.z), 1 - 2*(q.x*q.x+q.y*q.y))
+	local y = math.asin(2*(q.w*q.y-q.z*q.x))
+	local z = math.atan2(2* (q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y+q.z*q.z))
+	return x, y, z
+end
+
+function Update()
     SetClearColor(0.25, 0.25, 0.25, 1.0)
 
     MatrixMode("Projection")
     Perspective(320, 180, 1, 20, 60)
 
-    state.camX = state.camX + deltaTime * GetAxis(Axis.RightY)
-    state.camY = state.camY + deltaTime * GetAxis(Axis.RightX)
-
     MatrixMode("View")
-    Rotate(state.camX, state.camY, 0)
+    Rotate(0, 3.6, 0)
     Translate(1, -2.5, 6.5)
 
     NormalsMode("Custom")
@@ -166,97 +106,63 @@ function Update(deltaTime: number)
     SetFogEnd(15.0)
 	SetFogColor(0.25, 0.25, 0.25)
 
-    for i = 1, state.tankScene:GetNumNodes(), 1 do
-        local node: Node = state.tankScene:GetNode(i)
+	local floatsPerVertex = 12
+	state.lateDraw = {}
 
-        MatrixMode("Model")
-        Identity()
-        Translate(node:GetWorldPosition())
-        Rotate(node:GetWorldRotation())
-        Scale(node:GetWorldScale())
+	iterate_scene(state.scene, function(name:string, obj: any)
+		if obj.mesh == "BlobShadow" then
+			local lateDrawObj = {obj=obj, mat=GetMatrix()}
+			table.insert(state.lateDraw, lateDrawObj)
+			return
+		end
+		local texture = state[state[obj.mesh].texture]
+		BindTexture(texture.data)
 
-        if node:GetPropertyTable().meshId ~= nil and state.tankMeshes[node:GetPropertyTable().meshId]:GetName() ~= "BlobShadow" then 
-            local prim = state.tankMeshes[node:GetPropertyTable().meshId]:GetPrimitive(1)
-            
-            BindTexture(state.tankImages[prim:GetMaterialTextureId()])
-            
-            BeginObject3D("Triangles")
-            for i = 1, prim:GetNumVertices(), 1 do
-                Normal(prim:GetVertexNormal(i))
-                Color(prim:GetVertexColor(i))
-                TexCoord(prim:GetVertexTexCoord(i))
-                Vertex(prim:GetVertexPosition(i))
-            end
-            
-            EndObject3D()
-        end
-    end
+		BeginObject3D("Triangles")
+		local vertices = state[obj.mesh].vertices
+		for i = 0, vertices:size(), floatsPerVertex do
+			-- 0-2 is position
+			-- 3-6 is color
+			-- 7-8 is texcoord
+			-- 9-11 is normal
+			Normal(vertices:get(i+9, 3))
+			Color(vertices:get(i+3, 4))
+			TexCoord(vertices:get(i+7, 2))
+			Vertex(vertices:get(i, 3))
+		end
+		EndObject3D()
+	end)
 
-    for i = 1, state.tankScene:GetNumNodes(), 1 do
-        local node = state.tankScene:GetNode(i)
+	-- the blob shadows have transpancy, so we must draw them after everything else
+	-- from front to back
+	local frontToBack = function(a, b)
+		local aPos = vec(a.obj.position.x, a.obj.position.y, a.obj.position.z)
+		local bPos = vec(b.obj.position.x, b.obj.position.y, b.obj.position.z)
+		local camPos = vec(-1, 2.5, -6.5)
+		local aCamDist = camPos:distance(aPos)
+		local bCamDist = camPos:distance(bPos)
+		return aCamDist > bCamDist
+	end
+	table.sort(state.lateDraw, frontToBack)
 
-        MatrixMode("Model")
-        Identity()
-        Translate(node:GetWorldPosition())
-        Rotate(node:GetWorldRotation())
-        Scale(node:GetWorldScale())
+	for k, v in state.lateDraw do
+		LoadMatrix(v.mat)
 
-        if node:GetPropertyTable().meshId ~= nil and state.tankMeshes[node:GetPropertyTable().meshId]:GetName() == "BlobShadow" then 
-            local prim = state.tankMeshes[node:GetPropertyTable().meshId]:GetPrimitive(1)
-            
-            BindTexture(state.tankImages[prim:GetMaterialTextureId()])
-            
-            BeginObject3D("Triangles")
-            for i = 1, prim:GetNumVertices(), 1 do
-                Normal(prim:GetVertexNormal(i))
-                Color(prim:GetVertexColor(i))
-                TexCoord(prim:GetVertexTexCoord(i))
-                Vertex(prim:GetVertexPosition(i))
-            end
-            
-            EndObject3D()
-        end
-    end
+		local texture = state[state[v.obj.mesh].texture]
+		BindTexture(texture.data)
 
-    UnbindTexture()
-
-    MatrixMode("Model")
-    Identity()
-
-    MatrixMode("View")
-    Identity()
-
-    if GetButton(Button.DpadRight) then
-        state.x = state.x+1
-    end
-    if GetButton(Button.DpadLeft) then
-        state.x = state.x-1
-    end
-    if GetButton(Button.DpadDown) then
-        state.y = state.y-1
-    end
-    if GetButton(Button.DpadUp) then
-        state.y = state.y+1
-    end
-
-    -- x = x + GetAxis(Axis.RightX)
-    -- y = y - GetAxis(Axis.RightY)
-
-    state.text = state.text .. InputString()
-
-    if GetKeyDown(Key.Backspace) then
-        print("hello")
-        state.text = state.text:sub(1, state.text:len()-1)
-    end
-
-    state.x, state.y = GetMousePosition()
-
-    DrawCircle(state.x, state.y, 5, 1, 1, 1, 1)
-    DrawText("MouseX: " .. state.x, 20, 20, 20)
-    DrawText("MouseY: " .. state.y, 20, 40, 20)
-    DrawText("Text Input: " .. state.text, 20, 140, 20)
+		BeginObject3D("Triangles")
+		local vertices = state[v.obj.mesh].vertices
+		for i = 0, vertices:size(), floatsPerVertex do
+			Normal(vertices:get(i+9, 3))
+			Color(vertices:get(i+3, 4))
+			TexCoord(vertices:get(i+7, 2))
+			Vertex(vertices:get(i, 3))
+		end
+		EndObject3D()
+	end
 end
 
 function End()
-    print("Program end, about to print hangar mesh id")
+	print("Ending mesh test")
 end

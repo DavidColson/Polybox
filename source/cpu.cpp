@@ -9,27 +9,27 @@ static const String polyboxDefinitions = R"POLY_LIBS(
 @checked declare function store(filename: string, value: any, format: number, metadata: any?)
 @checked declare function load(filename: string): (any, any?)
 
---- Buffer API
+--- Usedata API
 
-declare class Buffer 
+declare class UserData 
 	function set(self, index: number, ...: number)
-	function set2D(self, x: number, y: number, ...: number)
+	function set2d(self, x: number, y: number, ...: number)
 
 	function get(self, index: number, count: number): ...number
-	function get2D(self, x: number, y: number, count: number): ...number
+	function get2d(self, x: number, y: number, count: number): ...number
 
 	function width(self): number
 	function height(self): number
 	function size(self): number
 
 	function magnitude(self): number
-	function distance(self, other: Buffer): number
-	function dot(self, other: Buffer): number
+	function distance(self, other: UserData): number
+	function dot(self, other: UserData): number
 
-	function __add(self, other: Buffer): Buffer
-	function __sub(self, other: Buffer): Buffer
-	function __mul(self, other: Buffer): Buffer
-	function __div(self, other: Buffer): Buffer
+	function __add(self, other: UserData): UserData
+	function __sub(self, other: UserData): UserData
+	function __mul(self, other: UserData): UserData
+	function __div(self, other: UserData): UserData
 
 	x: number
 	y: number
@@ -41,215 +41,207 @@ declare class Buffer
 	a: number
 end
 
-@checked declare function buffer(type: string, width: number, heightOrDataStr: number|string?, dataStr: string?): Buffer
-@checked declare function vec(...: number): Buffer
+@checked declare function userdata(type: string, width: number, heightOrDataStr: number|string?, dataStr: string?): UserData
+@checked declare function vec(...: number): UserData
 
 --- Graphics API
 
-@checked declare function BeginObject2D(primitiveType: string)
-@checked declare function EndObject2D(primitiveType: string)
-@checked declare function Vertex(x: number, y: number, z: number?)
-@checked declare function BeginObject3D(primitiveType: string)
-@checked declare function EndObject3D()
-@checked declare function Color(r: number, g: number, b: number, a: number)
-@checked declare function TexCoord(u: number, v: number)
-@checked declare function Normal(x: number, y: number, z: number)
-@checked declare function SetClearColor(r: number, g: number, b: number, a: number)
-@checked declare function MatrixMode(mode: string)
-@checked declare function PushMatrix()
-@checked declare function PopMatrix()
-@checked declare function LoadMatrix(mat: Buffer)
-@checked declare function GetMatrix(): Buffer
-@checked declare function Perspective(screenWidth: number, screenHeight: number, nearPlane: number, farPlane: number, fov: number)
-@checked declare function Translate(x: number, y: number, z: number)
-@checked declare function Rotate(x: number, y: number, z: number)
-@checked declare function Scale(x: number, y: number, z: number)
-@checked declare function Identity()
-@checked declare function BindTexture(textureData: Buffer)
-@checked declare function UnbindTexture()
-@checked declare function NormalsMode(mode: string)
-@checked declare function EnableLighting(enable: boolean)
-@checked declare function Light(id: number, dirX: number, dixY: number, dirZ: number, r: number, g: number, b: number)
-@checked declare function Ambient(r: number, g: number, b: number)
-@checked declare function EnableFog(enable: boolean)
-@checked declare function SetFogStart(fogStart: number)
-@checked declare function SetFogEnd(fogEnd: number)
-@checked declare function SetFogColor(r: number, g: number, b: number)
-@checked declare function DrawSprite(spriteData: Buffer, x: number, y: number)
-@checked declare function DrawSpriteRect(spriteData: Buffer, x: number, y: number, z: number, w: number, posX: number, posY: number)
-@checked declare function DrawPixel(x: number, y: number, r: number, g: number, b: number, a: number)
-@checked declare function DrawLine(startx: number, starty: number, endx: number, endy: number, r: number, g: number, b: number, a: number)
-@checked declare function DrawCircle(x: number, y: number, radius: number, r: number, g: number, b: number, a: number)
-@checked declare function DrawCircleOutline(x: number, y: number, radius: number, r: number, g: number, b: number, a: number)
-@checked declare function DrawRectangle(bottomLeftx: number, bottomeLeftx: number, topRightx: number, topRighty: number, r: number, g: number, b: number, a: number)
-@checked declare function DrawRectangleOutline(bottomLeftx: number, bottomeLeftx: number, topRightx: number, topRighty: number, r: number, g: number, b: number, a: number)
-@checked declare function DrawBox(x: number, y: number, z: number, width: number, height: number, depth: number)
-@checked declare function DrawIcosahedron(maxDepth: number)
+@checked declare function begin_object_2d(primitiveType: string)
+@checked declare function end_object_2d(primitiveType: string)
+@checked declare function vertex(x: number, y: number, z: number?)
+@checked declare function begin_object_3d(primitiveType: string)
+@checked declare function end_object_3d()
+@checked declare function color(r: number, g: number, b: number, a: number)
+@checked declare function texcoord(u: number, v: number)
+@checked declare function normal(x: number, y: number, z: number)
+@checked declare function set_clear_color(r: number, g: number, b: number, a: number)
+@checked declare function matrix_mode(mode: string)
+@checked declare function push_matrix()
+@checked declare function pop_matrix()
+@checked declare function load_matrix(mat: UserData)
+@checked declare function get_matrix(): UserData
+@checked declare function perspective(screenWidth: number, screenHeight: number, nearPlane: number, farPlane: number, fov: number)
+@checked declare function translate(x: number, y: number, z: number)
+@checked declare function rotate(x: number, y: number, z: number)
+@checked declare function scale(x: number, y: number, z: number)
+@checked declare function identity()
+@checked declare function bind_texture(textureData: UserData)
+@checked declare function unbind_texture()
+@checked declare function normals_mode(mode: string)
+@checked declare function enable_lighting(enable: boolean)
+@checked declare function light(id: number, dirX: number, dixY: number, dirZ: number, r: number, g: number, b: number)
+@checked declare function ambient(r: number, g: number, b: number)
+@checked declare function enable_fog(enable: boolean)
+@checked declare function set_fog_start(fogStart: number)
+@checked declare function set_fog_end(fogEnd: number)
+@checked declare function set_fog_color(r: number, g: number, b: number)
+@checked declare function draw_sprite(spriteData: UserData, x: number, y: number)
+@checked declare function draw_sprite_rect(spriteData: UserData, x: number, y: number, z: number, w: number, posX: number, posY: number)
 
 --- Input API
 
 declare Button: {
-	Invalid: number,
-	FaceBottom: number,
-	FaceRight: number,
-	FaceLeft: number,
-	FaceTop: number,
-	LeftStick: number,
-	RightStick: number,
-	LeftShoulder: number,
-	RightShoulder: number,
-	DpadDown: number,
-	DpadLeft: number,
-	DpadRight: number,
-	DpadUp: number,
-	Start: number,
-	Select: number,
+	invalid: number,
+	face_bottom: number,
+	face_right: number,
+	face_left: number,
+	face_top: number,
+	left_stick: number,
+	right_stick: number,
+	left_shoulder: number,
+	right_shoulder: number,
+	dpad_down: number,
+	dpad_left: number,
+	dpad_right: number,
+	dpad_up: number,
+	start: number,
+	select: number,
 }
 
 declare Axis: {
-	Invalid: number,
-	LeftX: number,
-	LeftY: number,
-	RightX: number,
-	RightY: number,
-	TriggerLeft: number,
-	TriggerRight: number,
+	invalid: number,
+	left_x: number,
+	left_y: number,
+	right_x: number,
+	right_y: number,
+	trigger_left: number,
+	trigger_right: number,
 }
 
 declare Key: {
-	Invalid: number,
-	A: number,
-	B: number,
-	C: number,
-	D: number,
-	E: number,
-	F: number,
-	G: number,
-	H: number,
-	I: number,
-	J: number,
-	K: number,
-	L: number,
-	M: number,
-	N: number,
-	O: number,
-	P: number,
-	Q: number,
-	R: number,
-	S: number,
-	T: number,
-	U: number,
-	V: number,
-	W: number,
-	X: number,
-	Y: number,
-	Z: number,
-	No1: number,
-	No2: number,
-	No3: number,
-	No4: number,
-	No5: number,
-	No6: number,
-	No7: number,
-	No8: number,
-	No9: number,
-	No0: number,
-	Return: number,
-	Escape: number,
-	Backspace: number,
-	Tab: number,
-	Space: number,
-	Exclaim: number,
-	QuoteDbl: number,
-	Hash: number,
-	Percent: number,
-	Dollar: number,
-	Ampersand: number,
-	Quote: number,
-	LeftParen: number,
-	RightParen: number,
-	Asterisk: number,
-	Plus: number,
-	Comma: number,
-	Minus: number,
-	Period: number,
-	Slash: number,
-	Colon: number,
-	Semicolon: number,
-	Less: number,
-	Equals: number,
-	Greater: number,
-	Question: number,
-	At: number,
-	LeftBracket: number,
-	Backslash: number,
-	RightBracket: number,
-	Caret: number,
-	Underscore: number,
-	BackQuote: number,
-	CapsLock: number,
-	F1: number,
-	F2: number,
-	F3: number,
-	F4: number,
-	F5: number,
-	F6: number,
-	F7: number,
-	F8: number,
-	F9: number,
-	F10: number,
-	F11: number,
-	F12: number,
-	PrintScreen: number,
-	ScrollLock: number,
-	Pause: number,
-	Insert: number,
-	Home: number,
-	PageUp: number,
-	Delete: number,
-	End: number,
-	PageDown: number,
-	Right: number,
-	Left: number,
-	Down: number,
-	Up: number,
-	NumLock: number,
-	KpDivide: number,
-	KpMultiply: number,
-	KpMinus: number,
-	KpPlus: number,
-	KpEnter: number,
-	Kp1: number,
-	Kp2: number,
-	Kp3: number,
-	Kp4: number,
-	Kp5: number,
-	Kp6: number,
-	Kp7: number,
-	Kp8: number,
-	Kp9: number,
-	Kp0: number,
-	KpPeriod: number,
-	LeftCtrl: number,
-	LeftShift: number,
-	LeftAlt: number,
-	LeftGui: number,
-	RightCtrl: number,
-	RightShift: number,
-	RightAlt: number,
-	RightGui: number,
+	invalid: number,
+	a: number,
+	b: number,
+	c: number,
+	d: number,
+	e: number,
+	f: number,
+	g: number,
+	h: number,
+	i: number,
+	j: number,
+	k: number,
+	l: number,
+	m: number,
+	n: number,
+	o: number,
+	p: number,
+	q: number,
+	r: number,
+	s: number,
+	t: number,
+	u: number,
+	v: number,
+	w: number,
+	x: number,
+	y: number,
+	z: number,
+	no1: number,
+	no2: number,
+	no3: number,
+	no4: number,
+	no5: number,
+	no6: number,
+	no7: number,
+	no8: number,
+	no9: number,
+	no0: number,
+	enter: number,
+	escape: number,
+	backspace: number,
+	tab: number,
+	space: number,
+	exclaim: number,
+	quote_dbl: number,
+	hash: number,
+	percent: number,
+	dollar: number,
+	ampersand: number,
+	quote: number,
+	left_paren: number,
+	right_paren: number,
+	asterisk: number,
+	plus: number,
+	comma: number,
+	minus: number,
+	period: number,
+	slash: number,
+	colon: number,
+	semicolon: number,
+	less: number,
+	equals: number,
+	greater: number,
+	question: number,
+	at: number,
+	left_bracket: number,
+	backslash: number,
+	right_bracket: number,
+	caret: number,
+	underscore: number,
+	back_quote: number,
+	caps_lock: number,
+	f1: number,
+	f2: number,
+	f3: number,
+	f4: number,
+	f5: number,
+	f6: number,
+	f7: number,
+	f8: number,
+	f9: number,
+	f10: number,
+	f11: number,
+	f12: number,
+	print_screen: number,
+	scroll_lock: number,
+	pause: number,
+	insert: number,
+	home: number,
+	pageup: number,
+	delete: number,
+	_end: number,
+	pagedown: number,
+	right: number,
+	left: number,
+	down: number,
+	up: number,
+	num_lock: number,
+	kpdivide: number,
+	kpmultiply: number,
+	kpminus: number,
+	kpplus: number,
+	kpenter: number,
+	kp1: number,
+	kp2: number,
+	kp3: number,
+	kp4: number,
+	kp5: number,
+	kp6: number,
+	kp7: number,
+	kp8: number,
+	kp9: number,
+	kp0: number,
+	kpperiod: number,
+	left_ctrl: number,
+	left_shift: number,
+	left_alt: number,
+	left_gui: number,
+	right_ctrl: number,
+	right_shift: number,
+	right_alt: number,
+	right_gui: number,
 }
 
-@checked declare function GetButton(button: number): boolean 
-@checked declare function GetButtonDown(button: number) : boolean 
-@checked declare function GetButtonUp(button: number) : boolean 
-@checked declare function GetAxis(button: number) : number 
-@checked declare function GetMousePosition() : (number, number)
-@checked declare function EnableMouseRelativeMode(enable: boolean)
-@checked declare function GetKey(key: number) : boolean
-@checked declare function GetKeyDown(key: number) : boolean
-@checked declare function GetKeyUp(key: number) : boolean
-@checked declare function InputString() : string
+@checked declare function get_button(button: number): boolean 
+@checked declare function get_button_down(button: number) : boolean 
+@checked declare function get_button_up(button: number) : boolean 
+@checked declare function get_axis(button: number) : number 
+@checked declare function get_mouse_position() : (number, number)
+@checked declare function enable_mouse_relative_mode(enable: boolean)
+@checked declare function get_key(key: number) : boolean
+@checked declare function get_key_down(key: number) : boolean
+@checked declare function get_key_up(key: number) : boolean
+@checked declare function input_string() : string
 )POLY_LIBS";
 
 
@@ -337,7 +329,7 @@ void CompileAndLoadProgram(String path) {
 	luaL_openlibs(L);
 	Bind::BindGraphics(L);
 	Bind::BindInput(L);
-	BufferLib::BindBuffer(L);
+	BindUserData(L);
 	Serialization::BindSerialization(L);
 
 	// type checking
@@ -424,7 +416,7 @@ void CompileAndLoadProgram(String path) {
 
 void Start() {
 	lua_State* L = pState->pProgramState;
-	lua_getglobal(L, "Start");
+	lua_getglobal(L, "start");
 	if (lua_isfunction(L, -1)) {
 		if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
 			Log::Warn("Lua Runtime Error: %s", lua_tostring(L, lua_gettop(L)));
@@ -437,7 +429,7 @@ void Start() {
 
 void Tick(f32 deltaTime) {
 	lua_State* L = pState->pProgramState;
-	lua_getglobal(L, "Update");
+	lua_getglobal(L, "update");
 	if (lua_isfunction(L, -1)) {
 		lua_pushnumber(L, deltaTime);
 		if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
@@ -451,9 +443,9 @@ void Tick(f32 deltaTime) {
 
 // ***********************************************************************
 
-void End() {
+void Close() {
 	lua_State* L = pState->pProgramState;
-	lua_getglobal(L, "End");
+	lua_getglobal(L, "close");
 	if (lua_isfunction(L, -1)) {
 		if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
 			Log::Warn("Lua Runtime Error: %s", lua_tostring(L, lua_gettop(L)));

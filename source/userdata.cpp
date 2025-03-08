@@ -1,17 +1,15 @@
 // Copyright David Colson. All rights reserved.
 
-namespace BufferLib {
-
 
 // ***********************************************************************
 
-void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
-	// now grab as many integers as you can find and put them in the buffer from the starting index
+void SetImpl(lua_State* L, UserData* pUserData, i32 index, i32 startParam) {
+	// now grab as many integers as you can find and put them in the userdata from the starting index
 	// while until none or nil
 	i32 paramCounter = startParam;
-	switch(pBuffer->type) {
+	switch(pUserData->type) {
 		case Type::Float32: {
-			f32* pData = (f32*)pBuffer->pData;
+			f32* pData = (f32*)pUserData->pData;
 			pData += index;
 			while (lua_isnumber(L, paramCounter) == 1) {
 				*pData = (f32)lua_tonumber(L, paramCounter);			
@@ -20,7 +18,7 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 			break;
 		}
 		case Type::Int32: {
-			i32* pData = (i32*)pBuffer->pData;
+			i32* pData = (i32*)pUserData->pData;
 			pData += index;
 			while (lua_isnumber(L, paramCounter) == 1) {
 				*pData = (i32)lua_tointeger(L, paramCounter);			
@@ -29,7 +27,7 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 			break;
 		}
 		case Type::Int16: {  
-			i16* pData = (i16*)pBuffer->pData;
+			i16* pData = (i16*)pUserData->pData;
 			pData += index;
 			while (lua_isnumber(L, paramCounter) == 1) {
 				*pData = (i16)lua_tointeger(L, paramCounter);			
@@ -38,7 +36,7 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 			break;
 		}
 		case Type::Uint8: {
-			u8* pData = (u8*)pBuffer->pData;
+			u8* pData = (u8*)pUserData->pData;
 			pData += index;
 			while (lua_isnumber(L, paramCounter) == 1) {
 				*pData = (u8)lua_tounsigned(L, paramCounter);			
@@ -51,10 +49,10 @@ void SetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 startParam) {
 
 // ***********************************************************************
 
-i32 GetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 count) {
-	switch(pBuffer->type) {
+i32 GetImpl(lua_State* L, UserData* pUserData, i32 index, i32 count) {
+	switch(pUserData->type) {
 		case Type::Float32: {
-			f32* pData = (f32*)pBuffer->pData;
+			f32* pData = (f32*)pUserData->pData;
 			pData += index;
 			for (i32 i = 0; i < count; i++) {
 				lua_pushnumber(L, pData[i]);
@@ -62,7 +60,7 @@ i32 GetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 count) {
 			break;
 		}
 		case Type::Int32: {
-			i32* pData = (i32*)pBuffer->pData;
+			i32* pData = (i32*)pUserData->pData;
 			pData += index;
 			for (i32 i = 0; i < count; i++) {
 				lua_pushinteger(L, pData[i]);
@@ -70,7 +68,7 @@ i32 GetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 count) {
 			break;
 		}
 		case Type::Int16: {
-			i16* pData = (i16*)pBuffer->pData;
+			i16* pData = (i16*)pUserData->pData;
 			pData += index;
 			for (i32 i = 0; i < count; i++) {
 				lua_pushinteger(L, pData[i]);
@@ -78,7 +76,7 @@ i32 GetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 count) {
 			break;
 		}
 		case Type::Uint8: {
-			u8* pData = (u8*)pBuffer->pData;
+			u8* pData = (u8*)pUserData->pData;
 			pData += index;
 			for (i32 i = 0; i < count; i++) {
 				lua_pushunsigned(L, pData[i]);
@@ -92,7 +90,7 @@ i32 GetImpl(lua_State* L, Buffer* pBuffer, i32 index, i32 count) {
 
 // ***********************************************************************
 
-Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height) {
+UserData* AllocUserData(lua_State* L, Type type, i32 width, i32 height) {
 	i32 typeSize = 0;
 	switch (type) {
 		case Type::Float32: typeSize = sizeof(f32); break;
@@ -102,82 +100,82 @@ Buffer* AllocBuffer(lua_State* L, Type type, i32 width, i32 height) {
 	}
 
 	i32 bufSize = width * height * typeSize;
-	Buffer* pBuffer = (Buffer*)lua_newuserdata(L, sizeof(Buffer) + bufSize);
-	pBuffer->pData = (u8*)pBuffer + sizeof(Buffer);
-	pBuffer->width = width;
-	pBuffer->height = height;
-	pBuffer->type = type;
-	pBuffer->img.id = SG_INVALID_ID;
-	pBuffer->dirty = false;
-	pBuffer->dynamic = false;
+	UserData* pUserData = (UserData*)lua_newuserdata(L, sizeof(UserData) + bufSize);
+	pUserData->pData = (u8*)pUserData + sizeof(UserData);
+	pUserData->width = width;
+	pUserData->height = height;
+	pUserData->type = type;
+	pUserData->img.id = SG_INVALID_ID;
+	pUserData->dirty = false;
+	pUserData->dynamic = false;
  
-	luaL_getmetatable(L, "Buffer");
+	luaL_getmetatable(L, "UserData");
 	lua_setmetatable(L, -2);
-	return pBuffer;
+	return pUserData;
 }
 
 // ***********************************************************************
 
-i64 GetBufferSize(Buffer* pBuffer) {
+i64 GetUserDataSize(UserData* pUserData) {
 	i32 typeSize = 0;
-	switch (pBuffer->type) {
+	switch (pUserData->type) {
 		case Type::Float32: typeSize = sizeof(f32); break;
 		case Type::Int32: typeSize = sizeof(i32); break;
 		case Type::Int16: typeSize = sizeof(i16); break;
 		case Type::Uint8: typeSize = sizeof(u8); break;
 	}
 
-	return pBuffer->width * pBuffer->height * typeSize;
+	return pUserData->width * pUserData->height * typeSize;
 }
 
 // ***********************************************************************
 
-void UpdateBufferImage(Buffer* pBuffer) {
-	// @todo: error if buffer type is not suitable for image data
+void UpdateUserDataImage(UserData* pUserData) {
+	// @todo: error if userdata type is not suitable for image data
 	// i.e. must be int32 etc and 2D
 
-	if (pBuffer->img.id == SG_INVALID_ID ||
-		(pBuffer->dirty && pBuffer->dynamic == false))
+	if (pUserData->img.id == SG_INVALID_ID ||
+		(pUserData->dirty && pUserData->dynamic == false))
 	{
 		sg_image_desc imageDesc = {
-			.width = pBuffer->width,
-			.height = pBuffer->height,
+			.width = pUserData->width,
+			.height = pUserData->height,
 			.pixel_format = SG_PIXELFORMAT_RGBA8,
 		};
 
 		// make dynamic if someone is editing this
 		// image after creation
-		pBuffer->dynamic = false;
-		if (pBuffer->img.id != SG_INVALID_ID) {
-			sg_destroy_image(pBuffer->img);
+		pUserData->dynamic = false;
+		if (pUserData->img.id != SG_INVALID_ID) {
+			sg_destroy_image(pUserData->img);
 			imageDesc.usage = SG_USAGE_STREAM;
-			pBuffer->dynamic = true;
+			pUserData->dynamic = true;
 		}
 
 		sg_range pixelsData;
-		pixelsData.ptr = (void*)pBuffer->pData;
-		pixelsData.size = pBuffer->width * pBuffer->height * 4 * sizeof(u8);
+		pixelsData.ptr = (void*)pUserData->pData;
+		pixelsData.size = pUserData->width * pUserData->height * 4 * sizeof(u8);
 		imageDesc.data.subimage[0][0] = pixelsData;
-		pBuffer->img = sg_make_image(&imageDesc);
-		pBuffer->dirty = false;
+		pUserData->img = sg_make_image(&imageDesc);
+		pUserData->dirty = false;
 	}
 
 	// @todo: only allow one edit per frame, somehow block this
-	if (pBuffer->dirty && pBuffer->dynamic) {
+	if (pUserData->dirty && pUserData->dynamic) {
 		// already dynamic, so we can just update it
 		sg_range range;
-		range.ptr = (void*)pBuffer->pData;
-		range.size = pBuffer->width * pBuffer->height * 4 * sizeof(u8);
+		range.ptr = (void*)pUserData->pData;
+		range.size = pUserData->width * pUserData->height * 4 * sizeof(u8);
 		sg_image_data data;
 		data.subimage[0][0] = range;
-		sg_update_image(pBuffer->img, data);  
+		sg_update_image(pUserData->img, data);  
 	}
 
 }
 
 // ***********************************************************************
 
-void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer) {
+void ParseUserDataDataString(lua_State* L, String dataString, UserData* pUserData) {
 	if (dataString.length <= 0) 
 		return;
 
@@ -187,9 +185,9 @@ void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer) {
 	scan.pCurrent = (char*)dataString.pData;
 	scan.line = 1;
 
-	switch(pBuffer->type) {
-		case BufferLib::Type::Float32: {
-			f32* pData = (f32*)pBuffer->pData;
+	switch(pUserData->type) {
+		case Type::Float32: {
+			f32* pData = (f32*)pUserData->pData;
 			while (!Scan::IsAtEnd(scan)) {
 				scan.pCurrent++; // parse number expects that the first digit has been parsed
 				*pData = (f32)ParseNumber(scan);
@@ -201,10 +199,10 @@ void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer) {
 			}
 			break;
 		}
-		case BufferLib::Type::Int32: {
+		case Type::Int32: {
 			char number[9];
 			number[8] = 0;
-			i32* pData = (i32*)pBuffer->pData;
+			i32* pData = (i32*)pUserData->pData;
 			while(!Scan::IsAtEnd(scan)) {
 				number[0] = *scan.pCurrent++;
 				number[1] = *scan.pCurrent++;
@@ -220,10 +218,10 @@ void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer) {
 			Scan::Advance(scan);
 			break;
 		}
-		case BufferLib::Type::Int16: {
+		case Type::Int16: {
 			char number[5];
 			number[4] = 0;
-			i16* pData = (i16*)pBuffer->pData;
+			i16* pData = (i16*)pUserData->pData;
 			while (!Scan::IsAtEnd(scan)) {
 				number[0] = *scan.pCurrent++;
 				number[1] = *scan.pCurrent++;
@@ -235,10 +233,10 @@ void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer) {
 			Scan::Advance(scan);
 			break;
 		}
-		case BufferLib::Type::Uint8: {
+		case Type::Uint8: {
 			char number[3];
 			number[2] = 0;
-			u8* pData = (u8*)pBuffer->pData;
+			u8* pData = (u8*)pUserData->pData;
 			while (!Scan::IsAtEnd(scan)) {
 				number[0] = *scan.pCurrent++;
 				number[1] = *scan.pCurrent++;
@@ -253,7 +251,7 @@ void ParseBufferDataString(lua_State* L, String dataString, Buffer* pBuffer) {
 
 // ***********************************************************************
 
-i32 NewBuffer(lua_State* L) {
+i32 NewUserData(lua_State* L) {
 	i32 nArgs = lua_gettop(L);
     const char* typeStr = luaL_checkstring(L, 1);
     i32 width = (i32)luaL_checkinteger(L, 2);
@@ -268,7 +266,7 @@ i32 NewBuffer(lua_State* L) {
 			dataStr = lua_tostring(L, 3);
 		}
 		else {
-			luaL_error(L, "Unexpected 3rd argument to buffer, should be integer or string");
+			luaL_error(L, "Unexpected 3rd argument to userdata, should be integer or string");
 		}
 	}
 
@@ -292,13 +290,13 @@ i32 NewBuffer(lua_State* L) {
 		type = Type::Uint8;
 	}
 	else {
-		luaL_error(L, "invalid type given to buffer creation %s", typeStr);
+		luaL_error(L, "invalid type given to userdata creation %s", typeStr);
 		return 0;
 	}
-	Buffer* pBuffer = AllocBuffer(L, type, width, height);
+	UserData* pUserData = AllocUserData(L, type, width, height);
 
 	if (dataStr.length > 0) {
-		ParseBufferDataString(L, dataStr, pBuffer); 
+		ParseUserDataDataString(L, dataStr, pUserData); 
 	}
 	return 1;
 }
@@ -307,33 +305,33 @@ i32 NewBuffer(lua_State* L) {
 
 i32 NewVec(lua_State* L) {
 	i32 nArgs = lua_gettop(L);
-	Buffer* pBuffer = AllocBuffer(L, Type::Float32, 3, 1);
+	UserData* pUserData = AllocUserData(L, Type::Float32, 3, 1);
 	if (nArgs > 0)
-		SetImpl(L, pBuffer, 0, 1);
+		SetImpl(L, pUserData, 0, 1);
 	return 1;
 }
 
 // ***********************************************************************
 
 i32 Set(lua_State* L) {
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
     i32 index = (i32)luaL_checkinteger(L, 2);
-	SetImpl(L, pBuffer, index, 3);
+	SetImpl(L, pUserData, index, 3);
 	return 0;
 }
 
 // ***********************************************************************
 
 i32 Set2D(lua_State* L) {
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
-	if (pBuffer->height == 1) {
-		luaL_error(L, "Set2D is only valid on 2-dimensional buffers");
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
+	if (pUserData->height == 1) {
+		luaL_error(L, "Set2D is only valid on 2-dimensional userdatas");
 		return 0;
 	}
 
     i32 x = (i32)luaL_checkinteger(L, 2);
     i32 y = (i32)luaL_checkinteger(L, 3);
-	SetImpl(L, pBuffer, pBuffer->width * y + x, 4);
+	SetImpl(L, pUserData, pUserData->width * y + x, 4);
 	return 0;
 }
 
@@ -341,36 +339,36 @@ i32 Set2D(lua_State* L) {
 
 i32 Get(lua_State* L) {
 	//TODO: bounds checking
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
     i32 index = (i32)luaL_checkinteger(L, 2);
 	i32 count = (i32)luaL_checkinteger(L, 3);
-	return GetImpl(L, pBuffer, index, count);
+	return GetImpl(L, pUserData, index, count);
 }
 
 // ***********************************************************************
 
 i32 Get2D(lua_State* L) {
 	//TODO: bounds checking
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
-	if (pBuffer->height == 1) {
-		luaL_error(L, "Get2D is only valid on 2-dimensional buffers");
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
+	if (pUserData->height == 1) {
+		luaL_error(L, "Get2D is only valid on 2-dimensional userdatas");
 		return 0;
 	}
     i32 x = (i32)luaL_checkinteger(L, 2);
     i32 y = (i32)luaL_checkinteger(L, 3);
 	i32 count = (i32)luaL_checkinteger(L, 3);
-	return GetImpl(L, pBuffer, pBuffer->width * y + x, count);
+	return GetImpl(L, pUserData, pUserData->width * y + x, count);
 }
 
 // ***********************************************************************
 
 i32 Index(lua_State* L) {
 	// first we have the userdata
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
 
 	// if key is number it's an array index read, otherwise it's text
 	if (lua_isnumber(L, 2)) {
-		return GetImpl(L, pBuffer, lua_tointeger(L, 2), 1);
+		return GetImpl(L, pUserData, lua_tointeger(L, 2), 1);
 	}
 
     u64 len;
@@ -383,11 +381,11 @@ i32 Index(lua_State* L) {
 	else if (strcmp(str, "w") == 0) { index = 3; }
 
 	if (index >= 0) {
-		return GetImpl(L, pBuffer, index, 1);
+		return GetImpl(L, pUserData, index, 1);
 	}
 	else {
 		// standard indexing behaviour
-		luaL_getmetatable(L, "Buffer");
+		luaL_getmetatable(L, "UserData");
 		lua_getfield(L, -1, str);
 		return 1;
 	}
@@ -397,10 +395,10 @@ i32 Index(lua_State* L) {
 
 i32 NewIndex(lua_State* L) {
 	// first we have the userdata
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
 
 	if (lua_isnumber(L, 2)) {
-		SetImpl(L, pBuffer, lua_tointeger(L, 2), 3);
+		SetImpl(L, pUserData, lua_tointeger(L, 2), 3);
 	}
 
     u64 len;
@@ -413,11 +411,11 @@ i32 NewIndex(lua_State* L) {
 	else if (strcmp(str, "w") == 0) { index = 3; }
 
 	if (index >= 0) {
-		SetImpl(L, pBuffer, index, 3);
+		SetImpl(L, pUserData, index, 3);
 	}
 	else {
 		// standard indexing behaviour
-		luaL_getmetatable(L, "Buffer");
+		luaL_getmetatable(L, "UserData");
 		lua_setfield(L, -1, str);
 		return 1;
 	}
@@ -427,46 +425,46 @@ i32 NewIndex(lua_State* L) {
 // ***********************************************************************
 
 i32 ToString(lua_State* L) {
-	Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
+	UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
 
 	StringBuilder builder(g_pArenaFrame);
 
-	switch(pBuffer->type) {
-		case BufferLib::Type::Float32: builder.Append("buffer(\"f32\""); break;
-		case BufferLib::Type::Int32: builder.Append("buffer(\"i32\""); break;
-		case BufferLib::Type::Int16: builder.Append("buffer(\"i16\""); break;
-		case BufferLib::Type::Uint8: builder.Append("buffer(\"u8\"");; break;
+	switch(pUserData->type) {
+		case Type::Float32: builder.Append("userdata(\"f32\""); break;
+		case Type::Int32: builder.Append("userdata(\"i32\""); break;
+		case Type::Int16: builder.Append("userdata(\"i16\""); break;
+		case Type::Uint8: builder.Append("userdata(\"u8\"");; break;
 	}
-	builder.AppendFormat(",%i,%i,\"", pBuffer->width, pBuffer->height);
-	switch(pBuffer->type) {
-		case BufferLib::Type::Float32: {
-			f32* pFloats = (f32*)pBuffer->pData;
-			for (int i = 0; i < pBuffer->width*pBuffer->height; i++) {
-				if (i+1 < pBuffer->width*pBuffer->height)
+	builder.AppendFormat(",%i,%i,\"", pUserData->width, pUserData->height);
+	switch(pUserData->type) {
+		case Type::Float32: {
+			f32* pFloats = (f32*)pUserData->pData;
+			for (int i = 0; i < pUserData->width*pUserData->height; i++) {
+				if (i+1 < pUserData->width*pUserData->height)
 					builder.AppendFormat("%.9g,", pFloats[i]);
 				else
 					builder.AppendFormat("%.9g", pFloats[i]);
 			}
 			break;
 		}
-		case BufferLib::Type::Int32: {
+		case Type::Int32: {
 			// 8 hex digits
-			i32* pInts = (i32*)pBuffer->pData;
-			for (int i = 0; i < pBuffer->width*pBuffer->height; i++)
+			i32* pInts = (i32*)pUserData->pData;
+			for (int i = 0; i < pUserData->width*pUserData->height; i++)
 				builder.AppendFormat("%08x", pInts[i]);
 			break;
 		}
-		case BufferLib::Type::Int16: {
+		case Type::Int16: {
 			// 4 hex digits
-			i16* pInts = (i16*)pBuffer->pData;
-			for (int i = 0; i < pBuffer->width*pBuffer->height; i++)
+			i16* pInts = (i16*)pUserData->pData;
+			for (int i = 0; i < pUserData->width*pUserData->height; i++)
 				builder.AppendFormat("%04x", pInts[i]);
 			break;
 		}
-		case BufferLib::Type::Uint8: {
+		case Type::Uint8: {
 			// two hex digits == 1 byte
-			u8* pInts = (u8*)pBuffer->pData;
-			for (int i = 0; i < pBuffer->width*pBuffer->height; i++)
+			u8* pInts = (u8*)pUserData->pData;
+			for (int i = 0; i < pUserData->width*pUserData->height; i++)
 				builder.AppendFormat("%02x", pInts[i]);
 			break;
 		}
@@ -481,24 +479,24 @@ i32 ToString(lua_State* L) {
 // ***********************************************************************
 
 i32 Width(lua_State* L) {
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
-	lua_pushinteger(L, pBuffer->width);
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
+	lua_pushinteger(L, pUserData->width);
 	return 1;
 }
 
 // ***********************************************************************
 
 i32 Height(lua_State* L) {
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
-	lua_pushinteger(L, pBuffer->height);
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
+	lua_pushinteger(L, pUserData->height);
 	return 1;
 }
 
 // ***********************************************************************
 
 i32 Size(lua_State* L) {
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
-	lua_pushinteger(L, pBuffer->width * pBuffer->height);
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
+	lua_pushinteger(L, pUserData->width * pUserData->height);
 	return 1;
 }
 
@@ -506,47 +504,47 @@ i32 Size(lua_State* L) {
 
 #define OPERATOR_FUNC(op, name) 											\
 i32 name(lua_State* L) {													\
-    Buffer* pBuffer1 = (Buffer*)luaL_checkudata(L, 1, "Buffer");			\
-    Buffer* pBuffer2 = (Buffer*)luaL_checkudata(L, 2, "Buffer");			\
+    UserData* pUserData1 = (UserData*)luaL_checkudata(L, 1, "UserData");			\
+    UserData* pUserData2 = (UserData*)luaL_checkudata(L, 2, "UserData");			\
 																			\
-	if (pBuffer1->type != pBuffer2->type) {									\
-		luaL_error(L, "Type mismatch in buffer operation");					\
+	if (pUserData1->type != pUserData2->type) {									\
+		luaL_error(L, "Type mismatch in userdata operation");					\
 	}																		\
-	i32 buf1Size = pBuffer1->width * pBuffer1->height;						\
-	i32 buf2Size = pBuffer2->width * pBuffer2->height;						\
+	i32 buf1Size = pUserData1->width * pUserData1->height;						\
+	i32 buf2Size = pUserData2->width * pUserData2->height;						\
 	i32 resultSize = min(buf1Size, buf2Size);								\
 																			\
-	Buffer* pBuffer = AllocBuffer(L, pBuffer1->type, pBuffer1->width, pBuffer1->height);\
+	UserData* pUserData = AllocUserData(L, pUserData1->type, pUserData1->width, pUserData1->height);\
 																			\
-	switch(pBuffer->type) {													\
+	switch(pUserData->type) {													\
 		case Type::Float32: {												\
-			f32* pResult = (f32*)pBuffer->pData;							\
-			f32* pBuf1 = (f32*)pBuffer1->pData;								\
-			f32* pBuf2 = (f32*)pBuffer2->pData;								\
+			f32* pResult = (f32*)pUserData->pData;							\
+			f32* pBuf1 = (f32*)pUserData1->pData;								\
+			f32* pBuf2 = (f32*)pUserData2->pData;								\
 			for (int i=0; i < resultSize; i++) 								\
 				pResult[i] = pBuf1[i] op pBuf2[i];							\
 			break;															\
 		}																	\
 		case Type::Int32: {													\
-			i32* pResult = (i32*)pBuffer->pData;							\
-			i32* pBuf1 = (i32*)pBuffer1->pData;								\
-			i32* pBuf2 = (i32*)pBuffer2->pData;								\
+			i32* pResult = (i32*)pUserData->pData;							\
+			i32* pBuf1 = (i32*)pUserData1->pData;								\
+			i32* pBuf2 = (i32*)pUserData2->pData;								\
 			for (int i=0; i < resultSize; i++)								\
 				pResult[i] = pBuf1[i] op pBuf2[i];							\
 			break;															\
 		}																	\
 		case Type::Int16: {													\
-			i16* pResult = (i16*)pBuffer->pData;							\
-			i16* pBuf1 = (i16*)pBuffer1->pData;								\
-			i16* pBuf2 = (i16*)pBuffer2->pData;								\
+			i16* pResult = (i16*)pUserData->pData;							\
+			i16* pBuf1 = (i16*)pUserData1->pData;								\
+			i16* pBuf2 = (i16*)pUserData2->pData;								\
 			for (int i=0; i < resultSize; i++) 								\
 				pResult[i] = pBuf1[i] op pBuf2[i];							\
 			break;															\
 		}																	\
 		case Type::Uint8: {													\
-			u8* pResult = (u8*)pBuffer->pData;								\
-			u8* pBuf1 = (u8*)pBuffer1->pData;								\
-			u8* pBuf2 = (u8*)pBuffer2->pData;								\
+			u8* pResult = (u8*)pUserData->pData;								\
+			u8* pBuf1 = (u8*)pUserData1->pData;								\
+			u8* pBuf2 = (u8*)pUserData2->pData;								\
 			for (int i=0; i < resultSize; i++) 								\
 				pResult[i] = pBuf1[i] op pBuf2[i];							\
 			break;															\
@@ -563,11 +561,11 @@ OPERATOR_FUNC(/, Div)
 // ***********************************************************************
 
 template<typename T>
-T CalcMagnitude(Buffer* pBuffer) {
+T CalcMagnitude(UserData* pUserData) {
 	T sum = T();
-	i32 bufSize = pBuffer->width * pBuffer->height;
+	i32 bufSize = pUserData->width * pUserData->height;
 	for (i32 i = 0; i < bufSize; i++) {
-		T* pData = (T*)pBuffer->pData;
+		T* pData = (T*)pUserData->pData;
 		T elem = pData[i];
 		sum += elem*elem;
 	}
@@ -577,12 +575,12 @@ T CalcMagnitude(Buffer* pBuffer) {
 // ***********************************************************************
 
 i32 VecMagnitude(lua_State* L) {
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
-	switch(pBuffer->type) {
-		case Type::Float32: lua_pushnumber(L, CalcMagnitude<f32>(pBuffer)); break;
-		case Type::Int32: lua_pushinteger(L, CalcMagnitude<i32>(pBuffer)); break;
-		case Type::Int16: lua_pushinteger(L, CalcMagnitude<i16>(pBuffer)); break;
-		case Type::Uint8: lua_pushunsigned(L, CalcMagnitude<u8>(pBuffer)); break;
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
+	switch(pUserData->type) {
+		case Type::Float32: lua_pushnumber(L, CalcMagnitude<f32>(pUserData)); break;
+		case Type::Int32: lua_pushinteger(L, CalcMagnitude<i32>(pUserData)); break;
+		case Type::Int16: lua_pushinteger(L, CalcMagnitude<i16>(pUserData)); break;
+		case Type::Uint8: lua_pushunsigned(L, CalcMagnitude<u8>(pUserData)); break;
 		default: return 0;
 	}
 	return 1;
@@ -591,11 +589,11 @@ i32 VecMagnitude(lua_State* L) {
 // ***********************************************************************
 
 template<typename T>
-T CalcDistance(Buffer* pBuffer, Buffer* pOther) {
+T CalcDistance(UserData* pUserData, UserData* pOther) {
 	T sum = T();
-	i32 bufSize = pBuffer->width * pBuffer->height;
+	i32 bufSize = pUserData->width * pUserData->height;
 	for (i32 i = 0; i < bufSize; i++) {
-		T* pData = (T*)pBuffer->pData;
+		T* pData = (T*)pUserData->pData;
 		T* pOtherData = (T*)pOther->pData;
 		T diff = pOtherData[i] - pData[i];
 		sum += diff*diff;
@@ -606,20 +604,20 @@ T CalcDistance(Buffer* pBuffer, Buffer* pOther) {
 // ***********************************************************************
 
 i32 VecDistance(lua_State* L) {
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
-    Buffer* pOther = (Buffer*)luaL_checkudata(L, 2, "Buffer");
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
+    UserData* pOther = (UserData*)luaL_checkudata(L, 2, "UserData");
 
-	i32 bufSize = pBuffer->width * pBuffer->height;
-	i32 otherSize = pBuffer->width * pBuffer->height;
+	i32 bufSize = pUserData->width * pUserData->height;
+	i32 otherSize = pUserData->width * pUserData->height;
 	if (bufSize != otherSize) {
-		luaL_error(L, "Both buffers must be the same size for Distance");	
+		luaL_error(L, "Both userdatas must be the same size for distance");	
 	}
 
-	switch(pBuffer->type) {
-		case Type::Float32: lua_pushnumber(L, CalcDistance<f32>(pBuffer, pOther)); break;
-		case Type::Int32: lua_pushinteger(L, CalcDistance<i32>(pBuffer, pOther)); break;
-		case Type::Int16: lua_pushinteger(L, CalcDistance<i16>(pBuffer, pOther)); break;
-		case Type::Uint8: lua_pushunsigned(L, CalcDistance<u8>(pBuffer, pOther)); break;
+	switch(pUserData->type) {
+		case Type::Float32: lua_pushnumber(L, CalcDistance<f32>(pUserData, pOther)); break;
+		case Type::Int32: lua_pushinteger(L, CalcDistance<i32>(pUserData, pOther)); break;
+		case Type::Int16: lua_pushinteger(L, CalcDistance<i16>(pUserData, pOther)); break;
+		case Type::Uint8: lua_pushunsigned(L, CalcDistance<u8>(pUserData, pOther)); break;
 		default: return 0;
 	}
 	return 1;
@@ -628,11 +626,11 @@ i32 VecDistance(lua_State* L) {
 // ***********************************************************************
 
 template<typename T>
-T CalcDot(Buffer* pBuffer, Buffer* pOther) {
+T CalcDot(UserData* pUserData, UserData* pOther) {
 	T sum = T();
-	i32 bufSize = pBuffer->width * pBuffer->height;
+	i32 bufSize = pUserData->width * pUserData->height;
 	for (i32 i = 0; i < bufSize; i++) {
-		T* pData = (T*)pBuffer->pData;
+		T* pData = (T*)pUserData->pData;
 		T* pOtherData = (T*)pOther->pData;
 		sum += pOtherData[i] * pData[i];
 	}
@@ -643,20 +641,20 @@ T CalcDot(Buffer* pBuffer, Buffer* pOther) {
 // ***********************************************************************
 
 i32 VecDot(lua_State* L) {
-    Buffer* pBuffer = (Buffer*)luaL_checkudata(L, 1, "Buffer");
-    Buffer* pOther = (Buffer*)luaL_checkudata(L, 2, "Buffer");
+    UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
+    UserData* pOther = (UserData*)luaL_checkudata(L, 2, "UserData");
 
-	i32 bufSize = pBuffer->width * pBuffer->height;
-	i32 otherSize = pBuffer->width * pBuffer->height;
+	i32 bufSize = pUserData->width * pUserData->height;
+	i32 otherSize = pUserData->width * pUserData->height;
 	if (bufSize != otherSize) {
-		luaL_error(L, "Both buffers must be the same size for Dot");	
+		luaL_error(L, "Both userdatas must be the same size for dot");	
 	}
 
-	switch(pBuffer->type) {
-		case Type::Float32: lua_pushnumber(L, CalcDot<f32>(pBuffer, pOther)); break;
-		case Type::Int32: lua_pushinteger(L,  CalcDot<i32>(pBuffer, pOther)); break;
-		case Type::Int16: lua_pushinteger(L,  CalcDot<i16>(pBuffer, pOther)); break;
-		case Type::Uint8: lua_pushunsigned(L, CalcDot<u8>(pBuffer, pOther)); break;
+	switch(pUserData->type) {
+		case Type::Float32: lua_pushnumber(L, CalcDot<f32>(pUserData, pOther)); break;
+		case Type::Int32: lua_pushinteger(L,  CalcDot<i32>(pUserData, pOther)); break;
+		case Type::Int16: lua_pushinteger(L,  CalcDot<i16>(pUserData, pOther)); break;
+		case Type::Uint8: lua_pushunsigned(L, CalcDot<u8>(pUserData, pOther)); break;
 		default: return 0;
 	}
 	return 1;
@@ -664,11 +662,11 @@ i32 VecDot(lua_State* L) {
  
 // ***********************************************************************
 
-void BindBuffer(lua_State* L) {
+void BindUserData(lua_State* L) {
 
 	// register global functions
     const luaL_Reg globalFuncs[] = {
-        { "buffer", NewBuffer },
+        { "userdata", NewUserData },
         { "vec", NewVec },
         { NULL, NULL }
     };
@@ -678,7 +676,7 @@ void BindBuffer(lua_State* L) {
     lua_pop(L, 1);
 
 	// new metatable
-	luaL_newmetatable(L, "Buffer");
+	luaL_newmetatable(L, "UserData");
 
 	// register metamethods
     const luaL_Reg bufferMethods[] = {
@@ -709,6 +707,4 @@ void BindBuffer(lua_State* L) {
 
 	luaL_register(L, NULL, bufferMethods);
     lua_pop(L, 1);
-}
-
 }

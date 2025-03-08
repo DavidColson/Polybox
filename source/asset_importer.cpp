@@ -169,7 +169,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	// on lua tables, and so we're just using the lua state to hold those tables, won't actually run any lua code really
 	lua_State* L = lua_newstate(LuaAllocator, nullptr);
 	Serialization::BindSerialization(L);
-	BufferLib::BindBuffer(L);
+	BindUserData(L);
 
 	// -------------------------------------
 	// Import Scene
@@ -358,9 +358,9 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 
 		// push buffer with size for all the vertex data
 		i32 floatsPerVertex = sizeof(VertexData) / sizeof(f32);
-		BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, BufferLib::Type::Float32, floatsPerVertex*nIndices, 1);
-		i64 bufSize = BufferLib::GetBufferSize(pBuffer);
-		memcpy((u8*)pBuffer->pData, (u8*)vertices.pData, bufSize);
+		UserData* pUserData = AllocUserData(L, Type::Float32, floatsPerVertex*nIndices, 1);
+		i64 bufSize = GetUserDataSize(pUserData);
+		memcpy((u8*)pUserData->pData, (u8*)vertices.pData, bufSize);
 		lua_setfield(L, -2, "vertices");
 
 		// call serialize to make a file for the mesh
@@ -415,9 +415,9 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			lua_pushnumber(L, height);
 			lua_setfield(L, -2, "height");
 
-			BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, BufferLib::Type::Int32, width, height);
-			i64 bufSize = BufferLib::GetBufferSize(pBuffer);
-			memcpy((u8*)pBuffer->pData, pData, bufSize);
+			UserData* pUserData = AllocUserData(L, Type::Int32, width, height);
+			i64 bufSize = GetUserDataSize(pUserData);
+			memcpy((u8*)pUserData->pData, pData, bufSize);
 			lua_setfield(L, -2, "data");
 
 			// call serialize to make a file for the image
@@ -455,7 +455,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			// pixelsData.ptr = (void*)pData;
 			// pixelsData.size = width * height * 4 * sizeof(u8);
 			// imageDesc.data.subimage[0][0] = pixelsData;
-			// pBuffer->img = sg_make_image(&imageDesc);
+			// pUserData->img = sg_make_image(&imageDesc);
 		}
 		else {
 			Log::Warn("Unable to import image %s, we don't yet support separate gltf files", jsonImage["name"].ToString().pData);

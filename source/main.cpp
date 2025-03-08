@@ -75,7 +75,7 @@
 #include "asset_importer.h"
 #include "bind_graphics.h"
 #include "bind_input.h"
-#include "buffer.h"
+#include "userdata.h"
 #include "cpu.h"
 #include "graphics.h"
 #include "graphics_platform.h"
@@ -88,7 +88,7 @@
 #include "asset_importer.cpp"
 #include "bind_graphics.cpp"
 #include "bind_input.cpp"
-#include "buffer.cpp"
+#include "userdata.cpp"
 #include "cpu.cpp"
 #include "graphics.cpp"
 #include "graphics_platform_d3d11.cpp"
@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
 			ArenaReset(g_pArenaFrame);
 		}
 
-		Cpu::End();
+		Cpu::Close();
 		Shutdown();
 
 	}

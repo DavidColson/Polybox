@@ -8,6 +8,6 @@ void Init();
 void CompileAndLoadProgram(String path);
 void Start();
 void Tick(f32 deltaTime);
-void End();
+void Close();
 
 };

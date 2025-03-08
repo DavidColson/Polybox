@@ -96,16 +96,16 @@ int BindInput(lua_State* pLua) {
 
     // Bind static mesh functions
     const luaL_Reg gameGlobalFuncs[] = {
-        { "GetButton", LuaGetButton },
-        { "GetButtonDown", LuaGetButtonDown },
-        { "GetButtonUp", LuaGetButtonUp },
-        { "GetAxis", LuaGetAxis },
-        { "GetMousePosition", LuaGetMousePosition },
-        { "EnableMouseRelativeMode", LuaEnableMouseRelativeMode },
-        { "GetKey", LuaGetKey },
-        { "GetKeyDown", LuaGetKeyDown },
-        { "GetKeyUp", LuaGetKeyUp },
-        { "InputString", LuaInputString },
+        { "get_button", LuaGetButton },
+        { "get_button_down", LuaGetButtonDown },
+        { "get_button_up", LuaGetButtonUp },
+        { "get_axis", LuaGetAxis },
+        { "get_mouse_position", LuaGetMousePosition },
+        { "enable_mouse_relative_mode", LuaEnableMouseRelativeMode },
+        { "get_key", LuaGetKey },
+        { "get_key_down", LuaGetKeyDown },
+        { "get_key_up", LuaGetKeyUp },
+        { "input_string", LuaInputString },
         { NULL, NULL }
     };
 
@@ -116,27 +116,27 @@ int BindInput(lua_State* pLua) {
     // push enum tables to global
     lua_newtable(pLua);
     {
-        PushEnum(pLua, (int)ControllerButton::Invalid, "Invalid");
-        PushEnum(pLua, (int)ControllerButton::FaceBottom, "FaceBottom");
-        PushEnum(pLua, (int)ControllerButton::FaceRight, "FaceRight");
-        PushEnum(pLua, (int)ControllerButton::FaceLeft, "FaceLeft");
-        PushEnum(pLua, (int)ControllerButton::FaceTop, "FaceTop");
-        PushEnum(pLua, (int)ControllerButton::LeftStick, "LeftStick");
-        PushEnum(pLua, (int)ControllerButton::RightStick, "RightStick");
-        PushEnum(pLua, (int)ControllerButton::LeftShoulder, "LeftShoulder");
-        PushEnum(pLua, (int)ControllerButton::RightShoulder, "RightShoulder");
-        PushEnum(pLua, (int)ControllerButton::DpadDown, "DpadDown");
-        PushEnum(pLua, (int)ControllerButton::DpadLeft, "DpadLeft");
-        PushEnum(pLua, (int)ControllerButton::DpadRight, "DpadRight");
-        PushEnum(pLua, (int)ControllerButton::DpadUp, "DpadUp");
-        PushEnum(pLua, (int)ControllerButton::Start, "Start");
-        PushEnum(pLua, (int)ControllerButton::Select, "Select");
+        PushEnum(pLua, (int)ControllerButton::Invalid, "invalid");
+        PushEnum(pLua, (int)ControllerButton::FaceBottom, "face_bottom");
+        PushEnum(pLua, (int)ControllerButton::FaceRight, "face_right");
+        PushEnum(pLua, (int)ControllerButton::FaceLeft, "face_left");
+        PushEnum(pLua, (int)ControllerButton::FaceTop, "face_top");
+        PushEnum(pLua, (int)ControllerButton::LeftStick, "left_stick");
+        PushEnum(pLua, (int)ControllerButton::RightStick, "right_stick");
+        PushEnum(pLua, (int)ControllerButton::LeftShoulder, "left_shoulder");
+        PushEnum(pLua, (int)ControllerButton::RightShoulder, "right_shoulder");
+        PushEnum(pLua, (int)ControllerButton::DpadDown, "dpad_down");
+        PushEnum(pLua, (int)ControllerButton::DpadLeft, "dpad_left");
+        PushEnum(pLua, (int)ControllerButton::DpadRight, "dpad_right");
+        PushEnum(pLua, (int)ControllerButton::DpadUp, "dpad_up");
+        PushEnum(pLua, (int)ControllerButton::Start, "start");
+        PushEnum(pLua, (int)ControllerButton::Select, "select");
     }
     lua_setglobal(pLua, "Button");
 
     lua_newtable(pLua);
     {
-        PushEnum(pLua, (int)ControllerAxis::Invalid, "Invalid");
+        PushEnum(pLua, (int)ControllerAxis::Invalid, "invalid");
         PushEnum(pLua, (int)ControllerAxis::LeftX, "LeftX");
         PushEnum(pLua, (int)ControllerAxis::LeftY, "LeftY");
         PushEnum(pLua, (int)ControllerAxis::RightX, "RightX");
@@ -148,134 +148,134 @@ int BindInput(lua_State* pLua) {
 
     lua_newtable(pLua);
     {
-        PushEnum(pLua, (int)Key::Invalid, "Invalid");
-        PushEnum(pLua, (int)Key::A, "A");
-        PushEnum(pLua, (int)Key::B, "B");
-        PushEnum(pLua, (int)Key::C, "C");
-        PushEnum(pLua, (int)Key::D, "D");
-        PushEnum(pLua, (int)Key::E, "E");
-        PushEnum(pLua, (int)Key::F, "F");
-        PushEnum(pLua, (int)Key::G, "G");
-        PushEnum(pLua, (int)Key::H, "H");
-        PushEnum(pLua, (int)Key::I, "I");
-        PushEnum(pLua, (int)Key::J, "J");
-        PushEnum(pLua, (int)Key::K, "K");
-        PushEnum(pLua, (int)Key::L, "L");
-        PushEnum(pLua, (int)Key::M, "M");
-        PushEnum(pLua, (int)Key::N, "N");
-        PushEnum(pLua, (int)Key::O, "O");
-        PushEnum(pLua, (int)Key::P, "P");
-        PushEnum(pLua, (int)Key::Q, "Q");
-        PushEnum(pLua, (int)Key::R, "R");
-        PushEnum(pLua, (int)Key::S, "S");
-        PushEnum(pLua, (int)Key::T, "T");
-        PushEnum(pLua, (int)Key::U, "U");
-        PushEnum(pLua, (int)Key::V, "V");
-        PushEnum(pLua, (int)Key::W, "W");
-        PushEnum(pLua, (int)Key::X, "X");
-        PushEnum(pLua, (int)Key::Y, "Y");
-        PushEnum(pLua, (int)Key::Z, "Z");
+        PushEnum(pLua, (int)Key::Invalid, "invalid");
+        PushEnum(pLua, (int)Key::A, "a");
+        PushEnum(pLua, (int)Key::B, "b");
+        PushEnum(pLua, (int)Key::C, "c");
+        PushEnum(pLua, (int)Key::D, "d");
+        PushEnum(pLua, (int)Key::E, "e");
+        PushEnum(pLua, (int)Key::F, "f");
+        PushEnum(pLua, (int)Key::G, "g");
+        PushEnum(pLua, (int)Key::H, "h");
+        PushEnum(pLua, (int)Key::I, "i");
+        PushEnum(pLua, (int)Key::J, "j");
+        PushEnum(pLua, (int)Key::K, "k");
+        PushEnum(pLua, (int)Key::L, "l");
+        PushEnum(pLua, (int)Key::M, "m");
+        PushEnum(pLua, (int)Key::N, "n");
+        PushEnum(pLua, (int)Key::O, "o");
+        PushEnum(pLua, (int)Key::P, "p");
+        PushEnum(pLua, (int)Key::Q, "q");
+        PushEnum(pLua, (int)Key::R, "r");
+        PushEnum(pLua, (int)Key::S, "s");
+        PushEnum(pLua, (int)Key::T, "t");
+        PushEnum(pLua, (int)Key::U, "u");
+        PushEnum(pLua, (int)Key::V, "v");
+        PushEnum(pLua, (int)Key::W, "w");
+        PushEnum(pLua, (int)Key::X, "x");
+        PushEnum(pLua, (int)Key::Y, "y");
+        PushEnum(pLua, (int)Key::Z, "z");
 
-        PushEnum(pLua, (int)Key::No1, "No1");
-        PushEnum(pLua, (int)Key::No2, "No2");
-        PushEnum(pLua, (int)Key::No3, "No3");
-        PushEnum(pLua, (int)Key::No4, "No4");
-        PushEnum(pLua, (int)Key::No5, "No5");
-        PushEnum(pLua, (int)Key::No6, "No6");
-        PushEnum(pLua, (int)Key::No7, "No7");
-        PushEnum(pLua, (int)Key::No8, "No8");
-        PushEnum(pLua, (int)Key::No9, "No9");
-        PushEnum(pLua, (int)Key::No0, "No0");
+        PushEnum(pLua, (int)Key::No1, "no1");
+        PushEnum(pLua, (int)Key::No2, "no2");
+        PushEnum(pLua, (int)Key::No3, "no3");
+        PushEnum(pLua, (int)Key::No4, "no4");
+        PushEnum(pLua, (int)Key::No5, "no5");
+        PushEnum(pLua, (int)Key::No6, "no6");
+        PushEnum(pLua, (int)Key::No7, "no7");
+        PushEnum(pLua, (int)Key::No8, "no8");
+        PushEnum(pLua, (int)Key::No9, "no9");
+        PushEnum(pLua, (int)Key::No0, "no0");
 
-        PushEnum(pLua, (int)Key::Return, "Return");
-        PushEnum(pLua, (int)Key::Escape, "Escape");
-        PushEnum(pLua, (int)Key::Backspace, "Backspace");
-        PushEnum(pLua, (int)Key::Tab, "Tab");
-        PushEnum(pLua, (int)Key::Space, "Space");
-        PushEnum(pLua, (int)Key::Exclaim, "Exclaim");
-        PushEnum(pLua, (int)Key::QuoteDbl, "QuoteDbl");
-        PushEnum(pLua, (int)Key::Hash, "Hash");
-        PushEnum(pLua, (int)Key::Percent, "Percent");
-        PushEnum(pLua, (int)Key::Dollar, "Dollar");
-        PushEnum(pLua, (int)Key::Ampersand, "Ampersand");
-        PushEnum(pLua, (int)Key::Quote, "Quote");
-        PushEnum(pLua, (int)Key::LeftParen, "LeftParen");
-        PushEnum(pLua, (int)Key::RightParen, "RightParen");
-        PushEnum(pLua, (int)Key::Asterisk, "Asterisk");
-        PushEnum(pLua, (int)Key::Plus, "Plus");
-        PushEnum(pLua, (int)Key::Comma, "Comma");
-        PushEnum(pLua, (int)Key::Minus, "Minus");
-        PushEnum(pLua, (int)Key::Period, "Period");
-        PushEnum(pLua, (int)Key::Slash, "Slash");
-        PushEnum(pLua, (int)Key::Colon, "Colon");
-        PushEnum(pLua, (int)Key::Semicolon, "Semicolon");
-        PushEnum(pLua, (int)Key::Less, "Less");
-        PushEnum(pLua, (int)Key::Equals, "Equals");
-        PushEnum(pLua, (int)Key::Greater, "Greater");
-        PushEnum(pLua, (int)Key::Question, "Question");
-        PushEnum(pLua, (int)Key::At, "At");
-        PushEnum(pLua, (int)Key::LeftBracket, "LeftBracket");
-        PushEnum(pLua, (int)Key::Backslash, "Backslash");
-        PushEnum(pLua, (int)Key::RightBracket, "RightBracket");
-        PushEnum(pLua, (int)Key::Caret, "Caret");
-        PushEnum(pLua, (int)Key::Underscore, "Underscore");
-        PushEnum(pLua, (int)Key::BackQuote, "BackQuote");
+        PushEnum(pLua, (int)Key::Return, "enter");
+        PushEnum(pLua, (int)Key::Escape, "escape");
+        PushEnum(pLua, (int)Key::Backspace, "backspace");
+        PushEnum(pLua, (int)Key::Tab, "tab");
+        PushEnum(pLua, (int)Key::Space, "space");
+        PushEnum(pLua, (int)Key::Exclaim, "exclaim");
+        PushEnum(pLua, (int)Key::QuoteDbl, "quote_dbl");
+        PushEnum(pLua, (int)Key::Hash, "hash");
+        PushEnum(pLua, (int)Key::Percent, "percent");
+        PushEnum(pLua, (int)Key::Dollar, "dollar");
+        PushEnum(pLua, (int)Key::Ampersand, "ampersand");
+        PushEnum(pLua, (int)Key::Quote, "quote");
+        PushEnum(pLua, (int)Key::LeftParen, "left_paren");
+        PushEnum(pLua, (int)Key::RightParen, "right_paren");
+        PushEnum(pLua, (int)Key::Asterisk, "asterisk");
+        PushEnum(pLua, (int)Key::Plus, "plus");
+        PushEnum(pLua, (int)Key::Comma, "comma");
+        PushEnum(pLua, (int)Key::Minus, "minus");
+        PushEnum(pLua, (int)Key::Period, "period");
+        PushEnum(pLua, (int)Key::Slash, "slash");
+        PushEnum(pLua, (int)Key::Colon, "colon");
+        PushEnum(pLua, (int)Key::Semicolon, "semicolon");
+        PushEnum(pLua, (int)Key::Less, "less");
+        PushEnum(pLua, (int)Key::Equals, "equals");
+        PushEnum(pLua, (int)Key::Greater, "greater");
+        PushEnum(pLua, (int)Key::Question, "question");
+        PushEnum(pLua, (int)Key::At, "at");
+        PushEnum(pLua, (int)Key::LeftBracket, "left_bracket");
+        PushEnum(pLua, (int)Key::Backslash, "backslash");
+        PushEnum(pLua, (int)Key::RightBracket, "right_bracket");
+        PushEnum(pLua, (int)Key::Caret, "caret");
+        PushEnum(pLua, (int)Key::Underscore, "underscore");
+        PushEnum(pLua, (int)Key::BackQuote, "back_quote");
 
-        PushEnum(pLua, (int)Key::CapsLock, "CapsLock");
+        PushEnum(pLua, (int)Key::CapsLock, "caps_lock");
 
-        PushEnum(pLua, (int)Key::F1, "F1");
-        PushEnum(pLua, (int)Key::F2, "F2");
-        PushEnum(pLua, (int)Key::F3, "F3");
-        PushEnum(pLua, (int)Key::F4, "F4");
-        PushEnum(pLua, (int)Key::F5, "F5");
-        PushEnum(pLua, (int)Key::F6, "F6");
-        PushEnum(pLua, (int)Key::F7, "F7");
-        PushEnum(pLua, (int)Key::F8, "F8");
-        PushEnum(pLua, (int)Key::F9, "F9");
-        PushEnum(pLua, (int)Key::F10, "F10");
-        PushEnum(pLua, (int)Key::F11, "F11");
-        PushEnum(pLua, (int)Key::F12, "F12");
+        PushEnum(pLua, (int)Key::F1, "f1");
+        PushEnum(pLua, (int)Key::F2, "f2");
+        PushEnum(pLua, (int)Key::F3, "f3");
+        PushEnum(pLua, (int)Key::F4, "f4");
+        PushEnum(pLua, (int)Key::F5, "f5");
+        PushEnum(pLua, (int)Key::F6, "f6");
+        PushEnum(pLua, (int)Key::F7, "f7");
+        PushEnum(pLua, (int)Key::F8, "f8");
+        PushEnum(pLua, (int)Key::F9, "f9");
+        PushEnum(pLua, (int)Key::F10, "f10");
+        PushEnum(pLua, (int)Key::F11, "f11");
+        PushEnum(pLua, (int)Key::F12, "f12");
 
-        PushEnum(pLua, (int)Key::PrintScreen, "PrintScreen");
-        PushEnum(pLua, (int)Key::ScrollLock, "ScrollLock");
-        PushEnum(pLua, (int)Key::Pause, "Pause");
-        PushEnum(pLua, (int)Key::Insert, "Insert");
-        PushEnum(pLua, (int)Key::Home, "Home");
-        PushEnum(pLua, (int)Key::PageUp, "PageUp");
-        PushEnum(pLua, (int)Key::Delete, "Delete");
-        PushEnum(pLua, (int)Key::End, "End");
-        PushEnum(pLua, (int)Key::PageDown, "PageDown");
-        PushEnum(pLua, (int)Key::Right, "Right");
-        PushEnum(pLua, (int)Key::Left, "Left");
-        PushEnum(pLua, (int)Key::Down, "Down");
-        PushEnum(pLua, (int)Key::Up, "Up");
+        PushEnum(pLua, (int)Key::PrintScreen, "print_screen");
+        PushEnum(pLua, (int)Key::ScrollLock, "scroll_lock");
+        PushEnum(pLua, (int)Key::Pause, "pause");
+        PushEnum(pLua, (int)Key::Insert, "insert");
+        PushEnum(pLua, (int)Key::Home, "home");
+        PushEnum(pLua, (int)Key::PageUp, "pageup");
+        PushEnum(pLua, (int)Key::Delete, "delete");
+        PushEnum(pLua, (int)Key::End, "_end");
+        PushEnum(pLua, (int)Key::PageDown, "pagedown");
+        PushEnum(pLua, (int)Key::Right, "right");
+        PushEnum(pLua, (int)Key::Left, "left");
+        PushEnum(pLua, (int)Key::Down, "down");
+        PushEnum(pLua, (int)Key::Up, "up");
 
-        PushEnum(pLua, (int)Key::NumLock, "NumLock");
-        PushEnum(pLua, (int)Key::KpDivide, "KpDivide");
-        PushEnum(pLua, (int)Key::KpMultiply, "KpMultiply");
-        PushEnum(pLua, (int)Key::KpMinus, "KpMinus");
-        PushEnum(pLua, (int)Key::KpPlus, "KpPlus");
-        PushEnum(pLua, (int)Key::KpEnter, "KpEnter");
-        PushEnum(pLua, (int)Key::Kp1, "Kp1");
-        PushEnum(pLua, (int)Key::Kp2, "Kp2");
-        PushEnum(pLua, (int)Key::Kp3, "Kp3");
-        PushEnum(pLua, (int)Key::Kp4, "Kp4");
-        PushEnum(pLua, (int)Key::Kp5, "Kp5");
-        PushEnum(pLua, (int)Key::Kp6, "Kp6");
-        PushEnum(pLua, (int)Key::Kp7, "Kp7");
-        PushEnum(pLua, (int)Key::Kp8, "Kp8");
-        PushEnum(pLua, (int)Key::Kp9, "Kp9");
-        PushEnum(pLua, (int)Key::Kp0, "Kp0");
-        PushEnum(pLua, (int)Key::KpPeriod, "KpPeriod");
+        PushEnum(pLua, (int)Key::NumLock, "num_lock");
+        PushEnum(pLua, (int)Key::KpDivide, "kpdivide");
+        PushEnum(pLua, (int)Key::KpMultiply, "kpmultiply");
+        PushEnum(pLua, (int)Key::KpMinus, "kpminus");
+        PushEnum(pLua, (int)Key::KpPlus, "kpplus");
+        PushEnum(pLua, (int)Key::KpEnter, "kpenter");
+        PushEnum(pLua, (int)Key::Kp1, "kp1");
+        PushEnum(pLua, (int)Key::Kp2, "kp2");
+        PushEnum(pLua, (int)Key::Kp3, "kp3");
+        PushEnum(pLua, (int)Key::Kp4, "kp4");
+        PushEnum(pLua, (int)Key::Kp5, "kp5");
+        PushEnum(pLua, (int)Key::Kp6, "kp6");
+        PushEnum(pLua, (int)Key::Kp7, "kp7");
+        PushEnum(pLua, (int)Key::Kp8, "kp8");
+        PushEnum(pLua, (int)Key::Kp9, "kp9");
+        PushEnum(pLua, (int)Key::Kp0, "kp0");
+        PushEnum(pLua, (int)Key::KpPeriod, "kpperiod");
 
-        PushEnum(pLua, (int)Key::LeftCtrl, "LeftCtrl");
-        PushEnum(pLua, (int)Key::LeftShift, "LeftShift");
-        PushEnum(pLua, (int)Key::LeftAlt, "LeftAlt");
-        PushEnum(pLua, (int)Key::LeftGui, "LeftGui");
-        PushEnum(pLua, (int)Key::RightCtrl, "RightCtrl");
-        PushEnum(pLua, (int)Key::RightShift, "RightShift");
-        PushEnum(pLua, (int)Key::RightAlt, "RightAlt");
-        PushEnum(pLua, (int)Key::RightGui, "RightGui");
+        PushEnum(pLua, (int)Key::LeftCtrl, "left_ctrl");
+        PushEnum(pLua, (int)Key::LeftShift, "left_shift");
+        PushEnum(pLua, (int)Key::LeftAlt, "left_alt");
+        PushEnum(pLua, (int)Key::LeftGui, "left_gui");
+        PushEnum(pLua, (int)Key::RightCtrl, "right_ctrl");
+        PushEnum(pLua, (int)Key::RightShift, "right_shift");
+        PushEnum(pLua, (int)Key::RightAlt, "right_alt");
+        PushEnum(pLua, (int)Key::RightGui, "right_gui");
     }
     lua_setglobal(pLua, "Key");
 

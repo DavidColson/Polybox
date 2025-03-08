@@ -106,7 +106,7 @@ float dither8x8(vec2 position, float brightness)
 	{48, 16, 56, 24, 50, 18, 58, 26}, /* pattern. Each input pixel */
 	{12, 44, 4, 36, 14, 46, 6, 38}, /* is scaled to the 0..63 range */
 	{60, 28, 52, 20, 62, 30, 54, 22}, /* before looking in this table */
-	{ 3, 35, 11, 43, 1, 33, 9, 41}, /* to determine the action. */
+	{ 3, 35, 11, 43, 1, 33, 9, 41}, /* to determine th  e action. */
 	{51, 19, 59, 27, 49, 17, 57, 25},
 	{15, 47, 7, 39, 13, 45, 5, 37},
 	{63, 31, 55, 23, 61, 29, 53, 21} }; 
@@ -143,6 +143,9 @@ void main() {
 	vec4 colorTextured = color * texture(sampler2D(tex, nearestSampler), uv);
 	vec3 fog_output = mix(colorTextured.rgb, fogColor.rgb, fogDensity);
 	frag_color = vec4(fog_output, colorTextured.a);
+
+	// 32 color depth means 32 values are possible per component
+	// which is 2^5, so it's a 15 bit pixel format
 	frag_color = ditherAndPosterize(gl_FragCoord.xy, frag_color, 32);
 }
 @end

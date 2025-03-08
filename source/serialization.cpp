@@ -81,21 +81,21 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadat
 	}
 	if (lua_isuserdata(L, -1)) {
 		if (lua_getmetatable(L, -1)) {
-			lua_getfield(L, LUA_REGISTRYINDEX, "Buffer"); 
+			lua_getfield(L, LUA_REGISTRYINDEX, "UserData"); 
 			if (lua_rawequal(L, -1, -2)) {
 				lua_pop(L, 2);
-				// value on stack is a buffer
-				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
+				// value on stack is a userdata
+				UserData* pBuf = (UserData*)lua_touserdata(L, -1);
 
 				switch(pBuf->type) {
-					case BufferLib::Type::Float32: builder.Append("buffer(\"f32\""); break;
-					case BufferLib::Type::Int32: builder.Append("buffer(\"i32\""); break;
-					case BufferLib::Type::Int16: builder.Append("buffer(\"i16\""); break;
-					case BufferLib::Type::Uint8: builder.Append("buffer(\"u8\"");; break;
+					case Type::Float32: builder.Append("userdata(\"f32\""); break;
+					case Type::Int32: builder.Append("userdata(\"i32\""); break;
+					case Type::Int16: builder.Append("userdata(\"i16\""); break;
+					case Type::Uint8: builder.Append("userdata(\"u8\"");; break;
 				}
 				builder.AppendFormat(",%i,%i,\"", pBuf->width, pBuf->height);
 				switch(pBuf->type) {
-					case BufferLib::Type::Float32: {
+					case Type::Float32: {
 						f32* pFloats = (f32*)pBuf->pData;
 						for (int i = 0; i < pBuf->width*pBuf->height; i++) {
 							if (i+1 < pBuf->width*pBuf->height)
@@ -105,21 +105,21 @@ void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadat
 						}
 						break;
 					}
-					case BufferLib::Type::Int32: {
+					case Type::Int32: {
 						// 8 hex digits
 						i32* pInts = (i32*)pBuf->pData;
 						for (int i = 0; i < pBuf->width*pBuf->height; i++)
 							builder.AppendFormat("%08x", pInts[i]);
 						break;
 					}
-					case BufferLib::Type::Int16: {
+					case Type::Int16: {
 						// 4 hex digits
 						i16* pInts = (i16*)pBuf->pData;
 						for (int i = 0; i < pBuf->width*pBuf->height; i++)
 							builder.AppendFormat("%04x", pInts[i]);
 						break;
 					}
-					case BufferLib::Type::Uint8: {
+					case Type::Uint8: {
 						// two hex digits == 1 byte
 						u8* pInts = (u8*)pBuf->pData;
 						for (int i = 0; i < pBuf->width*pBuf->height; i++)
@@ -279,18 +279,18 @@ void SerializeCborRecursive(lua_State* L, ResizableArray<u8>& output) {
 	}
 	if (lua_isuserdata(L, -1)) {
 		if (lua_getmetatable(L, -1)) {
-			lua_getfield(L, LUA_REGISTRYINDEX, "Buffer"); 
+			lua_getfield(L, LUA_REGISTRYINDEX, "UserData"); 
 			if (lua_rawequal(L, -1, -2)) {
 			lua_pop(L, 2);
-				// value on stack is a buffer
-				BufferLib::Buffer* pBuf = (BufferLib::Buffer*)lua_touserdata(L, -1);
+				// value on stack is a userdata
+				UserData* pBuf = (UserData*)lua_touserdata(L, -1);
 
 				i64 udataSize = pBuf->width * pBuf->height;
 				switch(pBuf->type) {
-					case BufferLib::Type::Float32: udataSize *= sizeof(f32); break;
-					case BufferLib::Type::Int32: udataSize *= sizeof(i32); break;
-					case BufferLib::Type::Int16: udataSize *= sizeof(i16); break;
-					case BufferLib::Type::Uint8: udataSize *= sizeof(u8); break;
+					case Type::Float32: udataSize *= sizeof(f32); break;
+					case Type::Int32: udataSize *= sizeof(i32); break;
+					case Type::Int16: udataSize *= sizeof(i16); break;
+					case Type::Uint8: udataSize *= sizeof(u8); break;
 				}
 				i64 requiredSpace = udataSize + sizeof(i32) + sizeof(i32) + 1;
 
@@ -402,9 +402,9 @@ i32 Serialize(lua_State* L) {
 		i64 compressBound = LZ4_compressBound((i32)srcSize);
 		u8* pData = output.pData + 1; // skip the binary identifier bit
 
-		u8* stagingBuffer = New(g_pArenaFrame, u8, compressBound);
+		u8* stagingUserData = New(g_pArenaFrame, u8, compressBound);
 
-		i32 compressedSize = LZ4_compress_default((char*)pData, (char*)stagingBuffer, (i32)srcSize, (i32)compressBound);
+		i32 compressedSize = LZ4_compress_default((char*)pData, (char*)stagingUserData, (i32)srcSize, (i32)compressBound);
 		if (compressedSize == 0) {
 			luaL_error(L, "Compression failed");
 		}	
@@ -415,7 +415,7 @@ i32 Serialize(lua_State* L) {
 		output.PushBack(0xBC);
 		MemcpyLE((u8*)output.pData+1, (u8*)&compressedSize, 4); 			// write compressed size
 		MemcpyLE((u8*)output.pData+5, (u8*)&srcSize, 4); 				// write original size
-		MemcpyLE((u8*)output.pData+9, stagingBuffer, compressedSize); 	// write compressed data
+		MemcpyLE((u8*)output.pData+9, stagingUserData, compressedSize); 	// write compressed data
 		output.count += 8 + compressedSize;
 	}
 
@@ -444,7 +444,7 @@ i32 Serialize(lua_State* L) {
 // ***********************************************************************
 
 void ParseTextValue(lua_State* L, Scan::ScanningState& scan);
-void ParseBuffer(lua_State* L, Scan::ScanningState& scan);
+void ParseUserData(lua_State* L, Scan::ScanningState& scan);
 
 // ***********************************************************************
 
@@ -477,9 +477,9 @@ void ParseTextTable(lua_State* L, Scan::ScanningState& scan, bool isMetadata = f
 				arrayIndex++;
 				continue;
 			}
-			else if (identifier == "buffer") {
+			else if (identifier == "userdata") {
 				if (Scan::Peek(scan) == '(') {
-					ParseBuffer(L, scan);
+					ParseUserData(L, scan);
 					lua_rawseti(L, -2, arrayIndex);
 					arrayIndex++;
 					continue;
@@ -536,15 +536,15 @@ void ParseTextTable(lua_State* L, Scan::ScanningState& scan, bool isMetadata = f
 
 // ***********************************************************************
 
-void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
-	// we assume the buffer word has been parsed already
+void ParseUserData(lua_State* L, Scan::ScanningState& scan) {
+	// we assume the userdata word has been parsed already
 	// so match (
 	if (!Scan::Match(scan, '('))
-		luaL_error(L, "Expected '(' to start buffer");
+		luaL_error(L, "Expected '(' to start userdata");
 
-	i32 bufferWidth = 1;
-	i32 bufferHeight = 1;
-	BufferLib::Type bufferType = BufferLib::Type::Int32;
+	i32 userdataWidth = 1;
+	i32 userdataHeight = 1;
+	Type userdataType = Type::Int32;
 
 	// parse an identifier to get the type
 	char* pStart = scan.pCurrent;
@@ -557,28 +557,28 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 
 	i32 typeSize = 0;
 	if (identifier == "\"f32\"") {
-		bufferType = BufferLib::Type::Float32;
+		userdataType = Type::Float32;
 		typeSize = sizeof(f32);
 	}
 	else if (identifier == "\"i32\"") {
-		bufferType = BufferLib::Type::Int32;
+		userdataType = Type::Int32;
 		typeSize = sizeof(i32);
 	}
 	else if (identifier == "\"i16\"") {
-		bufferType = BufferLib::Type::Int16;
+		userdataType = Type::Int16;
 		typeSize = sizeof(i16);
 	}
 	else if (identifier == "\"u8\"") {
-		bufferType = BufferLib::Type::Uint8;
+		userdataType = Type::Uint8;
 		typeSize = sizeof(u8);
 	}
 	else {
-		luaL_error(L, "Unexpected buffer value type");
+		luaL_error(L, "Unexpected userdata value type");
 	}
 
 	Scan::Advance(scan); // ,
 	if (Scan::IsDigit(Scan::Advance(scan)))
-		bufferWidth = (i32)ParseNumber(scan);
+		userdataWidth = (i32)ParseNumber(scan);
 	else 
 		luaL_error(L, "Expected number for width");
 
@@ -586,12 +586,12 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 		luaL_error(L, "Expected ',' between arguments");
 
 	if (Scan::IsDigit(Scan::Advance(scan)))
-		bufferHeight = (i32)ParseNumber(scan);
+		userdataHeight = (i32)ParseNumber(scan);
 	else
 		luaL_error(L, "Expected number for height");
 
-	// Actually alloc the buffer
-	BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, bufferType, bufferWidth, bufferHeight);
+	// Actually alloc the userdata
+	UserData* pUserData = AllocUserData(L, userdataType, userdataWidth, userdataHeight);
 
 	if (!Scan::Match(scan, ','))
 		luaL_error(L, "Expected ',' between arguments");
@@ -606,10 +606,10 @@ void ParseBuffer(lua_State* L, Scan::ScanningState& scan) {
 	dataString.length = 0;
 	while (Scan::Advance(scan) != '\"')
 		dataString.length++;
-	BufferLib::ParseBufferDataString(L, dataString, pBuffer);
+	ParseUserDataDataString(L, dataString, pUserData);
 
 	if (!Scan::Match(scan, ')')) 
-		luaL_error(L, "Expected ')' to end buffer");
+		luaL_error(L, "Expected ')' to end userdata");
 }
 
 // ***********************************************************************
@@ -630,8 +630,8 @@ void ParseTextValue(lua_State* L, Scan::ScanningState& scan) {
 				lua_pushboolean(L, 1);
 			else if (identifier == "false")
 				lua_pushboolean(L, 0);
-			else if (identifier == "buffer") {
-				ParseBuffer(L, scan);
+			else if (identifier == "userdata") {
+				ParseUserData(L, scan);
 			}
 			else {
 				luaL_error(L, "Unexpected identifier in data %s", identifier.pData);
@@ -720,7 +720,7 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 					state.pCurrent += followingBytes;
 				}
 				break;
-			case 2: { // buffer
+			case 2: { // userdata
 				i32 dataLen = 0;
 				if (followingBytes == 0) {
 					dataLen = additionalInfo;
@@ -729,19 +729,19 @@ bool ParseCborValue(lua_State* L, CborParserState& state, i32 maxItems = -1) {
 					state.pCurrent += followingBytes;
 				}
 
-				i32 bufferWidth = 0;
-				i32 bufferHeight = 0;
-				BufferLib::Type bufferType = BufferLib::Type::Int32;
-				MemcpyLE((u8*)&bufferWidth, (u8*)state.pCurrent, 4);
+				i32 userdataWidth = 0;
+				i32 userdataHeight = 0;
+				Type userdataType = Type::Int32;
+				MemcpyLE((u8*)&userdataWidth, (u8*)state.pCurrent, 4);
 				state.pCurrent += 4;
-				MemcpyLE((u8*)&bufferHeight, (u8*)state.pCurrent, 4);
+				MemcpyLE((u8*)&userdataHeight, (u8*)state.pCurrent, 4);
 				state.pCurrent += 4;
-				MemcpyLE((u8*)&bufferType, (u8*)state.pCurrent, 1);
+				MemcpyLE((u8*)&userdataType, (u8*)state.pCurrent, 1);
 				state.pCurrent += 1;
 
-				BufferLib::Buffer* pBuffer = BufferLib::AllocBuffer(L, bufferType, bufferWidth, bufferHeight);
-				i64 bufSize = BufferLib::GetBufferSize(pBuffer);
-				MemcpyLE((u8*)pBuffer->pData, (u8*)state.pCurrent, bufSize);
+				UserData* pUserData = AllocUserData(L, userdataType, userdataWidth, userdataHeight);
+				i64 bufSize = GetUserDataSize(pUserData);
+				MemcpyLE((u8*)pUserData->pData, (u8*)state.pCurrent, bufSize);
 				state.pCurrent += bufSize;
 				break;
 			}

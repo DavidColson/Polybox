@@ -20,45 +20,49 @@ void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, JsonValue& nodeToPa
 	// table for the node itself
 	lua_newtable(L);
 
-	// @todo: might want to add 0 transforms to things that do not provide them?
-
 	// position
 	if (nodeToParse.HasKey("translation")) {
-		lua_newtable(L);
-		lua_pushnumber(L, nodeToParse["translation"][0].ToFloat());
-		lua_setfield(L, -2, "x");
-		lua_pushnumber(L, nodeToParse["translation"][1].ToFloat());
-		lua_setfield(L, -2, "y");
-		lua_pushnumber(L, nodeToParse["translation"][2].ToFloat());
-		lua_setfield(L, -2, "z");
-		lua_setfield(L, -2, "position");
+		UserData* pUserData = AllocUserData(L, Type::Float32, 3, 1);
+		f32* pFloats = (f32*)pUserData->pData;
+		pFloats[0] = (f32)nodeToParse["translation"][0].ToFloat();
+		pFloats[1] = (f32)nodeToParse["translation"][1].ToFloat();
+		pFloats[2] = (f32)nodeToParse["translation"][2].ToFloat();
 	}
+	else {
+		UserData* pUserData = AllocUserData(L, Type::Float32, 3, 1);
+	}
+	lua_setfield(L, -2, "position");
 
 	// rotation
 	if (nodeToParse.HasKey("rotation")) {
-		lua_newtable(L);
-		lua_pushnumber(L, nodeToParse["rotation"][0].ToFloat());
-		lua_setfield(L, -2, "x");
-		lua_pushnumber(L, nodeToParse["rotation"][1].ToFloat());
-		lua_setfield(L, -2, "y");
-		lua_pushnumber(L, nodeToParse["rotation"][2].ToFloat());
-		lua_setfield(L, -2, "z");
-		lua_pushnumber(L, nodeToParse["rotation"][3].ToFloat());
-		lua_setfield(L, -2, "w");
-		lua_setfield(L, -2, "rotation");
+		UserData* pUserData = AllocUserData(L, Type::Float32, 4, 1);
+		f32* pFloats = (f32*)pUserData->pData;
+		pFloats[0] = (f32)nodeToParse["rotation"][0].ToFloat();
+		pFloats[1] = (f32)nodeToParse["rotation"][1].ToFloat();
+		pFloats[2] = (f32)nodeToParse["rotation"][2].ToFloat();
+		pFloats[3] = (f32)nodeToParse["rotation"][3].ToFloat();
 	}
+	else {
+		UserData* pUserData = AllocUserData(L, Type::Float32, 4, 1);
+	}
+	lua_setfield(L, -2, "rotation");
 
 	// scale
 	if (nodeToParse.HasKey("scale")) {
-		lua_newtable(L);
-		lua_pushnumber(L, nodeToParse["scale"][0].ToFloat());
-		lua_setfield(L, -2, "x");
-		lua_pushnumber(L, nodeToParse["scale"][1].ToFloat());
-		lua_setfield(L, -2, "y");
-		lua_pushnumber(L, nodeToParse["scale"][2].ToFloat());
-		lua_setfield(L, -2, "z");
-		lua_setfield(L, -2, "scale");
+		UserData* pUserData = AllocUserData(L, Type::Float32, 3, 1);
+		f32* pFloats = (f32*)pUserData->pData;
+		pFloats[0] = (f32)nodeToParse["scale"][0].ToFloat();
+		pFloats[1] = (f32)nodeToParse["scale"][1].ToFloat();
+		pFloats[2] = (f32)nodeToParse["scale"][2].ToFloat();
 	}
+	else {
+		UserData* pUserData = AllocUserData(L, Type::Float32, 3, 1);
+		f32* pFloats = (f32*)pUserData->pData;
+		pFloats[0] = 1.0f;
+		pFloats[1] = 1.0f;
+		pFloats[2] = 1.0f;
+	}
+	lua_setfield(L, -2, "scale");
 
 	// mesh identifier
 	if (nodeToParse.HasKey("mesh")) {

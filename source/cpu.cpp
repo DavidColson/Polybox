@@ -42,7 +42,8 @@ declare class UserData
 end
 
 @checked declare function userdata(type: string, width: number, heightOrDataStr: number|string?, dataStr: string?): UserData
-@checked declare function vec(...: number): UserData
+@checked declare function vec(x: number, y: number, z: number): UserData
+@checked declare function quat(x: number, y: number, z: number, w: number): UserData
 
 --- Graphics API
 

@@ -42,9 +42,9 @@ function iterate_scene(scene:any, iter: (string,any)->())
         matrix_mode("Model")
 		push_matrix()
 
-		if v.position ~= nil then translate(v.position.x, v.position.y, v.position.z) end
-		if v.scale ~= nil then scale(v.scale.x, v.scale.y, v.scale.z) end
-        if v.rotation ~= nil then rotate(quat_to_euler(v.rotation)) end
+		translate(v.position.x, v.position.y, v.position.z) 
+		scale(v.scale.x, v.scale.y, v.scale.z) 
+        rotate(quat_to_euler(v.rotation))
 
 		iter(k,v)
 		if v.children ~= nil then
@@ -79,7 +79,7 @@ function start()
 	state.blob = load("systemroot/tank_demo/blob.texture")
 end
 
-function quat_to_euler(q:{x:number,y:number,z:number,w:number}): (number,number,number)
+function quat_to_euler(q:UserData): (number,number,number)
 	local x = math.atan2(2* (q.w*q.x + q.y*q.z), 1 - 2*(q.x*q.x+q.y*q.y))
 	local y = math.asin(2*(q.w*q.y-q.z*q.x))
 	local z = math.atan2(2* (q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y+q.z*q.z))

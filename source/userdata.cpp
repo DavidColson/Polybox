@@ -101,6 +101,7 @@ UserData* AllocUserData(lua_State* L, Type type, i32 width, i32 height) {
 
 	i32 bufSize = width * height * typeSize;
 	UserData* pUserData = (UserData*)lua_newuserdata(L, sizeof(UserData) + bufSize);
+	memset(pUserData, 0, sizeof(UserData) + bufSize);
 	pUserData->pData = (u8*)pUserData + sizeof(UserData);
 	pUserData->width = width;
 	pUserData->height = height;
@@ -212,7 +213,7 @@ void ParseUserDataDataString(lua_State* L, String dataString, UserData* pUserDat
 				number[5] = *scan.pCurrent++;
 				number[6] = *scan.pCurrent++;
 				number[7] = *scan.pCurrent++;
-				*pData = (i32)strtol(number, nullptr, 16);
+				*pData = (i32)strtoul(number, nullptr, 16);
 				pData++;
 			}
 			Scan::Advance(scan);
@@ -227,7 +228,7 @@ void ParseUserDataDataString(lua_State* L, String dataString, UserData* pUserDat
 				number[1] = *scan.pCurrent++;
 				number[2] = *scan.pCurrent++;
 				number[3] = *scan.pCurrent++;
-				*pData = (i16)strtol(number, nullptr, 16);
+				*pData = (i16)strtoul(number, nullptr, 16);
 				pData++;
 			}
 			Scan::Advance(scan);
@@ -240,7 +241,7 @@ void ParseUserDataDataString(lua_State* L, String dataString, UserData* pUserDat
 			while (!Scan::IsAtEnd(scan)) {
 				number[0] = *scan.pCurrent++;
 				number[1] = *scan.pCurrent++;
-				*pData = (u8)strtol(number, nullptr, 16);
+				*pData = (u8)strtoul(number, nullptr, 16);
 				pData++;
 			}
 			Scan::Advance(scan);
@@ -304,15 +305,20 @@ i32 NewUserData(lua_State* L) {
 // ***********************************************************************
 
 i32 NewVec(lua_State* L) {
-	i32 nArgs = lua_gettop(L);
 	UserData* pUserData = AllocUserData(L, Type::Float32, 3, 1);
-	if (nArgs > 0)
-		SetImpl(L, pUserData, 0, 1);
+	SetImpl(L, pUserData, 0, 1);
 	return 1;
 }
 
 // ***********************************************************************
 
+i32 NewQuat(lua_State* L) {
+	UserData* pUserData = AllocUserData(L, Type::Float32, 4, 1);
+	SetImpl(L, pUserData, 0, 1);
+	return 1;
+}
+
+// ***********************************************************************
 i32 Set(lua_State* L) {
     UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
     i32 index = (i32)luaL_checkinteger(L, 2);
@@ -382,10 +388,10 @@ i32 Index(lua_State* L) {
     const char* str = luaL_checklstring(L, 2, &len);
 
 	i32 index = -1;
-	if (strcmp(str, "x") == 0) { index = 0; }
-	else if (strcmp(str, "y") == 0) { index = 1; }
-	else if (strcmp(str, "z") == 0) { index = 2; }
-	else if (strcmp(str, "w") == 0) { index = 3; }
+	if (strcmp(str, "x") == 0 || strcmp(str, "r") == 0) { index = 0; }
+	else if (strcmp(str, "y") == 0 || strcmp(str, "g") == 0) { index = 1; }
+	else if (strcmp(str, "z") == 0 || strcmp(str, "b") == 0) { index = 2; }
+	else if (strcmp(str, "w") == 0 || strcmp(str, "a") == 0) { index = 3; }
 
 	if (index >= 0) {
 		return GetImpl(L, pUserData, index, 1);
@@ -675,6 +681,7 @@ void BindUserData(lua_State* L) {
     const luaL_Reg globalFuncs[] = {
         { "userdata", NewUserData },
         { "vec", NewVec },
+        { "quat", NewQuat },
         { NULL, NULL }
     };
 

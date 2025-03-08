@@ -3,10 +3,12 @@ setlocal enabledelayedexpansion
 
 :: unpack arguments
 for %%a in (%*) do set "%%a=1"
-if not "%release%"=="1" set debug=1
 
+if not "%release%"=="1" set debug=1
 if "%debug%"=="1"     set cmake_config=Debug
 if "%release%"=="1"   set cmake_config=Release
+
+if not "%build_luau%"=="1" set build_luau=0 
 
 :: build shaders
 echo ----- Compiling Shaders ------
@@ -35,9 +37,9 @@ set cl_libs= !cl_libs! /libpath:..\source\third_party\luau\cmake\%cmake_config%\
 
 :: compile/link options
 set cl_common= %cl_includes% /Zc:preprocessor /std:c++20 /Bt /GR- /W3 /WX
-set cl_debug= call cl /Od /Ob0 /Zi /MDd %cl_common%
+set cl_debug= call cl /Od /Ob0 /Zi /MDd /fsanitize=address %cl_common%
 set cl_release= call cl /O2 /Ob2 /MD /DNDEBUG %cl_common%
-set cl_link= /link /subsystem:console %cl_libs% /natvis:..\source\third_party\luau\tools\natvis\VM.natvis
+set cl_link= /link /incremental:no /subsystem:console %cl_libs% /natvis:..\source\third_party\luau\tools\natvis\VM.natvis
 if "%debug%"=="1"     set compile=%cl_debug%
 if "%release%"=="1"   set compile=%cl_release%
 
@@ -45,12 +47,10 @@ if "%release%"=="1"   set compile=%cl_release%
 if not exist build mkdir build
 
 :: compile luau
-:: @todo: provide an argument to force luau to compile
-set luau_libs_exist=1
-if not exist source\third_party\luau\cmake\%cmake_config%\Luau.VM.lib set luau_libs_exist=0
-if not exist source\third_party\luau\cmake\%cmake_config%\Luau.Compiler.lib set luau_libs_exist=0
-if not exist source\third_party\luau\cmake\%cmake_config%\Luau.Analysis.lib set luau_libs_exist=0
-if %luau_libs_exist%==0 (
+if not exist source\third_party\luau\cmake\%cmake_config%\Luau.VM.lib set build_luau=1
+if not exist source\third_party\luau\cmake\%cmake_config%\Luau.Compiler.lib set build_luau=1
+if not exist source\third_party\luau\cmake\%cmake_config%\Luau.Analysis.lib set build_luau=1
+if %build_luau%==1 (
 	echo ------- Compiling Luau -------
 	echo ------------------------------
 	pushd source\third_party\luau

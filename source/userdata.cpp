@@ -338,17 +338,19 @@ i32 Set2D(lua_State* L) {
 // ***********************************************************************
 
 i32 Get(lua_State* L) {
-	//TODO: bounds checking
     UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
     i32 index = (i32)luaL_checkinteger(L, 2);
 	i32 count = (i32)luaL_checkinteger(L, 3);
+	if (index + count > pUserData->width * pUserData->height) {
+		luaL_error(L, "Out of bounds read on userdata with size (%d,%d) at index %d", pUserData->width, pUserData->height, index);
+		return 0;
+	}
 	return GetImpl(L, pUserData, index, count);
 }
 
 // ***********************************************************************
 
 i32 Get2D(lua_State* L) {
-	//TODO: bounds checking
     UserData* pUserData = (UserData*)luaL_checkudata(L, 1, "UserData");
 	if (pUserData->height == 1) {
 		luaL_error(L, "Get2D is only valid on 2-dimensional userdatas");
@@ -357,7 +359,12 @@ i32 Get2D(lua_State* L) {
     i32 x = (i32)luaL_checkinteger(L, 2);
     i32 y = (i32)luaL_checkinteger(L, 3);
 	i32 count = (i32)luaL_checkinteger(L, 3);
-	return GetImpl(L, pUserData, pUserData->width * y + x, count);
+	i32 index = pUserData->width * y + x;
+	if (index + count > pUserData->width * pUserData->height) {
+		luaL_error(L, "Out of bounds read on userdata with size (%d,%d) at index (%d,%d)", pUserData->width, pUserData->height, x, y);
+		return 0;
+	}
+	return GetImpl(L, pUserData, index, count);
 }
 
 // ***********************************************************************

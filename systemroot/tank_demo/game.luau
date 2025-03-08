@@ -120,7 +120,7 @@ function update()
 
 		begin_object_3d("Triangles")
 		local vertices = state[obj.mesh].vertices
-		for i = 0, vertices:size(), floatsPerVertex do
+		for i = 0, vertices:size()-1, floatsPerVertex do
 			-- 0-2 is position
 			-- 3-6 is color
 			-- 7-8 is texcoord
@@ -153,7 +153,7 @@ function update()
 
 		begin_object_3d("Triangles")
 		local vertices = state[v.obj.mesh].vertices
-		for i = 0, vertices:size(), floatsPerVertex do
+		for i = 0, vertices:size()-1, floatsPerVertex do
 			normal(vertices:get(i+9, 3))
 			color(vertices:get(i+3, 4))
 			texcoord(vertices:get(i+7, 2))

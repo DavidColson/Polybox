@@ -1,5 +1,5 @@
 @echo off
 setlocal
 
-build\polybox.exe
+build\polybox.exe -start tank_demo
 

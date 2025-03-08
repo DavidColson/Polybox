@@ -2,8 +2,6 @@
 
 struct lua_State;
 
-namespace Serialization {
-
+i32 Serialize(lua_State* L);
+int Deserialize(lua_State* L);
 void BindSerialization(lua_State* L);
-
-}

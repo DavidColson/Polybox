@@ -250,7 +250,10 @@ namespace Cpu {
 
 struct State {
 	Arena* pArena;
+	bool appLoaded;
+
 	lua_State* pProgramState;
+	String appName;
 };
 
 State* pState = nullptr;
@@ -315,13 +318,35 @@ void Init() {
 	Arena* pArena = ArenaCreate();
 	pState = New(pArena, State);
 	pState->pArena = pArena;
+	pState->appLoaded = false;
 }
 
 // ***********************************************************************
 
-void CompileAndLoadProgram(String path) {
+void CompileAndLoadProgram(String appName) {
 	// eventually we'll support multiple independant programs running on the cpu, 
 	// and each will have it's own lua state, but for now there's just one
+	if (appName.length == 0) {
+		Log::Warn("No app specified to boot");
+		return;
+	}
+
+	if (appName == "shared") {
+		Log::Warn("\"shared\" is not a valid name for a project, this conflicts with system folders");
+		return;
+	}
+
+	// search for a project in system/ with appname
+	StringBuilder builder(g_pArenaFrame);
+	builder.Append("system/");
+	builder.Append(appName);
+	builder.Append("/main.luau");
+	String appMainPath = builder.CreateString(g_pArenaFrame);
+
+	if (!FileExists(appMainPath)) {
+		Log::Warn("A main.lua file for project '%s' could not be found", appName.pData);
+		return;
+	}
 
 	pState->pProgramState = lua_newstate(LuaAllocator, nullptr);
 	lua_State* L = pState->pProgramState;
@@ -331,7 +356,8 @@ void CompileAndLoadProgram(String path) {
 	Bind::BindGraphics(L);
 	Bind::BindInput(L);
 	BindUserData(L);
-	Serialization::BindSerialization(L);
+	BindSerialization(L);
+	BindFileSystem(L);
 
 	// type checking
 	bool wasError = false;
@@ -363,7 +389,7 @@ void CompileAndLoadProgram(String path) {
 		}
 
 		// run check
-		Luau::CheckResult result = frontend.check(path.pData);
+		Luau::CheckResult result = frontend.check(appMainPath.pData);
 
 		if (!result.errors.empty())
 			wasError = true;
@@ -378,19 +404,20 @@ void CompileAndLoadProgram(String path) {
 		}
 
 		for (Luau::LintWarning& error : result.lintResult.errors) {
-			Log::Warn("LintError in [%s:%d] (%s) - %s", path.pData, error.location.begin.line + 1,
+			Log::Warn("LintError in [%s:%d] (%s) - %s", appMainPath.pData, error.location.begin.line + 1,
 				  Luau::LintWarning::getName(error.code), error.text.c_str());
 		}
 		
 		for (Luau::LintWarning& error : result.lintResult.warnings) {
-			Log::Warn("LintWarning in [%s:%d] (%s) - %s", path.pData, error.location.begin.line + 1,
+			Log::Warn("LintWarning in [%s:%d] (%s) - %s", appMainPath.pData, error.location.begin.line + 1,
 				  Luau::LintWarning::getName(error.code), error.text.c_str());
 		}
 	}
 
 	// Compile and load the program
 	if (wasError == false) {
-		SDL_RWops* pFileRead = SDL_RWFromFile(path.pData, "rb");
+
+		SDL_RWops* pFileRead = SDL_RWFromFile(appMainPath.pData, "rb");
 		u64 sourceSize = SDL_RWsize(pFileRead);
 		char* pSource = New(g_pArenaFrame, char, sourceSize);
 		SDL_RWread(pFileRead, pSource, sourceSize, 1);
@@ -399,23 +426,29 @@ void CompileAndLoadProgram(String path) {
 
 		u64 bytecodeSize = 0;
 		char* pBytecode = luau_compile(pSource, sourceSize, nullptr, &bytecodeSize);
-		int result = luau_load(L, "assets/game.lua", pBytecode, bytecodeSize, 0);
+		int result = luau_load(L, appMainPath.pData, pBytecode, bytecodeSize, 0);
 
 		if (result != 0) {
 			Log::Warn("Lua Load Error: %s", lua_tostring(L, lua_gettop(L)));
 			lua_pop(L, 1);
+			return;
 		}
 
 		if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
 			Log::Warn("Lua Runtime Error: %s", lua_tostring(L, lua_gettop(L)));
 			lua_pop(L, 1);
+			return;
 		}
+		pState->appLoaded = true;
+		pState->appName = appName;
 	}
 }
 
 // ***********************************************************************
 
 void Start() {
+	if (!pState->appLoaded) return;
+
 	lua_State* L = pState->pProgramState;
 	lua_getglobal(L, "start");
 	if (lua_isfunction(L, -1)) {
@@ -429,6 +462,8 @@ void Start() {
 // ***********************************************************************
 
 void Tick(f32 deltaTime) {
+	if (!pState->appLoaded) return;
+
 	lua_State* L = pState->pProgramState;
 	lua_getglobal(L, "update");
 	if (lua_isfunction(L, -1)) {
@@ -445,6 +480,8 @@ void Tick(f32 deltaTime) {
 // ***********************************************************************
 
 void Close() {
+	if (!pState->appLoaded) return;
+
 	lua_State* L = pState->pProgramState;
 	lua_getglobal(L, "close");
 	if (lua_isfunction(L, -1)) {

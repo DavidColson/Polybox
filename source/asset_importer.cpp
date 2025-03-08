@@ -172,7 +172,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	// Create a lua state, seems a bit odd here I know, but the serialization code is designed to work
 	// on lua tables, and so we're just using the lua state to hold those tables, won't actually run any lua code really
 	lua_State* L = lua_newstate(LuaAllocator, nullptr);
-	Serialization::BindSerialization(L);
+	BindSerialization(L);
 	BindUserData(L);
 
 	// -------------------------------------

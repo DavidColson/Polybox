@@ -83,6 +83,8 @@
 #include "rect_packing.h"
 #include "serialization.h"
 #include "shapes.h"
+#include "filesystem.h"
+#include "platform.h"
 
 // code
 #include "asset_importer.cpp"
@@ -96,6 +98,8 @@
 #include "rect_packing.cpp"
 #include "serialization.cpp"
 #include "shapes.cpp"
+#include "filesystem.cpp"
+#include "platform_win32.cpp"
 
 
 // ***********************************************************************
@@ -163,8 +167,10 @@ int main(int argc, char* argv[]) {
 	log.customHandler1 = AssertHandler;
 	Log::SetConfig(log);
 
+	String startupAppName;
+
 	if (argc > 1) {
-		if (strcmp(argv[1], "import") == 0) {
+		if (strcmp(argv[1], "-import") == 0) {
 			if (argc < 4) {
 				Log::Info("required format for import is \"import [-t|-b|-c|-bt] path/source_filename.file path/output_filename.file\"");
 				Log::Info("-t: text     -b: binary uncompressed      -c: binary compressed  -bt: base64 encoded binary");
@@ -189,95 +195,115 @@ int main(int argc, char* argv[]) {
 				fileArg = 2;
 			}
 
-			// TODO: if paths are given instead of files, process the whole folder instead
+			// @TODO: if paths are given instead of files, process the whole folder instead
 			Arena* pArena = ArenaCreate();
 			i32 result = AssetImporter::Import(pArena, format, String(argv[fileArg]), String(argv[fileArg+1]));
 			if (result >= 0) 
 				Log::Info("Import succeeded");
-			else 
+				else 
 				Log::Info("Import failed");
 
 			ArenaFinished(pArena);
 			return result;
 		}
+		else if (strcmp(argv[1], "-new") == 0) {
+			// make a new project
+		}
+		else if (strcmp(argv[1], "-start") == 0) {
+			startupAppName = String(argv[2]);
+		}
 		else {
-			Log::Info("Supported commands are currently just \"-import\", enter it without args to get help");
+			Log::Info("Valid commands are:");
+			Log::Info(" ");
+			Log::Info("-start [project_name]:");
+			Log::Info(" ");
+			Log::Info("	Start polybox booting directly into the named app");
+			Log::Info(" ");
+			Log::Info("-new [project_name]:");
+			Log::Info(" ");
+			Log::Info("	Create a new project with the given name");
+			Log::Info(" ");
+			Log::Info("-import [-t|-b|-c|-bt] path/source.file path/output.file");
+			Log::Info(" ");
+			Log::Info("	Import a raw asset into the polybox formats");
+			Log::Info("	-t: text     -b: binary uncompressed      -c: binary compressed  -bt: base64 encoded binary");
+			Log::Info("	will default to -c");
 			return 1;
 		}
 	}
-	else {
-		i32 winWidth = 1280;
-		i32 winHeight = 720;
 
-		SDL_Window* pWindow = SDL_CreateWindow(
-			"Polybox",
-			SDL_WINDOWPOS_UNDEFINED,
-			SDL_WINDOWPOS_UNDEFINED,
-			i32(winWidth),
-			i32(winHeight),
-			SDL_WINDOW_RESIZABLE);
 
-		Cpu::Init();
-		GraphicsInit(pWindow, winWidth, winHeight);
-		InputInit();
+	i32 winWidth = 1280;
+	i32 winHeight = 720;
 
-		Cpu::CompileAndLoadProgram("systemroot/tank_demo/game.luau");
-		Cpu::Start();
+	SDL_Window* pWindow = SDL_CreateWindow(
+		"Polybox",
+		SDL_WINDOWPOS_UNDEFINED,
+		SDL_WINDOWPOS_UNDEFINED,
+		i32(winWidth),
+		i32(winHeight),
+		SDL_WINDOW_RESIZABLE);
 
-		bool gameRunning = true;
-		f32 deltaTime = 0.016f;
-		Vec2i relativeMouseStartLocation { Vec2i(0, 0) };
-		bool isCapturingMouse = false;
-		while (gameRunning) {
-			Uint64 frameStart = SDL_GetPerformanceCounter();
+	Cpu::Init();
+	GraphicsInit(pWindow, winWidth, winHeight);
+	InputInit();
 
-			ClearStates();
-			// Deal with events
-			SDL_Event event;
-			while (SDL_PollEvent(&event)) {
-				ProcessEvent(&event);
-				switch (event.type) {
-					case SDL_KEYDOWN: {
-						if (event.key.keysym.scancode == SDL_SCANCODE_TAB && event.key.keysym.mod & KMOD_LSHIFT) {
-							isCapturingMouse = !isCapturingMouse;
-							if (isCapturingMouse) {
-								SDL_GetGlobalMouseState(&relativeMouseStartLocation.x, &relativeMouseStartLocation.y);
-								SDL_SetRelativeMouseMode(SDL_TRUE);
-							} else {
-								SDL_SetRelativeMouseMode(SDL_FALSE);
-								SDL_WarpMouseGlobal(relativeMouseStartLocation.x, relativeMouseStartLocation.y);
-							}
+	Cpu::CompileAndLoadProgram(startupAppName);
+	Cpu::Start();
+
+	bool gameRunning = true;
+	f32 deltaTime = 0.016f;
+	Vec2i relativeMouseStartLocation { Vec2i(0, 0) };
+	bool isCapturingMouse = false;
+	while (gameRunning) {
+		Uint64 frameStart = SDL_GetPerformanceCounter();
+
+		ClearStates();
+		// Deal with events
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+			ProcessEvent(&event);
+			switch (event.type) {
+				case SDL_KEYDOWN: {
+					if (event.key.keysym.scancode == SDL_SCANCODE_TAB && event.key.keysym.mod & KMOD_LSHIFT) {
+						isCapturingMouse = !isCapturingMouse;
+						if (isCapturingMouse) {
+							SDL_GetGlobalMouseState(&relativeMouseStartLocation.x, &relativeMouseStartLocation.y);
+							SDL_SetRelativeMouseMode(SDL_TRUE);
+						} else {
+							SDL_SetRelativeMouseMode(SDL_FALSE);
+							SDL_WarpMouseGlobal(relativeMouseStartLocation.x, relativeMouseStartLocation.y);
 						}
-					} break;
-					case SDL_WINDOWEVENT:
-						switch (event.window.event) {
-							case SDL_WINDOWEVENT_CLOSE:
-								gameRunning = false;
-								break;
-							default:
-								break;
-						}
+					}
+				} break;
+				case SDL_WINDOWEVENT:
+					switch (event.window.event) {
+						case SDL_WINDOWEVENT_CLOSE:
+							gameRunning = false;
 						break;
-					case SDL_QUIT:
-						gameRunning = false;
+						default:
 						break;
-				}
+					}
+				break;
+				case SDL_QUIT:
+					gameRunning = false;
+				break;
 			}
-			UpdateInputs(deltaTime, Vec2f(320.0f, 240.0f), Vec2f((f32)winWidth, (f32)winHeight));
-
-			Cpu::Tick(deltaTime);
-
-			DrawFrame(winWidth, winHeight);
-
-			deltaTime = f32(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();
-
-			ArenaReset(g_pArenaFrame);
 		}
+		UpdateInputs(deltaTime, Vec2f(320.0f, 240.0f), Vec2f((f32)winWidth, (f32)winHeight));
 
-		Cpu::Close();
-		Shutdown();
+		Cpu::Tick(deltaTime);
 
+		DrawFrame(winWidth, winHeight);
+
+		deltaTime = f32(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();
+
+		ArenaReset(g_pArenaFrame);
 	}
+
+	Cpu::Close();
+	Shutdown();
+
 	i32 n = ReportMemoryLeaks();
 
 	ArenaFinished(g_pArenaFrame);

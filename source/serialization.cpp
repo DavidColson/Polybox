@@ -1,7 +1,5 @@
 // Copyright David Colson. All rights reserved.
 
-namespace Serialization {
-
 // ***********************************************************************
 
 void SerializeTextRecursive(lua_State* L, StringBuilder& builder, bool isMetadata = false) {
@@ -925,58 +923,15 @@ int Deserialize(lua_State* L) {
 
 // ***********************************************************************
 
-int Store(lua_State* L) {
-	u64 filenameLen;
-	const char* filename = luaL_checklstring(L, 1, &filenameLen);
-
-	Serialize(L);
-
-	// string is now on the stack
-	u64 contentLen;
-	const char* content = lua_tolstring(L, -1, &contentLen);
-
-	SDL_RWops* pFile = SDL_RWFromFile(filename, "wb");
-	SDL_RWwrite(pFile, content, contentLen, 1);
-	SDL_RWclose(pFile);
-	return 0;
-}
-
-// ***********************************************************************
-
-int Load(lua_State* L) {
-	u64 filenameLen;
-	const char* filename = luaL_checklstring(L, 1, &filenameLen);
-
-    SDL_RWops* pFile = SDL_RWFromFile(filename, "rb");
-	if (pFile == nullptr) {
-		Log::Warn("Unable to load %s", filename);
-		return 0;
-	}
-
-    u64 fileSize = SDL_RWsize(pFile);
-    char* pFileContent = New(g_pArenaFrame, char, fileSize);
-    SDL_RWread(pFile, pFileContent, fileSize, 1);
-    SDL_RWclose(pFile);
-
-	lua_pushlstring(L, pFileContent, fileSize);
-	return Deserialize(L);
-}
-
-// ***********************************************************************
-
 void BindSerialization(lua_State* L) {
 	// register global functions
 	const luaL_Reg globalFuncs[] = {
 		{ "serialize", Serialize },
 		{ "deserialize", Deserialize },
-		{ "store", Store },
-		{ "load", Load },
 		{ NULL, NULL }
 	};
 
 	lua_pushvalue(L, LUA_GLOBALSINDEX);
 	luaL_register(L, NULL, globalFuncs);
 	lua_pop(L, 1);
-}
-
 }

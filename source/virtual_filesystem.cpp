@@ -114,6 +114,59 @@ int VfsRemove(lua_State* L) {
 
 // ***********************************************************************
 
+int VfsCopy(lua_State* L) {
+	u64 fromLen;
+	const char* from = luaL_checklstring(L, 1, &fromLen);
+	String realFrom; 
+	if (!VFSPathToRealPath(String(from), realFrom, g_pArenaFrame)) {
+		luaL_error(L, "Filepath not in a valid mount point", from);
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+	u64 toLen;
+	const char* to = luaL_checklstring(L, 2, &toLen);
+	String realTo; 
+	if (!VFSPathToRealPath(String(to), realTo, g_pArenaFrame)) {
+		luaL_error(L, "Filepath not in a valid mount point", to);
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+
+	bool result = CopyFile(realFrom, realTo);
+	lua_pushboolean(L, result);
+	return 1;
+}
+
+// ***********************************************************************
+
+int VfsMove(lua_State* L) {
+	u64 fromLen;
+	const char* from = luaL_checklstring(L, 1, &fromLen);
+	String realFrom; 
+	if (!VFSPathToRealPath(String(from), realFrom, g_pArenaFrame)) {
+		luaL_error(L, "Filepath not in a valid mount point", from);
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+	u64 toLen;
+	const char* to = luaL_checklstring(L, 2, &toLen);
+	String realTo; 
+	if (!VFSPathToRealPath(String(to), realTo, g_pArenaFrame)) {
+		luaL_error(L, "Filepath not in a valid mount point", to);
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+
+	bool result = MoveFile(realFrom, realTo);
+	lua_pushboolean(L, result);
+	return 1;
+}
+// ***********************************************************************
+
 void BindFileSystem(lua_State* L) {
 
 	const luaL_Reg globalFuncs[] = {
@@ -121,8 +174,8 @@ void BindFileSystem(lua_State* L) {
 		{ "load", VfsLoad },
 		{ "make_directory", VfsMakeDirectory },
 		{ "remove", VfsRemove },
-		// { "copy", VfsCopy },
-		// { "move", VfsMove },
+		{ "copy", VfsCopy },
+		{ "move", VfsMove },
 		// { "list_directory", VfsListDirectory },
 		{ NULL, NULL }
 	};

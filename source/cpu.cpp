@@ -12,6 +12,8 @@ static const String polyboxDefinitions = R"POLY_LIBS(
 @checked declare function load(filename: string): (any, any?)
 @checked declare function make_directory(filename: string, makeAll: boolean): boolean
 @checked declare function remove(filename: string): boolean
+@checked declare function copy(from: string, to: string): boolean
+@checked declare function move(from: string, to: string): boolean
 
 --- Usedata API
 

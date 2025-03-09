@@ -359,7 +359,7 @@ i32 Serialize(lua_State* L) {
 
 	String metaData;
 
-	if (lua_gettop(L) >= 3) {
+	if (lua_gettop(L) > (isStore ? 3 : 2)) {
 		StringBuilder builder(g_pArenaFrame);
 		SerializeTextRecursive(L, builder, true);
 		metaData = builder.CreateString(g_pArenaFrame);

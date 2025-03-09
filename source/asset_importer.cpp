@@ -153,11 +153,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 
 	// Load file
 	String fileContents;
-    SDL_RWops* pFile = SDL_RWFromFile(source.pData, "rb");
-	fileContents.length = SDL_RWsize(pFile);
-    fileContents.pData = New(pScratchArena, char, fileContents.length);
-    SDL_RWread(pFile, fileContents.pData, fileContents.length, 1);
-    SDL_RWclose(pFile);
+    fileContents.pData = ReadWholeFile(source.pData, &fileContents.length, pScratchArena);
 
 	// ParseJson
     JsonValue parsed = ParseJsonFile(pScratchArena, fileContents);
@@ -200,9 +196,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		result.pData = (char*)lua_tolstring(L, -1, &len); 
 		result.length = (i64)len;
 
-		SDL_RWops* pOutFile = SDL_RWFromFile(output.pData, "wb");
-		SDL_RWwrite(pOutFile, result.pData, result.length, 1);
-		SDL_RWclose(pOutFile);
+		WriteWholeFile(output, result.pData, result.length);
 		Log::Info("	Exported %s", output.pData);
 	}
 	lua_pop(L, 1); // pop the scene table, we're done with it now
@@ -381,9 +375,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		builder.Append(meshName);
 		builder.Append(".mesh");
 		String outputFileName = builder.CreateString(pScratchArena);
-		SDL_RWops* pOutFile = SDL_RWFromFile(outputFileName.pData, "wb");
-		SDL_RWwrite(pOutFile, result.pData, result.length, 1);
-		SDL_RWclose(pOutFile);
+		WriteWholeFile(outputFileName, result.pData, result.length);
 
 		Log::Info("	Exported %s", outputFileName.pData);
 		lua_pop(L, 1); // pop the mesh table, we're done with it now
@@ -438,9 +430,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			builder.Append(imageName);
 			builder.Append(".texture");
 			String outputFileName = builder.CreateString(pScratchArena);
-			SDL_RWops* pOutFile = SDL_RWFromFile(outputFileName.pData, "wb");
-			SDL_RWwrite(pOutFile, result.pData, result.length, 1);
-			SDL_RWclose(pOutFile);
+			WriteWholeFile(outputFileName, result.pData, result.length);
 
 			Log::Info("	Exported %s",outputFileName.pData);
 			stbi_image_free(pData);

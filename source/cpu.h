@@ -5,9 +5,10 @@ struct String;
 namespace Cpu {
 
 void Init();
-void CompileAndLoadProgram(String path);
+void CompileAndLoadApp(String appName);
 void Start();
 void Tick(f32 deltaTime);
 void Close();
+String GetAppName();
 
 };

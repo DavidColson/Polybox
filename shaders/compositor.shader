@@ -67,8 +67,8 @@ void main()
 	float vig = (0.0 + 16.0 * uv.x * uv.y * (1.0 - uv.x) * (1.0 - uv.y));
 
 	// Offsets for each colour channel lookup, use the vignette value to make the chromatic abberation worse at the edge of the screen
-	vec4 colorOffX = vec4(0.0015, 0.0, -0.0017, 0.0) * (1.0 - pow(vig, 0.8) + 0.3);
-	vec4 colorOffY = vec4(0.0, -0.0016, 0.0, 0.0) * (1.0 - pow(vig, 0.8) + 0.3);
+	vec4 colorOffX = vec4(0.0015, 0.0, -0.0017, 0.0) * (1.0 - pow(abs(vig), 0.8) + 0.3);
+	vec4 colorOffY = vec4(0.0, -0.0016, 0.0, 0.0) * (1.0 - pow(abs(vig), 0.8) + 0.3);
 	//colorOffX = vec4(0.0, 0.0, 0.0, 0.0);
 	//colorOffY = vec4(0.0, 0.0, 0.0, 0.0);
 
@@ -92,7 +92,7 @@ void main()
 	col = clamp(col*0.6+0.4*col*col*1.0,0.0,1.0);
 
 	// Apply the vignette darkening
-	col *= pow(vig, 0.3);
+	col *= pow(abs(vig), 0.3);
 	col *= 2.5;
 
 	// Draw scanlines

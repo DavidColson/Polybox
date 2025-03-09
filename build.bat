@@ -36,7 +36,7 @@ set cl_libs= /libpath:..\source\third_party\SDL2\lib\x64\
 set cl_libs= !cl_libs! /libpath:..\source\third_party\luau\cmake\%cmake_config%\
 
 :: compile/link options
-set cl_common= %cl_includes% /Zc:preprocessor /std:c++20 /Bt /GR- /W3 /WX
+set cl_common= %cl_includes% /Zc:preprocessor /std:c++20 /Bt /GR- /W3 /WX /FC
 set cl_debug= call cl /Od /Ob0 /Zi /MDd /fsanitize=address %cl_common%
 set cl_release= call cl /O2 /Ob2 /MD /DNDEBUG %cl_common%
 set cl_link= /link /incremental:no /subsystem:console %cl_libs% /natvis:..\source\third_party\luau\tools\natvis\VM.natvis

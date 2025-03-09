@@ -411,14 +411,11 @@ void InputInit() {
 
 
     // Load json mapping file
-    SDL_RWops* pFileRead = SDL_RWFromFile("system/shared/base_controller_mapping.json", "rb");
-	if (pFileRead == nullptr) {
+	i64 size;
+	char* pData = ReadWholeFile("system/shared/base_controller_mapping.json", &size, g_pArenaFrame);
+	if (pData == nullptr) {
 		Log::Crit("Failed to load the base_controller_mapping.json file from /system/shared");
 	}
-    u64 size = SDL_RWsize(pFileRead);
-    char* pData = New(g_pArenaFrame, char, size);
-    SDL_RWread(pFileRead, pData, size, 1);
-    SDL_RWclose(pFileRead);
 
     String file;
     file.pData = pData;

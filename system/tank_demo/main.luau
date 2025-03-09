@@ -60,23 +60,22 @@ function start()
 
 	-- @todo: potentially you can call load on a directory
 	-- it will put all the entries it can load into one table
-	-- will also help when we have VFS, so you need smaller paths
 
 	-- scene
-	state.scene = load("system/tank_demo/tank.scene")
+	state.scene = load("tank.scene")
 	
 	-- meshes
-	state.hangarMesh = load("system/tank_demo/hangarMesh.mesh")
-	state.tankMesh = load("system/tank_demo/tankMesh.mesh")
-	state.crateMesh = load("system/tank_demo/crateMesh.mesh")
-	state.paletteMesh = load("system/tank_demo/paletteMesh.mesh")
-	state.BlobShadow = load("system/tank_demo/BlobShadow.mesh")
+	state.hangarMesh = load("hangarMesh.mesh")
+	state.tankMesh = load("tankMesh.mesh")
+	state.crateMesh = load("crateMesh.mesh")
+	state.paletteMesh = load("paletteMesh.mesh")
+	state.BlobShadow = load("BlobShadow.mesh")
 
 	-- textures
-	state.Shed = load("system/tank_demo/Shed.texture")
-	state.Palette = load("system/tank_demo/Palette.texture")
-	state.NewNewTexture = load("system/tank_demo/NewNewTexture.texture")
-	state.blob = load("system/tank_demo/blob.texture")
+	state.Shed = load("Shed.texture")
+	state.Palette = load("Palette.texture")
+	state.NewNewTexture = load("NewNewTexture.texture")
+	state.blob = load("blob.texture")
 end
 
 function quat_to_euler(q:UserData): (number,number,number)

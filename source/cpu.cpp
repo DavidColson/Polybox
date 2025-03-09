@@ -265,11 +265,15 @@ struct LuaFileResolver : Luau::FileResolver {
         Luau::SourceCode::Type sourceType;
         std::optional<std::string> source = std::nullopt;
 
-		SDL_RWops* pFileRead = SDL_RWFromFile(name.c_str(), "rb");
-		u64 sourceSize = SDL_RWsize(pFileRead);
+		File file = OpenFile(String(name.c_str()), FM_READ);
+		defer(CloseFile(file));
+
+		if (!IsValid(file))
+			return std::nullopt;
+
+		i64 sourceSize = GetFileSize(file);
 		std::string result(sourceSize, 0);
-		SDL_RWread(pFileRead, result.data(), sourceSize, 1);
-		SDL_RWclose(pFileRead);
+		ReadFromFile(file, result.data(), sourceSize);
 
 		source = result;
 		sourceType = Luau::SourceCode::Module;
@@ -283,8 +287,7 @@ struct LuaFileResolver : Luau::FileResolver {
     std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node) override {
         if (Luau::AstExprConstantString* expr = node->as<Luau::AstExprConstantString>()) {
             Luau::ModuleName name = std::string(expr->value.data, expr->value.size) + ".luau";
-			SDL_RWops* pFileRead = SDL_RWFromFile(name.c_str(), "rb");
-            if (pFileRead == nullptr) {
+            if (!FileExists(String(name.c_str()))) {
                 // fall back to .lua if a module with .luau doesn't exist
                 name = std::string(expr->value.data, expr->value.size) + ".lua";
             }
@@ -323,7 +326,7 @@ void Init() {
 
 // ***********************************************************************
 
-void CompileAndLoadProgram(String appName) {
+void CompileAndLoadApp(String appName) {
 	// eventually we'll support multiple independant programs running on the cpu, 
 	// and each will have it's own lua state, but for now there's just one
 	if (appName.length == 0) {
@@ -416,13 +419,8 @@ void CompileAndLoadProgram(String appName) {
 
 	// Compile and load the program
 	if (wasError == false) {
-
-		SDL_RWops* pFileRead = SDL_RWFromFile(appMainPath.pData, "rb");
-		u64 sourceSize = SDL_RWsize(pFileRead);
-		char* pSource = New(g_pArenaFrame, char, sourceSize);
-		SDL_RWread(pFileRead, pSource, sourceSize, 1);
-		pSource[sourceSize] = '\0';
-		SDL_RWclose(pFileRead);
+		i64 sourceSize;
+		char* pSource = ReadWholeFile(appMainPath, &sourceSize, g_pArenaFrame);
 
 		u64 bytecodeSize = 0;
 		char* pBytecode = luau_compile(pSource, sourceSize, nullptr, &bytecodeSize);
@@ -493,4 +491,7 @@ void Close() {
 	lua_close(L);
 }
 
+String GetAppName() {
+	return pState->appName;
+}
 };

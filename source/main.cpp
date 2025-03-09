@@ -83,8 +83,7 @@
 #include "rect_packing.h"
 #include "serialization.h"
 #include "shapes.h"
-#include "filesystem.h"
-#include "platform.h"
+#include "virtual_filesystem.h"
 
 // code
 #include "asset_importer.cpp"
@@ -98,8 +97,7 @@
 #include "rect_packing.cpp"
 #include "serialization.cpp"
 #include "shapes.cpp"
-#include "filesystem.cpp"
-#include "platform_win32.cpp"
+#include "virtual_filesystem.cpp"
 
 
 // ***********************************************************************
@@ -118,8 +116,8 @@ int ShowAssertDialog(String errorMsg) {
     builder.Append("Trace: \n");
 
     void* trace[100];
-    u64 frames = PlatformDebug::CollectStackTrace(trace, 100, 2);
-    String stackTrace = PlatformDebug::PrintStackTraceToString(trace, frames, g_pArenaFrame);
+    u64 frames = Debug::CollectStackTrace(trace, 100, 2);
+    String stackTrace = Debug::PrintStackTraceToString(trace, frames, g_pArenaFrame);
     builder.Append(stackTrace);
 
     String message = builder.CreateString(g_pArenaFrame);
@@ -154,6 +152,12 @@ void AssertHandler(Log::LogLevel level, String message) {
                 break;
         }
     }
+}
+
+// ***********************************************************************
+
+void GenerateProject(String projectName) {
+
 }
 
 // ***********************************************************************
@@ -248,7 +252,7 @@ int main(int argc, char* argv[]) {
 	GraphicsInit(pWindow, winWidth, winHeight);
 	InputInit();
 
-	Cpu::CompileAndLoadProgram(startupAppName);
+	Cpu::CompileAndLoadApp(startupAppName);
 	Cpu::Start();
 
 	bool gameRunning = true;

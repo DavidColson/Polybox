@@ -156,8 +156,61 @@ void AssertHandler(Log::LogLevel level, String message) {
 
 // ***********************************************************************
 
-void GenerateProject(String projectName) {
+static const String templateProject = R"TEMPLATE_PROJ(
+function start()
+	print("hello world")
+end
 
+function update()
+    set_clear_color(0.25, 0.25, 0.25, 1.0)
+
+	matrix_mode("Projection")
+    identity()
+    perspective(320, 240, 1, 20, 60)
+
+    matrix_mode("View")
+    identity()
+    translate(-1.5, -1.5, -2)
+
+	begin_object_3d("Triangles")
+        color(1.0, 0.0, 0.0, 1.0)
+        vertex(1.0, 1.0, 0.0)
+
+        color(0, 1, 0, 1)
+        vertex(1, 2, 0)
+
+        color(0, 0, 1, 1)
+        vertex(2.0, 2.0, 0.0)
+    end_object_3d()
+end
+
+function close()
+end
+)TEMPLATE_PROJ";
+
+// ***********************************************************************
+
+void GenerateProject(String projectName) {
+	// check if directory already exists for the project
+	StringBuilder builder(g_pArenaFrame);
+	builder.Append("system/");
+	builder.Append(projectName);
+	builder.Append("/");
+
+	String projectPath = builder.CreateString(g_pArenaFrame, false);
+	if (FolderExists(projectPath)) {
+		Log::Warn("Project with name %s already exists", projectName.pData);
+		return;
+	}
+
+	// create directory for project name
+	MakeDirectory(projectPath, true);
+
+	// create a main.lua template
+	builder.Append("main.luau");
+	WriteWholeFile(builder.CreateString(g_pArenaFrame), templateProject.pData, templateProject.length);
+
+	Log::Info("Project '%s' created successfully", projectName.pData);
 }
 
 // ***********************************************************************
@@ -204,14 +257,15 @@ int main(int argc, char* argv[]) {
 			i32 result = AssetImporter::Import(pArena, format, String(argv[fileArg]), String(argv[fileArg+1]));
 			if (result >= 0) 
 				Log::Info("Import succeeded");
-				else 
+			else 
 				Log::Info("Import failed");
 
 			ArenaFinished(pArena);
 			return result;
 		}
 		else if (strcmp(argv[1], "-new") == 0) {
-			// make a new project
+			GenerateProject(String(argv[2]));
+			return 1;
 		}
 		else if (strcmp(argv[1], "-start") == 0) {
 			startupAppName = String(argv[2]);

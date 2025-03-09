@@ -1,13 +1,17 @@
 // Copyright David Colson. All rights reserved.
 
 static const String polyboxDefinitions = R"POLY_LIBS(
---- Serialization API
+--- Serialization
 
 @checked declare function serialize(value: any, format: number, metadata: any?): string
 @checked declare function deserialize(value: string): (any, any?)
 
+--- Filesystem
+
 @checked declare function store(filename: string, value: any, format: number, metadata: any?)
 @checked declare function load(filename: string): (any, any?)
+@checked declare function make_directory(filename: string, makeAll: boolean): boolean
+@checked declare function remove(filename: string): boolean
 
 --- Usedata API
 

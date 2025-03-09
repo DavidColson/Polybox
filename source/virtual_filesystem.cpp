@@ -32,7 +32,7 @@ bool VFSPathToRealPath(String vfsPath, String& outRealPath, Arena* pArena) {
 
 // ***********************************************************************
 
-int Store(lua_State* L) {
+int VfsStore(lua_State* L) {
 	u64 filenameLen;
 	const char* filename = luaL_checklstring(L, 1, &filenameLen);
 
@@ -54,7 +54,7 @@ int Store(lua_State* L) {
 
 // ***********************************************************************
 
-int Load(lua_State* L) {
+int VfsLoad(lua_State* L) {
 	u64 filenameLen;
 	const char* filename = luaL_checklstring(L, 1, &filenameLen);
 
@@ -77,11 +77,53 @@ int Load(lua_State* L) {
 
 // ***********************************************************************
 
+int VfsMakeDirectory(lua_State* L) {
+	u64 filenameLen;
+	const char* filename = luaL_checklstring(L, 1, &filenameLen);
+	bool makeAll = (bool)luaL_checkboolean(L, 2);
+
+	String realFileName; 
+	if (!VFSPathToRealPath(String(filename), realFileName, g_pArenaFrame)) {
+		luaL_error(L, "Filepath not in a valid mount point", filename);
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+	bool result = MakeDirectory(realFileName, makeAll);
+	lua_pushboolean(L, result);
+	return 1;
+}
+
+// ***********************************************************************
+
+int VfsRemove(lua_State* L) {
+	u64 filenameLen;
+	const char* filename = luaL_checklstring(L, 1, &filenameLen);
+
+	String realFileName; 
+	if (!VFSPathToRealPath(String(filename), realFileName, g_pArenaFrame)) {
+		luaL_error(L, "Filepath not in a valid mount point", filename);
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+	bool result = RemoveFileOrDirectory(realFileName);
+	lua_pushboolean(L, result);
+	return 1;
+}
+
+// ***********************************************************************
+
 void BindFileSystem(lua_State* L) {
 
 	const luaL_Reg globalFuncs[] = {
-		{ "store", Store },
-		{ "load", Load },
+		{ "store", VfsStore },
+		{ "load", VfsLoad },
+		{ "make_directory", VfsMakeDirectory },
+		{ "remove", VfsRemove },
+		// { "copy", VfsCopy },
+		// { "move", VfsMove },
+		// { "list_directory", VfsListDirectory },
 		{ NULL, NULL }
 	};
 

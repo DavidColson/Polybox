@@ -60,13 +60,6 @@ function start()
 	-- global state
 	state = {}
 
-	testModule.message();
-
-	print("Starting mesh test")
-
-	copy("tank.scene", "tank_copy.scene")
-	make_directory("moved", false)
-	move("tank_copy.scene", "moved/tank_copy.scene")
 	-- @todo: potentially you can call load on a directory
 	-- it will put all the entries it can load into one table
 

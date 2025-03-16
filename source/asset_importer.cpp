@@ -67,8 +67,15 @@ void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, JsonValue& nodeToPa
 	// mesh identifier
 	if (nodeToParse.HasKey("mesh")) {
 		i32 meshId = nodeToParse["mesh"].ToInt();
-		String meshName = gltf["meshes"][meshId]["name"].ToString();
-		lua_pushlstring(L, meshName.pData, meshName.length);
+		
+		if (gltf["meshes"][meshId].HasKey("name")) {
+			String meshName = gltf["meshes"][meshId]["name"].ToString();
+			lua_pushlstring(L, meshName.pData, meshName.length);
+		}
+		else {
+			String meshName = TempPrint("mesh%d", meshId);
+			lua_pushlstring(L, meshName.pData, meshName.length);
+		}
 		lua_setfield(L, -2, "mesh");
 	}
 
@@ -143,13 +150,14 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 
 	Log::Info("Importing %s", source.pData);
 
-	String outputPath = output;
+	String outputPath = CopyString(output, pScratchArena);
 	for (i64 i = outputPath.length-1; i>=0; i--) {
 		if (outputPath.pData[i] == '\\' || outputPath.pData[i] == '/') {
 			break;
 		}
 		outputPath.length--;
 	}
+	outputPath[outputPath.length] = 0;
 
 	// Load file
 	String fileContents;
@@ -196,8 +204,13 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		result.pData = (char*)lua_tolstring(L, -1, &len); 
 		result.length = (i64)len;
 
-		WriteWholeFile(output, result.pData, result.length);
-		Log::Info("	Exported %s", output.pData);
+		if (WriteWholeFile(output, result.pData, result.length)) {
+			Log::Info("	Exported %s", output.pData);
+		}
+		else {
+			Log::Info("	Failed to export %s, is the path correct?", output.pData);
+			return -1;
+		}
 	}
 	lua_pop(L, 1); // pop the scene table, we're done with it now
 
@@ -286,7 +299,14 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	i32 meshCount = parsed["meshes"].Count();
 	for (i32 i = 0; i < meshCount; i++) {
         JsonValue& jsonMesh = parsed["meshes"][i];
-		String meshName = jsonMesh["name"].ToString();
+
+		String meshName;
+		if (jsonMesh.HasKey("name")) {
+			meshName = jsonMesh["name"].ToString();
+		}
+		else {
+			meshName = TempPrint("mesh%d", i);
+		}
 
 		// make a table for the mesh
 		lua_getglobal(L, "serialize");
@@ -317,7 +337,13 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			if (pbr.HasKey("baseColorTexture")) {
 				i32 textureId = pbr["baseColorTexture"]["index"].ToInt();
 				i32 imageId = parsed["textures"][textureId]["source"].ToInt();
-				String imageName = parsed["images"][imageId]["name"].ToString();
+				String imageName;
+				if (parsed["images"][imageId].HasKey("name")) {
+					imageName = parsed["images"][imageId]["name"].ToString(); 
+				}
+				else {
+					imageName = TempPrint("image%d", imageId);
+				}
 				lua_pushlstring(L, imageName.pData, imageName.length);
 				lua_setfield(L, -2, "texture");
 			}
@@ -371,9 +397,14 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		result.length = (i64)len;
 
 		String outputFileName = StringPrint(pScratchArena, "%s%s.mesh", outputPath.pData, meshName.pData);
-		WriteWholeFile(outputFileName, result.pData, result.length);
+		if (WriteWholeFile(outputFileName, result.pData, result.length)) {
+			Log::Info("	Exported %s", outputFileName.pData);
+		}
+		else {
+			Log::Info("	Failed to export %s, is the path correct?", output.pData);
+			return -1;
+		}
 
-		Log::Info("	Exported %s", outputFileName.pData);
 		lua_pop(L, 1); // pop the mesh table, we're done with it now
 	}
 
@@ -383,69 +414,85 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	i32 imageCount = parsed["images"].Count();
 	for (i32 i = 0; i < imageCount; i++) {
 		JsonValue& jsonImage = parsed["images"][i];
-		String imageName = jsonImage["name"].ToString();
-
-		if (jsonImage.HasKey("bufferView")) {
-			lua_getglobal(L, "serialize");
-			lua_newtable(L);
-
-			i32 n;
-			i32 width;
-			i32 height;
-			i32 bufferId = jsonImage["bufferView"].ToInt(); 
-			u8* pData = stbi_load_from_memory((const unsigned char*)bufferViews[bufferId].pBuffer, (int)bufferViews[bufferId].length, &width, &height, &n, 4);
-			if (pData == nullptr) {
-				Log::Warn("Failed to load image %s: %s", imageName.pData, stbi_failure_reason());
-				continue;
-			}
-
-			// @todo: convert to palette based texture with max 16 bits per pixel
-			// should halve the memory usage since we are currently using more space than a real png
-
-			lua_pushnumber(L, width);
-			lua_setfield(L, -2, "width");
-			lua_pushnumber(L, height);
-			lua_setfield(L, -2, "height");
-
-			UserData* pUserData = AllocUserData(L, Type::Int32, width, height);
-			i64 bufSize = GetUserDataSize(pUserData);
-			memcpy((u8*)pUserData->pData, pData, bufSize);
-			lua_setfield(L, -2, "data");
-
-			// call serialize to make a file for the image
-			lua_pushnumber(L, format);
-			lua_pcall(L, 2, 1, 0);
-
-			String result;
-			size_t len;
-			result.pData = (char*)lua_tolstring(L, -1, &len); 
-			result.length = (i64)len;
-
-			String outputFileName = StringPrint(pScratchArena, "%s%s.texture", outputPath.pData, imageName.pData);
-			WriteWholeFile(outputFileName, result.pData, result.length);
-
-			Log::Info("	Exported %s",outputFileName.pData);
-			stbi_image_free(pData);
-			lua_pop(L, 1);
-
-			// Upload to gpu, need to do this on load (bind?)
-
-			// sg_image_desc imageDesc = {
-			// 	.width = width,
-			// 	.height = height,
-			// 	.pixel_format = SG_PIXELFORMAT_RGBA8,
-			// 	.label = imageName.pData,
-			// 	// .usage = SG_USAGE_DEFAULT
-			// };
-			// sg_range pixelsData;
-			// pixelsData.ptr = (void*)pData;
-			// pixelsData.size = width * height * 4 * sizeof(u8);
-			// imageDesc.data.subimage[0][0] = pixelsData;
-			// pUserData->img = sg_make_image(&imageDesc);
+		String imageName;
+		if (jsonImage.HasKey("name")) {
+			imageName = jsonImage["name"].ToString(); 
 		}
 		else {
-			Log::Warn("Unable to import image %s, we don't yet support separate gltf files", jsonImage["name"].ToString().pData);
+			imageName = TempPrint("image%d", i);
 		}
+
+		u8* pImageRawData = nullptr;
+		i32 imageDataLen = 0;
+
+		if (jsonImage.HasKey("bufferView")) {
+			i32 bufferId = jsonImage["bufferView"].ToInt(); 
+			pImageRawData = bufferViews[bufferId].pBuffer;
+			imageDataLen = (i32)bufferViews[bufferId].length;
+		}
+		else if (jsonImage.HasKey("uri")) {
+			// two possibilities, the binary data is embedded in the uri string
+			// or it's a filename
+
+			String uri = jsonImage["uri"].ToString();
+			if (uri.Find("data:image/png;base64,") == 0) {
+				String decoded = DecodeBase64(pScratchArena, uri.SubStr(22));
+				pImageRawData = (u8*)decoded.pData;
+				imageDataLen = (i32)decoded.length;
+			}
+			else {
+				Log::Warn("Unable to import image %s, we don't yet support external image uris", jsonImage["name"].ToString().pData);
+				return -1;
+			}
+		}
+		else {
+			Log::Warn("Unable to import image %s, we can't find the data in the gltf", jsonImage["name"].ToString().pData);
+			return -1;
+		}
+
+		lua_getglobal(L, "serialize");
+		lua_newtable(L);
+
+		i32 n;
+		i32 width;
+		i32 height;
+		u8* pData = stbi_load_from_memory((const unsigned char*)pImageRawData, imageDataLen, &width, &height, &n, 4);
+		if (pData == nullptr) {
+			Log::Warn("Failed to load image %s: %s", imageName.pData, stbi_failure_reason());
+			continue;
+		}
+		
+		// upload image to lua
+		lua_pushnumber(L, width);
+		lua_setfield(L, -2, "width");
+		lua_pushnumber(L, height);
+		lua_setfield(L, -2, "height");
+
+		UserData* pUserData = AllocUserData(L, Type::Int32, width, height);
+		i64 bufSize = GetUserDataSize(pUserData);
+		memcpy((u8*)pUserData->pData, pData, bufSize);
+		lua_setfield(L, -2, "data");
+
+		// call serialize to make a file for the image
+		lua_pushnumber(L, format);
+		lua_pcall(L, 2, 1, 0);
+
+		String result;
+		size_t len;
+		result.pData = (char*)lua_tolstring(L, -1, &len); 
+		result.length = (i64)len;
+
+		String outputFileName = StringPrint(pScratchArena, "%s%s.texture", outputPath.pData, imageName.pData);
+		if (WriteWholeFile(outputFileName, result.pData, result.length)) {
+			Log::Info("	Exported %s", outputFileName.pData);
+		}
+		else {
+			Log::Info("	Failed to export %s, is the path correct?", output.pData);
+			return -1;
+		}
+
+		stbi_image_free(pData);
+		lua_pop(L, 1);
 	}
 
 	return 0;

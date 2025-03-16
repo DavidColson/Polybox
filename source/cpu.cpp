@@ -282,12 +282,15 @@ struct LuaFileResolver : Luau::FileResolver {
 
     std::optional<Luau::ModuleInfo> resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node) override {
         if (Luau::AstExprConstantString* expr = node->as<Luau::AstExprConstantString>()) {
-            Luau::ModuleName name = std::string(expr->value.data, expr->value.size) + ".luau";
-            if (!FileExists(String(name.c_str()))) {
-                // fall back to .lua if a module with .luau doesn't exist
-                name = std::string(expr->value.data, expr->value.size) + ".lua";
-            }
+			StringBuilder builder(g_pArenaFrame);
+			builder.AppendChars(expr->value.data, expr->value.size);
 
+			// we expect include calls to give the exact filename
+			// so we won't construct any extensions or what have you
+			String realPath;
+			VFSPathToRealPath(builder.CreateString(g_pArenaFrame, false), realPath, g_pArenaFrame); 
+
+            Luau::ModuleName name = std::string(realPath.pData, realPath.length);
             return {{name}};
         }
 
@@ -295,7 +298,9 @@ struct LuaFileResolver : Luau::FileResolver {
     }
 
     std::string getHumanReadableModuleName(const Luau::ModuleName& name) const override {
-        return name;
+		String vfsBasePath = TempPrint("system/%s/", Cpu::GetAppName().pData); 
+		std::string newName = std::string(name.c_str()+vfsBasePath.length, name.size()-vfsBasePath.length);
+		return newName;
     }
 };
 
@@ -317,7 +322,7 @@ struct State {
 };
 
 State* pState = nullptr;
-bool CompileAndLoadModule(String modulePath);
+bool CompileAndLoadModule(String modulePath, i32 nReturns);
 
 // ***********************************************************************
 
@@ -333,13 +338,31 @@ static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize) {
 
 // ***********************************************************************
 
-void OnLuauEdit(FileChange change, void* pUserData) {
+void OnCodeEdit(FileChange change, void* pUserData) {
 	for (int i=0; i<pState->luaFilesToWatch.count; i++) {
 		if (pState->luaFilesToWatch[i] == change.path) {
 			Log::Info("Luau file %s changed, reloading", change.path.pData);
-			CompileAndLoadModule(change.path);
+			CompileAndLoadModule(change.path, 0);
 		}
 	}
+}
+
+// ***********************************************************************
+
+int LuaInclude(lua_State* L) {
+    const char* name = luaL_checkstring(L, 1);
+
+	// unlike require we assume the name is an actual file name
+	String realPath;
+	VFSPathToRealPath(String(name), realPath, pState->pArena); 
+	pState->luaFilesToWatch.PushBack(realPath);
+
+
+	// @todo: Use luau's requireresolver to cache modules
+	// @todo: put modules in another thread and sandbox them
+	
+	CompileAndLoadModule(realPath, 1);
+	return 1;
 }
 
 // ***********************************************************************
@@ -351,7 +374,7 @@ void Init() {
 	pState->appLoaded = false;
 
 	pState->luaFilesToWatch.pArena = pArena;
-	pState->pWatcher = FileWatcherCreate(OnLuauEdit, FC_MODIFIED, (void*)pState, true);
+	pState->pWatcher = FileWatcherCreate(OnCodeEdit, FC_MODIFIED, (void*)pState, true);
 
 	// Setup our frontend
 	Luau::FrontendOptions frontendOptions;
@@ -384,7 +407,7 @@ void Init() {
 
 // ***********************************************************************
 
-bool CompileAndLoadModule(String modulePath) {
+bool CompileAndLoadModule(String modulePath, i32 nReturns) {
 	bool wasError = false;
 
 	// run typechecking
@@ -427,7 +450,7 @@ bool CompileAndLoadModule(String modulePath) {
 			return false;
 		}
 
-		if (lua_pcall(pState->pProgramState, 0, 0, 0) != LUA_OK) {
+		if (lua_pcall(pState->pProgramState, 0, nReturns, 0) != LUA_OK) {
 			Log::Warn("Lua Runtime Error: %s", lua_tostring(pState->pProgramState, lua_gettop(pState->pProgramState)));
 			lua_pop(pState->pProgramState, 1);
 			return false;
@@ -451,6 +474,8 @@ void LoadApp(String appName) {
 		return;
 	}
 
+	pState->appName= appName;
+
 	// search for a project in system/ with appname
 	StringBuilder builder(g_pArenaFrame);
 	builder.Append("system/");
@@ -473,16 +498,22 @@ void LoadApp(String appName) {
 	lua_State* L = pState->pProgramState;
 
 	// expose builtin libraries
+	const luaL_Reg coreFuncs[] = {
+		{ "include", LuaInclude },
+        { NULL, NULL }
+	};
 	luaL_openlibs(L);
 	Bind::BindGraphics(L);
 	Bind::BindInput(L);
 	BindUserData(L);
 	BindSerialization(L);
 	BindFileSystem(L);
+    lua_pushvalue(L, LUA_GLOBALSINDEX);
+    luaL_register(L, NULL, coreFuncs);
+    lua_pop(L, 1);
 
 	// compile and load main.luau
-	pState->appLoaded = CompileAndLoadModule(appMainPath);
-	pState->appName= appName;
+	pState->appLoaded = CompileAndLoadModule(appMainPath, 0);
 }
 
 // ***********************************************************************

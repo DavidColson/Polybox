@@ -52,12 +52,15 @@ function iterate_scene(scene:any, iter: (string,any)->())
 
 		pop_matrix()
 	end
-
 end
+
+local testModule = include("testModule.luau")
 
 function start()
 	-- global state
 	state = {}
+
+	testModule.message();
 
 	print("Starting mesh test")
 

@@ -2,4 +2,5 @@
 
 struct lua_State;
 
+bool VFSPathToRealPath(String vfsPath, String& outRealPath, Arena* pArena);
 void BindFileSystem(lua_State* L);

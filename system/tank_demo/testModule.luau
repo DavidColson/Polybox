@@ -1,9 +1,12 @@
---!nocheck
+local module = {}
 
-module = module or {}
+function useless()
+	print("hello")
+end
 
 function module.message()
-	print("hello there from module")
+	-- print("hello from module")
+    set_clear_color(4.25, 0.25, 1.25, 1.0)
 end
 
 return module

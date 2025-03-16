@@ -342,7 +342,34 @@ void OnCodeEdit(FileChange change, void* pUserData) {
 	for (int i=0; i<pState->luaFilesToWatch.count; i++) {
 		if (pState->luaFilesToWatch[i] == change.path) {
 			Log::Info("Luau file %s changed, reloading", change.path.pData);
-			CompileAndLoadModule(change.path, 0);
+
+			// when you reload a module
+			// you will load it up onto the stack, and then look up it's existing 
+			// and shallow copy the contents from the new to the old, then just drop the new one
+			pState->frontend.markDirty(change.path.pData);
+			if (!CompileAndLoadModule(change.path, 1)) {
+				return;
+			}
+			lua_State* L = pState->pProgramState;
+			
+			// this will be the main.luau file, rather than a module, so no patching required
+			if (lua_isnil(L, -1)) {
+				lua_pop(L, 1);
+				return;
+			}
+
+			i32 newModuleIndex = lua_gettop(L);
+			luaL_findtable(L, LUA_REGISTRYINDEX, "_MODULES", 1);
+			lua_getfield(L, -1, change.path.pData);
+
+			// shallow copy the new table into the existing one in the registry (which everyone points to)
+			lua_pushnil(L);
+			while(lua_next(L, newModuleIndex) != 0) {
+				lua_pushvalue(L, -2);
+				lua_insert(L, -2);
+				lua_settable(L, -4);
+			}
+			lua_pop(L, 3);
 		}
 	}
 }
@@ -357,11 +384,20 @@ int LuaInclude(lua_State* L) {
 	VFSPathToRealPath(String(name), realPath, pState->pArena); 
 	pState->luaFilesToWatch.PushBack(realPath);
 
-
-	// @todo: Use luau's requireresolver to cache modules
-	// @todo: put modules in another thread and sandbox them
+    luaL_findtable(L, LUA_REGISTRYINDEX, "_MODULES", 1);
+	lua_getfield(L, -1, realPath.pData);
+	if (!lua_isnil(L, -1)) {
+		// table has already been loaded, and is cached, so we're done
+		return 1;
+	}
+	lua_pop(L, 1);
 	
+	// @todo: put modules in another thread and sandbox them
 	CompileAndLoadModule(realPath, 1);
+	// stack is [module, _MODULES]
+	lua_pushvalue(L, -1);
+	// stack is [module,module,_MODULES]
+	lua_setfield(L, -3, realPath.pData);
 	return 1;
 }
 
@@ -426,12 +462,14 @@ bool CompileAndLoadModule(String modulePath, i32 nReturns) {
 	}
 
 	for (Luau::LintWarning& error : result.lintResult.errors) {
-		Log::Warn("LintError in [%s:%d] (%s) - %s", modulePath.pData, error.location.begin.line + 1,
+		std::string humanReadableName = pState->frontend.fileResolver->getHumanReadableModuleName(error.moduleName);
+		Log::Warn("LintError in [%s:%d] (%s) - %s",humanReadableName.c_str(), error.location.begin.line + 1,
 			Luau::LintWarning::getName(error.code), error.text.c_str());
 	}
 
 	for (Luau::LintWarning& error : result.lintResult.warnings) {
-		Log::Warn("LintWarning in [%s:%d] (%s) - %s", modulePath.pData, error.location.begin.line + 1,
+		std::string humanReadableName = pState->frontend.fileResolver->getHumanReadableModuleName(error.moduleName);
+		Log::Warn("LintWarning in [%s:%d] (%s) - %s", humanReadableName.c_str(), error.location.begin.line + 1,
 			Luau::LintWarning::getName(error.code), error.text.c_str());
 	}
 

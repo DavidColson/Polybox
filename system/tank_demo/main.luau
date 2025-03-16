@@ -90,6 +90,8 @@ end
 function update()
     set_clear_color(0.25, 0.25, 0.25, 1.0)
 
+	testModule.message()
+
     matrix_mode("Projection")
     perspective(320, 180, 1, 20, 60)
 

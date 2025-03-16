@@ -370,11 +370,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		result.pData = (char*)lua_tolstring(L, -1, &len); 
 		result.length = (i64)len;
 
-		StringBuilder builder(pScratchArena);
-		builder.Append(outputPath);
-		builder.Append(meshName);
-		builder.Append(".mesh");
-		String outputFileName = builder.CreateString(pScratchArena);
+		String outputFileName = StringPrint(pScratchArena, "%s%s.mesh", outputPath.pData, meshName.pData);
 		WriteWholeFile(outputFileName, result.pData, result.length);
 
 		Log::Info("	Exported %s", outputFileName.pData);
@@ -425,11 +421,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			result.pData = (char*)lua_tolstring(L, -1, &len); 
 			result.length = (i64)len;
 
-			StringBuilder builder(pScratchArena);
-			builder.Append(outputPath);
-			builder.Append(imageName);
-			builder.Append(".texture");
-			String outputFileName = builder.CreateString(pScratchArena);
+			String outputFileName = StringPrint(pScratchArena, "%s%s.texture", outputPath.pData, imageName.pData);
 			WriteWholeFile(outputFileName, result.pData, result.length);
 
 			Log::Info("	Exported %s",outputFileName.pData);

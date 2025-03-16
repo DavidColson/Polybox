@@ -1,4 +1,4 @@
-local function printTable( t:any)
+local function _printTable( t:any)
     local printTable_cache = {}
     local function sub_printTable( t:any, indent:any )
  
@@ -31,9 +31,8 @@ local function printTable( t:any)
     else
         sub_printTable( t, "  " )
     end
-end
 
-local state = {}
+end
 
 -- iterate over a heirarchy of objects (with children table) as though it was a flat array
 -- concatenating transforms of parents and children as you go
@@ -53,11 +52,18 @@ function iterate_scene(scene:any, iter: (string,any)->())
 
 		pop_matrix()
 	end
+
 end
 
 function start()
+	-- global state
+	state = {}
+
 	print("Starting mesh test")
 
+	copy("tank.scene", "tank_copy.scene")
+	make_directory("moved", false)
+	move("tank_copy.scene", "moved/tank_copy.scene")
 	-- @todo: potentially you can call load on a directory
 	-- it will put all the entries it can load into one table
 

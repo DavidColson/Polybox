@@ -478,7 +478,7 @@ void DrawFrame(i32 w, i32 h) {
 				bind.fs.images[0] = cmd.texture;
 			}
 
-			if (cmd.indexedDraw) Assert(false);
+			Assert(!cmd.indexedDraw);
 
 			sg_range vsUniforms = SG_RANGE_REF(cmd.vsUniforms);
 			sg_apply_uniforms(SG_SHADERSTAGE_VS, 0, &vsUniforms);

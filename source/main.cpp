@@ -193,9 +193,7 @@ end
 void GenerateProject(String projectName) {
 	// check if directory already exists for the project
 	StringBuilder builder(g_pArenaFrame);
-	builder.Append("system/");
-	builder.Append(projectName);
-	builder.Append("/");
+	builder.AppendFormat("system/%s/", projectName.pData);
 
 	String projectPath = builder.CreateString(g_pArenaFrame, false);
 	if (FolderExists(projectPath)) {
@@ -306,7 +304,7 @@ int main(int argc, char* argv[]) {
 	GraphicsInit(pWindow, winWidth, winHeight);
 	InputInit();
 
-	Cpu::CompileAndLoadApp(startupAppName);
+	Cpu::LoadApp(startupAppName);
 	Cpu::Start();
 
 	bool gameRunning = true;

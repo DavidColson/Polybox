@@ -254,16 +254,6 @@ declare Key: {
 
 namespace Cpu {
 
-struct State {
-	Arena* pArena;
-	bool appLoaded;
-
-	lua_State* pProgramState;
-	String appName;
-};
-
-State* pState = nullptr;
-
 // ***********************************************************************
 
 struct LuaFileResolver : Luau::FileResolver {
@@ -311,6 +301,26 @@ struct LuaFileResolver : Luau::FileResolver {
 
 // ***********************************************************************
 
+struct State {
+	Arena* pArena;
+	bool appLoaded;
+
+	lua_State* pProgramState;
+
+	LuaFileResolver fileResolver;
+	Luau::NullConfigResolver configResolver;
+	Luau::Frontend frontend;
+
+	ResizableArray<String> luaFilesToWatch;
+	FileWatcher* pWatcher;
+	String appName;
+};
+
+State* pState = nullptr;
+bool CompileAndLoadModule(String modulePath);
+
+// ***********************************************************************
+
 static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize) {
 	// TODO: lua VM memory tracking?
     if (nsize == 0) {
@@ -323,16 +333,112 @@ static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize) {
 
 // ***********************************************************************
 
+void OnLuauEdit(FileChange change, void* pUserData) {
+	for (int i=0; i<pState->luaFilesToWatch.count; i++) {
+		if (pState->luaFilesToWatch[i] == change.path) {
+			Log::Info("Luau file %s changed, reloading", change.path.pData);
+			CompileAndLoadModule(change.path);
+		}
+	}
+}
+
+// ***********************************************************************
+
 void Init() {
 	Arena* pArena = ArenaCreate();
 	pState = New(pArena, State);
 	pState->pArena = pArena;
 	pState->appLoaded = false;
+
+	pState->luaFilesToWatch.pArena = pArena;
+	pState->pWatcher = FileWatcherCreate(OnLuauEdit, FC_MODIFIED, (void*)pState, true);
+
+	// Setup our frontend
+	Luau::FrontendOptions frontendOptions;
+	frontendOptions.runLintChecks = true;
+
+	// regrettably luau::frontend is very RAII heavy, so we must do this
+	PlacementNew(&pState->fileResolver) LuaFileResolver();
+	PlacementNew(&pState->configResolver) Luau::NullConfigResolver();
+	PlacementNew(&pState->frontend) Luau::Frontend(&pState->fileResolver, &pState->configResolver, frontendOptions);
+
+	unfreeze(pState->frontend.globals.globalTypes);
+	Luau::registerBuiltinGlobals(pState->frontend, pState->frontend.globals);
+
+	// Add our global type definitions
+	Luau::LoadDefinitionFileResult loadResult = pState->frontend.loadDefinitionFile(
+		pState->frontend.globals, pState->frontend.globals.globalScope, std::string_view(polyboxDefinitions.pData), "@polybox", /* captureComments */ false, false);
+	Luau::freeze(pState->frontend.globals.globalTypes); // Marks the type memory as read only
+
+	// give errors on parsing the type definitions
+	for (Luau::ParseError& error : loadResult.parseResult.errors) {
+		Log::Warn("Builtins SyntaxError at [%d] - %s", error.getLocation().begin.line + 1, error.getMessage().c_str());
+	}
+
+	if (loadResult.module) {
+		for (Luau::TypeError& error : loadResult.module->errors) {
+			Log::Warn("Builtins TypeError at [%d] - %s", error.location.begin.line + 1, Luau::toString(error, Luau::TypeErrorToStringOptions{pState->frontend.fileResolver}).c_str());
+		}
+	}
 }
 
 // ***********************************************************************
 
-void CompileAndLoadApp(String appName) {
+bool CompileAndLoadModule(String modulePath) {
+	bool wasError = false;
+
+	// run typechecking
+	Luau::CheckResult result = pState->frontend.check(modulePath.pData);
+
+	if (!result.errors.empty())
+		wasError = true;
+
+	// print errors and lint warnings
+	for (Luau::TypeError& error : result.errors) {
+		std::string humanReadableName = pState->frontend.fileResolver->getHumanReadableModuleName(error.moduleName);
+		if (const Luau::SyntaxError* syntaxError = Luau::get_if<Luau::SyntaxError>(&error.data))
+			Log::Warn("SyntaxError in [%s:%d] - %s", humanReadableName.c_str(), error.location.begin.line + 1, syntaxError->message.c_str());
+			else
+			Log::Warn("TypeError in [%s:%d] - %s", humanReadableName.c_str(), error.location.begin.line + 1, Luau::toString(error, Luau::TypeErrorToStringOptions{pState->frontend.fileResolver}).c_str());
+	}
+
+	for (Luau::LintWarning& error : result.lintResult.errors) {
+		Log::Warn("LintError in [%s:%d] (%s) - %s", modulePath.pData, error.location.begin.line + 1,
+			Luau::LintWarning::getName(error.code), error.text.c_str());
+	}
+
+	for (Luau::LintWarning& error : result.lintResult.warnings) {
+		Log::Warn("LintWarning in [%s:%d] (%s) - %s", modulePath.pData, error.location.begin.line + 1,
+			Luau::LintWarning::getName(error.code), error.text.c_str());
+	}
+
+	// Compile and load
+	if (wasError == false) {
+		i64 sourceSize;
+		char* pSource = ReadWholeFile(modulePath, &sourceSize, g_pArenaFrame);
+
+		u64 bytecodeSize = 0;
+		char* pBytecode = luau_compile(pSource, sourceSize, nullptr, &bytecodeSize);
+		int result = luau_load(pState->pProgramState, modulePath.pData, pBytecode, bytecodeSize, 0);
+
+		if (result != 0) {
+			Log::Warn("Lua Load Error: %s", lua_tostring(pState->pProgramState, lua_gettop(pState->pProgramState)));
+			lua_pop(pState->pProgramState, 1);
+			return false;
+		}
+
+		if (lua_pcall(pState->pProgramState, 0, 0, 0) != LUA_OK) {
+			Log::Warn("Lua Runtime Error: %s", lua_tostring(pState->pProgramState, lua_gettop(pState->pProgramState)));
+			lua_pop(pState->pProgramState, 1);
+			return false;
+		}
+	}
+	return !wasError;
+}
+
+// ***********************************************************************
+
+void LoadApp(String appName) {
 	// eventually we'll support multiple independant programs running on the cpu, 
 	// and each will have it's own lua state, but for now there's just one
 	if (appName.length == 0) {
@@ -349,14 +455,20 @@ void CompileAndLoadApp(String appName) {
 	StringBuilder builder(g_pArenaFrame);
 	builder.Append("system/");
 	builder.Append(appName);
+
+	// watch the project's directory for luau file changes
+	FileWatcherAddDirectory(pState->pWatcher, builder.CreateString(g_pArenaFrame, false));
+
 	builder.Append("/main.luau");
-	String appMainPath = builder.CreateString(g_pArenaFrame);
+	String appMainPath = builder.CreateString(pState->pArena);
 
 	if (!FileExists(appMainPath)) {
 		Log::Warn("A main.lua file for project '%s' could not be found", appName.pData);
 		return;
 	}
+	pState->luaFilesToWatch.PushBack(appMainPath);
 
+	// create a program state
 	pState->pProgramState = lua_newstate(LuaAllocator, nullptr);
 	lua_State* L = pState->pProgramState;
 
@@ -368,84 +480,9 @@ void CompileAndLoadApp(String appName) {
 	BindSerialization(L);
 	BindFileSystem(L);
 
-	// type checking
-	bool wasError = false;
-	{
-		Luau::FrontendOptions frontendOptions;
-		frontendOptions.runLintChecks = true;
-
-		LuaFileResolver fileResolver;
-		Luau::NullConfigResolver configResolver;
-		Luau::Frontend frontend(&fileResolver, &configResolver, frontendOptions);
-
-		unfreeze(frontend.globals.globalTypes);
-		Luau::registerBuiltinGlobals(frontend, frontend.globals);
-
-		// Add our global type definitions
-		Luau::LoadDefinitionFileResult loadResult = frontend.loadDefinitionFile(
-			frontend.globals, frontend.globals.globalScope, std::string_view(polyboxDefinitions.pData), "@polybox", /* captureComments */ false, false);
-		Luau::freeze(frontend.globals.globalTypes); // Marks the type memory as read only
-
-		// give errors on parsing the type definitions
-		for (Luau::ParseError& error : loadResult.parseResult.errors) {
-			Log::Warn("Builtins SyntaxError at [%d] - %s", error.getLocation().begin.line + 1, error.getMessage().c_str());
-		}
-
-		if (loadResult.module) {
-			for (Luau::TypeError& error : loadResult.module->errors) {
-				Log::Warn("Builtins TypeError at [%d] - %s", error.location.begin.line + 1, Luau::toString(error, Luau::TypeErrorToStringOptions{frontend.fileResolver}).c_str());
-			}
-		}
-
-		// run check
-		Luau::CheckResult result = frontend.check(appMainPath.pData);
-
-		if (!result.errors.empty())
-			wasError = true;
-
-		// print errors and lint warnings
-		for (Luau::TypeError& error : result.errors) {
-			std::string humanReadableName = frontend.fileResolver->getHumanReadableModuleName(error.moduleName);
-			if (const Luau::SyntaxError* syntaxError = Luau::get_if<Luau::SyntaxError>(&error.data))
-				Log::Warn("SyntaxError in [%s:%d] - %s", humanReadableName.c_str(), error.location.begin.line + 1, syntaxError->message.c_str());
-			else
-				Log::Warn("TypeError in [%s:%d] - %s", humanReadableName.c_str(), error.location.begin.line + 1, Luau::toString(error, Luau::TypeErrorToStringOptions{frontend.fileResolver}).c_str());
-		}
-
-		for (Luau::LintWarning& error : result.lintResult.errors) {
-			Log::Warn("LintError in [%s:%d] (%s) - %s", appMainPath.pData, error.location.begin.line + 1,
-				  Luau::LintWarning::getName(error.code), error.text.c_str());
-		}
-		
-		for (Luau::LintWarning& error : result.lintResult.warnings) {
-			Log::Warn("LintWarning in [%s:%d] (%s) - %s", appMainPath.pData, error.location.begin.line + 1,
-				  Luau::LintWarning::getName(error.code), error.text.c_str());
-		}
-	}
-
-	// Compile and load the program
-	if (wasError == false) {
-		i64 sourceSize;
-		char* pSource = ReadWholeFile(appMainPath, &sourceSize, g_pArenaFrame);
-
-		u64 bytecodeSize = 0;
-		char* pBytecode = luau_compile(pSource, sourceSize, nullptr, &bytecodeSize);
-		int result = luau_load(L, appMainPath.pData, pBytecode, bytecodeSize, 0);
-
-		if (result != 0) {
-			Log::Warn("Lua Load Error: %s", lua_tostring(L, lua_gettop(L)));
-			lua_pop(L, 1);
-			return;
-		}
-
-		if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
-			Log::Warn("Lua Runtime Error: %s", lua_tostring(L, lua_gettop(L)));
-			lua_pop(L, 1);
-			return;
-		}
-		pState->appLoaded = true;
-		pState->appName = appName;
-	}
+	// compile and load main.luau
+	pState->appLoaded = CompileAndLoadModule(appMainPath);
+	pState->appName= appName;
 }
 
 // ***********************************************************************
@@ -467,6 +504,8 @@ void Start() {
 
 void Tick(f32 deltaTime) {
 	if (!pState->appLoaded) return;
+
+	FileWatcherProcessChanges(pState->pWatcher);
 
 	lua_State* L = pState->pProgramState;
 	lua_getglobal(L, "update");

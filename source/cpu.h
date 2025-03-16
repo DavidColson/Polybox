@@ -5,7 +5,7 @@ struct String;
 namespace Cpu {
 
 void Init();
-void CompileAndLoadApp(String appName);
+void LoadApp(String appName);
 void Start();
 void Tick(f32 deltaTime);
 void Close();

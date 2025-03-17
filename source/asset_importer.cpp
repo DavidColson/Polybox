@@ -150,14 +150,13 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 
 	Log::Info("Importing %s", source.pData);
 
-	String outputPath = CopyString(output, pScratchArena);
-	for (i64 i = outputPath.length-1; i>=0; i--) {
-		if (outputPath.pData[i] == '\\' || outputPath.pData[i] == '/') {
+	String outputPath;
+	for (i64 i = output.length-1; i>=0; i--) {
+		if (output.pData[i] == '\\' || output.pData[i] == '/') {
+			outputPath = output.SubStr(0, i+1);
 			break;
 		}
-		outputPath.length--;
 	}
-	outputPath[outputPath.length] = 0;
 
 	// Load file
 	String fileContents;
@@ -396,7 +395,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		result.pData = (char*)lua_tolstring(L, -1, &len); 
 		result.length = (i64)len;
 
-		String outputFileName = StringPrint(pScratchArena, "%s%s.mesh", outputPath.pData, meshName.pData);
+		String outputFileName = StringPrint(pScratchArena, "%S%S.mesh", outputPath, meshName);
 		if (WriteWholeFile(outputFileName, result.pData, result.length)) {
 			Log::Info("	Exported %s", outputFileName.pData);
 		}
@@ -482,7 +481,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		result.pData = (char*)lua_tolstring(L, -1, &len); 
 		result.length = (i64)len;
 
-		String outputFileName = StringPrint(pScratchArena, "%s%s.texture", outputPath.pData, imageName.pData);
+		String outputFileName = StringPrint(pScratchArena, "%S%S.texture", outputPath, imageName);
 		if (WriteWholeFile(outputFileName, result.pData, result.length)) {
 			Log::Info("	Exported %s", outputFileName.pData);
 		}

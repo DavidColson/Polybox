@@ -135,6 +135,52 @@ struct GltfAccessor {
     Type type;
 };
 
+// ***********************************************************************
+
+struct ImportTableAsset {
+	String sourceAsset;
+	bool enableAutoImport;
+	i64 lastImportTime;
+};
+
+struct AssetImportTable {
+	Arena* pArena;
+	HashMap<String, ImportTableAsset> table;
+};
+
+// ***********************************************************************
+
+AssetImportTable* LoadImportTable(String project) {
+	// create a new one if this project has no import table
+	String importTablePath = TempPrint("system/%S/import_table.txt", project);
+	// if (!FileExists(importTablePath)) {
+	{
+		Arena* pArena = ArenaCreate();
+		AssetImportTable* pImportTable = New(pArena, AssetImportTable);
+		pImportTable->pArena = pArena;
+		pImportTable->table.pArena = pArena;
+		return pImportTable;
+	}
+	// @todo: actually load and parse a text file into the import table
+	return nullptr;
+}
+
+// ***********************************************************************
+
+bool SaveImportTable(AssetImportTable* pTable, String project) {
+	StringBuilder builder(g_pArenaFrame);
+
+	for (i64 i = 0; i < pTable->table.tableSize; i++) {
+		HashNode<String, ImportTableAsset>& node = pTable->table.pTable[i];
+		if (node.hash != UNUSED_HASH) {
+			builder.AppendFormat("%S %S %s %i\n", node.key, node.value.sourceAsset, node.value.enableAutoImport ? "1" : "0", node.value.lastImportTime);
+		}
+	}
+	String importTablePath = TempPrint("system/%S/import_table.txt", project);
+	String fileContent = builder.CreateString(g_pArenaFrame);
+	WriteWholeFile(importTablePath, fileContent.pData, fileContent.length);
+	return true;
+}
 
 // ***********************************************************************
 
@@ -148,15 +194,40 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	// gltf, so when importing seperate gltf files, don't import stuff we already may have picked up, such as images
 	// they'll be done individually
 
-	Log::Info("Importing %s", source.pData);
+	Log::Info("Importing %S", source);
 
-	String outputPath;
-	for (i64 i = output.length-1; i>=0; i--) {
+	String projectName;
+	for (i64 i = 0; i < output.length; i++) {
 		if (output.pData[i] == '\\' || output.pData[i] == '/') {
-			outputPath = output.SubStr(0, i+1);
+			projectName = output.SubStr(0, i);
 			break;
 		}
 	}
+
+	// @todo: temporary, this assumes that the output is actually a file, 
+	// it could be a path itself in which case we must work out the filename instead
+	// A better approach for all of this would be to just write a function that splits a string into 
+	// sections on a delimeter, we don't need strtok because we can just make string views
+	// then the first element is the project name
+	// We check if the last char is a "/" or "\\", if so we treat it as a path, otherwise we treat it as a file
+	// Then you can build your output folders from the pieces
+	String outputFolder;
+	String outputFilename;
+	for (i64 i = output.length-1; i>=0; i--) {
+		if (output.pData[i] == '\\' || output.pData[i] == '/') {
+			outputFolder = output.SubStr(0, i+1);
+			outputFilename = output.SubStr(i+1, output.length);
+			break;
+		}
+	}
+	// todo: normalize path separators here, we end up with a mix depending on what came into the function
+	String outputPath = TempPrint("system/%S", outputFolder);
+
+	AssetImportTable* pImportTable = LoadImportTable(projectName);
+
+	// load the asset table for the target project
+	// you will want to de-duplicate, since you may be re-importing stuff that's already in the table
+	// What does the table look like in memory? A hash table?
 
 	// Load file
 	String fileContents;
@@ -203,11 +274,13 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		result.pData = (char*)lua_tolstring(L, -1, &len); 
 		result.length = (i64)len;
 
-		if (WriteWholeFile(output, result.pData, result.length)) {
-			Log::Info("	Exported %s", output.pData);
+		String outputFilepath = StringPrint(pScratchArena, "%S%S", outputPath, outputFilename);
+		if (WriteWholeFile(outputFilepath, result.pData, result.length)) {
+			Log::Info("	Exported %S", outputFilepath);
+			pImportTable->table[outputFilepath] = ImportTableAsset{ .sourceAsset = source, .enableAutoImport = true, .lastImportTime = 978912};
 		}
 		else {
-			Log::Info("	Failed to export %s, is the path correct?", output.pData);
+			Log::Info("	Failed to export %S, is the path correct?", outputFilepath);
 			return -1;
 		}
 	}
@@ -395,12 +468,13 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		result.pData = (char*)lua_tolstring(L, -1, &len); 
 		result.length = (i64)len;
 
-		String outputFileName = StringPrint(pScratchArena, "%S%S.mesh", outputPath, meshName);
-		if (WriteWholeFile(outputFileName, result.pData, result.length)) {
-			Log::Info("	Exported %s", outputFileName.pData);
+		String outputFilepath = StringPrint(pScratchArena, "%S%S.mesh", outputPath, meshName);
+		if (WriteWholeFile(outputFilepath, result.pData, result.length)) {
+			Log::Info("	Exported %S", outputFilepath);
+			pImportTable->table[outputFilepath] = ImportTableAsset{ .sourceAsset = source, .enableAutoImport = true, .lastImportTime = 978912};
 		}
 		else {
-			Log::Info("	Failed to export %s, is the path correct?", output.pData);
+			Log::Info("	Failed to export %S, is the path correct?", outputFilepath);
 			return -1;
 		}
 
@@ -481,18 +555,21 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		result.pData = (char*)lua_tolstring(L, -1, &len); 
 		result.length = (i64)len;
 
-		String outputFileName = StringPrint(pScratchArena, "%S%S.texture", outputPath, imageName);
-		if (WriteWholeFile(outputFileName, result.pData, result.length)) {
-			Log::Info("	Exported %s", outputFileName.pData);
+		String outputFilepath = StringPrint(pScratchArena, "%S%S.texture", outputPath, imageName);
+		if (WriteWholeFile(outputFilepath, result.pData, result.length)) {
+			Log::Info("	Exported %S", outputFilepath);
+			pImportTable->table[outputFilepath] = ImportTableAsset{ .sourceAsset = source, .enableAutoImport = true, .lastImportTime = 978912};
 		}
 		else {
-			Log::Info("	Failed to export %s, is the path correct?", output.pData);
+			Log::Info("	Failed to export %S, is the path correct?", outputFilepath);
 			return -1;
 		}
 
 		stbi_image_free(pData);
 		lua_pop(L, 1);
 	}
+
+	SaveImportTable(pImportTable, projectName);
 
 	return 0;
 }

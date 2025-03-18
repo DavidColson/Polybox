@@ -227,7 +227,7 @@ int main(int argc, char* argv[]) {
 	if (argc > 1) {
 		if (strcmp(argv[1], "-import") == 0) {
 			if (argc < 4) {
-				Log::Info("required format for import is \"import [-t|-b|-c|-bt] path/source_filename.file path/output_filename.file\"");
+				Log::Info("required format for import is \"import [-t|-b|-c|-bt] path/source_filename <projectname>/output_filename.file\"");
 				Log::Info("-t: text     -b: binary uncompressed      -c: binary compressed  -bt: base64 encoded binary");
 				Log::Info("will default to -c");
 				return 1;

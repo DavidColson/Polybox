@@ -199,7 +199,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	String projectName;
 	for (i64 i = 0; i < output.length; i++) {
 		if (output.pData[i] == '\\' || output.pData[i] == '/') {
-			projectName = output.SubStr(0, i);
+			projectName = SubStr(output, 0, i);
 			break;
 		}
 	}
@@ -215,8 +215,8 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	String outputFilename;
 	for (i64 i = output.length-1; i>=0; i--) {
 		if (output.pData[i] == '\\' || output.pData[i] == '/') {
-			outputFolder = output.SubStr(0, i+1);
-			outputFilename = output.SubStr(i+1, output.length);
+			outputFolder = SubStr(output, 0, i+1);
+			outputFilename = SubStr(output, i+1, output.length);
 			break;
 		}
 	}
@@ -303,7 +303,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		// filename.bin
 			// this will be another file to load, with the binary data directly there
 		// no entry other than byte length, then it is glb and the binary is in the next chunk or chunks
-        String decoded = DecodeBase64(pScratchArena, encodedBuffer.SubStr(37));
+        String decoded = DecodeBase64(pScratchArena, SubStr(encodedBuffer, 37));
         buf.pBytes = (u8*)decoded.pData;
 
         rawDataBuffers.PushBack(buf);
@@ -508,8 +508,8 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			// or it's a filename
 
 			String uri = jsonImage["uri"].ToString();
-			if (uri.Find("data:image/png;base64,") == 0) {
-				String decoded = DecodeBase64(pScratchArena, uri.SubStr(22));
+			if (Find(uri, "data:image/png;base64,") == 0) {
+				String decoded = DecodeBase64(pScratchArena, SubStr(uri, 22));
 				pImageRawData = (u8*)decoded.pData;
 				imageDataLen = (i32)decoded.length;
 			}

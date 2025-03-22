@@ -13,6 +13,31 @@ static void* LuaAllocator(void* ud, void* ptr, u64 osize, u64 nsize) {
 
 // ***********************************************************************
 
+bool WriteLuaTableToFile(lua_State* L, u8 format, String output) {
+	// we assume the table to be written out is on the top of the stack
+	lua_getglobal(L, "serialize");
+	lua_pushvalue(L, -2); // copy the table
+	lua_pushnumber(L, format);
+	lua_pcall(L, 2, 1, 0);
+	{
+		String result;
+		size_t len;
+		result.pData = (char*)lua_tolstring(L, -1, &len); 
+		result.length = (i64)len;
+
+		if (WriteWholeFile(output, result.pData, result.length)) {
+			Log::Info("	Exported %S", output);
+		}
+		else {
+			Log::Info("	Failed to export %S, is the path correct?", output);
+			return false;
+		}
+	}
+	return true;
+}
+
+// ***********************************************************************
+
 void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, i32 nodeId) {
 	JsonValue& nodeToParse = gltf["nodes"][nodeId];
 
@@ -146,7 +171,7 @@ struct GltfAccessor {
 
 // ***********************************************************************
 
-bool ImportGltf(Arena* pArena, u8 format, String source, String output) {
+bool ImportGltf(Arena* pArena, lua_State* L, u8 format, String source) {
 	// Load file
 	String fileContents;
     fileContents.pData = ReadWholeFile(source, &fileContents.length, pArena);
@@ -163,13 +188,7 @@ bool ImportGltf(Arena* pArena, u8 format, String source, String output) {
         return 1;
 	}
 
-	// Create a lua state, seems a bit odd here I know, but the serialization code is designed to work
-	// on lua tables, and so we're just using the lua state to hold those tables, won't actually run any lua code really
-	lua_State* L = lua_newstate(LuaAllocator, nullptr);
-	BindSerialization(L);
-	BindUserData(L);
 
-	lua_getglobal(L, "serialize");
 	lua_newtable(L); // top level table for gltf
 	lua_newtable(L); // scene table
 
@@ -403,12 +422,12 @@ bool ImportGltf(Arena* pArena, u8 format, String source, String output) {
 			}
 			else {
 				Log::Warn("Unable to import image %s, we don't yet support external image uris", jsonImage["name"].ToString().pData);
-				return false;
+				continue;
 			}
 		}
 		else {
 			Log::Warn("Unable to import image %s, we can't find the data in the gltf", jsonImage["name"].ToString().pData);
-			return false;
+			continue;
 		}
 
 		lua_newtable(L); // table for this texture
@@ -439,26 +458,6 @@ bool ImportGltf(Arena* pArena, u8 format, String source, String output) {
 
 	lua_setfield(L, -2, "textures"); // set textures table into top level table
 
-	// Write out the imported table	
-	// ----------------------------------------------------------------
-	
-	lua_pushnumber(L, format);
-	lua_pcall(L, 2, 1, 0);
-	{
-		String result;
-		size_t len;
-		result.pData = (char*)lua_tolstring(L, -1, &len); 
-		result.length = (i64)len;
-
-		if (WriteWholeFile(output, result.pData, result.length)) {
-			Log::Info("	Exported %S", output);
-		}
-		else {
-			Log::Info("	Failed to export %S, is the path correct?", output);
-			return false;
-		}
-	}
-	lua_pop(L, 1); // pop the top level table
 	return true;
 }
 
@@ -557,23 +556,12 @@ bool SaveImportTable(AssetImportTable* pTable, String project) {
 
 // ***********************************************************************
 
-int Import(Arena* pScratchArena, u8 format, String source, String output) {
+int ImportFile(Arena* pScratchArena, u8 format, String source, String output) {
 
 	NormalizePath(source);
 	NormalizePath(output);
 
 	Log::Info("Importing %S", source);
-
-	ResizableArray<String> outputPathSections = Split(pScratchArena, output, "/\\");
-	String projectName = outputPathSections[0];
-
-	String projectPath = TempPrint("system/%S/", projectName);
-	if (!FolderExists(projectPath)) {
-		Log::Warn("Project %S does not exist, cannot import", projectName);
-		return -1;
-	}
-
-	AssetImportTable* pImportTable = LoadImportTable(projectName);
 
 	if (FileExists(source)) {
 		// check we've been given a valid output filename
@@ -582,44 +570,39 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			return -1;
 		}
 
+		// Create a lua state, seems a bit odd here I know, but the serialization code is designed to work
+		// on lua tables, and so we're just using the lua state to hold those tables, won't actually run any lua code really
+		lua_State* L = lua_newstate(LuaAllocator, nullptr);
+		BindSerialization(L);
+		BindUserData(L);
+
 		String outputFilepath = TempPrint("system/%S", output);
 
 		// Actually do the import, depending on the file type
 		String extension = TakeAfterLastDot(source);
 		if (extension == "gltf") {
-			if (ImportGltf(pScratchArena, format, source, outputFilepath)) {
-				File sourceFile = OpenFile(source, FM_READ);
-				pImportTable->table[source] = ImportTableAsset{
-					.outputPath = output,
-					.enableAutoImport = true,
-					.lastImportTime = GetFileLastWriteTime(sourceFile),
-					.importFormat = format
-				};
-				CloseFile(sourceFile);
-			} 
-			else {
+			if (!ImportGltf(pScratchArena, L, format, source)) {
 				return -1;
-			}
+			} 
 		}
 		else if (extension == "png") {
 			Log::Warn("TODO: implement png import");
 			return -1;
 		}
 		else {
-			Log::Warn("Unsupported file give as input: %S", source);
+			Log::Warn("Unsupported filename give as input: %S", source);
 			return -1;
 		}
-	}
-	else if (FolderExists(source)) {
-		Log::Warn("We don't yet support importing a whole folder, please specify a file");
-		return -1;
+
+		// after import the result table will be left on the stack
+		// so we can write it out now
+		WriteLuaTableToFile(L, format, outputFilepath);
+		lua_pop(L, 1); // pop the asset off the stack
 	}
 	else {
 		Log::Warn("Source input does not exist");
 		return -1;
 	}
-
-	SaveImportTable(pImportTable, projectName);
 
 	return 0;
 }

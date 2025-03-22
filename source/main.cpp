@@ -251,13 +251,38 @@ int main(int argc, char* argv[]) {
 
 			// @TODO: if paths are given instead of files, process the whole folder instead
 			Arena* pArena = ArenaCreate();
-			i32 result = AssetImporter::Import(pArena, format, String(argv[fileArg]), String(argv[fileArg+1]));
-			if (result >= 0) 
-				Log::Info("Import succeeded");
-			else 
-				Log::Info("Import failed");
+			String sourceFile = String(argv[fileArg]);
+			String outputFile = String(argv[fileArg+1]);
 
-			ArenaFinished(pArena);
+			ResizableArray<String> outputPathSections = Split(pArena, outputFile, "/\\");
+			String projectName = outputPathSections[0];
+
+			String projectPath = TempPrint("system/%S/", projectName);
+			if (!FolderExists(projectPath)) {
+				Log::Warn("Project %S does not exist, cannot import", projectName);
+				return -1;
+			}
+
+			AssetImporter::AssetImportTable* pImportTable = AssetImporter::LoadImportTable(projectName);
+
+			i32 result = AssetImporter::ImportFile(pArena, format, sourceFile, outputFile);
+			if (result >= 0) {
+				Log::Info("Import succeeded");
+
+				File sourceFileHdl = OpenFile(sourceFile, FM_READ);
+				pImportTable->table[sourceFile] = AssetImporter::ImportTableAsset{
+					.outputPath = outputFile,
+					.enableAutoImport = true,
+					.lastImportTime = GetFileLastWriteTime(sourceFileHdl),
+					.importFormat = format
+				};
+				CloseFile(sourceFileHdl);
+
+				SaveImportTable(pImportTable, projectName);
+				return result;
+			}
+
+			Log::Info("Import failed");
 			return result;
 		}
 		else if (strcmp(argv[1], "-new") == 0) {
@@ -302,25 +327,6 @@ int main(int argc, char* argv[]) {
 	Cpu::Init();
 	GraphicsInit(pWindow, winWidth, winHeight);
 	InputInit();
-
-	// re-import assets if required
-	if (startupAppName.length > 0) {
-		AssetImporter::AssetImportTable* pAssetTable = AssetImporter::LoadImportTable(startupAppName);
-		for (i64 i = 0; i < pAssetTable->table.tableSize; i++) {
-			HashNode<String, AssetImporter::ImportTableAsset>& node = pAssetTable->table.pTable[i];
-			if (node.hash != UNUSED_HASH) {
-				File file = OpenFile(node.key, FM_READ);
-				if (IsValid(file)) {
-					u64 lastWriteTime = GetFileLastWriteTime(file);
-					if (lastWriteTime > node.value.lastImportTime && node.value.enableAutoImport) {
-						i32 res = AssetImporter::Import(g_pArenaFrame, node.value.importFormat, node.key, node.value.outputPath);
-						if (res != 0)
-							Log::Warn("Attempted to re-import %S, but it failed", node.key);
-					}
-				}
-			}
-		}
-	}
 
 	Cpu::LoadApp(startupAppName);
 	Cpu::Start();

@@ -10,5 +10,6 @@ void Start();
 void Tick(f32 deltaTime);
 void Close();
 String GetAppName();
+void EnableHotReloadForFile(String file);
 
 };

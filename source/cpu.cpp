@@ -307,18 +307,21 @@ struct LuaFileResolver : Luau::FileResolver {
 // ***********************************************************************
 
 struct State {
+
+	// global stuff
 	Arena* pArena;
 	bool appLoaded;
-
-	lua_State* pProgramState;
-
 	LuaFileResolver fileResolver;
 	Luau::NullConfigResolver configResolver;
 	Luau::Frontend frontend;
-
-	ResizableArray<String> luaFilesToWatch;
 	FileWatcher* pWatcher;
+
+	// curent app specific
 	String appName;
+	lua_State* pProgramState;
+	AssetImporter::AssetImportTable* pImportTable;
+	ResizableArray<String> luaFilesToWatch;
+	ResizableArray<String> assetsToWatch;
 };
 
 State* pState = nullptr;
@@ -338,7 +341,8 @@ static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize) {
 
 // ***********************************************************************
 
-void OnCodeEdit(FileChange change, void* pUserData) {
+void OnFileChanged(FileChange change, void* pUserData) {
+	// check for luau file changes
 	for (int i=0; i<pState->luaFilesToWatch.count; i++) {
 		if (pState->luaFilesToWatch[i] == change.path) {
 			Log::Info("Luau file %s changed, reloading", change.path.pData);
@@ -370,6 +374,34 @@ void OnCodeEdit(FileChange change, void* pUserData) {
 				lua_settable(L, -4);
 			}
 			lua_pop(L, 3);
+		}
+	}
+
+	// check for asset changes
+	for (int i=0; i<pState->assetsToWatch.count; i++) {
+		if (pState->assetsToWatch[i] == change.path) {
+			String extension = TakeAfterLastDot(change.path);
+			if (extension == "gltf") {
+				lua_State* L = pState->pProgramState;
+				AssetImporter::ImportTableAsset& asset = pState->pImportTable->table[change.path];
+
+				// reimport the asset, leaving it loaded into lua (i.e. we don't serialize it)
+				if (AssetImporter::ImportGltf(g_pArenaFrame, L, asset.importFormat, change.path)) {
+					// you want to lookup the asset in the ASSET table
+					i32 newAssetIndex = lua_gettop(L);
+					luaL_findtable(L, LUA_REGISTRYINDEX, "_ASSETS", 1);
+					lua_getfield(L, -1, change.path.pData);
+
+					// and then shallow copy the new table into the old one
+					lua_pushnil(L);
+					while(lua_next(L, newAssetIndex) != 0) {
+						lua_pushvalue(L, -2);
+						lua_insert(L, -2);
+						lua_settable(L, -4);
+					}
+					lua_pop(L, 3);
+				}
+			}
 		}
 	}
 }
@@ -409,8 +441,7 @@ void Init() {
 	pState->pArena = pArena;
 	pState->appLoaded = false;
 
-	pState->luaFilesToWatch.pArena = pArena;
-	pState->pWatcher = FileWatcherCreate(OnCodeEdit, FC_MODIFIED, (void*)pState, true);
+	pState->pWatcher = FileWatcherCreate(OnFileChanged, FC_MODIFIED, (void*)pState, true);
 
 	// Setup our frontend
 	Luau::FrontendOptions frontendOptions;
@@ -513,6 +544,8 @@ void LoadApp(String appName) {
 	}
 
 	pState->appName= appName;
+	pState->luaFilesToWatch.pArena = pState->pArena;
+	pState->assetsToWatch.pArena = pState->pArena;
 
 	// search for a project in system/ with appname
 	StringBuilder builder(g_pArenaFrame);
@@ -530,6 +563,37 @@ void LoadApp(String appName) {
 		return;
 	}
 	pState->luaFilesToWatch.PushBack(appMainPath);
+
+	pState->pImportTable = AssetImporter::LoadImportTable(appName);
+
+	// re-import any changed assets
+	for (i64 i = 0; i < pState->pImportTable->table.tableSize; i++) {
+		HashNode<String, AssetImporter::ImportTableAsset>& node = pState->pImportTable->table.pTable[i];
+		if (node.hash != UNUSED_HASH) {
+			File file = OpenFile(node.key, FM_READ);
+			defer(CloseFile(file));
+			if (IsValid(file)) {
+				u64 lastWriteTime = GetFileLastWriteTime(file);
+				if (lastWriteTime > node.value.lastImportTime && node.value.enableAutoImport) {
+
+					i32 res = AssetImporter::ImportFile(g_pArenaFrame, node.value.importFormat, node.key, node.value.outputPath);
+					if (res >= 0) {
+						pState->pImportTable->table[node.key] = AssetImporter::ImportTableAsset{
+							.outputPath = node.value.outputPath,
+							.enableAutoImport = true,
+							.lastImportTime = lastWriteTime,
+							.importFormat = node.value.importFormat
+						};
+						continue;
+					}
+					Log::Warn("Attempted to re-import %S, but it failed", node.key);
+				}
+			}
+		}
+	}
+	
+	// save out any changes
+	AssetImporter::SaveImportTable(pState->pImportTable, appName);
 
 	// create a program state
 	pState->pProgramState = lua_newstate(LuaAllocator, nullptr);
@@ -549,6 +613,15 @@ void LoadApp(String appName) {
     lua_pushvalue(L, LUA_GLOBALSINDEX);
     luaL_register(L, NULL, coreFuncs);
     lua_pop(L, 1);
+
+	// create asset hot reload watch table
+	// @todo: don't do this in release builds with no hot reloading
+	luaL_findtable(L, LUA_REGISTRYINDEX, "_ASSETS", 1);
+	lua_newtable(L);
+	lua_pushstring(L, "v");
+	lua_setfield(L, -2, "__mode");
+	lua_setmetatable(L, -2);
+	lua_pop(L, 1);
 
 	// compile and load main.luau
 	pState->appLoaded = CompileAndLoadModule(appMainPath, 0);
@@ -607,5 +680,29 @@ void Close() {
 
 String GetAppName() {
 	return pState->appName;
+}
+
+bool EnableHotReloadForFile(lua_State* L, String file) {
+	// file is a vfs file so you must consult the import table
+	// to figure out what the source asset is
+	// additionally it is assumed that the top of the stack is the table that represents the loaded file
+	// it's the table that will be replaced if a hot reload occurs
+	
+	for (i64 i = 0; i < pState->pImportTable->table.tableSize; i++) {
+		HashNode<String, AssetImporter::ImportTableAsset>& node = pState->pImportTable->table.pTable[i];
+		if (node.hash != UNUSED_HASH) {
+			if (node.value.enableAutoImport && EndsWith(file, node.value.outputPath, SlashInsensitive)) {
+				FileWatcherAddDirectory(pState->pWatcher, TakeBeforeLastSlash(node.key));
+				pState->assetsToWatch.PushBack(node.key);
+				luaL_findtable(L, LUA_REGISTRYINDEX, "_ASSETS", 1);
+				lua_pushlstring(L, node.key.pData, node.key.length); // source asset name
+				lua_pushvalue(L, -3); // copy of the asset table
+				lua_settable(L, -3); // set asset into _ASSETS table
+				lua_pop(L, 1); // pop _ASSETS table
+				return true;
+			}
+		}
+	}
+	return false;
 }
 };

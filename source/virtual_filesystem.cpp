@@ -64,6 +64,7 @@ int VfsLoad(lua_State* L) {
 		return 0;
 	}
 
+
     i64 fileSize;
     char* pFileContent = ReadWholeFile(realFileName, &fileSize, g_pArenaFrame);
 	if (pFileContent == nullptr) {
@@ -72,7 +73,11 @@ int VfsLoad(lua_State* L) {
 	}
 
 	lua_pushlstring(L, pFileContent, fileSize);
-	return Deserialize(L);
+	i32 retVals = Deserialize(L);
+
+	// this function expects the table to be hot reloaded is on the top of the stack
+	Cpu::EnableHotReloadForFile(L, realFileName);
+	return retVals;
 }
 
 // ***********************************************************************

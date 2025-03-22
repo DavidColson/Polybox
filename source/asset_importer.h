@@ -17,6 +17,9 @@ struct AssetImportTable {
 };
 
 AssetImportTable* LoadImportTable(String project);
-int Import(Arena* pScratchArena, u8 format, String source, String output);
+
+bool ImportGltf(Arena* pArena, lua_State* L, u8 format, String source);
+
+int ImportFile(Arena* pScratchArena, u8 format, String source, String output);
 
 };

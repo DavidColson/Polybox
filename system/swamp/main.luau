@@ -3,8 +3,6 @@ function start()
 	state = {}
 
 	state.scene = load("swamp.scene")
-	state.mesh = load("mesh0.mesh")
-	state.texture = load("image0.texture")
 end
 
 function update()
@@ -16,7 +14,7 @@ function update()
     matrix_mode("View")
 	-- we need to sort this shit out
 	rotate(0, -1, 0)
-	translate(-9, -2, -10)
+	translate(-9, -1, -10)
 
     normals_mode("Custom")
     enable_lighting(true)
@@ -25,14 +23,17 @@ function update()
 
     enable_fog(true)
     set_fog_start(3.0)
-    set_fog_end(20.0)
+    set_fog_end(40.0)
 	set_fog_color(0.25, 0.25, 0.25)
 
+	local texture = state.scene.textures.image0
+	local mesh = state.scene.meshes.mesh0
+
 	local floatsPerVertex = 12
-	bind_texture(state.texture.data)
+	bind_texture(texture.data)
 
 	begin_object_3d("Triangles")
-	local vertices = state.mesh.vertices
+	local vertices = mesh.vertices
 	for i = 0, vertices:size()-1, floatsPerVertex do
 		-- 0-2 is position
 		-- 3-6 is color

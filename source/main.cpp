@@ -303,6 +303,25 @@ int main(int argc, char* argv[]) {
 	GraphicsInit(pWindow, winWidth, winHeight);
 	InputInit();
 
+	// re-import assets if required
+	if (startupAppName.length > 0) {
+		AssetImporter::AssetImportTable* pAssetTable = AssetImporter::LoadImportTable(startupAppName);
+		for (i64 i = 0; i < pAssetTable->table.tableSize; i++) {
+			HashNode<String, AssetImporter::ImportTableAsset>& node = pAssetTable->table.pTable[i];
+			if (node.hash != UNUSED_HASH) {
+				File file = OpenFile(node.key, FM_READ);
+				if (IsValid(file)) {
+					u64 lastWriteTime = GetFileLastWriteTime(file);
+					if (lastWriteTime > node.value.lastImportTime && node.value.enableAutoImport) {
+						i32 res = AssetImporter::Import(g_pArenaFrame, node.value.importFormat, node.key, node.value.outputPath);
+						if (res != 0)
+							Log::Warn("Attempted to re-import %S, but it failed", node.key);
+					}
+				}
+			}
+		}
+	}
+
 	Cpu::LoadApp(startupAppName);
 	Cpu::Start();
 

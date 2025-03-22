@@ -13,8 +13,17 @@ static void* LuaAllocator(void* ud, void* ptr, u64 osize, u64 nsize) {
 
 // ***********************************************************************
 
-void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, JsonValue& nodeToParse) {
-	String nodeName = nodeToParse.HasKey("name") ? nodeToParse["name"].ToString() : String("");
+void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, i32 nodeId) {
+	JsonValue& nodeToParse = gltf["nodes"][nodeId];
+
+	// construct the nodename
+	String nodeName;
+	if (nodeToParse.HasKey("name")) {
+		nodeName = nodeToParse["name"].ToString();
+	}
+	else {
+		nodeName = TempPrint("node%d", nodeId);
+	}
 	lua_pushlstring(L, nodeName.pData, nodeName.length);
 
 	// table for the node itself
@@ -85,7 +94,7 @@ void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, JsonValue& nodeToPa
 		i32 childCount = nodeToParse["children"].Count();
 		for (int i = 0; i < childCount; i++) {
 			i32 childId = nodeToParse["children"][i].ToInt();
-			ParseJsonNodeRecursively(L, gltf, gltf["nodes"][childId]);
+			ParseJsonNodeRecursively(L, gltf, childId);
 		}
 		lua_setfield(L, -2, "children");
 	}
@@ -173,8 +182,7 @@ bool ImportGltf(Arena* pArena, u8 format, String source, String output) {
 	i32 topLevelNodesCount = topLevelNodeList.Count();
     for (int i = 0; i < topLevelNodesCount; i++) {
 		i32 nodeId = topLevelNodeList[i].ToInt();
-		JsonValue& node = parsed["nodes"][nodeId];
-		ParseJsonNodeRecursively(L, parsed, node);
+		ParseJsonNodeRecursively(L, parsed, nodeId);
 	}
 
 	lua_setfield(L, -2, "scene");
@@ -456,19 +464,6 @@ bool ImportGltf(Arena* pArena, u8 format, String source, String output) {
 
 // ***********************************************************************
 
-struct ImportTableAsset {
-	String outputPath;
-	bool enableAutoImport;
-	u64 lastImportTime;
-};
-
-struct AssetImportTable {
-	Arena* pArena;
-	HashMap<String, ImportTableAsset> table;
-};
-
-// ***********************************************************************
-
 AssetImportTable* LoadImportTable(String project) {
 	// create a new one if this project has no import table
 	String importTablePath = TempPrint("system/%S/import_table.txt", project);
@@ -502,6 +497,14 @@ AssetImportTable* LoadImportTable(String project) {
 			i++; // advance over ", and then skip whitespace
 			while (Scan::IsWhitespace(fileContents[i]) && i<fileContents.length) i++;
 
+			start = i;
+			while (Scan::IsPartOfNumber(fileContents[i])) i++;
+			String importFormatStr = SubStr(fileContents, start, i-start);
+			u8 importFormat = (u8)atoi(importFormatStr.pData); 
+
+			i++;
+			while (Scan::IsWhitespace(fileContents[i]) && i<fileContents.length) i++;
+
 			bool autoImport = false;
 			if (fileContents[i] == '0')
 				autoImport = false;
@@ -524,7 +527,8 @@ AssetImportTable* LoadImportTable(String project) {
 			pImportTable->table[sourceAsset] = ImportTableAsset{ 
 				.outputPath = outputPath,
 				.enableAutoImport = autoImport,
-				.lastImportTime = lastWriteTime
+				.lastImportTime = lastWriteTime,
+				.importFormat = importFormat
 			};
 		}
 		else {
@@ -542,7 +546,7 @@ bool SaveImportTable(AssetImportTable* pTable, String project) {
 	for (i64 i = 0; i < pTable->table.tableSize; i++) {
 		HashNode<String, ImportTableAsset>& node = pTable->table.pTable[i];
 		if (node.hash != UNUSED_HASH) {
-			builder.AppendFormat("\"%S\" \"%S\" %s %llu\n", node.key, node.value.outputPath, node.value.enableAutoImport ? "1" : "0", node.value.lastImportTime);
+			builder.AppendFormat("\"%S\" \"%S\" %d %s %llu\n", node.key, node.value.outputPath, node.value.importFormat, node.value.enableAutoImport ? "1" : "0", node.value.lastImportTime);
 		}
 	}
 	String importTablePath = TempPrint("system/%S/import_table.txt", project);
@@ -586,9 +590,10 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 			if (ImportGltf(pScratchArena, format, source, outputFilepath)) {
 				File sourceFile = OpenFile(source, FM_READ);
 				pImportTable->table[source] = ImportTableAsset{
-					.outputPath = outputFilepath,
+					.outputPath = output,
 					.enableAutoImport = true,
-					.lastImportTime = GetFileLastWriteTime(sourceFile)
+					.lastImportTime = GetFileLastWriteTime(sourceFile),
+					.importFormat = format
 				};
 				CloseFile(sourceFile);
 			} 

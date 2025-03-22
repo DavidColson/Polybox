@@ -137,104 +137,13 @@ struct GltfAccessor {
 
 // ***********************************************************************
 
-struct ImportTableAsset {
-	String sourceAsset;
-	bool enableAutoImport;
-	i64 lastImportTime;
-};
-
-struct AssetImportTable {
-	Arena* pArena;
-	HashMap<String, ImportTableAsset> table;
-};
-
-// ***********************************************************************
-
-AssetImportTable* LoadImportTable(String project) {
-	// create a new one if this project has no import table
-	String importTablePath = TempPrint("system/%S/import_table.txt", project);
-	// if (!FileExists(importTablePath)) {
-	{
-		Arena* pArena = ArenaCreate();
-		AssetImportTable* pImportTable = New(pArena, AssetImportTable);
-		pImportTable->pArena = pArena;
-		pImportTable->table.pArena = pArena;
-		return pImportTable;
-	}
-	// @todo: actually load and parse a text file into the import table
-	return nullptr;
-}
-
-// ***********************************************************************
-
-bool SaveImportTable(AssetImportTable* pTable, String project) {
-	StringBuilder builder(g_pArenaFrame);
-
-	for (i64 i = 0; i < pTable->table.tableSize; i++) {
-		HashNode<String, ImportTableAsset>& node = pTable->table.pTable[i];
-		if (node.hash != UNUSED_HASH) {
-			builder.AppendFormat("%S %S %s %i\n", node.key, node.value.sourceAsset, node.value.enableAutoImport ? "1" : "0", node.value.lastImportTime);
-		}
-	}
-	String importTablePath = TempPrint("system/%S/import_table.txt", project);
-	String fileContent = builder.CreateString(g_pArenaFrame);
-	WriteWholeFile(importTablePath, fileContent.pData, fileContent.length);
-	return true;
-}
-
-// ***********************************************************************
-
-int Import(Arena* pScratchArena, u8 format, String source, String output) {
-	// TODO: take the file extension as an indication of what the file is
-	// below we are doing gltf only. 
-
-	// if first few bytes is "gltf" in ascii, then it's a binary, glb file, you can verify this with the extension
-
-	// note that if we import a whole folder, we may accidentally import files referenced by the
-	// gltf, so when importing seperate gltf files, don't import stuff we already may have picked up, such as images
-	// they'll be done individually
-
-	Log::Info("Importing %S", source);
-
-	String projectName;
-	for (i64 i = 0; i < output.length; i++) {
-		if (output.pData[i] == '\\' || output.pData[i] == '/') {
-			projectName = SubStr(output, 0, i);
-			break;
-		}
-	}
-
-	// @todo: temporary, this assumes that the output is actually a file, 
-	// it could be a path itself in which case we must work out the filename instead
-	// A better approach for all of this would be to just write a function that splits a string into 
-	// sections on a delimeter, we don't need strtok because we can just make string views
-	// then the first element is the project name
-	// We check if the last char is a "/" or "\\", if so we treat it as a path, otherwise we treat it as a file
-	// Then you can build your output folders from the pieces
-	String outputFolder;
-	String outputFilename;
-	for (i64 i = output.length-1; i>=0; i--) {
-		if (output.pData[i] == '\\' || output.pData[i] == '/') {
-			outputFolder = SubStr(output, 0, i+1);
-			outputFilename = SubStr(output, i+1, output.length);
-			break;
-		}
-	}
-	// todo: normalize path separators here, we end up with a mix depending on what came into the function
-	String outputPath = TempPrint("system/%S", outputFolder);
-
-	AssetImportTable* pImportTable = LoadImportTable(projectName);
-
-	// load the asset table for the target project
-	// you will want to de-duplicate, since you may be re-importing stuff that's already in the table
-	// What does the table look like in memory? A hash table?
-
+bool ImportGltf(Arena* pArena, u8 format, String source, String output) {
 	// Load file
 	String fileContents;
-    fileContents.pData = ReadWholeFile(source.pData, &fileContents.length, pScratchArena);
+    fileContents.pData = ReadWholeFile(source.pData, &fileContents.length, pArena);
 
 	// ParseJson
-    JsonValue parsed = ParseJsonFile(pScratchArena, fileContents);
+    JsonValue parsed = ParseJsonFile(pArena, fileContents);
 
 	// validate gltf
 	bool validGltf = parsed["asset"]["version"].ToString() == "2.0";
@@ -249,11 +158,12 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	BindSerialization(L);
 	BindUserData(L);
 
+	lua_getglobal(L, "serialize");
+	lua_newtable(L); // top level table for gltf
+	lua_newtable(L); // scene table
+
 	// -------------------------------------
 	// Import Scene
-
-	lua_getglobal(L, "serialize");
-	lua_newtable(L);
 
 	// note that the nodelist in the top level scene does not include child nodes
 	// so they are not included in this list, but will be parsed recursively
@@ -265,31 +175,13 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		ParseJsonNodeRecursively(L, parsed, node);
 	}
 
-	// once complete output in the desired format, need to make that an argument
-	lua_pushnumber(L, format);
-	lua_pcall(L, 2, 1, 0);
-	{
-		String result;
-		size_t len;
-		result.pData = (char*)lua_tolstring(L, -1, &len); 
-		result.length = (i64)len;
+	lua_setfield(L, -2, "scene");
 
-		String outputFilepath = StringPrint(pScratchArena, "%S%S", outputPath, outputFilename);
-		if (WriteWholeFile(outputFilepath, result.pData, result.length)) {
-			Log::Info("	Exported %S", outputFilepath);
-			pImportTable->table[outputFilepath] = ImportTableAsset{ .sourceAsset = source, .enableAutoImport = true, .lastImportTime = 978912};
-		}
-		else {
-			Log::Info("	Failed to export %S, is the path correct?", outputFilepath);
-			return -1;
-		}
-	}
-	lua_pop(L, 1); // pop the scene table, we're done with it now
 
 	// -------------------------------------
 	// Load buffer data
 
-    ResizableArray<GltfBuffer> rawDataBuffers(pScratchArena);
+    ResizableArray<GltfBuffer> rawDataBuffers(pArena);
     JsonValue& jsonBuffers = parsed["buffers"];
     for (int i = 0; i < jsonBuffers.Count(); i++) {
         GltfBuffer buf;
@@ -303,13 +195,13 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		// filename.bin
 			// this will be another file to load, with the binary data directly there
 		// no entry other than byte length, then it is glb and the binary is in the next chunk or chunks
-        String decoded = DecodeBase64(pScratchArena, SubStr(encodedBuffer, 37));
+        String decoded = DecodeBase64(pArena, SubStr(encodedBuffer, 37));
         buf.pBytes = (u8*)decoded.pData;
 
         rawDataBuffers.PushBack(buf);
     }
 
-    ResizableArray<GltfBufferView> bufferViews(pScratchArena);
+    ResizableArray<GltfBufferView> bufferViews(pArena);
     JsonValue& jsonGltfBufferViews = parsed["bufferViews"];
 
     for (int i = 0; i < jsonGltfBufferViews.Count(); i++) {
@@ -322,7 +214,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
         bufferViews.PushBack(view);
     }
 
-    ResizableArray<GltfAccessor> accessors(pScratchArena);
+    ResizableArray<GltfAccessor> accessors(pArena);
     JsonValue& jsonAccessors = parsed["accessors"];
     accessors.Reserve(jsonAccessors.Count());
 
@@ -368,6 +260,8 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 	// -------------------------------------
 	// Import Meshes
 
+	lua_newtable(L); // mesh table
+
 	i32 meshCount = parsed["meshes"].Count();
 	for (i32 i = 0; i < meshCount; i++) {
         JsonValue& jsonMesh = parsed["meshes"][i];
@@ -381,7 +275,6 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		}
 
 		// make a table for the mesh
-		lua_getglobal(L, "serialize");
 		lua_newtable(L);
 
 		// push mesh format (i.e. flat, smooth etc), probably just a number for now, need to do enums
@@ -445,7 +338,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		i32 nIndices = accessors[jsonPrimitive["indices"].ToInt()].count;
 		u16* indexBuffer = (u16*)accessors[jsonPrimitive["indices"].ToInt()].pBuffer;
 
-		ResizableArray<VertexData> vertices(pScratchArena);
+		ResizableArray<VertexData> vertices(pArena);
 		vertices.Reserve(nIndices);
 		for (int i = 0; i < nIndices; i++) {
 			u16 index = indexBuffer[i];
@@ -459,31 +352,16 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		memcpy((u8*)pUserData->pData, (u8*)vertices.pData, bufSize);
 		lua_setfield(L, -2, "vertices");
 
-		// call serialize to make a file for the mesh
-		lua_pushnumber(L, format);
-		lua_pcall(L, 2, 1, 0);
-
-		String result;
-		size_t len;
-		result.pData = (char*)lua_tolstring(L, -1, &len); 
-		result.length = (i64)len;
-
-		String outputFilepath = StringPrint(pScratchArena, "%S%S.mesh", outputPath, meshName);
-		if (WriteWholeFile(outputFilepath, result.pData, result.length)) {
-			Log::Info("	Exported %S", outputFilepath);
-			pImportTable->table[outputFilepath] = ImportTableAsset{ .sourceAsset = source, .enableAutoImport = true, .lastImportTime = 978912};
-		}
-		else {
-			Log::Info("	Failed to export %S, is the path correct?", outputFilepath);
-			return -1;
-		}
-
-		lua_pop(L, 1); // pop the mesh table, we're done with it now
+		lua_setfield(L, -2, meshName.pData);
 	}
+
+	lua_setfield(L, -2, "meshes"); // set meshes table into top level table
 
 	// -------------------------------------
 	// Import Textures
 
+	lua_newtable(L); // textures table
+	
 	i32 imageCount = parsed["images"].Count();
 	for (i32 i = 0; i < imageCount; i++) {
 		JsonValue& jsonImage = parsed["images"][i];
@@ -509,22 +387,21 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 
 			String uri = jsonImage["uri"].ToString();
 			if (Find(uri, "data:image/png;base64,") == 0) {
-				String decoded = DecodeBase64(pScratchArena, SubStr(uri, 22));
+				String decoded = DecodeBase64(pArena, SubStr(uri, 22));
 				pImageRawData = (u8*)decoded.pData;
 				imageDataLen = (i32)decoded.length;
 			}
 			else {
 				Log::Warn("Unable to import image %s, we don't yet support external image uris", jsonImage["name"].ToString().pData);
-				return -1;
+				return false;
 			}
 		}
 		else {
 			Log::Warn("Unable to import image %s, we can't find the data in the gltf", jsonImage["name"].ToString().pData);
-			return -1;
+			return false;
 		}
 
-		lua_getglobal(L, "serialize");
-		lua_newtable(L);
+		lua_newtable(L); // table for this texture
 
 		i32 n;
 		i32 width;
@@ -532,6 +409,7 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		u8* pData = stbi_load_from_memory((const unsigned char*)pImageRawData, imageDataLen, &width, &height, &n, 4);
 		if (pData == nullptr) {
 			Log::Warn("Failed to load image %s: %s", imageName.pData, stbi_failure_reason());
+			lua_pop(L, 1);
 			continue;
 		}
 		
@@ -546,27 +424,144 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		memcpy((u8*)pUserData->pData, pData, bufSize);
 		lua_setfield(L, -2, "data");
 
-		// call serialize to make a file for the image
-		lua_pushnumber(L, format);
-		lua_pcall(L, 2, 1, 0);
+		lua_setfield(L, -2, imageName.pData);
+	}
 
+	lua_setfield(L, -2, "textures"); // set textures table into top level table
+
+	// Write out the imported table	
+	// ----------------------------------------------------------------
+	
+	lua_pushnumber(L, format);
+	lua_pcall(L, 2, 1, 0);
+	{
 		String result;
 		size_t len;
 		result.pData = (char*)lua_tolstring(L, -1, &len); 
 		result.length = (i64)len;
 
-		String outputFilepath = StringPrint(pScratchArena, "%S%S.texture", outputPath, imageName);
-		if (WriteWholeFile(outputFilepath, result.pData, result.length)) {
-			Log::Info("	Exported %S", outputFilepath);
-			pImportTable->table[outputFilepath] = ImportTableAsset{ .sourceAsset = source, .enableAutoImport = true, .lastImportTime = 978912};
+		if (WriteWholeFile(output, result.pData, result.length)) {
+			Log::Info("	Exported %S", output);
 		}
 		else {
-			Log::Info("	Failed to export %S, is the path correct?", outputFilepath);
+			Log::Info("	Failed to export %S, is the path correct?", output);
+			return false;
+		}
+	}
+	lua_pop(L, 1); // pop the top level table
+	return true;
+}
+
+// ***********************************************************************
+
+struct ImportTableAsset {
+	String outputPath;
+	bool enableAutoImport;
+	i64 lastImportTime;
+};
+
+struct AssetImportTable {
+	Arena* pArena;
+	HashMap<String, ImportTableAsset> table;
+};
+
+// ***********************************************************************
+
+AssetImportTable* LoadImportTable(String project) {
+	// create a new one if this project has no import table
+	String importTablePath = TempPrint("system/%S/import_table.txt", project);
+	// if (!FileExists(importTablePath)) {
+	{
+		Arena* pArena = ArenaCreate();
+		AssetImportTable* pImportTable = New(pArena, AssetImportTable);
+		pImportTable->pArena = pArena;
+		pImportTable->table.pArena = pArena;
+		return pImportTable;
+	}
+	// @todo: actually load and parse a text file into the import table
+	return nullptr;
+}
+
+// ***********************************************************************
+
+bool SaveImportTable(AssetImportTable* pTable, String project) {
+	StringBuilder builder(g_pArenaFrame);
+
+	for (i64 i = 0; i < pTable->table.tableSize; i++) {
+		HashNode<String, ImportTableAsset>& node = pTable->table.pTable[i];
+		if (node.hash != UNUSED_HASH) {
+			builder.AppendFormat("%S %S %s %i\n", node.key, node.value.outputPath, node.value.enableAutoImport ? "1" : "0", node.value.lastImportTime);
+		}
+	}
+	String importTablePath = TempPrint("system/%S/import_table.txt", project);
+	String fileContent = builder.CreateString(g_pArenaFrame);
+	WriteWholeFile(importTablePath, fileContent.pData, fileContent.length);
+	return true;
+}
+
+// ***********************************************************************
+
+int Import(Arena* pScratchArena, u8 format, String source, String output) {
+	// TODO: take the file extension as an indication of what the file is
+	// below we are doing gltf only. 
+
+	// if first few bytes is "gltf" in ascii, then it's a binary, glb file, you can verify this with the extension
+
+	// note that if we import a whole folder, we may accidentally import files referenced by the
+	// gltf, so when importing seperate gltf files, don't import stuff we already may have picked up, such as images
+	// they'll be done individually
+
+	NormalizePath(source);
+	NormalizePath(output);
+
+	Log::Info("Importing %S", source);
+
+	ResizableArray<String> outputPathSections = Split(pScratchArena, output, "/\\");
+	String projectName = outputPathSections[0];
+
+	String projectPath = TempPrint("system/%S/", projectName);
+	if (!FolderExists(projectPath)) {
+		Log::Warn("Project %S does not exist, cannot import", projectName);
+		return -1;
+	}
+
+	AssetImportTable* pImportTable = LoadImportTable(projectName);
+
+	if (FileExists(source)) {
+		// check we've been given a valid output filename
+		if (output[output.length-1] == '/' || output[output.length-1] == '\\' || TakeAfterLastDot(output) == "") {
+			Log::Warn("Please give a valid filename as an output %S", output);
 			return -1;
 		}
 
-		stbi_image_free(pData);
-		lua_pop(L, 1);
+		String outputFilepath = TempPrint("system/%S", output);
+
+		// Actually do the import, depending on the file type
+		String extension = TakeAfterLastDot(source);
+		if (extension == "gltf") {
+			if (ImportGltf(pScratchArena, format, source, outputFilepath)) {
+				pImportTable->table[source] = ImportTableAsset{ .outputPath = outputFilepath, .enableAutoImport = true, .lastImportTime = 978912};
+			} 
+			else {
+				return -1;
+			}
+		}
+		else if (extension == "png") {
+			Log::Warn("TODO: implement png import");
+			return -1;
+		}
+		else {
+			Log::Warn("Unsupported file give as input: %S", source);
+			return -1;
+		}
+	}
+	else if (FolderExists(source)) {
+		Log::Warn("We don't yet support importing a whole folder, please specify a file");
+		return -1;
+	}
+	else {
+		Log::Warn("Source input does not exist");
+		return -1;
 	}
 
 	SaveImportTable(pImportTable, projectName);

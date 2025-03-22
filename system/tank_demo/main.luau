@@ -65,19 +65,6 @@ function start()
 
 	-- scene
 	state.scene = load("tank.scene")
-	
-	-- meshes
-	state.hangarMesh = load("hangarMesh.mesh")
-	state.tankMesh = load("tankMesh.mesh")
-	state.crateMesh = load("crateMesh.mesh")
-	state.paletteMesh = load("paletteMesh.mesh")
-	state.BlobShadow = load("BlobShadow.mesh")
-
-	-- textures
-	state.Shed = load("Shed.texture")
-	state.Palette = load("Palette.texture")
-	state.NewNewTexture = load("NewNewTexture.texture")
-	state.blob = load("blob.texture")
 end
 
 function quat_to_euler(q:UserData): (number,number,number)
@@ -90,7 +77,7 @@ end
 function update()
     set_clear_color(0.25, 0.25, 0.25, 1.0)
 
-	testModule.message()
+	-- testModule.message()
 
     matrix_mode("Projection")
     perspective(320, 180, 1, 20, 60)
@@ -112,17 +99,17 @@ function update()
 	local floatsPerVertex = 12
 	state.lateDraw = {}
 
-	iterate_scene(state.scene, function(name:string, obj: any)
+	iterate_scene(state.scene.scene, function(name:string, obj: any)
 		if obj.mesh == "BlobShadow" then
 			local lateDrawObj = {obj=obj, mat=get_matrix()}
 			table.insert(state.lateDraw, lateDrawObj)
 			return
 		end
-		local texture = state[state[obj.mesh].texture]
+		local texture = state.scene.textures[state.scene.meshes[obj.mesh].texture]
 		bind_texture(texture.data)
 
 		begin_object_3d("Triangles")
-		local vertices = state[obj.mesh].vertices
+		local vertices = state.scene.meshes[obj.mesh].vertices
 		for i = 0, vertices:size()-1, floatsPerVertex do
 			-- 0-2 is position
 			-- 3-6 is color
@@ -151,11 +138,11 @@ function update()
 	for k, v in state.lateDraw do
 		load_matrix(v.mat)
 
-		local texture = state[state[v.obj.mesh].texture]
+		local texture = state.scene.textures[state.scene.meshes[v.obj.mesh].texture]
 		bind_texture(texture.data)
 
 		begin_object_3d("Triangles")
-		local vertices = state[v.obj.mesh].vertices
+		local vertices = state.scene.meshes[v.obj.mesh].vertices
 		for i = 0, vertices:size()-1, floatsPerVertex do
 			normal(vertices:get(i+9, 3))
 			color(vertices:get(i+3, 4))

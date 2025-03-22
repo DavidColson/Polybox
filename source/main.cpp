@@ -192,10 +192,7 @@ end
 
 void GenerateProject(String projectName) {
 	// check if directory already exists for the project
-	StringBuilder builder(g_pArenaFrame);
-	builder.AppendFormat("system/%s/", projectName.pData);
-
-	String projectPath = builder.CreateString(g_pArenaFrame, false);
+	String projectPath = TempPrint("system/%S/", projectName);
 	if (FolderExists(projectPath)) {
 		Log::Warn("Project with name %s already exists", projectName.pData);
 		return;
@@ -205,8 +202,8 @@ void GenerateProject(String projectName) {
 	MakeDirectory(projectPath, true);
 
 	// create a main.lua template
-	builder.Append("main.luau");
-	WriteWholeFile(builder.CreateString(g_pArenaFrame), templateProject.pData, templateProject.length);
+	String mainLuaFile = TempPrint("%S%s", projectPath, "main.luau");
+	WriteWholeFile(mainLuaFile, templateProject.pData, templateProject.length);
 
 	Log::Info("Project '%s' created successfully", projectName.pData);
 }

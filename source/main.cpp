@@ -34,7 +34,9 @@
 
 // lz4
 #include "lz4.h"
+#include "lz4hc.h"
 #include "lz4.c"
+#include "lz4hc.c"
 
 // freetype
 #include <ft2build.h>

@@ -402,7 +402,7 @@ i32 Serialize(lua_State* L) {
 
 		u8* stagingUserData = New(g_pArenaFrame, u8, compressBound);
 
-		i32 compressedSize = LZ4_compress_default((char*)pData, (char*)stagingUserData, (i32)srcSize, (i32)compressBound);
+		i32 compressedSize = LZ4_compress_HC((char*)pData, (char*)stagingUserData, (i32)srcSize, (i32)compressBound, LZ4HC_CLEVEL_MAX);
 		if (compressedSize == 0) {
 			luaL_error(L, "Compression failed");
 		}	

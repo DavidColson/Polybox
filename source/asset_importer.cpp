@@ -140,8 +140,10 @@ struct GltfAccessor {
 bool ImportGltf(Arena* pArena, u8 format, String source, String output) {
 	// Load file
 	String fileContents;
-    fileContents.pData = ReadWholeFile(source.pData, &fileContents.length, pArena);
+    fileContents.pData = ReadWholeFile(source, &fileContents.length, pArena);
 
+	// @todo: if first few bytes is "gltf" in ascii, then it's a binary, glb file, you can verify this with the extension
+	
 	// ParseJson
     JsonValue parsed = ParseJsonFile(pArena, fileContents);
 
@@ -457,7 +459,7 @@ bool ImportGltf(Arena* pArena, u8 format, String source, String output) {
 struct ImportTableAsset {
 	String outputPath;
 	bool enableAutoImport;
-	i64 lastImportTime;
+	u64 lastImportTime;
 };
 
 struct AssetImportTable {
@@ -470,16 +472,66 @@ struct AssetImportTable {
 AssetImportTable* LoadImportTable(String project) {
 	// create a new one if this project has no import table
 	String importTablePath = TempPrint("system/%S/import_table.txt", project);
-	// if (!FileExists(importTablePath)) {
-	{
-		Arena* pArena = ArenaCreate();
-		AssetImportTable* pImportTable = New(pArena, AssetImportTable);
-		pImportTable->pArena = pArena;
-		pImportTable->table.pArena = pArena;
+
+	Arena* pArena = ArenaCreate();
+	AssetImportTable* pImportTable = New(pArena, AssetImportTable);
+	pImportTable->pArena = pArena;
+	pImportTable->table.pArena = pArena;
+
+	if (!FileExists(importTablePath)) {
 		return pImportTable;
 	}
-	// @todo: actually load and parse a text file into the import table
-	return nullptr;
+
+	String fileContents;
+    fileContents.pData = ReadWholeFile(importTablePath, &fileContents.length, pArena);
+
+	// for each line
+	for (i64 i=0; i<fileContents.length;) {
+		if (fileContents[i] == '"') {
+			i64 start = ++i;
+			while (fileContents[i] != '"') i++;
+			String sourceAsset = SubStr(fileContents, start, i-start);
+
+			i++; // advance over ", and then skip whitespace
+			while (Scan::IsWhitespace(fileContents[i]) && i<fileContents.length) i++;
+
+			start = ++i;
+			while (fileContents[i] != '"' && i<fileContents.length) i++;
+			String outputPath = SubStr(fileContents, start, i-start);
+
+			i++; // advance over ", and then skip whitespace
+			while (Scan::IsWhitespace(fileContents[i]) && i<fileContents.length) i++;
+
+			bool autoImport = false;
+			if (fileContents[i] == '0')
+				autoImport = false;
+			else if (fileContents[i] == '1')
+				autoImport = true;
+			else
+				Log::Warn("Unexpected value found while parsing import table");
+
+			i++; // advance over autoImport, and then skip whitespace
+			while (Scan::IsWhitespace(fileContents[i]) && i<fileContents.length) i++;
+
+			start = i;
+			while (Scan::IsPartOfNumber(fileContents[i])) i++;
+			String lastWriteTimeStr = SubStr(fileContents, start, i-start);
+			u64 lastWriteTime = strtoull(lastWriteTimeStr.pData, nullptr, 10); 
+
+			i++; // advance over end of number, and then advance to start of next asset
+			while (fileContents[i] != '"' && i<fileContents.length) i++;
+
+			pImportTable->table[sourceAsset] = ImportTableAsset{ 
+				.outputPath = outputPath,
+				.enableAutoImport = autoImport,
+				.lastImportTime = lastWriteTime
+			};
+		}
+		else {
+			Log::Warn("Unexpected characters found while parsing import table");
+		}
+	}
+	return pImportTable;
 }
 
 // ***********************************************************************
@@ -490,7 +542,7 @@ bool SaveImportTable(AssetImportTable* pTable, String project) {
 	for (i64 i = 0; i < pTable->table.tableSize; i++) {
 		HashNode<String, ImportTableAsset>& node = pTable->table.pTable[i];
 		if (node.hash != UNUSED_HASH) {
-			builder.AppendFormat("%S %S %s %i\n", node.key, node.value.outputPath, node.value.enableAutoImport ? "1" : "0", node.value.lastImportTime);
+			builder.AppendFormat("\"%S\" \"%S\" %s %llu\n", node.key, node.value.outputPath, node.value.enableAutoImport ? "1" : "0", node.value.lastImportTime);
 		}
 	}
 	String importTablePath = TempPrint("system/%S/import_table.txt", project);
@@ -502,14 +554,6 @@ bool SaveImportTable(AssetImportTable* pTable, String project) {
 // ***********************************************************************
 
 int Import(Arena* pScratchArena, u8 format, String source, String output) {
-	// TODO: take the file extension as an indication of what the file is
-	// below we are doing gltf only. 
-
-	// if first few bytes is "gltf" in ascii, then it's a binary, glb file, you can verify this with the extension
-
-	// note that if we import a whole folder, we may accidentally import files referenced by the
-	// gltf, so when importing seperate gltf files, don't import stuff we already may have picked up, such as images
-	// they'll be done individually
 
 	NormalizePath(source);
 	NormalizePath(output);
@@ -540,7 +584,13 @@ int Import(Arena* pScratchArena, u8 format, String source, String output) {
 		String extension = TakeAfterLastDot(source);
 		if (extension == "gltf") {
 			if (ImportGltf(pScratchArena, format, source, outputFilepath)) {
-				pImportTable->table[source] = ImportTableAsset{ .outputPath = outputFilepath, .enableAutoImport = true, .lastImportTime = 978912};
+				File sourceFile = OpenFile(source, FM_READ);
+				pImportTable->table[source] = ImportTableAsset{
+					.outputPath = outputFilepath,
+					.enableAutoImport = true,
+					.lastImportTime = GetFileLastWriteTime(sourceFile)
+				};
+				CloseFile(sourceFile);
 			} 
 			else {
 				return -1;

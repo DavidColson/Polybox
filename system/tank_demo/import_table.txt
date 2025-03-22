@@ -1,1 +1,1 @@
-assets_source/tank_demo/tank.gltf system/tank_demo/tank.scene 1 978912
+"assets_source/tank_demo/tank.gltf" "system/tank_demo/tank.scene" 1 133859216642764104

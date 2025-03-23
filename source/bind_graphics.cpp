@@ -99,6 +99,14 @@ int LuaNormal(lua_State* pLua) {
 
 // ***********************************************************************
 
+int LuaSetCullMode(lua_State* pLua) {
+    sg_cull_mode m = (sg_cull_mode)luaL_checknumber(pLua, 1);
+    SetCullMode(m);
+    return 0;
+}
+
+// ***********************************************************************
+
 int LuaSetClearColor(lua_State* pLua) {
     f32 r = (f32)luaL_checknumber(pLua, 1);
     f32 g = (f32)luaL_checknumber(pLua, 2);
@@ -365,6 +373,7 @@ int BindGraphics(lua_State* pLua) {
         { "color", LuaColor },
         { "texcoord", LuaTexCoord },
         { "normal", LuaNormal },
+        { "set_cull_mode", LuaSetCullMode },
         { "set_clear_color", LuaSetClearColor },
         { "matrix_mode", LuaMatrixMode },
         { "push_matrix", LuaPushMatrix },

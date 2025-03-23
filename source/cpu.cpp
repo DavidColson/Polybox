@@ -61,6 +61,7 @@ end
 @checked declare function color(r: number, g: number, b: number, a: number)
 @checked declare function texcoord(u: number, v: number)
 @checked declare function normal(x: number, y: number, z: number)
+@checked declare function set_cull_mode(mode: number)
 @checked declare function set_clear_color(r: number, g: number, b: number, a: number)
 @checked declare function matrix_mode(mode: string)
 @checked declare function push_matrix()

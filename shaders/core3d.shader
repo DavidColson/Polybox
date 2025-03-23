@@ -141,6 +141,10 @@ vec4 ditherAndPosterize(vec2 position, vec4 color, int colorDepth)
 
 void main() {
 	vec4 colorTextured = color * texture(sampler2D(tex, nearestSampler), uv);
+	if (colorTextured.a <= 0.01) {
+		discard;
+	}
+
 	vec3 fog_output = mix(colorTextured.rgb, fogColor.rgb, fogDensity);
 	frag_color = vec4(fog_output, colorTextured.a);
 

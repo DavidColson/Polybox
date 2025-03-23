@@ -67,6 +67,7 @@ void Vertex(Vec3f vec);
 void Color(Vec4f col);
 void TexCoord(Vec2f tex);
 void Normal(Vec3f norm);
+void SetCullMode(sg_cull_mode mode);
 
 void SetClearColor(Vec4f color);
 
@@ -83,7 +84,6 @@ void LoadMatrix(Matrixf mat);
 Matrixf GetMatrix();
 
 // Texturing
-// Enable/Disable texturing
 void BindTexture(sg_image image);
 void UnbindTexture();
 

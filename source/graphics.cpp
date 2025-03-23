@@ -13,6 +13,7 @@ struct DrawCommand {
 	i32 numElements;
 	bool indexedDraw;
 	bool texturedDraw;
+	sg_cull_mode cullMode;
 	sg_image texture;
 	EPrimitiveType type;
 	vs_core3d_params_t vsUniforms;
@@ -46,6 +47,8 @@ struct RenderState {
 	Vec3f fogColor { Vec3f(0.f, 0.f, 0.f) };
 
 	sg_image textureState;
+
+	sg_cull_mode cullMode;
 
 	ResizableArray<DrawCommand> drawList3D;
 	ResizableArray<DrawCommand> drawList2D;
@@ -83,8 +86,8 @@ RenderState* pRenderState;
 
 // ***********************************************************************
 
-sg_pipeline& GetPipeline(bool indexed, EPrimitiveType primitive, bool writeAlpha) {
-	u32 index = (i32)indexed + (i32)primitive + (i32)writeAlpha;
+sg_pipeline& GetPipeline(bool indexed, EPrimitiveType primitive, bool writeAlpha, sg_cull_mode cullMode) {
+	u32 index = (i32)indexed + (i32)primitive + (i32)writeAlpha + (i32)cullMode;
 	if (pRenderState->pipeMain[index].id != SG_INVALID_ID) {
 		return pRenderState->pipeMain[index];
 	}
@@ -115,7 +118,7 @@ sg_pipeline& GetPipeline(bool indexed, EPrimitiveType primitive, bool writeAlpha
 			}
 		},
 		.index_type = SG_INDEXTYPE_NONE,
-		.cull_mode = SG_CULLMODE_NONE
+		.cull_mode = cullMode
 	};
 
 	switch(primitive) {
@@ -419,7 +422,7 @@ void DrawFrame(i32 w, i32 h) {
 		for(i32 i = 0; i < pRenderState->drawList3D.count; i++) {
 			DrawCommand& cmd = pRenderState->drawList3D[i];
 
-			sg_pipeline& pipeline = GetPipeline(cmd.indexedDraw, cmd.type, false);
+			sg_pipeline& pipeline = GetPipeline(cmd.indexedDraw, cmd.type, false, cmd.cullMode);
 			sg_apply_pipeline(pipeline);
 			
 			sg_bindings bind{0};
@@ -464,7 +467,7 @@ void DrawFrame(i32 w, i32 h) {
 		for(i32 i = 0; i < pRenderState->drawList2D.count; i++) {
 			DrawCommand& cmd = pRenderState->drawList2D[i];
 
-			sg_pipeline& pipeline = GetPipeline(cmd.indexedDraw, cmd.type, true);
+			sg_pipeline& pipeline = GetPipeline(cmd.indexedDraw, cmd.type, true, SG_CULLMODE_NONE);
 			sg_apply_pipeline(pipeline);
 
 			sg_bindings bind{0};
@@ -623,6 +626,7 @@ void EndObject3D() {
 
 	i32 numIndices;
 	cmd.type = pRenderState->typeState;
+	cmd.cullMode = pRenderState->cullMode;
 	bool buffersFilled = false;
     switch (pRenderState->typeState) {
         case EPrimitiveType::Points:
@@ -786,6 +790,12 @@ void TexCoord(Vec2f tex) {
 
 void Normal(Vec3f norm) {
     pRenderState->vertexNormalState = norm;
+}
+
+// ***********************************************************************
+
+void SetCullMode(sg_cull_mode mode) {
+	pRenderState->cullMode = mode;
 }
 
 // ***********************************************************************

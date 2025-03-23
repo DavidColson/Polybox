@@ -11,6 +11,7 @@ end
 
 function update(deltaTime: number)
     set_clear_color(0.25, 0.25, 0.25, 1.0)
+	set_cull_mode(2);
 
 	flyCam.updateCamera(deltaTime)
 

@@ -69,7 +69,7 @@ end
 @checked declare function get_matrix(): UserData
 @checked declare function perspective(screenWidth: number, screenHeight: number, nearPlane: number, farPlane: number, fov: number)
 @checked declare function translate(x: number, y: number, z: number)
-@checked declare function rotate(x: number, y: number, z: number)
+@checked declare function rotate(angle: number, x: number, y: number, z: number)
 @checked declare function scale(x: number, y: number, z: number)
 @checked declare function identity()
 @checked declare function bind_texture(textureData: UserData)
@@ -318,6 +318,7 @@ struct State {
 
 	// curent app specific
 	String appName;
+	bool hasStarted;
 	lua_State* pProgramState;
 	AssetImporter::AssetImportTable* pImportTable;
 	ResizableArray<String> luaFilesToWatch;
@@ -358,6 +359,10 @@ void OnFileChanged(FileChange change, void* pUserData) {
 			
 			// this will be the main.luau file, rather than a module, so no patching required
 			if (lua_isnil(L, -1)) {
+				if (pState->hasStarted == false) {
+					pState->appLoaded = true;
+					Start();
+				}
 				lua_pop(L, 1);
 				return;
 			}
@@ -391,6 +396,12 @@ void OnFileChanged(FileChange change, void* pUserData) {
 					i32 newAssetIndex = lua_gettop(L);
 					luaL_findtable(L, LUA_REGISTRYINDEX, "_ASSETS", 1);
 					lua_getfield(L, -1, change.path.pData);
+
+					// check to make sure the asset has not been deleted by gc
+					if (lua_isnil(L, -1)) {
+						lua_pop(L, 3);
+						return;
+					}
 
 					// and then shallow copy the new table into the old one
 					lua_pushnil(L);
@@ -639,15 +650,18 @@ void Start() {
 			Log::Warn("Lua Runtime Error: %s", lua_tostring(L, lua_gettop(L)));
 			lua_pop(L, 1);
 		}
+		else {
+			pState->hasStarted = true;
+		}
 	}
 }
 
 // ***********************************************************************
 
 void Tick(f32 deltaTime) {
-	if (!pState->appLoaded) return;
-
 	FileWatcherProcessChanges(pState->pWatcher);
+
+	if (!pState->appLoaded) return;
 
 	lua_State* L = pState->pProgramState;
 	lua_getglobal(L, "update");

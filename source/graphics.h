@@ -76,7 +76,7 @@ void PushMatrix();
 void PopMatrix();
 void Perspective(f32 screenWidth, f32 screenHeight, f32 nearPlane, f32 farPlane, f32 fov);
 void Translate(Vec3f translation);
-void Rotate(Vec3f rotation);
+void Rotate(float angle, Vec3f axis);
 void Scale(Vec3f scaling);
 void Identity();
 void LoadMatrix(Matrixf mat);

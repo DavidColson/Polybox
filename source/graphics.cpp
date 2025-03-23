@@ -844,9 +844,9 @@ void Translate(Vec3f translation) {
 
 // ***********************************************************************
 
-void Rotate(Vec3f rotation) {
+void Rotate(float angle, Vec3f axis) {
 	u64 mode = (u64)pRenderState->matrixModeState;
-    pRenderState->matrixStates[mode].Top() *= Matrixf::MakeRotation(rotation);
+    pRenderState->matrixStates[mode].Top() *= Matrixf::MakeRotation(angle, axis);
 }
 
 // ***********************************************************************

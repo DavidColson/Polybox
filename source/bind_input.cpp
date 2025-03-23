@@ -137,12 +137,12 @@ int BindInput(lua_State* pLua) {
     lua_newtable(pLua);
     {
         PushEnum(pLua, (int)ControllerAxis::Invalid, "invalid");
-        PushEnum(pLua, (int)ControllerAxis::LeftX, "LeftX");
-        PushEnum(pLua, (int)ControllerAxis::LeftY, "LeftY");
-        PushEnum(pLua, (int)ControllerAxis::RightX, "RightX");
-        PushEnum(pLua, (int)ControllerAxis::RightY, "RightY");
-        PushEnum(pLua, (int)ControllerAxis::TriggerLeft, "TriggerLeft");
-        PushEnum(pLua, (int)ControllerAxis::TriggerRight, "TriggerRight");
+        PushEnum(pLua, (int)ControllerAxis::LeftX, "left_x");
+        PushEnum(pLua, (int)ControllerAxis::LeftY, "left_y");
+        PushEnum(pLua, (int)ControllerAxis::RightX, "right_x");
+        PushEnum(pLua, (int)ControllerAxis::RightY, "right_y");
+        PushEnum(pLua, (int)ControllerAxis::TriggerLeft, "trigger_left");
+        PushEnum(pLua, (int)ControllerAxis::TriggerRight, "trigger_right");
     }
     lua_setglobal(pLua, "Axis");
 

@@ -187,10 +187,11 @@ int LuaTranslate(lua_State* pLua) {
 // ***********************************************************************
 
 int LuaRotate(lua_State* pLua) {
-    f32 x = (f32)luaL_checknumber(pLua, 1);
-    f32 y = (f32)luaL_checknumber(pLua, 2);
-    f32 z = (f32)luaL_checknumber(pLua, 3);
-    Rotate(Vec3f(x, y, z));
+    f32 angle = (f32)luaL_checknumber(pLua, 1);
+    f32 x = (f32)luaL_checknumber(pLua, 2);
+    f32 y = (f32)luaL_checknumber(pLua, 3);
+    f32 z = (f32)luaL_checknumber(pLua, 4);
+    Rotate(angle, Vec3f(x, y, z));
     return 0;
 }
 

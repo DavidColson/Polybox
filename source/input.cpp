@@ -432,10 +432,10 @@ void InputInit() {
             pInputState->primaryBindings[primaryBinding] = button;
 
             String altBindingLabel = jsonButton["Alt"].ToString();
-            if (SubStr(altBindingLabel, 0, 5) == "Keyco") {
+            if (StartsWith(altBindingLabel, "Keycode")) {
                 SDL_Keycode keycode = pInputState->stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                 pInputState->keyboardAltBindings[keycode] = button;
-            } else if (SubStr(altBindingLabel, 0, 5) == "Mouse") {
+            } else if (StartsWith(altBindingLabel, "Mouse")) {
                 i32 mousecode = pInputState->stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                 pInputState->mouseAltBindings[mousecode] = button;
             }
@@ -453,11 +453,11 @@ void InputInit() {
 
             if (jsonAxis.HasKey("Alt")) {
                 String altBindingLabel = jsonAxis["Alt"].ToString();
-                if (SubStr(altBindingLabel, 0, 5) == "Scanc") {
+				if (StartsWith(altBindingLabel, "Keycode")) {
                     SDL_Keycode keycode = pInputState->stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                     pInputState->keyboardAxisBindings[keycode] = axis;
                     pInputState->axes[(u64)axis].positiveScanCode = keycode;
-                } else if (SubStr(altBindingLabel, 0, 5) == "Mouse") {
+				} else if (StartsWith(altBindingLabel, "Mouse")) {
                     i32 mousecode = pInputState->stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                     pInputState->mouseAxisBindings[mousecode] = axis;
                     pInputState->axes[(u64)axis].positiveMouseButton = mousecode;
@@ -465,11 +465,11 @@ void InputInit() {
             }
             if (jsonAxis.HasKey("AltPositive")) {
                 String altBindingLabel = jsonAxis["AltPositive"].ToString();
-                if (SubStr(altBindingLabel, 0, 5) == "Scanc") {
+				if (StartsWith(altBindingLabel, "Keycode")) {
                     SDL_Keycode keycode = pInputState->stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                     pInputState->keyboardAxisBindings[keycode] = axis;
                     pInputState->axes[(u64)axis].positiveScanCode = keycode;
-                } else if (SubStr(altBindingLabel, 0, 5) == "Mouse") {
+				} else if (StartsWith(altBindingLabel, "Mouse")) {
                     i32 mousecode = pInputState->stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                     pInputState->mouseAxisBindings[mousecode] = axis;
                     pInputState->axes[(u64)axis].positiveMouseButton = mousecode;
@@ -477,11 +477,11 @@ void InputInit() {
             }
             if (jsonAxis.HasKey("AltNegative")) {
                 String altBindingLabel = jsonAxis["AltNegative"].ToString();
-                if (SubStr(altBindingLabel, 0, 5) == "Scanc") {
+				if (StartsWith(altBindingLabel, "Keycode")) {
                     SDL_Keycode keycode = pInputState->stringToKeyCode[Fnv1a::Hash(altBindingLabel.pData)];
                     pInputState->keyboardAxisBindings[keycode] = axis;
                     pInputState->axes[(u64)axis].negativeScanCode = keycode;
-                } else if (SubStr(altBindingLabel, 0, 5) == "Mouse") {
+				} else if (StartsWith(altBindingLabel, "Mouse")) {
                     i32 mousecode = pInputState->stringToMouseCode[Fnv1a::Hash(altBindingLabel.pData)];
                     pInputState->mouseAxisBindings[mousecode] = axis;
                     pInputState->axes[(u64)axis].negativeMouseButton = mousecode;
@@ -649,8 +649,8 @@ void UpdateInputs(f32 deltaTime, Vec2f targetRes, Vec2f realWindowRes) {
     pInputState->windowResolution = realWindowRes;
 
     // TODO: This should be configurable
-    f32 gravity = 1.0f;
-    f32 sensitivity = 1.0f;
+    f32 gravity = 10.0f;
+    f32 sensitivity = 10.0f;
     f32 deadzone = 0.09f;
 
     for (u64 axisIndex = 0; axisIndex < (u64)ControllerAxis::Count; axisIndex++) {

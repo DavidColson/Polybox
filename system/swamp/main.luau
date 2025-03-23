@@ -2,19 +2,56 @@
 function start()
 	state = {}
 
+	state.mouseRelativeMode = true
+	state.camPitch = 0
+	state.camYaw = 0
+	state.camX = 0
+	state.camY = 0
+	state.camZ = 0
 	state.scene = load("swamp.scene")
+
+	enable_mouse_relative_mode(state.mouseRelativeMode)
 end
 
-function update()
+function update(deltaTime: number)
     set_clear_color(0.25, 0.25, 0.25, 1.0)
+
+	state.camPitch = state.camPitch + deltaTime * get_axis(Axis.right_y)
+	state.camYaw = state.camYaw + deltaTime * get_axis(Axis.right_x)
+
+	-- note this is maybe better generalized as us taking the basis vectors directly out of the
+	-- rotation matrix, multiplying those by the input scalars and adding them all together
+
+	-- forward back camera movement
+	local speed = 5
+
+	local forward = get_axis(Axis.left_y) * speed
+	state.camZ = state.camZ - forward * math.cos(state.camYaw) * deltaTime
+	state.camX = state.camX + forward * math.sin(state.camYaw) * deltaTime
+
+	-- right left camera movement
+	local right = get_axis(Axis.left_x) * speed
+	state.camZ = state.camZ - right * math.sin(state.camYaw) * deltaTime
+	state.camX = state.camX - right * math.cos(state.camYaw) * deltaTime
+
+	-- up down camera movement
+	local up = get_axis(Axis.trigger_right) * speed
+	local down = get_axis(Axis.trigger_left) * speed
+	state.camY = state.camY - deltaTime * up
+	state.camY = state.camY + deltaTime * down
+
+	if get_key_down(Key.escape) then 
+		state.mouseRelativeMode = not state.mouseRelativeMode
+		enable_mouse_relative_mode(state.mouseRelativeMode)
+	end
 
     matrix_mode("Projection")
     perspective(320, 180, 1, 20, 60)
 
     matrix_mode("View")
-	-- we need to sort this shit out
-	rotate(0, -1, 0)
-	translate(-9, -1, -10)
+	rotate(state.camPitch, 1, 0, 0)
+	rotate(state.camYaw, 0, 1, 0)
+	translate(state.camX, state.camY, state.camZ)
 
     normals_mode("Custom")
     enable_lighting(true)

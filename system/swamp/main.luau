@@ -13,15 +13,17 @@ function update(deltaTime: number)
     set_clear_color(0.25, 0.25, 0.25, 1.0)
 	set_cull_mode(2);
 
-	flyCam.updateCamera(deltaTime)
-
 	if get_key_down(Key.escape) then 
 		state.mouseRelativeMode = not state.mouseRelativeMode
 		enable_mouse_relative_mode(state.mouseRelativeMode)
 	end
 
+	if state.mouseRelativeMode then
+		flyCam.updateCamera(deltaTime)
+	end
+
     matrix_mode("Projection")
-    perspective(320, 180, 1, 20, 60)
+    perspective(320, 180, 0.001, 20, 60)
 
     matrix_mode("View")
 	rotate(flyCam.camPitch, 1, 0, 0)

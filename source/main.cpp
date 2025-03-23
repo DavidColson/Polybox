@@ -3,6 +3,10 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define LZ4_DISABLE_DEPRECATE_WARNINGS
 
+#ifndef _RELEASE
+#define MEMORY_TRACKING
+#endif
+
 // platform
 #pragma warning (disable : 5105)
 #include "Windows.h"
@@ -378,13 +382,14 @@ int main(int argc, char* argv[]) {
 
 		deltaTime = f32(SDL_GetPerformanceCounter() - frameStart) / SDL_GetPerformanceFrequency();
 
+		// sleep?
 		ArenaReset(g_pArenaFrame);
 	}
 
+	ReportMemoryUsage();
+
 	Cpu::Close();
 	Shutdown();
-
-	i32 n = ReportMemoryLeaks();
 
 	ArenaFinished(g_pArenaFrame);
 	ArenaFinished(g_pArenaPermenant);

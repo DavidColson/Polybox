@@ -342,7 +342,8 @@ bool CompileAndLoadModule(String modulePath, i32 nReturns);
 static void* LuaAllocator(void* ud, void* ptr, size_t osize, size_t nsize) {
 	// TODO: lua VM memory tracking?
     if (nsize == 0) {
-		RawFree(ptr);
+		if (ptr)
+			RawFree(ptr);
         return nullptr;
     } else {
         return RawRealloc(ptr, nsize, osize, true);
@@ -711,6 +712,10 @@ void Close() {
 		}
 	}
 
+#ifndef _RELEASE
+	u64 bytes = lua_totalbytes(L, 0);
+	Log::Info("Luau using %u bytes (%fkb %fmb) of memory", bytes, (f32)bytes/1024, (f32)bytes/1024/1024); 
+#endif
 	lua_close(L);
 }
 

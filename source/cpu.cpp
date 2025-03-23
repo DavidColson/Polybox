@@ -287,8 +287,16 @@ struct LuaFileResolver : Luau::FileResolver {
 
 			// we expect include calls to give the exact filename
 			// so we won't construct any extensions or what have you
+			String includeName = builder.CreateString(g_pArenaFrame, false);
 			String realPath;
-			VFSPathToRealPath(builder.CreateString(g_pArenaFrame, false), realPath, g_pArenaFrame); 
+			VFSPathToRealPath(includeName, realPath, g_pArenaFrame); 
+
+			if (!FileExists(realPath)) {
+				// check if the include is in system/shared/ (assuming it's a relative path)
+				if (includeName[0] != '/') {
+					realPath = TempPrint("system/shared/%S", includeName);
+				}
+			}
 
             Luau::ModuleName name = std::string(realPath.pData, realPath.length);
             return {{name}};
@@ -421,10 +429,23 @@ void OnFileChanged(FileChange change, void* pUserData) {
 
 int LuaInclude(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
+	String includeName(name);
 
 	// unlike require we assume the name is an actual file name
 	String realPath;
-	VFSPathToRealPath(String(name), realPath, pState->pArena); 
+	VFSPathToRealPath(includeName, realPath, pState->pArena); 
+
+	if (!FileExists(realPath)) {
+		// check if the include is in system/shared/ (assuming it's a relative path)
+		if (includeName[0] != '/') {
+			realPath = TempPrint("system/shared/%S", includeName);
+		}
+	}
+	if (!FileExists(realPath)) {
+		Log::Warn("Unable to locate include %S", includeName);
+		return 0;
+	}
+
 	pState->luaFilesToWatch.PushBack(realPath);
 
     luaL_findtable(L, LUA_REGISTRYINDEX, "_MODULES", 1);

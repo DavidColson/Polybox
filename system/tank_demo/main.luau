@@ -43,7 +43,8 @@ function iterate_scene(scene:any, iter: (string,any)->())
 
 		translate(v.position.x, v.position.y, v.position.z) 
 		scale(v.scale.x, v.scale.y, v.scale.z) 
-        rotate(quat_to_euler(v.rotation))
+
+        rotate(quat_to_angle_axis(v.rotation))
 
 		iter(k,v)
 		if v.children ~= nil then
@@ -54,37 +55,47 @@ function iterate_scene(scene:any, iter: (string,any)->())
 	end
 end
 
-local testModule = include("testModule.luau")
+local flycam = include("flycam.luau")
 
 function start()
 	-- global state
 	state = {}
 
-	-- @todo: potentially you can call load on a directory
-	-- it will put all the entries it can load into one table
+	flycam.camYaw = 3.6
+	flycam.camX = 1
+	flycam.camY = -2.5
+	flycam.camZ = 6.5
 
 	-- scene
 	state.scene = load("tank.scene")
 end
 
-function quat_to_euler(q:UserData): (number,number,number)
-	local x = math.atan2(2* (q.w*q.x + q.y*q.z), 1 - 2*(q.x*q.x+q.y*q.y))
-	local y = math.asin(2*(q.w*q.y-q.z*q.x))
-	local z = math.atan2(2* (q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y+q.z*q.z))
-	return x, y, z
+function quat_to_angle_axis(q:UserData): (number,number,number,number)
+	local angle = 2*math.acos(q.w)
+	local sqrtW = math.sqrt(1-q.w*q.w)
+	local x = q.x / sqrtW
+	local y = q.y / sqrtW
+	local z = q.z / sqrtW
+	if sqrtW <= 0.001 then 
+		x = q.x
+		y = q.y
+		z = q.z
+	end
+	return angle, x, y, z
 end
 
-function update()
+function update(deltaTime: number)
     set_clear_color(0.25, 0.25, 0.25, 1.0)
 
-	-- testModule.message()
+	flycam.updateCamera(deltaTime)
 
     matrix_mode("Projection")
     perspective(320, 180, 1, 20, 60)
 
     matrix_mode("View")
-    rotate(0, 3.6, 0)
-    translate(1, -2.5, 6.5)
+	rotate(flycam.camPitch, 1, 0, 0)
+	rotate(flycam.camYaw, 0, 1, 0)
+	translate(flycam.camX, flycam.camY, flycam.camZ)
 
     normals_mode("Custom")
     enable_lighting(true)

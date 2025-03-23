@@ -78,6 +78,11 @@ void ParseJsonNodeRecursively(lua_State* L, JsonValue& gltf, i32 nodeId) {
 	}
 	else {
 		UserData* pUserData = AllocUserData(L, Type::Float32, 4, 1);
+		f32* pFloats = (f32*)pUserData->pData;
+		pFloats[0] = 0.0f;
+		pFloats[1] = 0.0f;
+		pFloats[2] = 0.0f;
+		pFloats[3] = 1.0f;
 	}
 	lua_setfield(L, -2, "rotation");
 
